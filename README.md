@@ -323,21 +323,77 @@ devtools web sitemap https://example.com --same-origin --json
 Useful commands:
 
 ```bash
-npm run typecheck
-biome check .
-npm run test
-npm run check
-npm run check:fix
-npm run format
+npm run typecheck        # Type-check with tsc
+biome check .            # Lint and format validation
+npm run test             # Run tests with Vitest
+npm run check            # Run all validations (typecheck + biome + test)
+npm run check:fix        # Auto-fix formatting/lint issues
+npm run format           # Format with Biome
+npm run coverage         # Run tests with coverage
 ```
+
+## Project structure
+
+```
+src/
+  index.ts               # CLI entrypoint
+  cli/
+    index.ts             # Command registration and program setup
+  config/
+    env.ts               # Environment loading and validation
+  skills/
+    install.ts           # Skill install/uninstall logic
+  web/
+    fetch.ts             # Web page fetch and article extraction
+    inspect.ts           # Page metadata inspection
+    links.ts             # Link extraction and normalization
+    page.ts              # Shared HTML page loading and DOM helpers
+    search.ts            # Web search (Brave) and docs-search
+    shared.ts            # Shared utilities, schemas, and fetch helpers
+    sitemap.ts           # Sitemap discovery and parsing
+skills/
+  web-research/
+    SKILL.md             # Pi skill definition
+    references/
+      commands.md        # Command reference for agents
+      workflows.md       # Workflow reference for agents
+tests/
+  cli.test.ts            # CLI unit tests
+  cli.integration.test.ts # CLI integration tests
+  env.test.ts            # Environment validation tests
+  skills.install.test.ts # Skill install tests
+  skills.uninstall.test.ts # Skill uninstall tests
+  web.brave.test.ts      # Brave search engine tests
+  web.inspect.test.ts    # Page inspection tests
+  web.links.test.ts      # Link extraction tests
+  web.page.test.ts       # HTML page loader tests
+  web.read.test.ts       # Web fetch/read tests
+  web.search.test.ts     # Search command tests
+  web.shared.test.ts     # Shared utility tests
+  web.sitemap.test.ts    # Sitemap tests
+  helpers/
+    web-fixture-server.ts # Test fixture HTTP server
+```
+
+## Key dependencies
+
+| Package | Purpose |
+|---|---|
+| `commander` | CLI command definitions |
+| `zod` | Input validation and environment schema |
+| `jsdom` | HTML/XML DOM parsing |
+| `@mozilla/readability` | Article extraction from web pages |
+| `turndown` | HTML-to-Markdown conversion |
+| `dotenv` | `.env` file loading |
 
 ## Project notes
 
 - Runtime: Node.js with direct TypeScript execution
-- Module system: ESM
-- Type-checking: TypeScript in strict mode
+- Module system: ESM with `#app/*` path imports
+- Type-checking: TypeScript in strict mode (`noEmit`, `erasableSyntaxOnly`)
 - Linting/formatting: Biome
 - Testing: Vitest
+- License: MIT
 
 ## Status
 

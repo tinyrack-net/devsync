@@ -25,9 +25,21 @@
 - Keep `src/index.ts` as the CLI entrypoint only
 - Place CLI-specific modules under `src/cli/`
 - Place environment/configuration modules under `src/config/`
+- Place skill management modules under `src/skills/`
 - Place reusable cross-domain pure utilities under `src/lib/`
 - Keep domain-specific helpers with their owning domain, e.g. web parsing/formatting under `src/web/`
 - Avoid leaving feature modules like `cli-types.ts` or `cli-validation.ts` in the `src/` root
+- Place tests under `tests/` with names matching `<domain>.<topic>.test.ts`
+- Place test helpers and fixture servers under `tests/helpers/`
+- Place bundled skill templates under `skills/<skill-name>/`
+
+## Key Dependencies
+
+- `commander` for CLI command definitions
+- `zod` for input validation and environment schema
+- `jsdom` and `@mozilla/readability` for HTML parsing and article extraction
+- `turndown` for HTML-to-Markdown conversion
+- `dotenv` for `.env` file loading in non-production environments
 
 ## Validation Requirements
 
