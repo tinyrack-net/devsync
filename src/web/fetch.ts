@@ -1,8 +1,22 @@
 import { Readability } from "@mozilla/readability";
 import type { Command } from "commander";
-import { JSDOM } from "jsdom";
 import TurndownService from "turndown";
 import { z } from "zod";
+
+import {
+  createHtmlPageLoader,
+  readCanonicalUrl,
+  readDocumentTitle,
+  readMetaContent,
+  withHtmlDocument,
+} from "#app/web/page.ts";
+import {
+  absoluteHttpUrlSchema,
+  defaultWebRequestTimeoutMs,
+  ensureTrailingNewline,
+  formatInputIssues,
+  normalizeWhitespace,
+} from "#app/web/shared.ts";
 
 export const webPageOutputFormats = [
   "markdown",
@@ -21,8 +35,10 @@ type WebPageReadRequest = Readonly<{
 type WebPageContent = Readonly<{
   requestedUrl: string;
   finalUrl: string;
+  canonicalUrl: string | undefined;
   title: string | undefined;
   excerpt: string | undefined;
+  description: string | undefined;
   byline: string | undefined;
   siteName: string | undefined;
   text: string;
@@ -41,8 +57,6 @@ export class WebPageReadError extends Error {
   }
 }
 
-const defaultTimeoutMs = "10000";
-
 const fetchCommandSchema = z.object({
   options: z.object({
     format: z.enum(webPageOutputFormats),
@@ -51,38 +65,8 @@ const fetchCommandSchema = z.object({
       .int("Timeout must be an integer.")
       .positive("Timeout must be greater than 0."),
   }),
-  url: z
-    .string()
-    .trim()
-    .superRefine((value, context) => {
-      try {
-        const parsedUrl = new URL(value);
-
-        if (parsedUrl.protocol === "http:" || parsedUrl.protocol === "https:") {
-          return;
-        }
-      } catch {
-        context.addIssue({
-          code: "custom",
-          message: "URL must be a valid absolute URL.",
-        });
-
-        return;
-      }
-
-      context.addIssue({
-        code: "custom",
-        message: "URL must use http or https.",
-      });
-    }),
+  url: absoluteHttpUrlSchema,
 });
-
-const normalizeWhitespace = (value: string): string => {
-  return value
-    .replace(/\r\n/g, "\n")
-    .replace(/\n{3,}/g, "\n\n")
-    .trim();
-};
 
 const createMarkdown = (html: string): string => {
   const turndownService = new TurndownService({
@@ -95,12 +79,9 @@ const createMarkdown = (html: string): string => {
 };
 
 const parseArticle = (requestedUrl: string, finalUrl: string, html: string) => {
-  const dom = new JSDOM(html, { url: finalUrl });
-
-  try {
-    const article = new Readability(dom.window.document).parse();
-    const title = dom.window.document.title.trim();
-    const body = dom.window.document.body;
+  return withHtmlDocument(html, finalUrl, (document) => {
+    const article = new Readability(document).parse();
+    const body = document.body;
     const fallbackHtml = body.innerHTML.trim();
     const fallbackText = normalizeWhitespace(body.textContent ?? "");
     const articleHtml = normalizeWhitespace(article?.content ?? fallbackHtml);
@@ -111,43 +92,23 @@ const parseArticle = (requestedUrl: string, finalUrl: string, html: string) => {
     return {
       requestedUrl,
       finalUrl,
-      title: article?.title ?? (title === "" ? undefined : title),
+      canonicalUrl: readCanonicalUrl(document, finalUrl),
+      title: article?.title ?? readDocumentTitle(document),
       excerpt: article?.excerpt ?? undefined,
+      description:
+        article?.excerpt ??
+        readMetaContent(document, 'meta[name="description"]') ??
+        undefined,
       byline: article?.byline ?? undefined,
-      siteName: article?.siteName ?? undefined,
+      siteName:
+        article?.siteName ??
+        readMetaContent(document, 'meta[property="og:site_name"]') ??
+        undefined,
       text: articleText,
       html: articleHtml,
       markdown: createMarkdown(articleHtml),
-    };
-  } finally {
-    dom.window.close();
-  }
-};
-
-const ensureTrailingNewline = (value: string) => {
-  return value.endsWith("\n") ? value : `${value}\n`;
-};
-
-const createHeaders = (userAgent?: string): Headers => {
-  const headers = new Headers({
-    Accept: "text/html,application/xhtml+xml",
+    } satisfies WebPageContent;
   });
-
-  if (userAgent !== undefined && userAgent !== "") {
-    headers.set("User-Agent", userAgent);
-  }
-
-  return headers;
-};
-
-const formatInputIssues = (issues: z.ZodIssue[]): string => {
-  return issues
-    .map((issue) => {
-      const path = issue.path.length === 0 ? "input" : issue.path.join(".");
-
-      return `- ${path}: ${issue.message}`;
-    })
-    .join("\n");
 };
 
 const parseFetchCommandInput = (input: unknown) => {
@@ -180,59 +141,21 @@ export const createFetchWebPageReader = (dependencies: {
   fetchImplementation: typeof fetch;
   userAgent?: string;
 }) => {
+  const htmlPageLoader = createHtmlPageLoader(dependencies);
+
   return {
     read: async (request: WebPageReadRequest) => {
-      const abortController = new AbortController();
-      const timeout = setTimeout(() => {
-        abortController.abort();
-      }, request.timeoutMs);
-
-      let response: Response;
-
       try {
-        response = await dependencies.fetchImplementation(request.url, {
-          headers: createHeaders(dependencies.userAgent),
-          signal: abortController.signal,
-        });
+        const page = await htmlPageLoader.load(request);
+
+        return parseArticle(page.requestedUrl, page.finalUrl, page.html);
       } catch (error: unknown) {
-        if (error instanceof Error && error.name === "AbortError") {
-          throw new WebPageReadError(
-            `Web request timed out after ${request.timeoutMs}ms.`,
-          );
-        }
-
         throw new WebPageReadError(
-          error instanceof Error
-            ? `Web request failed: ${error.message}`
-            : "Web request failed.",
-        );
-      } finally {
-        clearTimeout(timeout);
-      }
-
-      if (!response.ok) {
-        throw new WebPageReadError(
-          `Web request failed with ${response.status} ${response.statusText}.`,
+          error instanceof Error ? error.message : "Web request failed.",
         );
       }
-
-      const contentType = response.headers.get("content-type") ?? "";
-
-      if (
-        !contentType.includes("text/html") &&
-        !contentType.includes("application/xhtml+xml")
-      ) {
-        throw new WebPageReadError(
-          `Unsupported content type: ${contentType || "unknown"}.`,
-        );
-      }
-
-      const responseHtml = await response.text();
-      const finalUrl = response.url === "" ? request.url : response.url;
-
-      return parseArticle(request.url, finalUrl, responseHtml);
     },
-  };
+  } satisfies WebPageReader;
 };
 
 export const registerWebFetchCommand = (
@@ -256,7 +179,7 @@ export const registerWebFetchCommand = (
     .option(
       "-t, --timeout <ms>",
       "Request timeout in milliseconds",
-      defaultTimeoutMs,
+      defaultWebRequestTimeoutMs,
     )
     .action(async (url: string, options: Record<string, unknown>) => {
       const validatedInput = parseFetchCommandInput({ options, url });
