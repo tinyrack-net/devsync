@@ -5,11 +5,27 @@ import {
   WebPageReadError,
 } from "#app/web/fetch.ts";
 import {
+  createWebPageInspector,
+  registerWebInspectCommand,
+  WebPageInspectError,
+} from "#app/web/inspect.ts";
+import {
+  createWebPageLinkReader,
+  registerWebLinksCommand,
+  WebPageLinksError,
+} from "#app/web/links.ts";
+import {
   createBraveSearchEngine,
   createSearchEngineRegistry,
+  registerWebDocsSearchCommand,
   registerWebSearchCommand,
   WebSearchError,
 } from "#app/web/search.ts";
+import {
+  createWebSitemapReader,
+  registerWebSitemapCommand,
+  WebSitemapError,
+} from "#app/web/sitemap.ts";
 
 export const createDefaultCliServices = () => {
   const { BRAVE_SEARCH_API_KEY: braveSearchApiKey } = process.env;
@@ -24,6 +40,18 @@ export const createDefaultCliServices = () => {
       ]);
     },
     webPageReader: createFetchWebPageReader({
+      fetchImplementation: fetch,
+      userAgent: "devtools/0.1.0",
+    }),
+    webPageInspector: createWebPageInspector({
+      fetchImplementation: fetch,
+      userAgent: "devtools/0.1.0",
+    }),
+    webPageLinkReader: createWebPageLinkReader({
+      fetchImplementation: fetch,
+      userAgent: "devtools/0.1.0",
+    }),
+    webSitemapReader: createWebSitemapReader({
       fetchImplementation: fetch,
       userAgent: "devtools/0.1.0",
     }),
@@ -76,9 +104,25 @@ export const createProgram = (
     io,
     createSearchEngineRegistry: services.createSearchEngineRegistry,
   });
+  registerWebDocsSearchCommand(webCommand, {
+    io,
+    createSearchEngineRegistry: services.createSearchEngineRegistry,
+  });
   registerWebFetchCommand(webCommand, {
     io,
     webPageReader: services.webPageReader,
+  });
+  registerWebInspectCommand(webCommand, {
+    io,
+    webPageInspector: services.webPageInspector,
+  });
+  registerWebLinksCommand(webCommand, {
+    io,
+    webPageLinkReader: services.webPageLinkReader,
+  });
+  registerWebSitemapCommand(webCommand, {
+    io,
+    webSitemapReader: services.webSitemapReader,
   });
 
   return program;
@@ -105,7 +149,13 @@ export const runCli = async (
       return error.exitCode;
     }
 
-    if (error instanceof WebPageReadError || error instanceof WebSearchError) {
+    if (
+      error instanceof WebPageReadError ||
+      error instanceof WebPageInspectError ||
+      error instanceof WebPageLinksError ||
+      error instanceof WebSearchError ||
+      error instanceof WebSitemapError
+    ) {
       io.stderr(`error: ${error.message}\n`);
       return 1;
     }

@@ -1,9 +1,21 @@
 import type { Command } from "commander";
 import { z } from "zod";
 
+import {
+  defaultWebRequestTimeoutMs,
+  fetchWithTimeout,
+  formatInputIssues,
+  isJsonObject,
+  normalizeSearchSite,
+  readString,
+  requireContentType,
+  trimmedOptionalStringSchema,
+} from "#app/web/shared.ts";
+
 type WebSearchRequest = Readonly<{
   query: string;
   limit: number;
+  timeoutMs: number;
 }>;
 
 type WebSearchResult = Readonly<{
@@ -36,24 +48,6 @@ type BraveSearchEngineDependencies = Readonly<{
   baseUrl?: string;
 }>;
 
-const trimmedOptionalStringSchema = z
-  .string()
-  .trim()
-  .optional()
-  .transform((value) => {
-    return value === undefined || value === "" ? undefined : value;
-  });
-
-const formatInputIssues = (issues: z.ZodIssue[]): string => {
-  return issues
-    .map((issue) => {
-      const path = issue.path.length === 0 ? "input" : issue.path.join(".");
-
-      return `- ${path}: ${issue.message}`;
-    })
-    .join("\n");
-};
-
 const searchCommandSchema = z.object({
   options: z.object({
     apiKey: trimmedOptionalStringSchema,
@@ -63,6 +57,29 @@ const searchCommandSchema = z.object({
       .number()
       .int("Limit must be an integer.")
       .positive("Limit must be greater than 0."),
+    site: trimmedOptionalStringSchema.transform((value, context) => {
+      if (value === undefined) {
+        return undefined;
+      }
+
+      try {
+        return normalizeSearchSite(value);
+      } catch (error: unknown) {
+        context.addIssue({
+          code: "custom",
+          message:
+            error instanceof Error
+              ? error.message
+              : "Site must be a valid hostname or absolute URL.",
+        });
+
+        return z.NEVER;
+      }
+    }),
+    timeout: z.coerce
+      .number()
+      .int("Timeout must be an integer.")
+      .positive("Timeout must be greater than 0."),
   }),
   query: z.string().trim().min(1, "Query must not be empty."),
 });
@@ -81,16 +98,6 @@ const parseSearchCommandInput = (input: unknown) => {
   }
 
   return result.data;
-};
-
-const readString = (value: Record<string, unknown>, key: string) => {
-  const property = value[key];
-
-  return typeof property === "string" ? property : undefined;
-};
-
-const isJsonObject = (value: unknown): value is Record<string, unknown> => {
-  return typeof value === "object" && value !== null;
 };
 
 const readSearchResults = (value: unknown) => {
@@ -148,12 +155,16 @@ const createRequestUrl = (
   return url;
 };
 
+const buildSearchQuery = (query: string, site?: string) => {
+  return site === undefined ? query : `site:${site} ${query}`;
+};
+
 export const createBraveSearchEngine = (
   dependencies: BraveSearchEngineDependencies,
 ) => {
   return {
     name: "brave",
-    search: async ({ query, limit }: WebSearchRequest) => {
+    search: async ({ query, limit, timeoutMs }: WebSearchRequest) => {
       if (dependencies.apiKey === undefined || dependencies.apiKey === "") {
         throw new WebSearchError(
           "BRAVE_SEARCH_API_KEY is required for the brave search engine.",
@@ -169,7 +180,11 @@ export const createBraveSearchEngine = (
       let response: Response;
 
       try {
-        response = await dependencies.fetchImplementation(url, {
+        response = await fetchWithTimeout({
+          url,
+          timeoutMs,
+          subject: "Brave search request",
+          fetchImplementation: dependencies.fetchImplementation,
           headers: {
             Accept: "application/json",
             "X-Subscription-Token": dependencies.apiKey,
@@ -178,7 +193,7 @@ export const createBraveSearchEngine = (
       } catch (error: unknown) {
         throw new WebSearchError(
           error instanceof Error
-            ? `Brave search request failed: ${error.message}`
+            ? error.message
             : "Brave search request failed.",
         );
       }
@@ -191,6 +206,16 @@ export const createBraveSearchEngine = (
             : `Brave search request failed with ${response.status} ${response.statusText}: ${errorText}`;
 
         throw new WebSearchError(message);
+      }
+
+      try {
+        requireContentType(response, ["application/json"]);
+      } catch (error: unknown) {
+        throw new WebSearchError(
+          error instanceof Error
+            ? error.message
+            : "Unsupported content type: unknown.",
+        );
       }
 
       return readSearchResults(await response.json());
@@ -229,6 +254,8 @@ export const runWebSearch = async (
     query: string;
     limit: number;
     json: boolean;
+    site?: string;
+    timeoutMs: number;
   }>,
   registry: WebSearchEngineRegistry,
 ) => {
@@ -240,9 +267,11 @@ export const runWebSearch = async (
     );
   }
 
+  const searchQuery = buildSearchQuery(request.query, request.site);
   const results = await engine.search({
-    query: request.query,
+    query: searchQuery,
     limit: request.limit,
+    timeoutMs: request.timeoutMs,
   });
 
   if (request.json) {
@@ -250,6 +279,8 @@ export const runWebSearch = async (
       {
         engine: engine.name,
         query: request.query,
+        searchQuery,
+        site: request.site,
         results,
       },
       null,
@@ -258,7 +289,9 @@ export const runWebSearch = async (
   }
 
   if (results.length === 0) {
-    return `No results found for "${request.query}" using ${engine.name}.\n`;
+    const siteSuffix = request.site === undefined ? "" : ` on ${request.site}`;
+
+    return `No results found for "${request.query}" using ${engine.name}${siteSuffix}.\n`;
   }
 
   return results
@@ -273,6 +306,48 @@ export const runWebSearch = async (
     })
     .join("\n\n")
     .concat("\n");
+};
+
+const runSearchCommand = async (
+  query: string,
+  options: Record<string, unknown>,
+  dependencies: {
+    io: {
+      stdout: (text: string) => void;
+    };
+    createSearchEngineRegistry: (
+      apiKeyOverride?: string,
+    ) => WebSearchEngineRegistry;
+  },
+  siteOverride?: string,
+) => {
+  const optionsWithSite = options as Record<string, unknown> & {
+    site?: unknown;
+  };
+  const validatedInput = parseSearchCommandInput({
+    options: {
+      ...options,
+      site: siteOverride ?? optionsWithSite.site,
+    },
+    query,
+  });
+  const output = await runWebSearch(
+    {
+      engineName: validatedInput.options.engine,
+      query: validatedInput.query,
+      limit: validatedInput.options.limit,
+      json: validatedInput.options.json,
+      timeoutMs: validatedInput.options.timeout,
+      ...(validatedInput.options.site === undefined
+        ? {}
+        : {
+            site: validatedInput.options.site,
+          }),
+    },
+    dependencies.createSearchEngineRegistry(validatedInput.options.apiKey),
+  );
+
+  dependencies.io.stdout(output);
 };
 
 export const registerWebSearchCommand = (
@@ -300,19 +375,56 @@ export const registerWebSearchCommand = (
     )
     .option("-l, --limit <number>", "Maximum number of results to return", "5")
     .option("--json", "Print results as JSON", false)
+    .option(
+      "-s, --site <site>",
+      "Restrict results to a hostname or docs path, e.g. nodejs.org/docs",
+    )
+    .option(
+      "-t, --timeout <ms>",
+      "Request timeout in milliseconds",
+      defaultWebRequestTimeoutMs,
+    )
     .option("--api-key <key>", "Override the API key for the selected engine")
     .action(async (query: string, options: Record<string, unknown>) => {
-      const validatedInput = parseSearchCommandInput({ options, query });
-      const output = await runWebSearch(
-        {
-          engineName: validatedInput.options.engine,
-          query: validatedInput.query,
-          limit: validatedInput.options.limit,
-          json: validatedInput.options.json,
-        },
-        dependencies.createSearchEngineRegistry(validatedInput.options.apiKey),
-      );
-
-      dependencies.io.stdout(output);
+      await runSearchCommand(query, options, dependencies);
     });
+};
+
+export const registerWebDocsSearchCommand = (
+  webCommand: Command,
+  dependencies: {
+    io: {
+      stdout: (text: string) => void;
+    };
+    createSearchEngineRegistry: (
+      apiKeyOverride?: string,
+    ) => WebSearchEngineRegistry;
+  },
+) => {
+  const defaultSearchEngineRegistry = dependencies.createSearchEngineRegistry();
+  const availableSearchEngines = defaultSearchEngineRegistry.names().join(", ");
+
+  webCommand
+    .command("docs-search")
+    .description("Search documentation within a specific site or docs path")
+    .argument("<site>", "Hostname or docs base path, e.g. nodejs.org/docs")
+    .argument("<query>", "Keywords to search for")
+    .option(
+      "-e, --engine <engine>",
+      `Search engine to use. Available engines: ${availableSearchEngines}`,
+      defaultSearchEngineRegistry.defaultEngineName,
+    )
+    .option("-l, --limit <number>", "Maximum number of results to return", "5")
+    .option("--json", "Print results as JSON", false)
+    .option(
+      "-t, --timeout <ms>",
+      "Request timeout in milliseconds",
+      defaultWebRequestTimeoutMs,
+    )
+    .option("--api-key <key>", "Override the API key for the selected engine")
+    .action(
+      async (site: string, query: string, options: Record<string, unknown>) => {
+        await runSearchCommand(query, options, dependencies, site);
+      },
+    );
 };
