@@ -1,4 +1,11 @@
+import { fileURLToPath } from "node:url";
+
 import { Command, CommanderError } from "commander";
+import {
+  createSkillInstaller,
+  registerInstallSkillsCommand,
+  SkillInstallError,
+} from "#app/skills/install.ts";
 import {
   createFetchWebPageReader,
   registerWebFetchCommand,
@@ -27,6 +34,10 @@ import {
   WebSitemapError,
 } from "#app/web/sitemap.ts";
 
+const defaultSkillsDirectory = fileURLToPath(
+  new URL("../../skills", import.meta.url),
+);
+
 export const createDefaultCliServices = () => {
   const { BRAVE_SEARCH_API_KEY: braveSearchApiKey } = process.env;
 
@@ -54,6 +65,9 @@ export const createDefaultCliServices = () => {
     webSitemapReader: createWebSitemapReader({
       fetchImplementation: fetch,
       userAgent: "devtools/0.1.0",
+    }),
+    skillInstaller: createSkillInstaller({
+      skillsDirectory: defaultSkillsDirectory,
     }),
   };
 };
@@ -98,7 +112,15 @@ export const createProgram = (
 
   program.exitOverride();
 
+  const installCommand = program
+    .command("install")
+    .description("Install packaged resources");
   const webCommand = program.command("web").description("Web utilities");
+
+  registerInstallSkillsCommand(installCommand, {
+    io,
+    skillInstaller: services.skillInstaller,
+  });
 
   registerWebSearchCommand(webCommand, {
     io,
@@ -150,6 +172,7 @@ export const runCli = async (
     }
 
     if (
+      error instanceof SkillInstallError ||
       error instanceof WebPageReadError ||
       error instanceof WebPageInspectError ||
       error instanceof WebPageLinksError ||

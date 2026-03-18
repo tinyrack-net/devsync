@@ -1,3 +1,13 @@
+import {
+  lstat,
+  mkdtemp,
+  readdir,
+  readFile,
+  realpath,
+  rm,
+} from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { execa } from "execa";
@@ -52,13 +62,19 @@ describe("CLI integration", () => {
     expect(result.stderr).toBe("");
   });
 
-  it("shows help for nested web commands", async () => {
+  it("shows help for install and nested web commands", async () => {
+    const installHelpResult = await runCli(["install", "skills", "--help"]);
     const webHelpResult = await runCli(["web", "--help"]);
     const searchHelpResult = await runCli(["web", "search", "--help"]);
     const fetchHelpResult = await runCli(["web", "fetch", "--help"]);
     const inspectHelpResult = await runCli(["web", "inspect", "--help"]);
     const linksHelpResult = await runCli(["web", "links", "--help"]);
     const sitemapHelpResult = await runCli(["web", "sitemap", "--help"]);
+
+    expect(installHelpResult.exitCode).toBe(0);
+    expect(installHelpResult.stdout).toContain(
+      "Usage: devtools install skills [options] <agent>",
+    );
 
     expect(webHelpResult.exitCode).toBe(0);
     expect(webHelpResult.stdout).toContain(
@@ -90,6 +106,99 @@ describe("CLI integration", () => {
     expect(sitemapHelpResult.stdout).toContain(
       "Usage: devtools web sitemap [options] <url>",
     );
+  });
+
+  it("installs bundled pi skills into a target directory", async () => {
+    const targetDirectory = await mkdtemp(join(tmpdir(), "devtools-skills-"));
+
+    try {
+      const result = await runCli([
+        "install",
+        "skills",
+        "pi",
+        "--target-dir",
+        targetDirectory,
+      ]);
+
+      expect(result.exitCode).toBe(0);
+      expect(result.stdout).toContain("Installed 1 skills for pi.");
+      expect(result.stderr).toBe("");
+
+      const entries = (await readdir(targetDirectory)).sort((left, right) => {
+        return left.localeCompare(right);
+      });
+
+      expect(entries).toEqual(["web-research"]);
+
+      const skillLinkPath = join(targetDirectory, "web-research");
+      const linkStats = await lstat(skillLinkPath);
+
+      expect(linkStats.isSymbolicLink()).toBe(true);
+      expect(await realpath(skillLinkPath)).toBe(
+        fileURLToPath(new URL("../skills/web-research", import.meta.url)),
+      );
+      expect(await readFile(join(skillLinkPath, "SKILL.md"), "utf8")).toContain(
+        "name: web-research",
+      );
+      expect(
+        await readFile(
+          join(skillLinkPath, "references", "commands.md"),
+          "utf8",
+        ),
+      ).toContain("Web Command Reference");
+    } finally {
+      await rm(targetDirectory, { force: true, recursive: true });
+    }
+  });
+
+  it("installs bundled pi skills into PI_CODING_AGENT_DIR when set", async () => {
+    const workspaceDirectory = await mkdtemp(join(tmpdir(), "devtools-agent-"));
+    const agentDirectory = join(workspaceDirectory, "agent");
+
+    try {
+      const result = await runCli(["install", "skills", "pi"], {
+        env: {
+          PI_CODING_AGENT_DIR: agentDirectory,
+        },
+      });
+
+      expect(result.exitCode).toBe(0);
+      expect(result.stdout).toContain(
+        `Target directory: ${join(agentDirectory, "skills")}`,
+      );
+      expect(
+        await realpath(join(agentDirectory, "skills", "web-research")),
+      ).toBe(fileURLToPath(new URL("../skills/web-research", import.meta.url)));
+    } finally {
+      await rm(workspaceDirectory, { force: true, recursive: true });
+    }
+  });
+
+  it("supports dry-run skill installation without creating files", async () => {
+    const workspaceDirectory = await mkdtemp(
+      join(tmpdir(), "devtools-dry-run-"),
+    );
+    const targetDirectory = join(workspaceDirectory, "skills-target");
+
+    try {
+      const result = await runCli([
+        "install",
+        "skills",
+        "pi",
+        "--target-dir",
+        targetDirectory,
+        "--dry-run",
+      ]);
+
+      expect(result.exitCode).toBe(0);
+      expect(result.stdout).toContain("Dry run for pi: 1 skills evaluated.");
+      expect(result.stdout).toContain("No filesystem changes were made.");
+      await expect(lstat(targetDirectory)).rejects.toMatchObject({
+        code: "ENOENT",
+      });
+    } finally {
+      await rm(workspaceDirectory, { force: true, recursive: true });
+    }
   });
 
   it("shows a helpful error when the brave api key is missing", async () => {

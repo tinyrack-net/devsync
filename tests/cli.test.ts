@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { type createDefaultCliServices, runCli } from "#app/cli/index.ts";
+import type { createSkillInstaller } from "#app/skills/install.ts";
 import type { createFetchWebPageReader } from "#app/web/fetch.ts";
 import type { createWebPageInspector } from "#app/web/inspect.ts";
 import type { createWebPageLinkReader } from "#app/web/links.ts";
@@ -31,6 +32,9 @@ type WebSitemap = Awaited<
 type WebSitemapRequest = Parameters<
   ReturnType<typeof createWebSitemapReader>["read"]
 >[0];
+type SkillInstallResult = Awaited<
+  ReturnType<ReturnType<typeof createSkillInstaller>["install"]>
+>;
 type WebSearchEngine = Parameters<typeof createSearchEngineRegistry>[1][number];
 
 const packageInfo = {
@@ -110,6 +114,21 @@ const sampleSitemap = {
   ],
 } satisfies WebSitemap;
 
+const sampleSkillInstallResult = {
+  agent: "pi",
+  dryRun: false,
+  skillsDirectory: "/workspace/devtools/skills",
+  targetDirectory: "/home/example/.pi/agent/skills",
+  installedSkills: [
+    {
+      name: "web-research",
+      sourcePath: "/workspace/devtools/skills/web-research",
+      targetPath: "/home/example/.pi/agent/skills/web-research",
+      status: "installed",
+    },
+  ],
+} satisfies SkillInstallResult;
+
 const createMockSearchEngine = (name: string) => {
   return {
     name,
@@ -135,6 +154,12 @@ const createMockSearchEngine = (name: string) => {
 const createTestServices = () => {
   const apiKeyOverrides: Array<string | undefined> = [];
   const inspectRequests: WebPageInspectRequest[] = [];
+  const installRequests: Array<{
+    agent: "pi";
+    dryRun: boolean;
+    force: boolean;
+    targetDirectory?: string;
+  }> = [];
   const linkRequests: WebPageLinksRequest[] = [];
   const readRequests: WebPageReadRequest[] = [];
   const sitemapRequests: WebSitemapRequest[] = [];
@@ -155,6 +180,26 @@ const createTestServices = () => {
           ...samplePageContent,
           requestedUrl: request.url,
           finalUrl: request.url,
+        };
+      },
+    },
+    skillInstaller: {
+      install: async (request) => {
+        installRequests.push(request);
+        return {
+          ...sampleSkillInstallResult,
+          agent: request.agent,
+          dryRun: request.dryRun,
+          targetDirectory:
+            request.targetDirectory ?? sampleSkillInstallResult.targetDirectory,
+          installedSkills: sampleSkillInstallResult.installedSkills.map(
+            (skill) => {
+              return {
+                ...skill,
+                status: request.dryRun ? "would-install" : skill.status,
+              };
+            },
+          ),
         };
       },
     },
@@ -194,6 +239,7 @@ const createTestServices = () => {
   return {
     apiKeyOverrides,
     inspectRequests,
+    installRequests,
     linkRequests,
     readRequests,
     services,
@@ -226,6 +272,7 @@ const runWithCapturedIo = async (
     apiKeyOverrides: testServices.apiKeyOverrides,
     exitCode,
     inspectRequests: testServices.inspectRequests,
+    installRequests: testServices.installRequests,
     linkRequests: testServices.linkRequests,
     readRequests: testServices.readRequests,
     sitemapRequests: testServices.sitemapRequests,
@@ -249,6 +296,17 @@ describe("runCli", () => {
 
     expect(result.exitCode).toBe(0);
     expect(result.stdout).toBe("0.1.0\n");
+  });
+
+  it("shows help for the install command", async () => {
+    const result = await runWithCapturedIo(["install", "--help"]);
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toContain(
+      "Usage: devtools install [options] [command]",
+    );
+    expect(result.stdout).toContain("skills [options] <agent>");
+    expect(result.stderr).toBe("");
   });
 
   it("shows help for the web command", async () => {
@@ -277,6 +335,18 @@ describe("runCli", () => {
     expect(result.stderr).toBe("");
   });
 
+  it("shows help for install skills", async () => {
+    const result = await runWithCapturedIo(["install", "skills", "--help"]);
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toContain(
+      "Usage: devtools install skills [options] <agent>",
+    );
+    expect(result.stdout).toContain("--target-dir <path>");
+    expect(result.stdout).toContain("--dry-run");
+    expect(result.stdout).toContain("--force");
+  });
+
   it("shows help for the new web commands", async () => {
     const inspectHelp = await runWithCapturedIo(["web", "inspect", "--help"]);
     const linksHelp = await runWithCapturedIo(["web", "links", "--help"]);
@@ -303,6 +373,48 @@ describe("runCli", () => {
     expect(docsSearchHelp.stdout).toContain(
       "Usage: devtools web docs-search [options] <site> <query>",
     );
+  });
+
+  it("installs bundled skills for pi", async () => {
+    const result = await runWithCapturedIo([
+      "install",
+      "skills",
+      "pi",
+      "--target-dir",
+      "/tmp/pi-skills",
+      "--force",
+    ]);
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toContain("Installed 1 skills for pi.");
+    expect(result.installRequests).toEqual([
+      {
+        agent: "pi",
+        dryRun: false,
+        force: true,
+        targetDirectory: "/tmp/pi-skills",
+      },
+    ]);
+  });
+
+  it("supports dry-run skill installation", async () => {
+    const result = await runWithCapturedIo([
+      "install",
+      "skills",
+      "pi",
+      "--dry-run",
+    ]);
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toContain("Dry run for pi: 1 skills evaluated.");
+    expect(result.stdout).toContain("No filesystem changes were made.");
+    expect(result.installRequests).toEqual([
+      {
+        agent: "pi",
+        dryRun: true,
+        force: false,
+      },
+    ]);
   });
 
   it("searches the web with the default engine", async () => {
@@ -518,6 +630,13 @@ describe("runCli", () => {
     expect(result.stderr).toContain(
       "error: - options.limit: Limit must be greater than 0.",
     );
+  });
+
+  it("rejects unsupported skill install agents", async () => {
+    const result = await runWithCapturedIo(["install", "skills", "codex"]);
+
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toContain('Invalid input: expected "pi"');
   });
 
   it("rejects invalid search sites with zod validation", async () => {
