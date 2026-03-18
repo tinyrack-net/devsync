@@ -13,8 +13,10 @@ type WebPageContent = Awaited<
 const sampleContent = {
   requestedUrl: "https://example.com/requested",
   finalUrl: "https://example.com/final",
+  canonicalUrl: "https://example.com/canonical",
   title: "Example page",
   excerpt: "Example excerpt",
+  description: "Example description",
   byline: "Jane Doe",
   siteName: "Example",
   text: "Heading\n\nParagraph text.",
@@ -65,6 +67,9 @@ describe("createFetchWebPageReader", () => {
             <html>
               <head>
                 <title>Ignored title</title>
+                <link rel="canonical" href="/canonical" />
+                <meta name="description" content="Example description" />
+                <meta property="og:site_name" content="Example site" />
               </head>
               <body>
                 <article>
@@ -92,7 +97,10 @@ describe("createFetchWebPageReader", () => {
 
     expect(result.requestedUrl).toBe("https://example.com/article");
     expect(result.finalUrl).toBe("https://example.com/article");
+    expect(result.canonicalUrl).toBe("https://example.com/canonical");
     expect(result.title).toBe("Ignored title");
+    expect(result.description).toBe("Example description");
+    expect(result.siteName).toBe("Example site");
     expect(result.text).toContain("Heading");
     expect(result.text).toContain("Paragraph text.");
     expect(result.html).toContain("Heading</h2>");

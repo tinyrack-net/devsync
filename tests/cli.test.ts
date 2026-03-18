@@ -2,13 +2,34 @@ import { describe, expect, it } from "vitest";
 
 import { type createDefaultCliServices, runCli } from "#app/cli/index.ts";
 import type { createFetchWebPageReader } from "#app/web/fetch.ts";
+import type { createWebPageInspector } from "#app/web/inspect.ts";
+import type { createWebPageLinkReader } from "#app/web/links.ts";
 import { createSearchEngineRegistry } from "#app/web/search.ts";
+import type { createWebSitemapReader } from "#app/web/sitemap.ts";
 
 type WebPageContent = Awaited<
   ReturnType<ReturnType<typeof createFetchWebPageReader>["read"]>
 >;
 type WebPageReadRequest = Parameters<
   ReturnType<typeof createFetchWebPageReader>["read"]
+>[0];
+type WebPageInspection = Awaited<
+  ReturnType<ReturnType<typeof createWebPageInspector>["inspect"]>
+>;
+type WebPageInspectRequest = Parameters<
+  ReturnType<typeof createWebPageInspector>["inspect"]
+>[0];
+type WebPageLinks = Awaited<
+  ReturnType<ReturnType<typeof createWebPageLinkReader>["read"]>
+>;
+type WebPageLinksRequest = Parameters<
+  ReturnType<typeof createWebPageLinkReader>["read"]
+>[0];
+type WebSitemap = Awaited<
+  ReturnType<ReturnType<typeof createWebSitemapReader>["read"]>
+>;
+type WebSitemapRequest = Parameters<
+  ReturnType<typeof createWebSitemapReader>["read"]
 >[0];
 type WebSearchEngine = Parameters<typeof createSearchEngineRegistry>[1][number];
 
@@ -20,14 +41,74 @@ const packageInfo = {
 const samplePageContent = {
   requestedUrl: "https://example.com/requested",
   finalUrl: "https://example.com/final",
+  canonicalUrl: "https://example.com/canonical",
   title: "Example page",
   excerpt: "Example excerpt",
+  description: "Example description",
   byline: "Jane Doe",
   siteName: "Example",
   text: "Heading\n\nParagraph text.",
   html: "<article><h1>Heading</h1><p>Paragraph text.</p></article>",
   markdown: "# Heading\n\nParagraph text.",
 } satisfies WebPageContent;
+
+const sampleInspection = {
+  requestedUrl: "https://example.com/requested",
+  finalUrl: "https://example.com/final",
+  canonicalUrl: "https://example.com/canonical",
+  statusCode: 200,
+  statusText: "OK",
+  contentType: "text/html; charset=utf-8",
+  contentLength: 1234,
+  lastModified: "Tue, 18 Mar 2025 12:00:00 GMT",
+  etag: '"etag-123"',
+  title: "Example page",
+  description: "Example description",
+  siteName: "Example",
+  language: "en",
+  robots: "index,follow",
+} satisfies WebPageInspection;
+
+const sampleLinks = {
+  requestedUrl: "https://example.com/requested",
+  finalUrl: "https://example.com/final",
+  canonicalUrl: "https://example.com/canonical",
+  sameOriginOnly: false,
+  links: [
+    {
+      kind: "same-origin",
+      url: "https://example.com/docs",
+      texts: ["Docs", "Docs duplicate"],
+      rel: [],
+      targets: [],
+      occurrences: 2,
+    },
+    {
+      kind: "external",
+      url: "https://external.example.com/path",
+      texts: ["External link"],
+      rel: ["noopener"],
+      targets: ["_blank"],
+      occurrences: 1,
+    },
+  ],
+} satisfies WebPageLinks;
+
+const sampleSitemap = {
+  requestedUrl: "https://example.com",
+  sitemapUrls: ["https://example.com/sitemap.xml"],
+  sameOriginOnly: false,
+  urls: [
+    {
+      url: "https://example.com/",
+      lastModified: undefined,
+    },
+    {
+      url: "https://example.com/docs",
+      lastModified: "2025-03-18",
+    },
+  ],
+} satisfies WebSitemap;
 
 const createMockSearchEngine = (name: string) => {
   return {
@@ -53,7 +134,10 @@ const createMockSearchEngine = (name: string) => {
 
 const createTestServices = () => {
   const apiKeyOverrides: Array<string | undefined> = [];
+  const inspectRequests: WebPageInspectRequest[] = [];
+  const linkRequests: WebPageLinksRequest[] = [];
   const readRequests: WebPageReadRequest[] = [];
+  const sitemapRequests: WebSitemapRequest[] = [];
   const services: ReturnType<typeof createDefaultCliServices> = {
     createSearchEngineRegistry: (apiKeyOverride) => {
       apiKeyOverrides.push(apiKeyOverride);
@@ -74,12 +158,46 @@ const createTestServices = () => {
         };
       },
     },
+    webPageInspector: {
+      inspect: async (request) => {
+        inspectRequests.push(request);
+        return {
+          ...sampleInspection,
+          requestedUrl: request.url,
+          finalUrl: request.url,
+        };
+      },
+    },
+    webPageLinkReader: {
+      read: async (request) => {
+        linkRequests.push(request);
+        return {
+          ...sampleLinks,
+          requestedUrl: request.url,
+          finalUrl: request.url,
+          sameOriginOnly: request.sameOriginOnly,
+        };
+      },
+    },
+    webSitemapReader: {
+      read: async (request) => {
+        sitemapRequests.push(request);
+        return {
+          ...sampleSitemap,
+          requestedUrl: request.url,
+          sameOriginOnly: request.sameOriginOnly,
+        };
+      },
+    },
   };
 
   return {
     apiKeyOverrides,
+    inspectRequests,
+    linkRequests,
     readRequests,
     services,
+    sitemapRequests,
   };
 };
 
@@ -107,7 +225,10 @@ const runWithCapturedIo = async (
   return {
     apiKeyOverrides: testServices.apiKeyOverrides,
     exitCode,
+    inspectRequests: testServices.inspectRequests,
+    linkRequests: testServices.linkRequests,
     readRequests: testServices.readRequests,
+    sitemapRequests: testServices.sitemapRequests,
     stdout: stdout.join(""),
     stderr: stderr.join(""),
   };
@@ -136,7 +257,11 @@ describe("runCli", () => {
     expect(result.exitCode).toBe(0);
     expect(result.stdout).toContain("Usage: devtools web [options] [command]");
     expect(result.stdout).toContain("search [options] <query>");
+    expect(result.stdout).toContain("docs-search [options] <site> <query>");
     expect(result.stdout).toContain("fetch [options] <url>");
+    expect(result.stdout).toContain("inspect [options] <url>");
+    expect(result.stdout).toContain("links [options] <url>");
+    expect(result.stdout).toContain("sitemap [options] <url>");
     expect(result.stderr).toBe("");
   });
 
@@ -148,18 +273,36 @@ describe("runCli", () => {
       "Usage: devtools web search [options] <query>",
     );
     expect(result.stdout).toContain("--api-key <key>");
+    expect(result.stdout).toContain("--site <site>");
     expect(result.stderr).toBe("");
   });
 
-  it("shows help for the web fetch command", async () => {
-    const result = await runWithCapturedIo(["web", "fetch", "--help"]);
+  it("shows help for the new web commands", async () => {
+    const inspectHelp = await runWithCapturedIo(["web", "inspect", "--help"]);
+    const linksHelp = await runWithCapturedIo(["web", "links", "--help"]);
+    const sitemapHelp = await runWithCapturedIo(["web", "sitemap", "--help"]);
+    const docsSearchHelp = await runWithCapturedIo([
+      "web",
+      "docs-search",
+      "--help",
+    ]);
 
-    expect(result.exitCode).toBe(0);
-    expect(result.stdout).toContain(
-      "Usage: devtools web fetch [options] <url>",
+    expect(inspectHelp.exitCode).toBe(0);
+    expect(inspectHelp.stdout).toContain(
+      "Usage: devtools web inspect [options] <url>",
     );
-    expect(result.stdout).toContain("--format <format>");
-    expect(result.stderr).toBe("");
+    expect(linksHelp.exitCode).toBe(0);
+    expect(linksHelp.stdout).toContain(
+      "Usage: devtools web links [options] <url>",
+    );
+    expect(sitemapHelp.exitCode).toBe(0);
+    expect(sitemapHelp.stdout).toContain(
+      "Usage: devtools web sitemap [options] <url>",
+    );
+    expect(docsSearchHelp.exitCode).toBe(0);
+    expect(docsSearchHelp.stdout).toContain(
+      "Usage: devtools web docs-search [options] <site> <query>",
+    );
   });
 
   it("searches the web with the default engine", async () => {
@@ -167,7 +310,56 @@ describe("runCli", () => {
 
     expect(result.exitCode).toBe(0);
     expect(result.stdout).toContain("1. brave result for typescript");
-    expect(result.apiKeyOverrides).toEqual([undefined, undefined]);
+    expect(result.apiKeyOverrides).toEqual([undefined, undefined, undefined]);
+  });
+
+  it("supports restricting search results to a site", async () => {
+    const result = await runWithCapturedIo([
+      "web",
+      "search",
+      "typescript",
+      "--site",
+      "nodejs.org/docs",
+      "--json",
+    ]);
+
+    expect(result.exitCode).toBe(0);
+    expect(JSON.parse(result.stdout)).toMatchObject({
+      query: "typescript",
+      searchQuery: "site:nodejs.org/docs typescript",
+      site: "nodejs.org/docs",
+    });
+  });
+
+  it("supports docs-search as a specialized site-restricted search", async () => {
+    const result = await runWithCapturedIo([
+      "web",
+      "docs-search",
+      "https://nodejs.org/docs/latest/",
+      "fs watch",
+      "--json",
+    ]);
+
+    expect(result.exitCode).toBe(0);
+    expect(JSON.parse(result.stdout)).toMatchObject({
+      query: "fs watch",
+      searchQuery: "site:nodejs.org/docs/latest fs watch",
+      site: "nodejs.org/docs/latest",
+    });
+  });
+
+  it("supports docs-search text output", async () => {
+    const result = await runWithCapturedIo([
+      "web",
+      "docs-search",
+      "nodejs.org/docs",
+      "worker threads",
+    ]);
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toContain(
+      "1. brave result for site:nodejs.org/docs worker threads",
+    );
   });
 
   it("supports overriding the api key via a command option", async () => {
@@ -180,7 +372,11 @@ describe("runCli", () => {
     ]);
 
     expect(result.exitCode).toBe(0);
-    expect(result.apiKeyOverrides).toEqual([undefined, "secret-key"]);
+    expect(result.apiKeyOverrides).toEqual([
+      undefined,
+      undefined,
+      "secret-key",
+    ]);
   });
 
   it("fetches a web page as markdown by default", async () => {
@@ -213,6 +409,7 @@ describe("runCli", () => {
     expect(JSON.parse(result.stdout)).toMatchObject({
       finalUrl: "https://example.com/article",
       title: "Example page",
+      canonicalUrl: "https://example.com/canonical",
     });
   });
 
@@ -229,6 +426,76 @@ describe("runCli", () => {
     expect(result.stdout).toBe(
       "<article><h1>Heading</h1><p>Paragraph text.</p></article>\n",
     );
+  });
+
+  it("supports inspecting a web page", async () => {
+    const result = await runWithCapturedIo([
+      "web",
+      "inspect",
+      "https://example.com/article",
+      "--json",
+    ]);
+
+    expect(result.exitCode).toBe(0);
+    expect(JSON.parse(result.stdout)).toMatchObject({
+      finalUrl: "https://example.com/article",
+      title: "Example page",
+    });
+    expect(result.inspectRequests).toEqual([
+      {
+        url: "https://example.com/article",
+        timeoutMs: 10_000,
+      },
+    ]);
+  });
+
+  it("supports extracting normalized links", async () => {
+    const result = await runWithCapturedIo([
+      "web",
+      "links",
+      "https://example.com/article",
+      "--same-origin",
+      "--json",
+    ]);
+
+    expect(result.exitCode).toBe(0);
+    expect(JSON.parse(result.stdout)).toMatchObject({
+      finalUrl: "https://example.com/article",
+      sameOriginOnly: true,
+    });
+    expect(result.linkRequests).toEqual([
+      {
+        url: "https://example.com/article",
+        timeoutMs: 10_000,
+        sameOriginOnly: true,
+      },
+    ]);
+  });
+
+  it("supports reading sitemap urls", async () => {
+    const result = await runWithCapturedIo([
+      "web",
+      "sitemap",
+      "https://example.com",
+      "--same-origin",
+      "--concurrency",
+      "2",
+      "--json",
+    ]);
+
+    expect(result.exitCode).toBe(0);
+    expect(JSON.parse(result.stdout)).toMatchObject({
+      requestedUrl: "https://example.com",
+      sameOriginOnly: true,
+    });
+    expect(result.sitemapRequests).toEqual([
+      {
+        url: "https://example.com",
+        timeoutMs: 10_000,
+        sameOriginOnly: true,
+        concurrency: 2,
+      },
+    ]);
   });
 
   it("rejects blank search queries with zod validation", async () => {
@@ -253,6 +520,21 @@ describe("runCli", () => {
     );
   });
 
+  it("rejects invalid search sites with zod validation", async () => {
+    const result = await runWithCapturedIo([
+      "web",
+      "search",
+      "typescript",
+      "--site",
+      "http://",
+    ]);
+
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toContain(
+      "error: - options.site: Site must be a valid hostname or absolute URL.",
+    );
+  });
+
   it("rejects invalid fetch urls with zod validation", async () => {
     const result = await runWithCapturedIo(["web", "fetch", "not-a-url"]);
 
@@ -262,10 +544,10 @@ describe("runCli", () => {
     );
   });
 
-  it("rejects invalid fetch timeouts with zod validation", async () => {
+  it("rejects invalid inspect timeouts with zod validation", async () => {
     const result = await runWithCapturedIo([
       "web",
-      "fetch",
+      "inspect",
       "https://example.com/article",
       "--timeout",
       "0",

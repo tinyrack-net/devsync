@@ -13,6 +13,7 @@ describe("createBraveSearchEngine", () => {
       engine.search({
         query: "typescript",
         limit: 5,
+        timeoutMs: 1_000,
       }),
     ).rejects.toThrowError(
       "BRAVE_SEARCH_API_KEY is required for the brave search engine.",
@@ -66,6 +67,7 @@ describe("createBraveSearchEngine", () => {
       engine.search({
         query: "typescript",
         limit: 2,
+        timeoutMs: 1_000,
       }),
     ).resolves.toEqual([
       {
@@ -88,8 +90,39 @@ describe("createBraveSearchEngine", () => {
       engine.search({
         query: "typescript",
         limit: 5,
+        timeoutMs: 1_000,
       }),
     ).rejects.toThrowError("Brave search request failed: network down");
+  });
+
+  it("wraps timeout failures", async () => {
+    const engine = createBraveSearchEngine({
+      apiKey: "secret",
+      fetchImplementation: vi.fn(async (_input, init) => {
+        init?.signal?.throwIfAborted();
+
+        await new Promise((resolve) => {
+          setTimeout(resolve, 20);
+        });
+
+        init?.signal?.throwIfAborted();
+
+        return new Response("never reached", {
+          status: 200,
+          headers: {
+            "Content-Type": "application/json",
+          },
+        });
+      }),
+    });
+
+    await expect(
+      engine.search({
+        query: "typescript",
+        limit: 5,
+        timeoutMs: 1,
+      }),
+    ).rejects.toThrowError("Brave search request timed out after 1ms.");
   });
 
   it("returns a helpful error for non-ok responses", async () => {
@@ -107,6 +140,7 @@ describe("createBraveSearchEngine", () => {
       engine.search({
         query: "typescript",
         limit: 5,
+        timeoutMs: 1_000,
       }),
     ).rejects.toThrowError(
       "Brave search request failed with 429 Too Many Requests: rate limited",
@@ -130,8 +164,31 @@ describe("createBraveSearchEngine", () => {
       engine.search({
         query: "typescript",
         limit: 5,
+        timeoutMs: 1_000,
       }),
     ).resolves.toEqual([]);
+  });
+
+  it("rejects unexpected content types", async () => {
+    const engine = createBraveSearchEngine({
+      apiKey: "secret",
+      fetchImplementation: vi.fn(async () => {
+        return new Response("<html></html>", {
+          status: 200,
+          headers: {
+            "Content-Type": "text/html",
+          },
+        });
+      }),
+    });
+
+    await expect(
+      engine.search({
+        query: "typescript",
+        limit: 5,
+        timeoutMs: 1_000,
+      }),
+    ).rejects.toThrowError("Unsupported content type: text/html.");
   });
 
   it("throws WebSearchError instances", async () => {
@@ -149,6 +206,7 @@ describe("createBraveSearchEngine", () => {
       engine.search({
         query: "typescript",
         limit: 5,
+        timeoutMs: 1_000,
       }),
     ).rejects.toBeInstanceOf(WebSearchError);
   });

@@ -56,11 +56,20 @@ describe("CLI integration", () => {
     const webHelpResult = await runCli(["web", "--help"]);
     const searchHelpResult = await runCli(["web", "search", "--help"]);
     const fetchHelpResult = await runCli(["web", "fetch", "--help"]);
+    const inspectHelpResult = await runCli(["web", "inspect", "--help"]);
+    const linksHelpResult = await runCli(["web", "links", "--help"]);
+    const sitemapHelpResult = await runCli(["web", "sitemap", "--help"]);
 
     expect(webHelpResult.exitCode).toBe(0);
     expect(webHelpResult.stdout).toContain(
       "Usage: devtools web [options] [command]",
     );
+    expect(webHelpResult.stdout).toContain(
+      "docs-search [options] <site> <query>",
+    );
+    expect(webHelpResult.stdout).toContain("inspect [options] <url>");
+    expect(webHelpResult.stdout).toContain("links [options] <url>");
+    expect(webHelpResult.stdout).toContain("sitemap [options] <url>");
     expect(searchHelpResult.exitCode).toBe(0);
     expect(searchHelpResult.stdout).toContain(
       "Usage: devtools web search [options] <query>",
@@ -68,6 +77,18 @@ describe("CLI integration", () => {
     expect(fetchHelpResult.exitCode).toBe(0);
     expect(fetchHelpResult.stdout).toContain(
       "Usage: devtools web fetch [options] <url>",
+    );
+    expect(inspectHelpResult.exitCode).toBe(0);
+    expect(inspectHelpResult.stdout).toContain(
+      "Usage: devtools web inspect [options] <url>",
+    );
+    expect(linksHelpResult.exitCode).toBe(0);
+    expect(linksHelpResult.stdout).toContain(
+      "Usage: devtools web links [options] <url>",
+    );
+    expect(sitemapHelpResult.exitCode).toBe(0);
+    expect(sitemapHelpResult.stdout).toContain(
+      "Usage: devtools web sitemap [options] <url>",
     );
   });
 
@@ -126,8 +147,74 @@ describe("CLI integration", () => {
     expect(result.exitCode).toBe(0);
     expect(JSON.parse(result.stdout)).toMatchObject({
       finalUrl: `${webFixtureServer.baseUrl}/article`,
+      canonicalUrl: `${webFixtureServer.baseUrl}/article`,
       title: "Fixture OG Title",
       markdown: expect.stringContaining("Primary heading"),
+    });
+    expect(result.stderr).toBe("");
+  });
+
+  it("inspects a local fixture page as json", async () => {
+    const result = await runCli([
+      "web",
+      "inspect",
+      `${webFixtureServer.baseUrl}/article`,
+      "--json",
+    ]);
+
+    expect(result.exitCode).toBe(0);
+    expect(JSON.parse(result.stdout)).toMatchObject({
+      finalUrl: `${webFixtureServer.baseUrl}/article`,
+      canonicalUrl: `${webFixtureServer.baseUrl}/article`,
+      title: "Fixture Article",
+      description: "Fixture description",
+      language: "en",
+    });
+    expect(result.stderr).toBe("");
+  });
+
+  it("extracts normalized links from a local fixture page", async () => {
+    const result = await runCli([
+      "web",
+      "links",
+      `${webFixtureServer.baseUrl}/article`,
+      "--same-origin",
+      "--json",
+    ]);
+
+    expect(result.exitCode).toBe(0);
+    expect(JSON.parse(result.stdout)).toMatchObject({
+      finalUrl: `${webFixtureServer.baseUrl}/article`,
+      sameOriginOnly: true,
+      links: expect.arrayContaining([
+        expect.objectContaining({
+          kind: "same-origin",
+          url: `${webFixtureServer.baseUrl}/docs`,
+          occurrences: 2,
+        }),
+      ]),
+    });
+    expect(result.stderr).toBe("");
+  });
+
+  it("reads sitemap urls from a local fixture site", async () => {
+    const result = await runCli([
+      "web",
+      "sitemap",
+      webFixtureServer.baseUrl,
+      "--same-origin",
+      "--json",
+    ]);
+
+    expect(result.exitCode).toBe(0);
+    expect(JSON.parse(result.stdout)).toMatchObject({
+      requestedUrl: `${webFixtureServer.baseUrl}/`,
+      sameOriginOnly: true,
+      sitemapUrls: [`${webFixtureServer.baseUrl}/sitemap.xml`],
+      urls: expect.arrayContaining([
+        expect.objectContaining({ url: `${webFixtureServer.baseUrl}/` }),
+        expect.objectContaining({ url: `${webFixtureServer.baseUrl}/article` }),
+      ]),
     });
     expect(result.stderr).toBe("");
   });

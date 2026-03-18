@@ -64,6 +64,7 @@ describe("runWebSearch", () => {
         query: "typescript",
         limit: 5,
         json: false,
+        timeoutMs: 1_000,
       },
       registry,
     );
@@ -98,6 +99,7 @@ describe("runWebSearch", () => {
         query: "typescript",
         limit: 5,
         json: true,
+        timeoutMs: 1_000,
       },
       registry,
     );
@@ -105,11 +107,50 @@ describe("runWebSearch", () => {
     expect(JSON.parse(output)).toEqual({
       engine: "brave",
       query: "typescript",
+      searchQuery: "typescript",
       results: [
         {
           title: "TypeScript",
           url: "https://example.com/typescript",
           description: "Typed JavaScript at any scale.",
+        },
+      ],
+    });
+  });
+
+  it("supports site-restricted searches", async () => {
+    const registry = createSearchEngineRegistry("brave", [
+      createEngine("brave", [
+        {
+          title: "TypeScript docs",
+          url: "https://example.com/typescript",
+          description: undefined,
+        },
+      ]),
+    ]);
+
+    const output = await runWebSearch(
+      {
+        engineName: "brave",
+        query: "typescript",
+        limit: 5,
+        json: true,
+        site: "nodejs.org/docs",
+        timeoutMs: 1_000,
+      },
+      registry,
+    );
+
+    expect(JSON.parse(output)).toEqual({
+      engine: "brave",
+      query: "typescript",
+      searchQuery: "site:nodejs.org/docs typescript",
+      site: "nodejs.org/docs",
+      results: [
+        {
+          title: "TypeScript docs",
+          url: "https://example.com/typescript",
+          description: undefined,
         },
       ],
     });
@@ -126,11 +167,34 @@ describe("runWebSearch", () => {
         query: "typescript",
         limit: 5,
         json: false,
+        timeoutMs: 1_000,
       },
       registry,
     );
 
     expect(output).toBe('No results found for "typescript" using brave.\n');
+  });
+
+  it("returns a site-specific no-results message", async () => {
+    const registry = createSearchEngineRegistry("brave", [
+      createEngine("brave", []),
+    ]);
+
+    const output = await runWebSearch(
+      {
+        engineName: "brave",
+        query: "watch mode",
+        limit: 5,
+        json: false,
+        site: "vitest.dev/guide",
+        timeoutMs: 1_000,
+      },
+      registry,
+    );
+
+    expect(output).toBe(
+      'No results found for "watch mode" using brave on vitest.dev/guide.\n',
+    );
   });
 
   it("throws for an unknown engine", async () => {
@@ -146,6 +210,7 @@ describe("runWebSearch", () => {
           query: "typescript",
           limit: 5,
           json: false,
+          timeoutMs: 1_000,
         },
         registry,
       ),
@@ -158,6 +223,7 @@ describe("runWebSearch", () => {
           query: "typescript",
           limit: 5,
           json: false,
+          timeoutMs: 1_000,
         },
         registry,
       ),
