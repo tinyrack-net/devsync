@@ -2,8 +2,21 @@
   "name": "devtools",
   "version": "0.1.0",
   "private": true,
-  "description": "devtools CLI scaffolded with Node.js, TypeScript, and Biome.",
+  "description": "A personal CLI tool for web search, page extraction, and development-agent workflows.",
   "type": "module",
+  "license": "MIT",
+  "author": "winetree94",
+  "repository": {
+    "type": "git",
+    "url": "https://git.winetree94.com/winetree94/devtools.git"
+  },
+  "keywords": [
+    "cli",
+    "web-search",
+    "web-scraping",
+    "agent",
+    "devtools"
+  ],
   "imports": {
     "#app/*": "./src/*"
   },
