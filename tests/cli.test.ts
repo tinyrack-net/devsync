@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 
 import { type createDefaultCliServices, runCli } from "#app/cli/index.ts";
-import type { createSkillInstaller } from "#app/skills/install.ts";
+import type {
+  createSkillInstaller,
+  createSkillUninstaller,
+} from "#app/skills/install.ts";
 import type { createFetchWebPageReader } from "#app/web/fetch.ts";
 import type { createWebPageInspector } from "#app/web/inspect.ts";
 import type { createWebPageLinkReader } from "#app/web/links.ts";
@@ -34,6 +37,9 @@ type WebSitemapRequest = Parameters<
 >[0];
 type SkillInstallResult = Awaited<
   ReturnType<ReturnType<typeof createSkillInstaller>["install"]>
+>;
+type SkillUninstallResult = Awaited<
+  ReturnType<ReturnType<typeof createSkillUninstaller>["uninstall"]>
 >;
 type WebSearchEngine = Parameters<typeof createSearchEngineRegistry>[1][number];
 
@@ -129,6 +135,21 @@ const sampleSkillInstallResult = {
   ],
 } satisfies SkillInstallResult;
 
+const sampleSkillUninstallResult = {
+  agent: "pi",
+  dryRun: false,
+  skillsDirectory: "/workspace/devtools/skills",
+  targetDirectory: "/home/example/.pi/agent/skills",
+  uninstalledSkills: [
+    {
+      name: "web-research",
+      sourcePath: "/workspace/devtools/skills/web-research",
+      targetPath: "/home/example/.pi/agent/skills/web-research",
+      status: "removed",
+    },
+  ],
+} satisfies SkillUninstallResult;
+
 const createMockSearchEngine = (name: string) => {
   return {
     name,
@@ -158,6 +179,11 @@ const createTestServices = () => {
     agent: "pi";
     dryRun: boolean;
     force: boolean;
+    targetDirectory?: string;
+  }> = [];
+  const uninstallRequests: Array<{
+    agent: "pi";
+    dryRun: boolean;
     targetDirectory?: string;
   }> = [];
   const linkRequests: WebPageLinksRequest[] = [];
@@ -197,10 +223,31 @@ const createTestServices = () => {
               return {
                 ...skill,
                 status: request.dryRun ? "would-install" : skill.status,
-              };
+              } satisfies SkillInstallResult["installedSkills"][number];
             },
           ),
         };
+      },
+    },
+    skillUninstaller: {
+      uninstall: async (request) => {
+        uninstallRequests.push(request);
+        return {
+          ...sampleSkillUninstallResult,
+          agent: request.agent,
+          dryRun: request.dryRun,
+          targetDirectory:
+            request.targetDirectory ??
+            sampleSkillUninstallResult.targetDirectory,
+          uninstalledSkills: sampleSkillUninstallResult.uninstalledSkills.map(
+            (skill) => {
+              return {
+                ...skill,
+                status: request.dryRun ? "would-remove" : skill.status,
+              } satisfies SkillUninstallResult["uninstalledSkills"][number];
+            },
+          ),
+        } satisfies SkillUninstallResult;
       },
     },
     webPageInspector: {
@@ -244,6 +291,7 @@ const createTestServices = () => {
     readRequests,
     services,
     sitemapRequests,
+    uninstallRequests,
   };
 };
 
@@ -276,6 +324,7 @@ const runWithCapturedIo = async (
     linkRequests: testServices.linkRequests,
     readRequests: testServices.readRequests,
     sitemapRequests: testServices.sitemapRequests,
+    uninstallRequests: testServices.uninstallRequests,
     stdout: stdout.join(""),
     stderr: stderr.join(""),
   };
@@ -304,6 +353,17 @@ describe("runCli", () => {
     expect(result.exitCode).toBe(0);
     expect(result.stdout).toContain(
       "Usage: devtools install [options] [command]",
+    );
+    expect(result.stdout).toContain("skills [options] <agent>");
+    expect(result.stderr).toBe("");
+  });
+
+  it("shows help for the uninstall command", async () => {
+    const result = await runWithCapturedIo(["uninstall", "--help"]);
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toContain(
+      "Usage: devtools uninstall [options] [command]",
     );
     expect(result.stdout).toContain("skills [options] <agent>");
     expect(result.stderr).toBe("");
@@ -345,6 +405,17 @@ describe("runCli", () => {
     expect(result.stdout).toContain("--target-dir <path>");
     expect(result.stdout).toContain("--dry-run");
     expect(result.stdout).toContain("--force");
+  });
+
+  it("shows help for uninstall skills", async () => {
+    const result = await runWithCapturedIo(["uninstall", "skills", "--help"]);
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toContain(
+      "Usage: devtools uninstall skills [options] <agent>",
+    );
+    expect(result.stdout).toContain("--target-dir <path>");
+    expect(result.stdout).toContain("--dry-run");
   });
 
   it("shows help for the new web commands", async () => {
@@ -413,6 +484,47 @@ describe("runCli", () => {
         agent: "pi",
         dryRun: true,
         force: false,
+      },
+    ]);
+  });
+
+  it("uninstalls bundled skills for pi", async () => {
+    const result = await runWithCapturedIo([
+      "uninstall",
+      "skills",
+      "pi",
+      "--target-dir",
+      "/tmp/pi-skills",
+    ]);
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toContain("Removed 1 skills for pi.");
+    expect(result.uninstallRequests).toEqual([
+      {
+        agent: "pi",
+        dryRun: false,
+        targetDirectory: "/tmp/pi-skills",
+      },
+    ]);
+  });
+
+  it("supports dry-run skill uninstallation", async () => {
+    const result = await runWithCapturedIo([
+      "uninstall",
+      "skills",
+      "pi",
+      "--dry-run",
+    ]);
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toContain(
+      "Dry run for pi uninstall: 1 skills evaluated.",
+    );
+    expect(result.stdout).toContain("No filesystem changes were made.");
+    expect(result.uninstallRequests).toEqual([
+      {
+        agent: "pi",
+        dryRun: true,
       },
     ]);
   });

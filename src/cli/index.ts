@@ -3,8 +3,11 @@ import { fileURLToPath } from "node:url";
 import { Command, CommanderError } from "commander";
 import {
   createSkillInstaller,
+  createSkillUninstaller,
   registerInstallSkillsCommand,
+  registerUninstallSkillsCommand,
   SkillInstallError,
+  SkillUninstallError,
 } from "#app/skills/install.ts";
 import {
   createFetchWebPageReader,
@@ -69,6 +72,9 @@ export const createDefaultCliServices = () => {
     skillInstaller: createSkillInstaller({
       skillsDirectory: defaultSkillsDirectory,
     }),
+    skillUninstaller: createSkillUninstaller({
+      skillsDirectory: defaultSkillsDirectory,
+    }),
   };
 };
 
@@ -115,11 +121,18 @@ export const createProgram = (
   const installCommand = program
     .command("install")
     .description("Install packaged resources");
+  const uninstallCommand = program
+    .command("uninstall")
+    .description("Uninstall packaged resources");
   const webCommand = program.command("web").description("Web utilities");
 
   registerInstallSkillsCommand(installCommand, {
     io,
     skillInstaller: services.skillInstaller,
+  });
+  registerUninstallSkillsCommand(uninstallCommand, {
+    io,
+    skillUninstaller: services.skillUninstaller,
   });
 
   registerWebSearchCommand(webCommand, {
@@ -173,6 +186,7 @@ export const runCli = async (
 
     if (
       error instanceof SkillInstallError ||
+      error instanceof SkillUninstallError ||
       error instanceof WebPageReadError ||
       error instanceof WebPageInspectError ||
       error instanceof WebPageLinksError ||

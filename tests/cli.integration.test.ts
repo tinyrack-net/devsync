@@ -62,8 +62,9 @@ describe("CLI integration", () => {
     expect(result.stderr).toBe("");
   });
 
-  it("shows help for install and nested web commands", async () => {
+  it("shows help for install, uninstall, and nested web commands", async () => {
     const installHelpResult = await runCli(["install", "skills", "--help"]);
+    const uninstallHelpResult = await runCli(["uninstall", "skills", "--help"]);
     const webHelpResult = await runCli(["web", "--help"]);
     const searchHelpResult = await runCli(["web", "search", "--help"]);
     const fetchHelpResult = await runCli(["web", "fetch", "--help"]);
@@ -74,6 +75,10 @@ describe("CLI integration", () => {
     expect(installHelpResult.exitCode).toBe(0);
     expect(installHelpResult.stdout).toContain(
       "Usage: devtools install skills [options] <agent>",
+    );
+    expect(uninstallHelpResult.exitCode).toBe(0);
+    expect(uninstallHelpResult.stdout).toContain(
+      "Usage: devtools uninstall skills [options] <agent>",
     );
 
     expect(webHelpResult.exitCode).toBe(0);
@@ -198,6 +203,73 @@ describe("CLI integration", () => {
       });
     } finally {
       await rm(workspaceDirectory, { force: true, recursive: true });
+    }
+  });
+
+  it("uninstalls bundled pi skills from a target directory", async () => {
+    const targetDirectory = await mkdtemp(join(tmpdir(), "devtools-remove-"));
+
+    try {
+      await runCli([
+        "install",
+        "skills",
+        "pi",
+        "--target-dir",
+        targetDirectory,
+      ]);
+
+      const result = await runCli([
+        "uninstall",
+        "skills",
+        "pi",
+        "--target-dir",
+        targetDirectory,
+      ]);
+
+      expect(result.exitCode).toBe(0);
+      expect(result.stdout).toContain("Removed 1 skills for pi.");
+      await expect(
+        lstat(join(targetDirectory, "web-research")),
+      ).rejects.toMatchObject({
+        code: "ENOENT",
+      });
+    } finally {
+      await rm(targetDirectory, { force: true, recursive: true });
+    }
+  });
+
+  it("supports dry-run skill uninstallation without removing files", async () => {
+    const targetDirectory = await mkdtemp(
+      join(tmpdir(), "devtools-remove-dry-"),
+    );
+
+    try {
+      await runCli([
+        "install",
+        "skills",
+        "pi",
+        "--target-dir",
+        targetDirectory,
+      ]);
+
+      const result = await runCli([
+        "uninstall",
+        "skills",
+        "pi",
+        "--target-dir",
+        targetDirectory,
+        "--dry-run",
+      ]);
+
+      expect(result.exitCode).toBe(0);
+      expect(result.stdout).toContain(
+        "Dry run for pi uninstall: 1 skills evaluated.",
+      );
+      expect(await realpath(join(targetDirectory, "web-research"))).toBe(
+        fileURLToPath(new URL("../skills/web-research", import.meta.url)),
+      );
+    } finally {
+      await rm(targetDirectory, { force: true, recursive: true });
     }
   });
 

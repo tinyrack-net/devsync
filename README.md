@@ -20,7 +20,7 @@ A personal CLI tool for development-agent workflows.
 - **Sitemap discovery and parsing** with nested sitemap support
 - **Structured JSON output** across agent-oriented commands
 - **Pi web-research skill template** with workflow-focused references
-- **Skill installation** into Pi via symlinked local templates
+- **Skill installation and uninstallation** for Pi via symlinked local templates
 - **Timeouts and deterministic output** for automation-friendly behavior
 - **No build step for execution**: runs TypeScript directly with Node.js
 
@@ -92,7 +92,7 @@ It also includes on-demand reference documents for command selection and workflo
 - `skills/web-research/references/commands.md`
 - `skills/web-research/references/workflows.md`
 
-Install them into Pi's global skills directory:
+Install the skill into Pi's global skills directory:
 
 ```bash
 devtools install skills pi
@@ -104,6 +104,14 @@ You can override the target directory, preview the installation, or replace exis
 devtools install skills pi --target-dir ~/.pi/agent/skills
 devtools install skills pi --dry-run
 devtools install skills pi --force
+```
+
+Remove the bundled skill from the target directory:
+
+```bash
+devtools uninstall skills pi
+devtools uninstall skills pi --dry-run
+devtools uninstall skills pi --target-dir ~/.pi/agent/skills
 ```
 
 If `PI_CODING_AGENT_DIR` is set, `devtools install skills pi` installs into:
@@ -135,6 +143,22 @@ Default destination behavior for `pi`:
 - if `--target-dir` is set, use it
 - else if `PI_CODING_AGENT_DIR` is set, use `$PI_CODING_AGENT_DIR/skills`
 - else use `~/.pi/agent/skills`
+
+### `uninstall skills`
+
+Uninstall bundled skill templates for a supported agent harness.
+
+```bash
+devtools uninstall skills pi
+```
+
+Options:
+
+- `--target-dir <path>`: override the destination directory
+- `--dry-run`: preview removals without changing files
+
+Uninstallation only removes managed bundled skill symlinks.
+If a matching target exists but does not point to the bundled skill, the command fails instead of deleting unrelated files.
 
 ### `web search`
 
