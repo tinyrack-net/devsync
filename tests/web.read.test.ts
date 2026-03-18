@@ -1,13 +1,16 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { createFetchWebPageReader } from "../src/web/fetch-reader.ts";
 import {
-  type WebPageContent,
-  WebPageReadError,
+  createFetchWebPageReader,
   formatWebPageContent,
-} from "../src/web/read.ts";
+  WebPageReadError,
+} from "#app/web/fetch.ts";
 
-const sampleContent: WebPageContent = {
+type WebPageContent = Awaited<
+  ReturnType<ReturnType<typeof createFetchWebPageReader>["read"]>
+>;
+
+const sampleContent = {
   requestedUrl: "https://example.com/requested",
   finalUrl: "https://example.com/final",
   title: "Example page",
@@ -17,7 +20,7 @@ const sampleContent: WebPageContent = {
   text: "Heading\n\nParagraph text.",
   html: "<article><h1>Heading</h1><p>Paragraph text.</p></article>",
   markdown: "# Heading\n\nParagraph text.",
-};
+} satisfies WebPageContent;
 
 describe("formatWebPageContent", () => {
   it("formats markdown output", () => {

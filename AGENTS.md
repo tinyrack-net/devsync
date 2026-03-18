@@ -20,6 +20,15 @@
 - Do not introduce a build step that emits JavaScript unless explicitly requested
 - Prefer small, testable modules over putting all logic in `src/index.ts`
 
+## Source Layout
+
+- Keep `src/index.ts` as the CLI entrypoint only
+- Place CLI-specific modules under `src/cli/`
+- Place environment/configuration modules under `src/config/`
+- Place reusable cross-domain pure utilities under `src/lib/`
+- Keep domain-specific helpers with their owning domain, e.g. web parsing/formatting under `src/web/`
+- Avoid leaving feature modules like `cli-types.ts` or `cli-validation.ts` in the `src/` root
+
 ## Validation Requirements
 
 After every code change, run all validation steps before finishing:

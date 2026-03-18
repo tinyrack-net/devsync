@@ -1,7 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { createBraveSearchEngine } from "../src/web/brave.ts";
-import { WebSearchError } from "../src/web/search.ts";
+import { createBraveSearchEngine, WebSearchError } from "#app/web/search.ts";
 
 describe("createBraveSearchEngine", () => {
   it("requires an api key", async () => {

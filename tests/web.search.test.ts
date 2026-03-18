@@ -1,11 +1,12 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  type WebSearchEngine,
-  WebSearchError,
   createSearchEngineRegistry,
   runWebSearch,
-} from "../src/web/search.ts";
+  WebSearchError,
+} from "#app/web/search.ts";
+
+type WebSearchEngine = Parameters<typeof createSearchEngineRegistry>[1][number];
 
 const createEngine = (
   name: string,
@@ -14,11 +15,11 @@ const createEngine = (
     url: string;
     description: string | undefined;
   }[],
-): WebSearchEngine => {
+) => {
   return {
     name,
     search: async () => results,
-  };
+  } satisfies WebSearchEngine;
 };
 
 describe("createSearchEngineRegistry", () => {

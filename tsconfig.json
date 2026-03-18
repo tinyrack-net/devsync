@@ -4,6 +4,10 @@
     "lib": ["ESNext", "DOM"],
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
+    "baseUrl": ".",
+    "paths": {
+      "#app/*": ["./src/*"]
+    },
     "moduleDetection": "force",
     "types": ["node"],
     "resolveJsonModule": true,

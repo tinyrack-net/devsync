@@ -4,6 +4,9 @@
   "private": true,
   "description": "devtools CLI scaffolded with Node.js, TypeScript, and Biome.",
   "type": "module",
+  "imports": {
+    "#app/*": "./src/*"
+  },
   "bin": {
     "devtools": "./src/index.ts"
   },
@@ -29,7 +32,7 @@
     "zod": "^4.1.5"
   },
   "devDependencies": {
-    "@biomejs/biome": "^1.9.4",
+    "@biomejs/biome": "^2.3.10",
     "@types/jsdom": "^27.0.0",
     "@types/node": "^24.5.2",
     "@types/turndown": "^5.0.5",

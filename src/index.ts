@@ -2,13 +2,16 @@
 
 import { createRequire } from "node:module";
 
-import { type PackageInfo, runCli } from "./cli.ts";
-import { loadEnvironment } from "./env.ts";
+import { runCli } from "#app/cli/index.ts";
+import { loadEnvironment } from "#app/config/env.ts";
 
 loadEnvironment();
 
 const require = createRequire(import.meta.url);
-const packageJson = require("../package.json") as PackageInfo;
+const packageJson = require("../package.json") as {
+  name: string;
+  version: string;
+};
 
 const exitCode = await runCli(process.argv.slice(2), packageJson, {
   stdout: (text) => {

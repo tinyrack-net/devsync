@@ -1,4 +1,4 @@
-import { type ServerResponse, createServer } from "node:http";
+import { createServer, type ServerResponse } from "node:http";
 
 export type WebFixtureServer = Readonly<{
   baseUrl: string;
