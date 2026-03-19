@@ -7,9 +7,8 @@ import {
   parseSyncConfig,
   type ResolvedSyncConfig,
   readSyncConfig,
+  resolveSyncArtifactsDirectoryPath,
   resolveSyncConfigFilePath,
-  resolveSyncPlainDirectoryPath,
-  resolveSyncSecretDirectoryPath,
 } from "#app/config/sync.ts";
 import {
   resolveConfiguredAbsolutePath,
@@ -202,10 +201,7 @@ export const initializeSync = async (
       gitSource = gitResult.source;
     }
 
-    await mkdir(resolveSyncPlainDirectoryPath(syncDirectory), {
-      recursive: true,
-    });
-    await mkdir(resolveSyncSecretDirectoryPath(syncDirectory), {
+    await mkdir(resolveSyncArtifactsDirectoryPath(syncDirectory), {
       recursive: true,
     });
 

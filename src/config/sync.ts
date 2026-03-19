@@ -12,8 +12,8 @@ import { ensureTrailingNewline } from "#app/lib/string.ts";
 import { formatInputIssues } from "#app/lib/validation.ts";
 
 export const syncConfigFileName = "config.json";
-export const syncPlainDirectoryName = "plain";
-export const syncSecretDirectoryName = "secret";
+export const syncArtifactsDirectoryName = "files";
+export const syncSecretArtifactSuffix = ".devsync.secret";
 
 const syncEntryKinds = ["file", "directory"] as const;
 export const syncModes = ["normal", "secret", "ignore"] as const;
@@ -112,6 +112,12 @@ export const normalizeSyncRepoPath = (value: string) => {
     );
   }
 
+  if (hasReservedSyncArtifactSuffixSegment(normalizedValue)) {
+    throw new SyncConfigError(
+      `Repository path must not use the reserved suffix ${syncSecretArtifactSuffix}: ${value}`,
+    );
+  }
+
   return normalizedValue;
 };
 
@@ -149,7 +155,20 @@ export const normalizeSyncRulePath = (
     );
   }
 
+  if (hasReservedSyncArtifactSuffixSegment(normalizedValue)) {
+    throw new SyncConfigError(
+      `${description} must not use the reserved suffix ${syncSecretArtifactSuffix}: ${value}`,
+    );
+  }
+
   return normalizedValue;
+};
+
+export const hasReservedSyncArtifactSuffixSegment = (value: string) => {
+  return value
+    .replaceAll("\\", "/")
+    .split("/")
+    .some((segment) => segment.endsWith(syncSecretArtifactSuffix));
 };
 
 export const findOwningSyncEntry = (
@@ -469,12 +488,8 @@ export const resolveSyncConfigFilePath = (
   return join(syncDirectory, syncConfigFileName);
 };
 
-export const resolveSyncPlainDirectoryPath = (syncDirectory: string) => {
-  return join(syncDirectory, syncPlainDirectoryName);
-};
-
-export const resolveSyncSecretDirectoryPath = (syncDirectory: string) => {
-  return join(syncDirectory, syncSecretDirectoryName);
+export const resolveSyncArtifactsDirectoryPath = (syncDirectory: string) => {
+  return join(syncDirectory, syncArtifactsDirectoryName);
 };
 
 export const readSyncConfig = async (

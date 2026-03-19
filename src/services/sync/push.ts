@@ -3,9 +3,8 @@ import { join } from "node:path";
 
 import {
   readSyncConfig,
+  resolveSyncArtifactsDirectoryPath,
   resolveSyncConfigFilePath,
-  resolveSyncPlainDirectoryPath,
-  resolveSyncSecretDirectoryPath,
 } from "#app/config/sync.ts";
 import { resolveDevsyncSyncDirectory } from "#app/config/xdg.ts";
 
@@ -102,30 +101,14 @@ export const pushSync = async (
       const stagingRoot = await mkdtemp(
         join(syncDirectory, ".devsync-sync-push-"),
       );
-      const nextPlainDirectory = join(stagingRoot, "plain");
-      const nextSecretDirectory = join(stagingRoot, "secret");
+      const nextArtifactsDirectory = join(stagingRoot, "files");
 
       try {
-        await writeArtifactsToDirectory(
-          nextPlainDirectory,
-          artifacts.filter((artifact) => {
-            return artifact.category === "plain";
-          }),
-        );
-        await writeArtifactsToDirectory(
-          nextSecretDirectory,
-          artifacts.filter((artifact) => {
-            return artifact.category === "secret";
-          }),
-        );
+        await writeArtifactsToDirectory(nextArtifactsDirectory, artifacts);
 
         await replacePathAtomically(
-          resolveSyncPlainDirectoryPath(syncDirectory),
-          nextPlainDirectory,
-        );
-        await replacePathAtomically(
-          resolveSyncSecretDirectoryPath(syncDirectory),
-          nextSecretDirectory,
+          resolveSyncArtifactsDirectoryPath(syncDirectory),
+          nextArtifactsDirectory,
         );
       } finally {
         await rm(stagingRoot, { force: true, recursive: true });

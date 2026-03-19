@@ -4,9 +4,8 @@ import { join } from "node:path";
 import {
   findOwningSyncEntry,
   type ResolvedSyncConfig,
+  resolveSyncArtifactsDirectoryPath,
   resolveSyncMode,
-  resolveSyncPlainDirectoryPath,
-  resolveSyncSecretDirectoryPath,
 } from "#app/config/sync.ts";
 
 import { decryptSecretFile } from "./crypto.ts";
@@ -18,6 +17,11 @@ import {
   pathExists,
 } from "./filesystem.ts";
 import { addSnapshotNode, type SnapshotNode } from "./local-snapshot.ts";
+import {
+  assertStorageSafeRepoPath,
+  isSecretArtifactPath,
+  stripSecretArtifactSuffix,
+} from "./repo-artifacts.ts";
 
 const resolveManagedSyncMode = (
   config: ResolvedSyncConfig,
@@ -38,6 +42,7 @@ const readPlainSnapshotNode = async (
   config: ResolvedSyncConfig,
   snapshot: Map<string, SnapshotNode>,
 ) => {
+  assertStorageSafeRepoPath(repoPath);
   const mode = resolveManagedSyncMode(config, repoPath);
 
   if (mode === "ignore") {
@@ -79,7 +84,7 @@ const readPlainSnapshotNode = async (
   });
 };
 
-const readPlainRepositoryTree = async (
+const readRepositoryTree = async (
   rootDirectory: string,
   config: ResolvedSyncConfig,
   snapshot: Map<string, SnapshotNode>,
@@ -98,93 +103,69 @@ const readPlainRepositoryTree = async (
     const stats = await lstat(absolutePath);
 
     if (stats.isDirectory()) {
-      await readPlainRepositoryTree(
-        absolutePath,
-        config,
-        snapshot,
-        relativePath,
-      );
-      continue;
-    }
-
-    await readPlainSnapshotNode(absolutePath, relativePath, config, snapshot);
-  }
-};
-
-const readSecretRepositoryTree = async (
-  rootDirectory: string,
-  config: ResolvedSyncConfig,
-  snapshot: Map<string, SnapshotNode>,
-  prefix?: string,
-) => {
-  if (!(await pathExists(rootDirectory))) {
-    return;
-  }
-
-  const entries = await listDirectoryEntries(rootDirectory);
-
-  for (const entry of entries) {
-    const absolutePath = join(rootDirectory, entry.name);
-    const relativePath =
-      prefix === undefined ? entry.name : `${prefix}/${entry.name}`;
-    const stats = await lstat(absolutePath);
-
-    if (stats.isDirectory()) {
-      await readSecretRepositoryTree(
-        absolutePath,
-        config,
-        snapshot,
-        relativePath,
-      );
+      assertStorageSafeRepoPath(relativePath);
+      await readRepositoryTree(absolutePath, config, snapshot, relativePath);
       continue;
     }
 
     if (stats.isSymbolicLink()) {
-      throw new SyncError(
-        `Secret repository entries must be regular files, not symlinks: ${relativePath}`,
-      );
+      if (isSecretArtifactPath(relativePath)) {
+        throw new SyncError(
+          `Secret repository entries must be regular files, not symlinks: ${relativePath}`,
+        );
+      }
+
+      await readPlainSnapshotNode(absolutePath, relativePath, config, snapshot);
+      continue;
+    }
+
+    if (isSecretArtifactPath(relativePath)) {
+      const repoPath = stripSecretArtifactSuffix(relativePath);
+
+      if (repoPath === undefined || repoPath.length === 0) {
+        throw new SyncError(
+          `Secret repository files must include a path before ${relativePath}`,
+        );
+      }
+
+      assertStorageSafeRepoPath(repoPath);
+      const mode = resolveManagedSyncMode(config, repoPath);
+
+      if (findOwningSyncEntry(config, repoPath) === undefined) {
+        throw new SyncError(
+          `Unmanaged secret sync path found in repository: ${repoPath}`,
+        );
+      }
+
+      if (mode === "ignore") {
+        continue;
+      }
+
+      if (mode !== "secret") {
+        throw new SyncError(
+          `Plain sync path is stored in secret form in the repository: ${repoPath}`,
+        );
+      }
+
+      addSnapshotNode(snapshot, repoPath, {
+        contents: await decryptSecretFile(
+          await readFile(absolutePath, "utf8"),
+          config.age.identityFile,
+        ),
+        executable: isExecutableMode(stats.mode),
+        secret: true,
+        type: "file",
+      });
+      continue;
     }
 
     if (!stats.isFile()) {
       throw new SyncError(
-        `Unsupported secret repository entry: ${absolutePath}`,
+        `Unsupported plain repository entry: ${absolutePath}`,
       );
     }
 
-    if (!relativePath.endsWith(".age")) {
-      throw new SyncError(
-        `Secret repository files must end with .age: ${relativePath}`,
-      );
-    }
-
-    const repoPath = relativePath.slice(0, -".age".length);
-    const mode = resolveManagedSyncMode(config, repoPath);
-
-    if (findOwningSyncEntry(config, repoPath) === undefined) {
-      throw new SyncError(
-        `Unmanaged secret sync path found in repository: ${repoPath}`,
-      );
-    }
-
-    if (mode === "ignore") {
-      continue;
-    }
-
-    if (mode !== "secret") {
-      throw new SyncError(
-        `Plain sync path is stored in secret form in the repository: ${repoPath}`,
-      );
-    }
-
-    addSnapshotNode(snapshot, repoPath, {
-      contents: await decryptSecretFile(
-        await readFile(absolutePath, "utf8"),
-        config.age.identityFile,
-      ),
-      executable: isExecutableMode(stats.mode),
-      secret: true,
-      type: "file",
-    });
+    await readPlainSnapshotNode(absolutePath, relativePath, config, snapshot);
   }
 };
 
@@ -193,22 +174,17 @@ export const buildRepositorySnapshot = async (
   config: ResolvedSyncConfig,
 ) => {
   const snapshot = new Map<string, SnapshotNode>();
-  const plainDirectory = resolveSyncPlainDirectoryPath(syncDirectory);
+  const artifactsDirectory = resolveSyncArtifactsDirectoryPath(syncDirectory);
 
-  await readPlainRepositoryTree(plainDirectory, config, snapshot);
-  await readSecretRepositoryTree(
-    resolveSyncSecretDirectoryPath(syncDirectory),
-    config,
-    snapshot,
-  );
+  await readRepositoryTree(artifactsDirectory, config, snapshot);
 
   for (const entry of config.entries) {
     if (entry.kind !== "directory") {
       continue;
     }
 
-    const plainPath = join(plainDirectory, ...entry.repoPath.split("/"));
-    const stats = await getPathStats(plainPath);
+    const artifactPath = join(artifactsDirectory, ...entry.repoPath.split("/"));
+    const stats = await getPathStats(artifactPath);
 
     if (stats !== undefined && !stats.isDirectory()) {
       throw new SyncError(

@@ -8,6 +8,7 @@ import {
   isExecutableMode,
   listDirectoryEntries,
 } from "./filesystem.ts";
+import { assertStorageSafeRepoPath } from "./repo-artifacts.ts";
 
 export type SnapshotNode =
   | Readonly<{
@@ -66,6 +67,7 @@ const addLocalNode = async (
   path: string,
   stats: Awaited<ReturnType<typeof lstat>>,
 ) => {
+  assertStorageSafeRepoPath(repoPath);
   const mode = resolveManagedSyncMode(config, repoPath);
 
   if (mode === "ignore") {
@@ -119,6 +121,7 @@ const walkLocalDirectory = async (
     const stats = await lstat(localPath);
 
     if (stats.isDirectory()) {
+      assertStorageSafeRepoPath(repoPath);
       await walkLocalDirectory(snapshot, config, localPath, repoPath);
       continue;
     }

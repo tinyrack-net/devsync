@@ -5,9 +5,8 @@ import {
   type ResolvedSyncConfig,
   type ResolvedSyncConfigEntry,
   readSyncConfig,
+  resolveSyncArtifactsDirectoryPath,
   resolveSyncConfigFilePath,
-  resolveSyncPlainDirectoryPath,
-  resolveSyncSecretDirectoryPath,
 } from "#app/config/sync.ts";
 import { resolveDevsyncSyncDirectory } from "#app/config/xdg.ts";
 
@@ -24,12 +23,15 @@ import {
 } from "./filesystem.ts";
 import { ensureGitRepository, type GitService } from "./git.ts";
 import {
-  buildDirectoryKey,
   isExplicitLocalPath,
   isPathEqualOrNested,
   resolveCommandTargetPath,
   tryNormalizeRepoPathInput,
 } from "./paths.ts";
+import {
+  isSecretArtifactPath,
+  resolveArtifactRelativePath,
+} from "./repo-artifacts.ts";
 
 type SyncForgetRequest = Readonly<{
   target: string;
@@ -75,11 +77,13 @@ const findMatchingTrackedEntry = (
   });
 };
 
-const collectRepoArtifactKeys = async (
+const collectRepoArtifactCounts = async (
   targetPath: string,
-  category: "plain" | "secret",
-  repoPath: string,
-  keys: Set<string>,
+  counts: {
+    plain: number;
+    secret: number;
+  },
+  relativePath: string,
 ) => {
   const stats = await getPathStats(targetPath);
 
@@ -88,66 +92,69 @@ const collectRepoArtifactKeys = async (
   }
 
   if (stats.isDirectory()) {
-    if (category === "plain") {
-      keys.add(`plain:${buildDirectoryKey(repoPath)}`);
-    }
+    counts.plain += 1;
 
     const entries = await listDirectoryEntries(targetPath);
 
     for (const entry of entries) {
-      await collectRepoArtifactKeys(
+      await collectRepoArtifactCounts(
         join(targetPath, entry.name),
-        category,
-        posix.join(repoPath, entry.name),
-        keys,
+        counts,
+        posix.join(relativePath, entry.name),
       );
     }
 
     return;
   }
 
-  if (category === "secret") {
-    keys.add(
-      `secret:${
-        repoPath.endsWith(".age") ? repoPath.slice(0, -".age".length) : repoPath
-      }`,
-    );
-
-    return;
+  if (isSecretArtifactPath(relativePath)) {
+    counts.secret += 1;
+  } else {
+    counts.plain += 1;
   }
-
-  keys.add(`plain:${repoPath}`);
 };
 
 const collectEntryArtifactCounts = async (
   syncDirectory: string,
   entry: ResolvedSyncConfigEntry,
 ) => {
-  const plainKeys = new Set<string>();
-  const secretKeys = new Set<string>();
-  const plainPath = join(
-    resolveSyncPlainDirectoryPath(syncDirectory),
-    ...entry.repoPath.split("/"),
-  );
-  const secretPath =
-    entry.kind === "directory"
-      ? join(
-          resolveSyncSecretDirectoryPath(syncDirectory),
-          ...entry.repoPath.split("/"),
-        )
-      : `${join(resolveSyncSecretDirectoryPath(syncDirectory), ...entry.repoPath.split("/"))}.age`;
+  const artifactsRoot = resolveSyncArtifactsDirectoryPath(syncDirectory);
+  const counts = {
+    plain: 0,
+    secret: 0,
+  };
 
-  await collectRepoArtifactKeys(plainPath, "plain", entry.repoPath, plainKeys);
-  await collectRepoArtifactKeys(
-    secretPath,
-    "secret",
-    entry.kind === "directory" ? entry.repoPath : `${entry.repoPath}.age`,
-    secretKeys,
-  );
+  if (entry.kind === "directory") {
+    await collectRepoArtifactCounts(
+      join(artifactsRoot, ...entry.repoPath.split("/")),
+      counts,
+      entry.repoPath,
+    );
+  } else {
+    await collectRepoArtifactCounts(
+      join(artifactsRoot, ...entry.repoPath.split("/")),
+      counts,
+      entry.repoPath,
+    );
+    await collectRepoArtifactCounts(
+      join(
+        artifactsRoot,
+        ...resolveArtifactRelativePath({
+          category: "secret",
+          repoPath: entry.repoPath,
+        }).split("/"),
+      ),
+      counts,
+      resolveArtifactRelativePath({
+        category: "secret",
+        repoPath: entry.repoPath,
+      }),
+    );
+  }
 
   return {
-    plainArtifactCount: plainKeys.size,
-    secretArtifactCount: secretKeys.size,
+    plainArtifactCount: counts.plain,
+    secretArtifactCount: counts.secret,
   };
 };
 
@@ -187,18 +194,26 @@ const removeTrackedEntryArtifacts = async (
   syncDirectory: string,
   entry: ResolvedSyncConfigEntry,
 ) => {
-  const plainRoot = resolveSyncPlainDirectoryPath(syncDirectory);
-  const secretRoot = resolveSyncSecretDirectoryPath(syncDirectory);
-  const plainPath = join(plainRoot, ...entry.repoPath.split("/"));
-  const secretPath =
-    entry.kind === "directory"
-      ? join(secretRoot, ...entry.repoPath.split("/"))
-      : `${join(secretRoot, ...entry.repoPath.split("/"))}.age`;
+  const artifactsRoot = resolveSyncArtifactsDirectoryPath(syncDirectory);
+  const plainPath = join(artifactsRoot, ...entry.repoPath.split("/"));
 
   await removePathAtomically(plainPath);
-  await pruneEmptyParentDirectories(dirname(plainPath), plainRoot);
+  await pruneEmptyParentDirectories(dirname(plainPath), artifactsRoot);
+
+  if (entry.kind === "directory") {
+    return;
+  }
+
+  const secretPath = join(
+    artifactsRoot,
+    ...resolveArtifactRelativePath({
+      category: "secret",
+      repoPath: entry.repoPath,
+    }).split("/"),
+  );
+
   await removePathAtomically(secretPath);
-  await pruneEmptyParentDirectories(dirname(secretPath), secretRoot);
+  await pruneEmptyParentDirectories(dirname(secretPath), artifactsRoot);
 };
 
 export const forgetSyncTarget = async (
