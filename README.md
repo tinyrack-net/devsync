@@ -401,7 +401,7 @@ tests/
 
 | Package | Purpose |
 |---|---|
-| `commander` | CLI command definitions |
+| `@oclif/core` | CLI command definitions |
 | `zod` | Input validation and environment schema |
 | `jsdom` | HTML/XML DOM parsing |
 | `@mozilla/readability` | Article extraction from web pages |

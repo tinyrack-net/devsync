@@ -35,7 +35,7 @@
 
 ## Key Dependencies
 
-- `commander` for CLI command definitions
+- `@oclif/core` for CLI command definitions
 - `zod` for input validation and environment schema
 - `jsdom` and `@mozilla/readability` for HTML parsing and article extraction
 - `turndown` for HTML-to-Markdown conversion
