@@ -1,9 +1,7 @@
 import { Args, Command, Flags } from "@oclif/core";
 
-import {
-  createSyncManager,
-  runSyncInitCommand,
-} from "#app/services/sync/index.ts";
+import { formatSyncInitResult } from "#app/cli/sync-output.ts";
+import { createSyncManager } from "#app/services/sync/index.ts";
 
 const syncManager = createSyncManager();
 
@@ -30,17 +28,12 @@ export default class SyncInit extends Command {
 
   public override async run(): Promise<void> {
     const { args, flags } = await this.parse(SyncInit);
-    const output = await runSyncInitCommand(
-      {
-        options: {
-          identity: flags.identity,
-          recipient: flags.recipient,
-        },
+    const output = formatSyncInitResult(
+      await syncManager.init({
+        identityFile: flags.identity,
+        recipients: flags.recipient ?? [],
         repository: args.repository,
-      },
-      {
-        syncManager,
-      },
+      }),
     );
 
     process.stdout.write(output);

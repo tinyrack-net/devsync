@@ -1,6 +1,8 @@
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 
+import { SyncError } from "./error.ts";
+
 const execFileAsync = promisify(execFile);
 
 export type GitRunner = (
@@ -64,4 +66,21 @@ export const createGitService = (gitRunner: GitRunner = defaultGitRunner) => {
       };
     },
   };
+};
+
+export type GitService = ReturnType<typeof createGitService>;
+
+export const ensureGitRepository = async (
+  syncDirectory: string,
+  git: GitService,
+) => {
+  try {
+    await git.ensureRepository(syncDirectory);
+  } catch (error: unknown) {
+    throw new SyncError(
+      error instanceof Error
+        ? `Sync directory is not a git repository: ${error.message}`
+        : "Sync directory is not a git repository.",
+    );
+  }
 };
