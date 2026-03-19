@@ -5,6 +5,7 @@ import SyncForget from "#app/cli/commands/sync/forget.ts";
 import SyncInit from "#app/cli/commands/sync/init.ts";
 import SyncPull from "#app/cli/commands/sync/pull.ts";
 import SyncPush from "#app/cli/commands/sync/push.ts";
+import SyncSet from "#app/cli/commands/sync/set.ts";
 import UninstallSkills from "#app/cli/commands/uninstall/skills.ts";
 import WebDocsSearch from "#app/cli/commands/web/docs-search.ts";
 import WebFetch from "#app/cli/commands/web/fetch.ts";
@@ -21,6 +22,7 @@ export const COMMANDS = {
   "sync:init": SyncInit,
   "sync:pull": SyncPull,
   "sync:push": SyncPush,
+  "sync:set": SyncSet,
   "uninstall:skills": UninstallSkills,
   "web:docs-search": WebDocsSearch,
   "web:fetch": WebFetch,
