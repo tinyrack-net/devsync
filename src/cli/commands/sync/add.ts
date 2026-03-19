@@ -19,7 +19,8 @@ export default class SyncAdd extends Command {
   public static override flags = {
     secret: Flags.boolean({
       default: false,
-      description: "Mark the added target as secret in sync config.json",
+      description:
+        "Set the added target default mode to secret in sync config.json",
     }),
   };
 

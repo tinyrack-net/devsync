@@ -5,6 +5,7 @@ type SyncManager = ReturnType<typeof createSyncManager>;
 type SyncInitResult = Awaited<ReturnType<SyncManager["init"]>>;
 type SyncAddResult = Awaited<ReturnType<SyncManager["add"]>>;
 type SyncForgetResult = Awaited<ReturnType<SyncManager["forget"]>>;
+type SyncSetResult = Awaited<ReturnType<SyncManager["set"]>>;
 type SyncPushResult = Awaited<ReturnType<SyncManager["push"]>>;
 type SyncPullResult = Awaited<ReturnType<SyncManager["pull"]>>;
 
@@ -29,7 +30,7 @@ export const formatSyncInitResult = (result: SyncInitResult) => {
     ...(result.generatedIdentity
       ? ["Age bootstrap: generated a new local identity."]
       : []),
-    `Summary: ${result.recipientCount} recipients, ${result.entryCount} entries, ${result.secretGlobCount} secret globs.`,
+    `Summary: ${result.recipientCount} recipients, ${result.entryCount} entries, ${result.ruleCount} rules.`,
   ];
 
   return ensureTrailingNewline(lines.join("\n"));
@@ -45,7 +46,7 @@ export const formatSyncAddResult = (result: SyncAddResult) => {
     `Local path: ${result.localPath}`,
     `Repository path: ${result.repoPath}`,
     `Kind: ${result.kind}`,
-    `Secret glob: ${result.secretGlobAdded ? "added" : "unchanged"}`,
+    `Default mode: ${result.defaultMode}`,
   ];
 
   return ensureTrailingNewline(lines.join("\n"));
@@ -58,8 +59,35 @@ export const formatSyncForgetResult = (result: SyncForgetResult) => {
     `Config file: ${result.configPath}`,
     `Local path: ${result.localPath}`,
     `Repository path: ${result.repoPath}`,
-    `Secret glob: ${result.secretGlobRemoved ? "removed" : "unchanged"}`,
     `Removed repo artifacts: ${result.plainArtifactCount} plain, ${result.secretArtifactCount} secret.`,
+  ];
+
+  return ensureTrailingNewline(lines.join("\n"));
+};
+
+const formatSetScope = (scope: SyncSetResult["scope"]) => {
+  switch (scope) {
+    case "default":
+      return "entry default";
+    case "subtree":
+      return "subtree rule";
+    default:
+      return "exact rule";
+  }
+};
+
+export const formatSyncSetResult = (result: SyncSetResult) => {
+  const lines = [
+    result.action === "unchanged"
+      ? "Sync mode unchanged."
+      : "Updated sync mode.",
+    `Sync directory: ${result.syncDirectory}`,
+    `Config file: ${result.configPath}`,
+    `Owning entry: ${result.entryRepoPath}`,
+    `Target repository path: ${result.repoPath}`,
+    `Mode: ${result.mode}`,
+    `Scope: ${formatSetScope(result.scope)}`,
+    `Action: ${result.action}`,
   ];
 
   return ensureTrailingNewline(lines.join("\n"));
