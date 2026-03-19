@@ -13,6 +13,7 @@ import { join } from "node:path";
 
 import { afterEach, describe, expect, it } from "vitest";
 
+import { supportedSkillInstallAgents } from "#app/skills/agents.ts";
 import {
   createSkillInstaller,
   formatSkillInstallResult,
@@ -110,7 +111,9 @@ describe("formatSkillInstallResult", () => {
 });
 
 describe("createSkillInstaller", () => {
-  it("installs discovered skills as symbolic links", async () => {
+  it.each(
+    supportedSkillInstallAgents,
+  )("installs discovered %s skills as symbolic links", async (agent) => {
     const workspaceDirectory = await createTemporaryDirectory();
     const skillsDirectory = join(workspaceDirectory, "skills");
     const targetDirectory = join(workspaceDirectory, "target");
@@ -119,7 +122,7 @@ describe("createSkillInstaller", () => {
 
     const installer = createSkillInstaller({ skillsDirectory });
     const result = await installer.install({
-      agent: "pi",
+      agent,
       dryRun: false,
       force: false,
       targetDirectory,
@@ -144,7 +147,9 @@ describe("createSkillInstaller", () => {
     );
   });
 
-  it("supports dry-run installation without creating files", async () => {
+  it.each(
+    supportedSkillInstallAgents,
+  )("supports dry-run %s installation without creating files", async (agent) => {
     const workspaceDirectory = await createTemporaryDirectory();
     const skillsDirectory = join(workspaceDirectory, "skills");
     const targetDirectory = join(workspaceDirectory, "target");
@@ -153,7 +158,7 @@ describe("createSkillInstaller", () => {
 
     const installer = createSkillInstaller({ skillsDirectory });
     const result = await installer.install({
-      agent: "pi",
+      agent,
       dryRun: true,
       force: false,
       targetDirectory,

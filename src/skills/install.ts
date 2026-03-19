@@ -8,17 +8,20 @@ import {
   rm,
   symlink,
 } from "node:fs/promises";
-import { homedir } from "node:os";
 import { basename, dirname, join, relative, resolve } from "node:path";
 
 import type { Command } from "commander";
 import { z } from "zod";
 
+import {
+  resolveSkillInstallTargetDirectory,
+  type SupportedSkillInstallAgent,
+  supportedSkillInstallAgents,
+} from "#app/skills/agents.ts";
 import { formatInputIssues } from "#app/web/shared.ts";
 
-export const supportedSkillInstallAgents = ["pi"] as const;
-
-type SupportedSkillInstallAgent = (typeof supportedSkillInstallAgents)[number];
+export type { SupportedSkillInstallAgent } from "#app/skills/agents.ts";
+export { supportedSkillInstallAgents } from "#app/skills/agents.ts";
 
 type SkillInstallRequest = Readonly<{
   agent: SupportedSkillInstallAgent;
@@ -175,35 +178,6 @@ const listSkillDirectories = async (skillsDirectory: string) => {
   return skillDirectories.sort((left, right) => {
     return left.localeCompare(right);
   });
-};
-
-const resolvePiTargetDirectory = (environment: NodeJS.ProcessEnv) => {
-  const environmentWithPiDirectory = environment as NodeJS.ProcessEnv & {
-    PI_CODING_AGENT_DIR?: string;
-  };
-  const customAgentDirectory =
-    environmentWithPiDirectory.PI_CODING_AGENT_DIR?.trim();
-
-  if (customAgentDirectory !== undefined && customAgentDirectory !== "") {
-    return resolve(customAgentDirectory, "skills");
-  }
-
-  return resolve(homedir(), ".pi", "agent", "skills");
-};
-
-const resolveTargetDirectory = (
-  agent: SupportedSkillInstallAgent,
-  environment: NodeJS.ProcessEnv,
-  targetDirectory?: string,
-) => {
-  if (targetDirectory !== undefined && targetDirectory !== "") {
-    return resolve(targetDirectory);
-  }
-
-  switch (agent) {
-    case "pi":
-      return resolvePiTargetDirectory(environment);
-  }
 };
 
 const resolveManagedSkillPaths = async (skillsDirectory: string) => {
@@ -439,7 +413,7 @@ export const createSkillInstaller = (dependencies?: {
         const skillsDirectory = resolve(
           request.skillsDirectory ?? dependencies?.skillsDirectory ?? "skills",
         );
-        const targetDirectory = resolveTargetDirectory(
+        const targetDirectory = resolveSkillInstallTargetDirectory(
           request.agent,
           environment,
           request.targetDirectory,
@@ -498,7 +472,7 @@ export const createSkillUninstaller = (dependencies?: {
         const skillsDirectory = resolve(
           request.skillsDirectory ?? dependencies?.skillsDirectory ?? "skills",
         );
-        const targetDirectory = resolveTargetDirectory(
+        const targetDirectory = resolveSkillInstallTargetDirectory(
           request.agent,
           environment,
           request.targetDirectory,

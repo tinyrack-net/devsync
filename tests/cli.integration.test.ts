@@ -13,12 +13,22 @@ import { fileURLToPath } from "node:url";
 import { execa } from "execa";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
+import type { SupportedSkillInstallAgent } from "#app/skills/agents.ts";
 import {
   startWebFixtureServer,
   type WebFixtureServer,
 } from "./helpers/web-fixture-server.ts";
 
 const cliPath = fileURLToPath(new URL("../src/index.ts", import.meta.url));
+const bundledSkillPath = fileURLToPath(
+  new URL("../skills/web-research", import.meta.url),
+);
+const defaultTargetDirectories = {
+  pi: [".pi", "agent", "skills"],
+  codex: [".agents", "skills"],
+  claude: [".claude", "skills"],
+  opencode: [".config", "opencode", "skills"],
+} satisfies Record<SupportedSkillInstallAgent, readonly string[]>;
 
 let webFixtureServer: WebFixtureServer;
 
@@ -76,10 +86,18 @@ describe("CLI integration", () => {
     expect(installHelpResult.stdout).toContain(
       "Usage: devtools install skills [options] <agent>",
     );
+    expect(installHelpResult.stdout).toContain("pi");
+    expect(installHelpResult.stdout).toContain("codex");
+    expect(installHelpResult.stdout).toContain("claude");
+    expect(installHelpResult.stdout).toContain("opencode");
     expect(uninstallHelpResult.exitCode).toBe(0);
     expect(uninstallHelpResult.stdout).toContain(
       "Usage: devtools uninstall skills [options] <agent>",
     );
+    expect(uninstallHelpResult.stdout).toContain("pi");
+    expect(uninstallHelpResult.stdout).toContain("codex");
+    expect(uninstallHelpResult.stdout).toContain("claude");
+    expect(uninstallHelpResult.stdout).toContain("opencode");
 
     expect(webHelpResult.exitCode).toBe(0);
     expect(webHelpResult.stdout).toContain(
@@ -139,9 +157,7 @@ describe("CLI integration", () => {
       const linkStats = await lstat(skillLinkPath);
 
       expect(linkStats.isSymbolicLink()).toBe(true);
-      expect(await realpath(skillLinkPath)).toBe(
-        fileURLToPath(new URL("../skills/web-research", import.meta.url)),
-      );
+      expect(await realpath(skillLinkPath)).toBe(bundledSkillPath);
       expect(await readFile(join(skillLinkPath, "SKILL.md"), "utf8")).toContain(
         "name: web-research",
       );
@@ -173,9 +189,57 @@ describe("CLI integration", () => {
       );
       expect(
         await realpath(join(agentDirectory, "skills", "web-research")),
-      ).toBe(fileURLToPath(new URL("../skills/web-research", import.meta.url)));
+      ).toBe(bundledSkillPath);
     } finally {
       await rm(workspaceDirectory, { force: true, recursive: true });
+    }
+  });
+
+  it.each(
+    Object.entries(defaultTargetDirectories).filter(([agent]) => {
+      return agent !== "pi";
+    }) as Array<[SupportedSkillInstallAgent, readonly string[]]>,
+  )("installs and uninstalls bundled %s skills in the default user-global directory", async (agent, targetSegments) => {
+    const homeDirectory = await mkdtemp(
+      join(tmpdir(), `devtools-home-${agent}-`),
+    );
+    const expectedTargetDirectory = join(homeDirectory, ...targetSegments);
+
+    try {
+      const installResult = await runCli(["install", "skills", agent], {
+        env: {
+          HOME: homeDirectory,
+        },
+      });
+
+      expect(installResult.exitCode).toBe(0);
+      expect(installResult.stdout).toContain(
+        `Installed 1 skills for ${agent}.`,
+      );
+      expect(installResult.stdout).toContain(
+        `Target directory: ${expectedTargetDirectory}`,
+      );
+      expect(
+        await realpath(join(expectedTargetDirectory, "web-research")),
+      ).toBe(bundledSkillPath);
+
+      const uninstallResult = await runCli(["uninstall", "skills", agent], {
+        env: {
+          HOME: homeDirectory,
+        },
+      });
+
+      expect(uninstallResult.exitCode).toBe(0);
+      expect(uninstallResult.stdout).toContain(
+        `Removed 1 skills for ${agent}.`,
+      );
+      await expect(
+        lstat(join(expectedTargetDirectory, "web-research")),
+      ).rejects.toMatchObject({
+        code: "ENOENT",
+      });
+    } finally {
+      await rm(homeDirectory, { force: true, recursive: true });
     }
   });
 
@@ -266,7 +330,7 @@ describe("CLI integration", () => {
         "Dry run for pi uninstall: 1 skills evaluated.",
       );
       expect(await realpath(join(targetDirectory, "web-research"))).toBe(
-        fileURLToPath(new URL("../skills/web-research", import.meta.url)),
+        bundledSkillPath,
       );
     } finally {
       await rm(targetDirectory, { force: true, recursive: true });

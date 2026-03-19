@@ -19,8 +19,8 @@ A personal CLI tool for development-agent workflows.
 - **Link extraction** with same-origin filtering
 - **Sitemap discovery and parsing** with nested sitemap support
 - **Structured JSON output** across agent-oriented commands
-- **Pi web-research skill template** with workflow-focused references
-- **Skill installation and uninstallation** for Pi via symlinked local templates
+- **Web-research skill template** for Pi, Codex, Claude, and OpenCode
+- **Skill installation and uninstallation** for Pi, Codex, Claude, and OpenCode via symlinked local templates
 - **Timeouts and deterministic output** for automation-friendly behavior
 - **No build step for execution**: runs TypeScript directly with Node.js
 
@@ -84,7 +84,7 @@ npm run start -- <command>
 
 ## Skill templates
 
-The repository includes a Pi-compatible web research skill under `skills/web-research/`.
+The repository includes a bundled web research skill under `skills/web-research/`.
 
 It also includes on-demand reference documents for command selection and workflows:
 
@@ -92,10 +92,13 @@ It also includes on-demand reference documents for command selection and workflo
 - `skills/web-research/references/commands.md`
 - `skills/web-research/references/workflows.md`
 
-Install the skill into Pi's global skills directory:
+Install the bundled skill into a supported agent's global skills directory:
 
 ```bash
 devtools install skills pi
+devtools install skills codex
+devtools install skills claude
+devtools install skills opencode
 ```
 
 You can override the target directory, preview the installation, or replace existing links:
@@ -112,6 +115,9 @@ Remove the bundled skill from the target directory:
 devtools uninstall skills pi
 devtools uninstall skills pi --dry-run
 devtools uninstall skills pi --target-dir ~/.pi/agent/skills
+devtools uninstall skills codex
+devtools uninstall skills claude
+devtools uninstall skills opencode
 ```
 
 If `PI_CODING_AGENT_DIR` is set, `devtools install skills pi` installs into:
@@ -120,7 +126,14 @@ If `PI_CODING_AGENT_DIR` is set, `devtools install skills pi` installs into:
 $PI_CODING_AGENT_DIR/skills
 ```
 
-This command creates symlinks to the local skill directories so that Pi can discover and load them on demand.
+Default global destinations:
+
+- `pi`: `~/.pi/agent/skills` or `$PI_CODING_AGENT_DIR/skills` when `PI_CODING_AGENT_DIR` is set
+- `codex`: `~/.agents/skills`
+- `claude`: `~/.claude/skills`
+- `opencode`: `~/.config/opencode/skills`
+
+These commands create symlinks to the local skill directories so the target agent can discover and load them on demand.
 
 ## Commands
 
@@ -130,6 +143,9 @@ Install bundled skill templates for a supported agent harness.
 
 ```bash
 devtools install skills pi
+devtools install skills codex
+devtools install skills claude
+devtools install skills opencode
 ```
 
 Options:
@@ -138,11 +154,14 @@ Options:
 - `--dry-run`: preview changes without creating or replacing links
 - `--force`: replace existing skill targets
 
-Default destination behavior for `pi`:
+Default destination behavior:
 
 - if `--target-dir` is set, use it
-- else if `PI_CODING_AGENT_DIR` is set, use `$PI_CODING_AGENT_DIR/skills`
-- else use `~/.pi/agent/skills`
+- else for `pi`, use `$PI_CODING_AGENT_DIR/skills` when `PI_CODING_AGENT_DIR` is set
+- else for `pi`, use `~/.pi/agent/skills`
+- else for `codex`, use `~/.agents/skills`
+- else for `claude`, use `~/.claude/skills`
+- else for `opencode`, use `~/.config/opencode/skills`
 
 ### `uninstall skills`
 
@@ -150,6 +169,9 @@ Uninstall bundled skill templates for a supported agent harness.
 
 ```bash
 devtools uninstall skills pi
+devtools uninstall skills codex
+devtools uninstall skills claude
+devtools uninstall skills opencode
 ```
 
 Options:

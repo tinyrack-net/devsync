@@ -12,6 +12,7 @@ import { join } from "node:path";
 
 import { afterEach, describe, expect, it } from "vitest";
 
+import { supportedSkillInstallAgents } from "#app/skills/agents.ts";
 import {
   createSkillUninstaller,
   formatSkillUninstallResult,
@@ -105,7 +106,9 @@ describe("formatSkillUninstallResult", () => {
 });
 
 describe("createSkillUninstaller", () => {
-  it("removes managed skill symlinks", async () => {
+  it.each(
+    supportedSkillInstallAgents,
+  )("removes managed %s skill symlinks", async (agent) => {
     const workspaceDirectory = await createTemporaryDirectory();
     const skillsDirectory = join(workspaceDirectory, "skills");
     const targetDirectory = join(workspaceDirectory, "target");
@@ -119,7 +122,7 @@ describe("createSkillUninstaller", () => {
 
     const uninstaller = createSkillUninstaller({ skillsDirectory });
     const result = await uninstaller.uninstall({
-      agent: "pi",
+      agent,
       dryRun: false,
       targetDirectory,
     });
@@ -139,7 +142,9 @@ describe("createSkillUninstaller", () => {
     });
   });
 
-  it("supports dry-run removal without deleting files", async () => {
+  it.each(
+    supportedSkillInstallAgents,
+  )("supports dry-run %s removal without deleting files", async (agent) => {
     const workspaceDirectory = await createTemporaryDirectory();
     const skillsDirectory = join(workspaceDirectory, "skills");
     const targetDirectory = join(workspaceDirectory, "target");
@@ -153,7 +158,7 @@ describe("createSkillUninstaller", () => {
 
     const uninstaller = createSkillUninstaller({ skillsDirectory });
     const result = await uninstaller.uninstall({
-      agent: "pi",
+      agent,
       dryRun: true,
       targetDirectory,
     });
