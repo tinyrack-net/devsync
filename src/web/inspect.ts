@@ -1,4 +1,3 @@
-import type { Command } from "commander";
 import { z } from "zod";
 
 import {
@@ -10,7 +9,6 @@ import {
 } from "#app/web/page.ts";
 import {
   absoluteHttpUrlSchema,
-  defaultWebRequestTimeoutMs,
   ensureTrailingNewline,
   formatInputIssues,
   readOptionalString,
@@ -157,36 +155,20 @@ export const createWebPageInspector = (dependencies: {
   } satisfies WebPageInspector;
 };
 
-export const registerWebInspectCommand = (
-  webCommand: Command,
+export const runWebInspectCommand = async (
+  input: Readonly<{
+    url: string;
+    options: Record<string, unknown>;
+  }>,
   dependencies: {
-    io: {
-      stdout: (text: string) => void;
-    };
     webPageInspector: WebPageInspector;
   },
 ) => {
-  webCommand
-    .command("inspect")
-    .description(
-      "Fetch a web page and print metadata without article extraction",
-    )
-    .argument("<url>", "Web page URL")
-    .option("--json", "Print inspection results as JSON", false)
-    .option(
-      "-t, --timeout <ms>",
-      "Request timeout in milliseconds",
-      defaultWebRequestTimeoutMs,
-    )
-    .action(async (url: string, options: Record<string, unknown>) => {
-      const validatedInput = parseInspectCommandInput({ options, url });
-      const inspection = await dependencies.webPageInspector.inspect({
-        url: validatedInput.url,
-        timeoutMs: validatedInput.options.timeout,
-      });
+  const validatedInput = parseInspectCommandInput(input);
+  const inspection = await dependencies.webPageInspector.inspect({
+    url: validatedInput.url,
+    timeoutMs: validatedInput.options.timeout,
+  });
 
-      dependencies.io.stdout(
-        formatWebPageInspection(inspection, validatedInput.options.json),
-      );
-    });
+  return formatWebPageInspection(inspection, validatedInput.options.json);
 };

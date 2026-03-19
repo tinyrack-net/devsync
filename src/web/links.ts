@@ -1,4 +1,3 @@
-import type { Command } from "commander";
 import { z } from "zod";
 
 import {
@@ -8,7 +7,6 @@ import {
 } from "#app/web/page.ts";
 import {
   absoluteHttpUrlSchema,
-  defaultWebRequestTimeoutMs,
   ensureTrailingNewline,
   formatInputIssues,
   isSameOriginUrl,
@@ -315,36 +313,21 @@ export const createWebPageLinkReader = (dependencies: {
   } satisfies WebPageLinkReader;
 };
 
-export const registerWebLinksCommand = (
-  webCommand: Command,
+export const runWebLinksCommand = async (
+  input: Readonly<{
+    url: string;
+    options: Record<string, unknown>;
+  }>,
   dependencies: {
-    io: {
-      stdout: (text: string) => void;
-    };
     webPageLinkReader: WebPageLinkReader;
   },
 ) => {
-  webCommand
-    .command("links")
-    .description("Fetch a web page and extract normalized links")
-    .argument("<url>", "Web page URL")
-    .option("--json", "Print links as JSON", false)
-    .option("--same-origin", "Only include same-origin links", false)
-    .option(
-      "-t, --timeout <ms>",
-      "Request timeout in milliseconds",
-      defaultWebRequestTimeoutMs,
-    )
-    .action(async (url: string, options: Record<string, unknown>) => {
-      const validatedInput = parseLinksCommandInput({ options, url });
-      const links = await dependencies.webPageLinkReader.read({
-        url: validatedInput.url,
-        timeoutMs: validatedInput.options.timeout,
-        sameOriginOnly: validatedInput.options.sameOrigin,
-      });
+  const validatedInput = parseLinksCommandInput(input);
+  const links = await dependencies.webPageLinkReader.read({
+    url: validatedInput.url,
+    timeoutMs: validatedInput.options.timeout,
+    sameOriginOnly: validatedInput.options.sameOrigin,
+  });
 
-      dependencies.io.stdout(
-        formatWebPageLinks(links, validatedInput.options.json),
-      );
-    });
+  return formatWebPageLinks(links, validatedInput.options.json);
 };

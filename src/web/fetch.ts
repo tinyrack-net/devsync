@@ -1,9 +1,7 @@
 import { Readability } from "@mozilla/readability";
-import type { Command } from "commander";
 import TurndownService from "turndown";
 import { z } from "zod";
 
-import { setOptionCompletionChoices } from "#app/cli/completion.ts";
 import {
   createHtmlPageLoader,
   readCanonicalUrl,
@@ -13,7 +11,6 @@ import {
 } from "#app/web/page.ts";
 import {
   absoluteHttpUrlSchema,
-  defaultWebRequestTimeoutMs,
   ensureTrailingNewline,
   formatInputIssues,
   normalizeWhitespace,
@@ -159,40 +156,20 @@ export const createFetchWebPageReader = (dependencies: {
   } satisfies WebPageReader;
 };
 
-export const registerWebFetchCommand = (
-  webCommand: Command,
+export const runWebFetchCommand = async (
+  input: Readonly<{
+    url: string;
+    options: Record<string, unknown>;
+  }>,
   dependencies: {
-    io: {
-      stdout: (text: string) => void;
-    };
     webPageReader: WebPageReader;
   },
 ) => {
-  const fetchCommand = webCommand
-    .command("fetch")
-    .description("Fetch a web page and convert it to structured output")
-    .argument("<url>", "Web page URL")
-    .option(
-      "-f, --format <format>",
-      `Output format: ${webPageOutputFormats.join(", ")}`,
-      "markdown",
-    )
-    .option(
-      "-t, --timeout <ms>",
-      "Request timeout in milliseconds",
-      defaultWebRequestTimeoutMs,
-    )
-    .action(async (url: string, options: Record<string, unknown>) => {
-      const validatedInput = parseFetchCommandInput({ options, url });
-      const content = await dependencies.webPageReader.read({
-        url: validatedInput.url,
-        timeoutMs: validatedInput.options.timeout,
-      });
+  const validatedInput = parseFetchCommandInput(input);
+  const content = await dependencies.webPageReader.read({
+    url: validatedInput.url,
+    timeoutMs: validatedInput.options.timeout,
+  });
 
-      dependencies.io.stdout(
-        formatWebPageContent(content, validatedInput.options.format),
-      );
-    });
-
-  setOptionCompletionChoices(fetchCommand, "--format", webPageOutputFormats);
+  return formatWebPageContent(content, validatedInput.options.format);
 };

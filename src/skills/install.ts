@@ -10,10 +10,8 @@ import {
 } from "node:fs/promises";
 import { basename, dirname, join, relative, resolve } from "node:path";
 
-import type { Command } from "commander";
 import { z } from "zod";
 
-import { setArgumentCompletionChoices } from "#app/cli/completion.ts";
 import {
   resolveSkillInstallTargetDirectory,
   type SupportedSkillInstallAgent,
@@ -518,104 +516,49 @@ export const createSkillUninstaller = (dependencies?: {
   } satisfies SkillUninstaller;
 };
 
-export const registerInstallSkillsCommand = (
-  installCommand: Command,
+export const runInstallSkillsCommand = async (
+  input: Readonly<{
+    agent: string;
+    options: Record<string, unknown>;
+  }>,
   dependencies: {
-    io: {
-      stdout: (text: string) => void;
-    };
     skillInstaller: SkillInstaller;
   },
 ) => {
-  const skillsCommand = installCommand
-    .command("skills")
-    .description("Install bundled skill templates for an agent harness")
-    .argument(
-      "<agent>",
-      `Agent harness to install skills for: ${supportedSkillInstallAgents.join(", ")}`,
-    )
-    .option(
-      "--dry-run",
-      "Show what would be installed without changing files",
-      false,
-    )
-    .option("--force", "Replace existing skill targets", false)
-    .option(
-      "--target-dir <path>",
-      "Override the destination directory for installed skills",
-    )
-    .action(async (agent: string, options: Record<string, unknown>) => {
-      const validatedInput = parseInstallSkillsCommandInput({
-        agent,
-        options,
-      });
-      const result = await dependencies.skillInstaller.install({
-        agent: validatedInput.agent,
-        dryRun: validatedInput.options.dryRun,
-        force: validatedInput.options.force,
-        ...(validatedInput.options.targetDir === undefined
-          ? {}
-          : {
-              targetDirectory: validatedInput.options.targetDir,
-            }),
-      });
+  const validatedInput = parseInstallSkillsCommandInput(input);
+  const result = await dependencies.skillInstaller.install({
+    agent: validatedInput.agent,
+    dryRun: validatedInput.options.dryRun,
+    force: validatedInput.options.force,
+    ...(validatedInput.options.targetDir === undefined
+      ? {}
+      : {
+          targetDirectory: validatedInput.options.targetDir,
+        }),
+  });
 
-      dependencies.io.stdout(formatSkillInstallResult(result));
-    });
-
-  setArgumentCompletionChoices(
-    skillsCommand,
-    "agent",
-    supportedSkillInstallAgents,
-  );
+  return formatSkillInstallResult(result);
 };
 
-export const registerUninstallSkillsCommand = (
-  uninstallCommand: Command,
+export const runUninstallSkillsCommand = async (
+  input: Readonly<{
+    agent: string;
+    options: Record<string, unknown>;
+  }>,
   dependencies: {
-    io: {
-      stdout: (text: string) => void;
-    };
     skillUninstaller: SkillUninstaller;
   },
 ) => {
-  const skillsCommand = uninstallCommand
-    .command("skills")
-    .description("Uninstall bundled skill templates for an agent harness")
-    .argument(
-      "<agent>",
-      `Agent harness to uninstall skills for: ${supportedSkillInstallAgents.join(", ")}`,
-    )
-    .option(
-      "--dry-run",
-      "Show what would be uninstalled without changing files",
-      false,
-    )
-    .option(
-      "--target-dir <path>",
-      "Override the destination directory for uninstalled skills",
-    )
-    .action(async (agent: string, options: Record<string, unknown>) => {
-      const validatedInput = parseUninstallSkillsCommandInput({
-        agent,
-        options,
-      });
-      const result = await dependencies.skillUninstaller.uninstall({
-        agent: validatedInput.agent,
-        dryRun: validatedInput.options.dryRun,
-        ...(validatedInput.options.targetDir === undefined
-          ? {}
-          : {
-              targetDirectory: validatedInput.options.targetDir,
-            }),
-      });
+  const validatedInput = parseUninstallSkillsCommandInput(input);
+  const result = await dependencies.skillUninstaller.uninstall({
+    agent: validatedInput.agent,
+    dryRun: validatedInput.options.dryRun,
+    ...(validatedInput.options.targetDir === undefined
+      ? {}
+      : {
+          targetDirectory: validatedInput.options.targetDir,
+        }),
+  });
 
-      dependencies.io.stdout(formatSkillUninstallResult(result));
-    });
-
-  setArgumentCompletionChoices(
-    skillsCommand,
-    "agent",
-    supportedSkillInstallAgents,
-  );
+  return formatSkillUninstallResult(result);
 };

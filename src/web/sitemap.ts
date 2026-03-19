@@ -1,11 +1,9 @@
-import type { Command } from "commander";
 import { JSDOM } from "jsdom";
 import { z } from "zod";
 
 import {
   absoluteHttpUrlSchema,
   createRequestHeaders,
-  defaultWebRequestTimeoutMs,
   ensureTrailingNewline,
   fetchWithTimeout,
   formatInputIssues,
@@ -13,7 +11,7 @@ import {
   normalizeAbsoluteUrl,
 } from "#app/web/shared.ts";
 
-const defaultSitemapConcurrency = "4";
+export const defaultSitemapConcurrency = "4";
 
 type WebSitemapRequest = Readonly<{
   url: string;
@@ -486,42 +484,22 @@ export const createWebSitemapReader = (dependencies: {
   } satisfies WebSitemapReader;
 };
 
-export const registerWebSitemapCommand = (
-  webCommand: Command,
+export const runWebSitemapCommand = async (
+  input: Readonly<{
+    url: string;
+    options: Record<string, unknown>;
+  }>,
   dependencies: {
-    io: {
-      stdout: (text: string) => void;
-    };
     webSitemapReader: WebSitemapReader;
   },
 ) => {
-  webCommand
-    .command("sitemap")
-    .description("Read a sitemap.xml file or discover sitemap URLs for a site")
-    .argument("<url>", "Site URL or sitemap XML URL")
-    .option("--json", "Print sitemap results as JSON", false)
-    .option("--same-origin", "Only include same-origin sitemap URLs", false)
-    .option(
-      "-c, --concurrency <number>",
-      "Maximum number of sitemap requests to run at once",
-      defaultSitemapConcurrency,
-    )
-    .option(
-      "-t, --timeout <ms>",
-      "Request timeout in milliseconds",
-      defaultWebRequestTimeoutMs,
-    )
-    .action(async (url: string, options: Record<string, unknown>) => {
-      const validatedInput = parseSitemapCommandInput({ options, url });
-      const sitemap = await dependencies.webSitemapReader.read({
-        url: validatedInput.url,
-        timeoutMs: validatedInput.options.timeout,
-        sameOriginOnly: validatedInput.options.sameOrigin,
-        concurrency: validatedInput.options.concurrency,
-      });
+  const validatedInput = parseSitemapCommandInput(input);
+  const sitemap = await dependencies.webSitemapReader.read({
+    url: validatedInput.url,
+    timeoutMs: validatedInput.options.timeout,
+    sameOriginOnly: validatedInput.options.sameOrigin,
+    concurrency: validatedInput.options.concurrency,
+  });
 
-      dependencies.io.stdout(
-        formatWebSitemap(sitemap, validatedInput.options.json),
-      );
-    });
+  return formatWebSitemap(sitemap, validatedInput.options.json);
 };

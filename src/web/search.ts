@@ -1,9 +1,6 @@
-import type { Command } from "commander";
 import { z } from "zod";
 
-import { setOptionCompletionChoices } from "#app/cli/completion.ts";
 import {
-  defaultWebRequestTimeoutMs,
   fetchWithTimeout,
   formatInputIssues,
   isJsonObject,
@@ -313,9 +310,6 @@ const runSearchCommand = async (
   query: string,
   options: Record<string, unknown>,
   dependencies: {
-    io: {
-      stdout: (text: string) => void;
-    };
     createSearchEngineRegistry: (
       apiKeyOverride?: string,
     ) => WebSearchEngineRegistry;
@@ -348,98 +342,39 @@ const runSearchCommand = async (
     dependencies.createSearchEngineRegistry(validatedInput.options.apiKey),
   );
 
-  dependencies.io.stdout(output);
+  return output;
 };
 
-export const registerWebSearchCommand = (
-  webCommand: Command,
+export const runWebSearchCommand = async (
+  input: Readonly<{
+    query: string;
+    options: Record<string, unknown>;
+  }>,
   dependencies: {
-    io: {
-      stdout: (text: string) => void;
-    };
     createSearchEngineRegistry: (
       apiKeyOverride?: string,
     ) => WebSearchEngineRegistry;
   },
 ) => {
-  const defaultSearchEngineRegistry = dependencies.createSearchEngineRegistry();
-  const availableSearchEngineNames = defaultSearchEngineRegistry.names();
-  const availableSearchEngines = availableSearchEngineNames.join(", ");
-
-  const searchCommand = webCommand
-    .command("search")
-    .description("Search the web")
-    .argument("<query>", "Keywords to search for")
-    .option(
-      "-e, --engine <engine>",
-      `Search engine to use. Available engines: ${availableSearchEngines}`,
-      defaultSearchEngineRegistry.defaultEngineName,
-    )
-    .option("-l, --limit <number>", "Maximum number of results to return", "5")
-    .option("--json", "Print results as JSON", false)
-    .option(
-      "-s, --site <site>",
-      "Restrict results to a hostname or docs path, e.g. nodejs.org/docs",
-    )
-    .option(
-      "-t, --timeout <ms>",
-      "Request timeout in milliseconds",
-      defaultWebRequestTimeoutMs,
-    )
-    .option("--api-key <key>", "Override the API key for the selected engine")
-    .action(async (query: string, options: Record<string, unknown>) => {
-      await runSearchCommand(query, options, dependencies);
-    });
-
-  setOptionCompletionChoices(
-    searchCommand,
-    "--engine",
-    availableSearchEngineNames,
-  );
+  return await runSearchCommand(input.query, input.options, dependencies);
 };
 
-export const registerWebDocsSearchCommand = (
-  webCommand: Command,
+export const runWebDocsSearchCommand = async (
+  input: Readonly<{
+    site: string;
+    query: string;
+    options: Record<string, unknown>;
+  }>,
   dependencies: {
-    io: {
-      stdout: (text: string) => void;
-    };
     createSearchEngineRegistry: (
       apiKeyOverride?: string,
     ) => WebSearchEngineRegistry;
   },
 ) => {
-  const defaultSearchEngineRegistry = dependencies.createSearchEngineRegistry();
-  const availableSearchEngineNames = defaultSearchEngineRegistry.names();
-  const availableSearchEngines = availableSearchEngineNames.join(", ");
-
-  const docsSearchCommand = webCommand
-    .command("docs-search")
-    .description("Search documentation within a specific site or docs path")
-    .argument("<site>", "Hostname or docs base path, e.g. nodejs.org/docs")
-    .argument("<query>", "Keywords to search for")
-    .option(
-      "-e, --engine <engine>",
-      `Search engine to use. Available engines: ${availableSearchEngines}`,
-      defaultSearchEngineRegistry.defaultEngineName,
-    )
-    .option("-l, --limit <number>", "Maximum number of results to return", "5")
-    .option("--json", "Print results as JSON", false)
-    .option(
-      "-t, --timeout <ms>",
-      "Request timeout in milliseconds",
-      defaultWebRequestTimeoutMs,
-    )
-    .option("--api-key <key>", "Override the API key for the selected engine")
-    .action(
-      async (site: string, query: string, options: Record<string, unknown>) => {
-        await runSearchCommand(query, options, dependencies, site);
-      },
-    );
-
-  setOptionCompletionChoices(
-    docsSearchCommand,
-    "--engine",
-    availableSearchEngineNames,
+  return await runSearchCommand(
+    input.query,
+    input.options,
+    dependencies,
+    input.site,
   );
 };
