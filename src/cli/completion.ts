@@ -63,6 +63,34 @@ const completionChoices = new WeakMap<object, readonly CompletionItem[]>();
 
 const completionRootKey = "__root__";
 
+const META_OPTION_NAMES: ReadonlySet<string> = new Set([
+  "--help",
+  "-h",
+  "--version",
+  "-v",
+]);
+
+const sortCompletionSubcommands = <T extends { name: string }>(
+  items: readonly T[],
+): T[] => {
+  return items.toSorted((a, b) => a.name.localeCompare(b.name));
+};
+
+const sortCompletionOptions = <T extends { name: string }>(
+  items: readonly T[],
+): T[] => {
+  return items.toSorted((a, b) => {
+    const aIsMeta = META_OPTION_NAMES.has(a.name);
+    const bIsMeta = META_OPTION_NAMES.has(b.name);
+
+    if (aIsMeta !== bIsMeta) {
+      return aIsMeta ? 1 : -1;
+    }
+
+    return a.name.localeCompare(b.name);
+  });
+};
+
 const normalizeCompletionItems = (
   choices: CompletionChoiceSource,
 ): CompletionItem[] => {
@@ -619,16 +647,19 @@ export function collectCommands(
     } satisfies CompletionArgumentInfo;
   });
 
+  const sortedSubcommands = sortCompletionSubcommands(subcommands);
+  const sortedOptionDetails = sortCompletionOptions(optionDetails);
+
   result.set(key, {
-    subcommands,
-    options: optionDetails.map((option) => {
+    subcommands: sortedSubcommands,
+    options: sortedOptionDetails.map((option) => {
       return {
         name: option.name,
         description: option.description,
       } satisfies CompletionItem;
     }),
     arguments: argumentsInfo,
-    optionDetails,
+    optionDetails: sortedOptionDetails,
   });
 
   for (const subcommand of visibleSubcommands) {
@@ -704,8 +735,9 @@ _${programName}() {
     local output
     output="$(${programName} __complete zsh "$((CURRENT - 1))" -- "\${words[@]}" 2>/dev/null)" || return 1
 
-    local -a completions
-    completions=()
+    local -a arg_completions opt_completions
+    arg_completions=()
+    opt_completions=()
 
     if [[ -n "$output" ]]; then
         local -a lines
@@ -724,12 +756,19 @@ _${programName}() {
             name="\${name//:/\\\\:}"
             desc="\${desc//\\\\/\\\\\\\\}"
             desc="\${desc//:/\\\\:}"
-            completions+=("$name:$desc")
+
+            if [[ "$name" == -* ]]; then
+                opt_completions+=("$name:$desc")
+            else
+                arg_completions+=("$name:$desc")
+            fi
         done
     fi
 
-    (( \${#completions} )) || return 1
-    _describe -t values 'value' completions
+    (( \${#arg_completions} )) || (( \${#opt_completions} )) || return 1
+    (( \${#arg_completions} )) && _describe -V 'argument' arg_completions
+    (( \${#opt_completions} )) && _describe -V 'option' opt_completions
+    return 0
 }
 
 compdef _${programName} ${programName}
