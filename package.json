@@ -42,6 +42,9 @@
       "uninstall": {
         "description": "Uninstall packaged resources"
       },
+      "sync": {
+        "description": "Configuration sync utilities"
+      },
       "web": {
         "description": "Web utilities"
       }
@@ -68,6 +71,7 @@
     "@mozilla/readability": "^0.6.0",
     "@oclif/core": "^4.9.0",
     "@oclif/plugin-autocomplete": "^3.2.41",
+    "age-encryption": "^0.3.0",
     "dotenv": "^17.3.1",
     "jsdom": "^29.0.0",
     "turndown": "^7.2.2",
