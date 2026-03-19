@@ -25,11 +25,13 @@ const createWorkspace = async () => {
 const runCli = async (
   args: readonly string[],
   options?: Readonly<{
+    cwd?: string;
     env?: NodeJS.ProcessEnv;
     reject?: boolean;
   }>,
 ) => {
   return execa(process.execPath, [cliPath, ...args], {
+    cwd: options?.cwd,
     env: options?.env,
     reject: options?.reject,
   });
@@ -194,6 +196,69 @@ describe("sync CLI integration", () => {
 
     expect(forgetResult.stdout).toContain("Forgot sync target.");
     expect(configAfterForget.entries).toEqual([]);
+  });
+
+  it("resolves bare relative sync set targets from the current working directory", async () => {
+    const workspace = await createWorkspace();
+    const homeDirectory = join(workspace, "home");
+    const xdgConfigHome = join(workspace, "xdg");
+    const sshDirectory = join(homeDirectory, ".ssh");
+    const knownHostsFile = join(sshDirectory, "known_hosts");
+    const ageKeys = await createAgeKeyPair();
+    const env = createSyncEnvironment(homeDirectory, xdgConfigHome);
+
+    await writeIdentityFile(xdgConfigHome, ageKeys.identity);
+    await mkdir(sshDirectory, { recursive: true });
+    await writeFile(knownHostsFile, "github.com ssh-ed25519 AAAA...\n");
+
+    await runCli(
+      [
+        "init",
+        "--recipient",
+        ageKeys.recipient,
+        "--identity",
+        "$XDG_CONFIG_HOME/devsync/age/keys.txt",
+      ],
+      { env },
+    );
+    await runCli(["add", sshDirectory, "--secret"], { env });
+
+    const setResult = await runCli(["set", "ignore", "known_hosts"], {
+      cwd: sshDirectory,
+      env,
+    });
+    const config = JSON.parse(
+      await readFile(
+        join(xdgConfigHome, "devsync", "sync", "config.json"),
+        "utf8",
+      ),
+    ) as {
+      entries: Array<{
+        repoPath: string;
+        rules?: Array<{
+          match: string;
+          mode: string;
+          path: string;
+        }>;
+      }>;
+    };
+
+    expect(setResult.stdout).toContain("Owning entry: .ssh");
+    expect(setResult.stdout).toContain(
+      "Target repository path: .ssh/known_hosts",
+    );
+    expect(config.entries).toMatchObject([
+      {
+        repoPath: ".ssh",
+        rules: [
+          {
+            match: "exact",
+            mode: "ignore",
+            path: "known_hosts",
+          },
+        ],
+      },
+    ]);
   });
 
   it("pushes and pulls through the CLI using per-path modes", async () => {

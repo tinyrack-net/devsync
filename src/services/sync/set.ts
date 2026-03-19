@@ -1,4 +1,4 @@
-import { isAbsolute, join } from "node:path";
+import { join } from "node:path";
 
 import {
   findOwningSyncEntry,
@@ -25,7 +25,9 @@ import { getPathStats } from "./filesystem.ts";
 import { ensureGitRepository, type GitService } from "./git.ts";
 import {
   buildRepoPathWithinRoot,
+  isExplicitLocalPath,
   resolveCommandTargetPath,
+  tryBuildRepoPathWithinRoot,
   tryNormalizeRepoPathInput,
 } from "./paths.ts";
 
@@ -48,10 +50,6 @@ type SyncSetResult = Readonly<{
   scope: SyncSetScope;
   syncDirectory: string;
 }>;
-
-const isExplicitLocalPath = (target: string) => {
-  return target === "~" || target.startsWith("~/") || isAbsolute(target);
-};
 
 const resolveEntryRelativeRepoPath = (
   entry: Pick<ResolvedSyncConfigEntry, "kind" | "repoPath">,
@@ -107,7 +105,7 @@ const resolveTargetPath = async (
 
   if (repoPath === undefined) {
     throw new SyncError(
-      `Sync set target must be a full local path or repository path: ${target}`,
+      `Sync set target must be a local path or repository path: ${target}`,
     );
   }
 
@@ -138,25 +136,56 @@ const resolveSetTarget = async (
     throw new SyncError("Target path is required.");
   }
 
-  const localTargetPath = isExplicitLocalPath(trimmedTarget)
-    ? resolveCommandTargetPath(
-        trimmedTarget,
-        dependencies.environment,
-        dependencies.cwd,
-      )
-    : undefined;
-  const repoPath =
-    localTargetPath === undefined
-      ? tryNormalizeRepoPathInput(trimmedTarget)
-      : buildRepoPathWithinRoot(
-          localTargetPath,
-          resolveHomeDirectory(dependencies.environment),
-          "Sync set target",
-        );
+  const homeDirectory = resolveHomeDirectory(dependencies.environment);
+  const explicitLocalPath = isExplicitLocalPath(trimmedTarget);
+  const localTargetPath = resolveCommandTargetPath(
+    trimmedTarget,
+    dependencies.environment,
+    dependencies.cwd,
+  );
+  const localRepoPath = explicitLocalPath
+    ? buildRepoPathWithinRoot(localTargetPath, homeDirectory, "Sync set target")
+    : tryBuildRepoPathWithinRoot(
+        localTargetPath,
+        homeDirectory,
+        "Sync set target",
+      );
+
+  if (localRepoPath !== undefined) {
+    const localStats = await getPathStats(localTargetPath);
+
+    if (explicitLocalPath && localStats === undefined) {
+      throw new SyncError(`Sync set target does not exist: ${localTargetPath}`);
+    }
+
+    const entry = findOwningSyncEntry(config, localRepoPath);
+
+    if (entry?.kind === "directory") {
+      const relativePath = resolveEntryRelativeRepoPath(entry, localRepoPath);
+
+      if (relativePath !== undefined) {
+        return {
+          entry,
+          localPath: localTargetPath,
+          relativePath,
+          repoPath: localRepoPath,
+          stats: localStats,
+        };
+      }
+    }
+
+    if (explicitLocalPath) {
+      throw new SyncError(
+        `Sync set target must be inside a tracked directory entry: ${trimmedTarget}`,
+      );
+    }
+  }
+
+  const repoPath = tryNormalizeRepoPathInput(trimmedTarget);
 
   if (repoPath === undefined) {
     throw new SyncError(
-      `Sync set target must be a full local path or repository path: ${trimmedTarget}`,
+      `Sync set target must be a local path or repository path: ${trimmedTarget}`,
     );
   }
 

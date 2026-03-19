@@ -11,7 +11,8 @@ export default class SyncForget extends Command {
 
   public static override args = {
     target: Args.string({
-      description: "Tracked local path or repository path to forget",
+      description:
+        "Tracked local path (including cwd-relative) or repository path to forget",
       required: true,
     }),
   };

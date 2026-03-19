@@ -11,7 +11,8 @@ export default class SyncAdd extends Command {
 
   public static override args = {
     target: Args.string({
-      description: "Local file or directory under your home directory to track",
+      description:
+        "Local file or directory under your home directory to track, including cwd-relative paths",
       required: true,
     }),
   };

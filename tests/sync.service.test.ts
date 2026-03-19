@@ -269,6 +269,71 @@ describe("createSyncManager", () => {
     ]);
   });
 
+  it("resolves bare relative sync set targets from the current working directory", async () => {
+    const workspace = await createWorkspace();
+    const homeDirectory = join(workspace, "home");
+    const xdgConfigHome = join(workspace, "xdg");
+    const sshDirectory = join(homeDirectory, ".ssh");
+    const knownHostsFile = join(sshDirectory, "known_hosts");
+    const ageKeys = await createAgeKeyPair();
+
+    await writeIdentityFile(xdgConfigHome, ageKeys.identity);
+    await mkdir(sshDirectory, { recursive: true });
+    await writeFile(knownHostsFile, "github.com ssh-ed25519 AAAA...\n");
+
+    const manager = createSyncManager({
+      cwd: sshDirectory,
+      environment: createSyncEnvironment(homeDirectory, xdgConfigHome),
+    });
+
+    await manager.init({
+      identityFile: "$XDG_CONFIG_HOME/devsync/age/keys.txt",
+      recipients: [ageKeys.recipient],
+    });
+    await manager.add({
+      secret: true,
+      target: sshDirectory,
+    });
+
+    const result = await manager.set({
+      recursive: false,
+      state: "ignore",
+      target: "known_hosts",
+    });
+    const config = JSON.parse(
+      await readFile(
+        join(xdgConfigHome, "devsync", "sync", "config.json"),
+        "utf8",
+      ),
+    ) as {
+      entries: Array<{
+        repoPath: string;
+        rules?: Array<{
+          match: string;
+          mode: string;
+          path: string;
+        }>;
+      }>;
+    };
+
+    expect(result.entryRepoPath).toBe(".ssh");
+    expect(result.localPath).toBe(knownHostsFile);
+    expect(result.repoPath).toBe(".ssh/known_hosts");
+    expect(result.scope).toBe("exact");
+    expect(config.entries).toMatchObject([
+      {
+        repoPath: ".ssh",
+        rules: [
+          {
+            match: "exact",
+            mode: "ignore",
+            path: "known_hosts",
+          },
+        ],
+      },
+    ]);
+  });
+
   it("forgets tracked entries and removes repository artifacts", async () => {
     const workspace = await createWorkspace();
     const homeDirectory = join(workspace, "home");
@@ -338,6 +403,49 @@ describe("createSyncManager", () => {
     ).rejects.toMatchObject({
       code: "ENOENT",
     });
+  });
+
+  it("forgets tracked file entries via explicit local paths", async () => {
+    const workspace = await createWorkspace();
+    const homeDirectory = join(workspace, "home");
+    const xdgConfigHome = join(workspace, "xdg");
+    const settingsDirectory = join(homeDirectory, "mytool");
+    const settingsFile = join(settingsDirectory, "settings.json");
+    const ageKeys = await createAgeKeyPair();
+
+    await writeIdentityFile(xdgConfigHome, ageKeys.identity);
+    await mkdir(settingsDirectory, { recursive: true });
+    await writeFile(settingsFile, "{}\n");
+
+    const manager = createSyncManager({
+      cwd: settingsDirectory,
+      environment: createSyncEnvironment(homeDirectory, xdgConfigHome),
+    });
+
+    await manager.init({
+      identityFile: "$XDG_CONFIG_HOME/devsync/age/keys.txt",
+      recipients: [ageKeys.recipient],
+    });
+    await manager.add({
+      secret: false,
+      target: settingsFile,
+    });
+
+    const forgetResult = await manager.forget({
+      target: "./settings.json",
+    });
+    const config = JSON.parse(
+      await readFile(
+        join(xdgConfigHome, "devsync", "sync", "config.json"),
+        "utf8",
+      ),
+    ) as {
+      entries: unknown[];
+    };
+
+    expect(forgetResult.localPath).toBe(settingsFile);
+    expect(forgetResult.repoPath).toBe("mytool/settings.json");
+    expect(config.entries).toEqual([]);
   });
 
   it("pushes and pulls according to exact mode rules while preserving ignored files", async () => {

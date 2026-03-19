@@ -25,6 +25,7 @@ import {
 import { ensureGitRepository, type GitService } from "./git.ts";
 import {
   buildDirectoryKey,
+  isExplicitLocalPath,
   isPathEqualOrNested,
   resolveCommandTargetPath,
   tryNormalizeRepoPathInput,
@@ -49,16 +50,21 @@ const findMatchingTrackedEntry = (
   environment: NodeJS.ProcessEnv,
   cwd: string,
 ) => {
-  const resolvedTargetPath = resolveCommandTargetPath(target, environment, cwd);
+  const trimmedTarget = target.trim();
+  const resolvedTargetPath = resolveCommandTargetPath(
+    trimmedTarget,
+    environment,
+    cwd,
+  );
   const byLocalPath = config.entries.find((entry) => {
     return entry.localPath === resolvedTargetPath;
   });
 
-  if (byLocalPath !== undefined) {
+  if (byLocalPath !== undefined || isExplicitLocalPath(trimmedTarget)) {
     return byLocalPath;
   }
 
-  const normalizedRepoPath = tryNormalizeRepoPathInput(target.trim());
+  const normalizedRepoPath = tryNormalizeRepoPathInput(trimmedTarget);
 
   if (normalizedRepoPath === undefined) {
     return undefined;

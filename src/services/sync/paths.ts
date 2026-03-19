@@ -27,6 +27,18 @@ export const doPathsOverlap = (leftPath: string, rightPath: string) => {
   );
 };
 
+export const isExplicitLocalPath = (target: string) => {
+  return (
+    target === "." ||
+    target === ".." ||
+    target === "~" ||
+    target.startsWith("./") ||
+    target.startsWith("../") ||
+    target.startsWith("~/") ||
+    isAbsolute(target)
+  );
+};
+
 export const resolveCommandTargetPath = (
   target: string,
   environment: NodeJS.ProcessEnv,
@@ -63,6 +75,18 @@ export const buildRepoPathWithinRoot = (
 
 export const buildConfiguredHomeLocalPath = (repoPath: string) => {
   return `~/${repoPath}`;
+};
+
+export const tryBuildRepoPathWithinRoot = (
+  absolutePath: string,
+  rootPath: string,
+  description: string,
+) => {
+  try {
+    return buildRepoPathWithinRoot(absolutePath, rootPath, description);
+  } catch {
+    return undefined;
+  }
 };
 
 export const tryNormalizeRepoPathInput = (value: string) => {

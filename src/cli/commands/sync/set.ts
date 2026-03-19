@@ -17,7 +17,7 @@ export default class SyncSet extends Command {
     }),
     target: Args.string({
       description:
-        "Tracked local path or repository path inside a tracked directory",
+        "Tracked local path (including cwd-relative) or repository path inside a tracked directory",
       required: true,
     }),
   };

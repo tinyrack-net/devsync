@@ -78,6 +78,7 @@ Track a local file or directory under your home directory.
 
 ```bash
 devsync add ~/.gitconfig
+devsync add ./.zshrc
 devsync add ~/.config/mytool --secret
 ```
 
@@ -88,6 +89,7 @@ Set mode for a tracked directory root, child file, or child subtree.
 ```bash
 devsync set secret ~/.config/mytool/token.json
 devsync set ignore ~/.config/mytool/cache --recursive
+cd ~/.ssh && devsync set ignore known_hosts
 devsync set normal .config/mytool/public.json
 ```
 
@@ -97,6 +99,7 @@ Remove a tracked local path or repository path from sync config.
 
 ```bash
 devsync forget ~/.gitconfig
+cd ~/mytool && devsync forget ./settings.json
 devsync forget .config/mytool
 ```
 
