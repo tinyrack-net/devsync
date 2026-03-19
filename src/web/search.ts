@@ -49,7 +49,7 @@ type BraveSearchEngineDependencies = Readonly<{
 const searchCommandSchema = z.object({
   options: z.object({
     apiKey: trimmedOptionalStringSchema,
-    engine: z.string().trim().min(1, "Engine name is required."),
+    engine: trimmedOptionalStringSchema,
     json: z.boolean(),
     limit: z.coerce
       .number()
@@ -326,9 +326,12 @@ const runSearchCommand = async (
     },
     query,
   });
+  const registry = dependencies.createSearchEngineRegistry(
+    validatedInput.options.apiKey,
+  );
   const output = await runWebSearch(
     {
-      engineName: validatedInput.options.engine,
+      engineName: validatedInput.options.engine ?? registry.defaultEngineName,
       query: validatedInput.query,
       limit: validatedInput.options.limit,
       json: validatedInput.options.json,
@@ -339,7 +342,7 @@ const runSearchCommand = async (
             site: validatedInput.options.site,
           }),
     },
-    dependencies.createSearchEngineRegistry(validatedInput.options.apiKey),
+    registry,
   );
 
   return output;

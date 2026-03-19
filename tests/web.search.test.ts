@@ -2,7 +2,9 @@ import { describe, expect, it } from "vitest";
 
 import {
   createSearchEngineRegistry,
+  runWebDocsSearchCommand,
   runWebSearch,
+  runWebSearchCommand,
   WebSearchError,
 } from "#app/web/search.ts";
 
@@ -38,6 +40,99 @@ describe("createSearchEngineRegistry", () => {
     expect(() => {
       createSearchEngineRegistry("brave", [createEngine("duck", [])]);
     }).toThrowError("Unknown default search engine: brave");
+  });
+});
+
+describe("runWebSearchCommand", () => {
+  it("uses the default engine and forwards the api key override", async () => {
+    const apiKeyOverrides: Array<string | undefined> = [];
+
+    const output = await runWebSearchCommand(
+      {
+        query: "typescript",
+        options: {
+          apiKey: "secret-key",
+          json: false,
+          limit: 5,
+          timeout: 1_000,
+        },
+      },
+      {
+        createSearchEngineRegistry: (apiKeyOverride) => {
+          apiKeyOverrides.push(apiKeyOverride);
+
+          return createSearchEngineRegistry("brave", [
+            createEngine("alt", []),
+            createEngine("brave", [
+              {
+                title: "TypeScript",
+                url: "https://example.com/typescript",
+                description: "Typed JavaScript at any scale.",
+              },
+            ]),
+          ]);
+        },
+      },
+    );
+
+    expect(output).toContain("1. TypeScript");
+    expect(apiKeyOverrides).toEqual(["secret-key"]);
+  });
+
+  it("supports docs-search site overrides", async () => {
+    const output = await runWebDocsSearchCommand(
+      {
+        site: "https://nodejs.org/docs/latest/",
+        query: "fs watch",
+        options: {
+          json: true,
+          limit: 5,
+          timeout: 1_000,
+        },
+      },
+      {
+        createSearchEngineRegistry: () => {
+          return createSearchEngineRegistry("brave", [
+            createEngine("brave", [
+              {
+                title: "Node.js docs",
+                url: "https://nodejs.org/docs/latest/api/fs.html",
+                description: undefined,
+              },
+            ]),
+          ]);
+        },
+      },
+    );
+
+    expect(JSON.parse(output)).toMatchObject({
+      engine: "brave",
+      query: "fs watch",
+      searchQuery: "site:nodejs.org/docs/latest fs watch",
+      site: "nodejs.org/docs/latest",
+    });
+  });
+
+  it("validates limit values", async () => {
+    await expect(
+      runWebSearchCommand(
+        {
+          query: "typescript",
+          options: {
+            json: false,
+            limit: 0,
+            timeout: 1_000,
+          },
+        },
+        {
+          createSearchEngineRegistry: () => {
+            return createSearchEngineRegistry("brave", [
+              createEngine("brave", []),
+            ]);
+          },
+        },
+      ),
+    ).rejects.toThrowError("Limit must be greater than 0.");
   });
 });
 
