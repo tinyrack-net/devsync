@@ -13,6 +13,7 @@ import { basename, dirname, join, relative, resolve } from "node:path";
 import type { Command } from "commander";
 import { z } from "zod";
 
+import { setArgumentCompletionChoices } from "#app/cli/completion.ts";
 import {
   resolveSkillInstallTargetDirectory,
   type SupportedSkillInstallAgent,
@@ -526,7 +527,7 @@ export const registerInstallSkillsCommand = (
     skillInstaller: SkillInstaller;
   },
 ) => {
-  installCommand
+  const skillsCommand = installCommand
     .command("skills")
     .description("Install bundled skill templates for an agent harness")
     .argument(
@@ -561,6 +562,12 @@ export const registerInstallSkillsCommand = (
 
       dependencies.io.stdout(formatSkillInstallResult(result));
     });
+
+  setArgumentCompletionChoices(
+    skillsCommand,
+    "agent",
+    supportedSkillInstallAgents,
+  );
 };
 
 export const registerUninstallSkillsCommand = (
@@ -572,7 +579,7 @@ export const registerUninstallSkillsCommand = (
     skillUninstaller: SkillUninstaller;
   },
 ) => {
-  uninstallCommand
+  const skillsCommand = uninstallCommand
     .command("skills")
     .description("Uninstall bundled skill templates for an agent harness")
     .argument(
@@ -605,4 +612,10 @@ export const registerUninstallSkillsCommand = (
 
       dependencies.io.stdout(formatSkillUninstallResult(result));
     });
+
+  setArgumentCompletionChoices(
+    skillsCommand,
+    "agent",
+    supportedSkillInstallAgents,
+  );
 };

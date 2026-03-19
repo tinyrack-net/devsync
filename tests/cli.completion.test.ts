@@ -13,12 +13,16 @@ import {
   generateCompletion,
   generateZshCompletion,
   isSupportedShell,
+  resolveCompletionItems,
   type Shell,
   SUPPORTED_SHELLS,
+  setArgumentCompletionChoices,
+  setOptionCompletionChoices,
 } from "#app/cli/completion.ts";
 import { runCli } from "#app/cli/index.ts";
 
 const cliPath = fileURLToPath(new URL("../src/index.ts", import.meta.url));
+const cliShim = `devtools() { ${JSON.stringify(process.execPath)} ${JSON.stringify(cliPath)} "$@"; }`;
 
 function createTestProgram(): Command {
   const program = new Command();
@@ -28,19 +32,26 @@ function createTestProgram(): Command {
   web
     .command("search")
     .description("Search the web")
-    .argument("<query>")
+    .argument("<query>", "Search query")
     .option("-l, --limit <number>", "Limit results")
     .option("--json", "JSON output");
-  web
+  const fetchCommand = web
     .command("fetch")
     .description("Fetch a page")
-    .argument("<url>")
+    .argument("<url>", "Page URL")
     .option("-f, --format <format>", "Output format");
+  setOptionCompletionChoices(fetchCommand, "--format", ["text", "json"]);
 
   program
     .command("install")
     .description("Install resources")
     .argument("<name>");
+
+  const completionCommand = program
+    .command("completion")
+    .description("Generate shell completion script")
+    .argument("<shell>", "Shell type");
+  setArgumentCompletionChoices(completionCommand, "shell", SUPPORTED_SHELLS);
 
   return program;
 }
@@ -128,6 +139,37 @@ describe("collectCommands", () => {
     const optNames = fetchCmd?.options.map((o) => o.name);
     expect(optNames).toContain("--format");
   });
+
+  it("collects positional arguments for leaf commands", () => {
+    const program = createTestProgram();
+    const commands = collectCommands(program);
+
+    const search = commands.get("web search");
+    expect(search?.arguments).toEqual([
+      {
+        name: "query",
+        description: "Search query",
+        required: true,
+        variadic: false,
+        choices: [],
+      },
+    ]);
+  });
+
+  it("collects completion choices for option values", () => {
+    const program = createTestProgram();
+    const commands = collectCommands(program);
+
+    const fetch = commands.get("web fetch");
+    const formatOption = fetch?.optionDetails.find(
+      (o) => o.name === "--format",
+    );
+
+    expect(formatOption?.valueChoices.map((item) => item.name)).toEqual([
+      "text",
+      "json",
+    ]);
+  });
 });
 
 describe("generateBashCompletion", () => {
@@ -151,8 +193,48 @@ describe("generateZshCompletion", () => {
     expect(output).toContain("#compdef test-cli");
     expect(output).toContain("_test-cli()");
     expect(output).toContain("compdef _test-cli test-cli");
-    expect(output).toContain("_describe -t commands");
-    expect(output).toContain("_describe -t options");
+    expect(output).toContain("_describe -t values");
+  });
+});
+
+describe("resolveCompletionItems", () => {
+  it("suggests argument placeholders for zsh positional arguments", () => {
+    const program = createTestProgram();
+    const items = resolveCompletionItems(
+      "zsh",
+      program,
+      ["test-cli", "web", "search", ""],
+      3,
+    );
+
+    expect(items).toContainEqual({
+      name: "query",
+      description: "Search query",
+    });
+  });
+
+  it("suggests known option values after a value-taking option", () => {
+    const program = createTestProgram();
+    const items = resolveCompletionItems(
+      "bash",
+      program,
+      ["test-cli", "web", "fetch", "--format", ""],
+      4,
+    );
+
+    expect(items.map((item) => item.name)).toEqual(["text", "json"]);
+  });
+
+  it("suggests known argument choices", () => {
+    const program = createTestProgram();
+    const items = resolveCompletionItems(
+      "bash",
+      program,
+      ["test-cli", "completion", ""],
+      2,
+    );
+
+    expect(items.map((item) => item.name)).toEqual(["bash", "zsh"]);
   });
 });
 
@@ -219,22 +301,20 @@ describe("completion command integration", () => {
     expect(io.getStderr()).toContain("Unsupported shell: fish");
   });
 
-  it("includes all registered subcommands in completion output", async () => {
+  it("resolves registered subcommands via the internal completion command", async () => {
     const io = createIo();
-    await runCli(["completion", "bash"], packageInfo, io);
+    const exitCode = await runCli(
+      ["__complete", "bash", "1", "--", "devtools", ""],
+      packageInfo,
+      io,
+    );
     const output = io.getStdout();
 
+    expect(exitCode).toBe(0);
     expect(output).toContain("install");
     expect(output).toContain("uninstall");
     expect(output).toContain("web");
     expect(output).toContain("completion");
-    expect(output).toContain("search");
-    expect(output).toContain("docs-search");
-    expect(output).toContain("fetch");
-    expect(output).toContain("inspect");
-    expect(output).toContain("links");
-    expect(output).toContain("sitemap");
-    expect(output).toContain("skills");
   });
 });
 
@@ -306,6 +386,7 @@ describe("bash shell integration", () => {
     // COMP_ variables, calls the completion function, and prints results.
     const script = [
       "source /usr/share/bash-completion/bash_completion",
+      cliShim,
       `source ${completionFile}`,
       `COMP_WORDS=(${lineWords.map((w) => `"${w}"`).join(" ")})`,
       `COMP_CWORD=$(( \${#COMP_WORDS[@]} - 1 ))`,
@@ -349,6 +430,25 @@ describe("bash shell integration", () => {
     const items = await bashComplete("devtools", "web", "fetch", "url", "");
     expect(items).toContain("--format");
     expect(items).toContain("--timeout");
+  });
+
+  it("completes known value choices for the completion command", async () => {
+    const items = await bashComplete("devtools", "completion", "");
+    expect(items).toEqual(["bash", "zsh"]);
+  });
+
+  it("completes known option values after a value-taking flag", async () => {
+    const items = await bashComplete(
+      "devtools",
+      "web",
+      "fetch",
+      "--format",
+      "",
+    );
+    expect(items).toContain("markdown");
+    expect(items).toContain("text");
+    expect(items).toContain("html");
+    expect(items).toContain("json");
   });
 
   it("filters web subcommands by prefix", async () => {
@@ -438,6 +538,7 @@ describe("zsh shell integration", () => {
     const script = [
       // Define the function without calling compdef
       completionScript.replace(/^compdef .*/m, ""),
+      cliShim,
       // Override _describe to extract completion names from the specs array.
       // Handles: _describe [-t tag] 'descr' array_name
       "_describe() {",
@@ -485,6 +586,25 @@ describe("zsh shell integration", () => {
     expect(items).toContain("--timeout");
   });
 
+  it("completes the positional query placeholder for web search", async () => {
+    const items = await zshComplete("devtools", "web", "search", "");
+    expect(items).toContain("query");
+    expect(items).toContain("--engine");
+  });
+
+  it("completes known value choices for the completion command", async () => {
+    const items = await zshComplete("devtools", "completion", "");
+    expect(items).toEqual(["bash", "zsh"]);
+  });
+
+  it("completes known option values after a value-taking flag", async () => {
+    const items = await zshComplete("devtools", "web", "fetch", "--format", "");
+    expect(items).toContain("markdown");
+    expect(items).toContain("text");
+    expect(items).toContain("html");
+    expect(items).toContain("json");
+  });
+
   it("completes install subcommands", async () => {
     const items = await zshComplete("devtools", "install", "");
     expect(items).toEqual(["skills"]);
@@ -512,6 +632,7 @@ describe("zsh shell integration", () => {
   it("includes descriptions in _describe specs", async () => {
     const script = [
       completionScript.replace(/^compdef .*/m, ""),
+      cliShim,
       // Override _describe to print tag + raw specs
       "_describe() {",
       '  while [[ "$1" == -* ]]; do shift; shift; done',

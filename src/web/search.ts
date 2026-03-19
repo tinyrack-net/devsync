@@ -1,6 +1,7 @@
 import type { Command } from "commander";
 import { z } from "zod";
 
+import { setOptionCompletionChoices } from "#app/cli/completion.ts";
 import {
   defaultWebRequestTimeoutMs,
   fetchWithTimeout,
@@ -362,9 +363,10 @@ export const registerWebSearchCommand = (
   },
 ) => {
   const defaultSearchEngineRegistry = dependencies.createSearchEngineRegistry();
-  const availableSearchEngines = defaultSearchEngineRegistry.names().join(", ");
+  const availableSearchEngineNames = defaultSearchEngineRegistry.names();
+  const availableSearchEngines = availableSearchEngineNames.join(", ");
 
-  webCommand
+  const searchCommand = webCommand
     .command("search")
     .description("Search the web")
     .argument("<query>", "Keywords to search for")
@@ -388,6 +390,12 @@ export const registerWebSearchCommand = (
     .action(async (query: string, options: Record<string, unknown>) => {
       await runSearchCommand(query, options, dependencies);
     });
+
+  setOptionCompletionChoices(
+    searchCommand,
+    "--engine",
+    availableSearchEngineNames,
+  );
 };
 
 export const registerWebDocsSearchCommand = (
@@ -402,9 +410,10 @@ export const registerWebDocsSearchCommand = (
   },
 ) => {
   const defaultSearchEngineRegistry = dependencies.createSearchEngineRegistry();
-  const availableSearchEngines = defaultSearchEngineRegistry.names().join(", ");
+  const availableSearchEngineNames = defaultSearchEngineRegistry.names();
+  const availableSearchEngines = availableSearchEngineNames.join(", ");
 
-  webCommand
+  const docsSearchCommand = webCommand
     .command("docs-search")
     .description("Search documentation within a specific site or docs path")
     .argument("<site>", "Hostname or docs base path, e.g. nodejs.org/docs")
@@ -427,4 +436,10 @@ export const registerWebDocsSearchCommand = (
         await runSearchCommand(query, options, dependencies, site);
       },
     );
+
+  setOptionCompletionChoices(
+    docsSearchCommand,
+    "--engine",
+    availableSearchEngineNames,
+  );
 };

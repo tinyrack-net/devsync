@@ -3,6 +3,7 @@ import type { Command } from "commander";
 import TurndownService from "turndown";
 import { z } from "zod";
 
+import { setOptionCompletionChoices } from "#app/cli/completion.ts";
 import {
   createHtmlPageLoader,
   readCanonicalUrl,
@@ -167,7 +168,7 @@ export const registerWebFetchCommand = (
     webPageReader: WebPageReader;
   },
 ) => {
-  webCommand
+  const fetchCommand = webCommand
     .command("fetch")
     .description("Fetch a web page and convert it to structured output")
     .argument("<url>", "Web page URL")
@@ -192,4 +193,6 @@ export const registerWebFetchCommand = (
         formatWebPageContent(content, validatedInput.options.format),
       );
     });
+
+  setOptionCompletionChoices(fetchCommand, "--format", webPageOutputFormats);
 };

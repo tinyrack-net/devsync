@@ -1,4 +1,4 @@
-import type { Command } from "commander";
+import type { Command, Option } from "commander";
 
 export type Shell = "bash" | "zsh";
 
@@ -8,19 +8,572 @@ export function isSupportedShell(value: string): value is Shell {
   return (SUPPORTED_SHELLS as readonly string[]).includes(value);
 }
 
-/**
- * Collect the full command tree from a Commander program into a flat map.
- * Each key is a space-joined command path (e.g. "web search") and the value
- * contains its subcommand names/descriptions and option flags/descriptions.
- */
 export interface CompletionItem {
   name: string;
   description: string;
 }
 
+export interface CompletionArgumentInfo {
+  name: string;
+  description: string;
+  required: boolean;
+  variadic: boolean;
+  choices: CompletionItem[];
+}
+
+export interface CompletionOptionInfo {
+  name: string;
+  description: string;
+  flags: string[];
+  takesValue: boolean;
+  valueName: string | undefined;
+  valueChoices: CompletionItem[];
+}
+
+/**
+ * Collect the full command tree from a Commander program into a flat map.
+ * Each key is a space-joined command path (e.g. "web search") and the value
+ * contains its subcommand names/descriptions, option flags/descriptions, and
+ * positional-argument metadata.
+ */
 export interface CommandInfo {
   subcommands: CompletionItem[];
   options: CompletionItem[];
+  arguments: CompletionArgumentInfo[];
+  optionDetails: CompletionOptionInfo[];
+}
+
+type CompletionChoiceSource = readonly string[] | readonly CompletionItem[];
+
+type CompletionContext = Readonly<{
+  path: string[];
+  consumedArguments: number;
+  pendingOption: CompletionOptionInfo | undefined;
+  stopOptions: boolean;
+}>;
+
+type AttachedOptionValueMatch = Readonly<{
+  option: CompletionOptionInfo;
+  flag: string;
+  token: string;
+  value: string;
+}>;
+
+const completionChoices = new WeakMap<object, readonly CompletionItem[]>();
+
+const completionRootKey = "__root__";
+
+const normalizeCompletionItems = (
+  choices: CompletionChoiceSource,
+): CompletionItem[] => {
+  return choices.map((choice) => {
+    if (typeof choice === "string") {
+      return {
+        name: choice,
+        description: "",
+      } satisfies CompletionItem;
+    }
+
+    return {
+      name: choice.name,
+      description: choice.description,
+    } satisfies CompletionItem;
+  });
+};
+
+const getCompletionChoices = (target: object): CompletionItem[] => {
+  return [...(completionChoices.get(target) ?? [])];
+};
+
+const isVisibleCommand = (command: Command) => {
+  return Reflect.get(command, "_hidden") !== true;
+};
+
+const isVisibleOption = (option: Option) => {
+  return option.hidden !== true;
+};
+
+const readOptionValueName = (flags: string) => {
+  const match = /<([^>]+)>|\[([^\]]+)\]/u.exec(flags);
+  return match?.[1] ?? match?.[2];
+};
+
+const commandKey = (path: readonly string[]) => {
+  return path.join(" ") || completionRootKey;
+};
+
+const getCommandInfo = (
+  commands: ReadonlyMap<string, CommandInfo>,
+  path: readonly string[],
+) => {
+  return commands.get(commandKey(path)) ?? commands.get(completionRootKey);
+};
+
+const getArgumentAt = (
+  argumentsInfo: readonly CompletionArgumentInfo[],
+  index: number,
+) => {
+  const directArgument = argumentsInfo[index];
+
+  if (directArgument !== undefined) {
+    return directArgument;
+  }
+
+  const lastArgument = argumentsInfo.at(-1);
+
+  if (lastArgument?.variadic === true) {
+    return lastArgument;
+  }
+
+  return undefined;
+};
+
+const filterItemsByPrefix = (
+  items: readonly CompletionItem[],
+  prefix: string,
+) => {
+  if (prefix === "") {
+    return [...items];
+  }
+
+  return items.filter((item) => {
+    return item.name.startsWith(prefix);
+  });
+};
+
+const dedupeItems = (items: readonly CompletionItem[]) => {
+  const uniqueItems = new Map<string, CompletionItem>();
+
+  for (const item of items) {
+    if (!uniqueItems.has(item.name)) {
+      uniqueItems.set(item.name, item);
+    }
+  }
+
+  return [...uniqueItems.values()];
+};
+
+const findOptionByToken = (
+  options: readonly CompletionOptionInfo[],
+  token: string,
+) => {
+  return options.find((option) => {
+    return option.flags.includes(token);
+  });
+};
+
+const matchAttachedOptionValue = (
+  options: readonly CompletionOptionInfo[],
+  token: string,
+) => {
+  for (const option of options) {
+    if (!option.takesValue) {
+      continue;
+    }
+
+    const longFlag = option.flags.find((flag) => {
+      return flag.startsWith("--");
+    });
+
+    if (longFlag !== undefined && token.startsWith(`${longFlag}=`)) {
+      return {
+        option,
+        flag: longFlag,
+        token,
+        value: token.slice(longFlag.length + 1),
+      } satisfies AttachedOptionValueMatch;
+    }
+  }
+
+  return undefined;
+};
+
+const zshPlaceholderItem = (
+  name: string,
+  description: string,
+): CompletionItem => {
+  return {
+    name,
+    description: description === "" ? name : description,
+  };
+};
+
+const getFreeFormArgumentSuggestions = (
+  shell: Shell,
+  argument: CompletionArgumentInfo,
+  currentToken: string,
+) => {
+  if (shell !== "zsh") {
+    return [];
+  }
+
+  return filterItemsByPrefix(
+    [zshPlaceholderItem(argument.name, argument.description)],
+    currentToken,
+  );
+};
+
+const getFreeFormOptionValueSuggestions = (
+  shell: Shell,
+  option: CompletionOptionInfo,
+  currentToken: string,
+) => {
+  if (shell !== "zsh") {
+    return [];
+  }
+
+  const valueName = option.valueName ?? "value";
+
+  return filterItemsByPrefix(
+    [zshPlaceholderItem(valueName, option.description)],
+    currentToken,
+  );
+};
+
+const resolvePendingOptionValueSuggestions = (
+  shell: Shell,
+  option: CompletionOptionInfo,
+  currentToken: string,
+) => {
+  if (option.valueChoices.length > 0) {
+    return filterItemsByPrefix(option.valueChoices, currentToken);
+  }
+
+  return getFreeFormOptionValueSuggestions(shell, option, currentToken);
+};
+
+const resolveAttachedOptionValueSuggestions = (
+  shell: Shell,
+  match: AttachedOptionValueMatch,
+) => {
+  if (match.option.valueChoices.length > 0) {
+    return filterItemsByPrefix(
+      match.option.valueChoices.map((item) => {
+        return {
+          name: `${match.flag}=${item.name}`,
+          description: item.description,
+        } satisfies CompletionItem;
+      }),
+      match.token,
+    );
+  }
+
+  if (shell !== "zsh") {
+    return [];
+  }
+
+  const valueName = match.option.valueName ?? "value";
+
+  return filterItemsByPrefix(
+    [
+      {
+        name: `${match.flag}=<${valueName}>`,
+        description:
+          match.option.description === ""
+            ? valueName
+            : match.option.description,
+      } satisfies CompletionItem,
+    ],
+    match.token,
+  );
+};
+
+const resolveCurrentOptionSuggestions = (
+  shell: Shell,
+  info: CommandInfo,
+  currentToken: string,
+) => {
+  const attachedValueMatch = matchAttachedOptionValue(
+    info.optionDetails,
+    currentToken,
+  );
+
+  if (attachedValueMatch !== undefined) {
+    return resolveAttachedOptionValueSuggestions(shell, attachedValueMatch);
+  }
+
+  const exactOption = findOptionByToken(info.optionDetails, currentToken);
+
+  if (exactOption?.takesValue === true) {
+    const replacementPrefix =
+      exactOption.flags.find((flag) => {
+        return flag.startsWith("--");
+      }) ?? currentToken;
+
+    if (exactOption.valueChoices.length > 0) {
+      return exactOption.valueChoices.map((item) => {
+        return {
+          name: `${replacementPrefix}=${item.name}`,
+          description: item.description,
+        } satisfies CompletionItem;
+      });
+    }
+
+    if (shell !== "zsh") {
+      return [];
+    }
+
+    const valueName = exactOption.valueName ?? "value";
+
+    return [
+      {
+        name: `${replacementPrefix}=<${valueName}>`,
+        description:
+          exactOption.description === "" ? valueName : exactOption.description,
+      } satisfies CompletionItem,
+    ];
+  }
+
+  return filterItemsByPrefix(info.options, currentToken);
+};
+
+const resolveCurrentArgumentSuggestions = (
+  shell: Shell,
+  info: CommandInfo,
+  currentToken: string,
+  argument: CompletionArgumentInfo,
+) => {
+  if (argument.choices.length > 0) {
+    const choices = filterItemsByPrefix(argument.choices, currentToken);
+
+    if (currentToken === "") {
+      return dedupeItems([...choices, ...info.options]);
+    }
+
+    return choices;
+  }
+
+  const placeholderItems = getFreeFormArgumentSuggestions(
+    shell,
+    argument,
+    currentToken,
+  );
+
+  if (currentToken === "") {
+    return dedupeItems([...placeholderItems, ...info.options]);
+  }
+
+  return placeholderItems;
+};
+
+const resolveCurrentTokenSuggestions = (
+  shell: Shell,
+  commands: ReadonlyMap<string, CommandInfo>,
+  context: CompletionContext,
+  currentToken: string,
+) => {
+  const info = getCommandInfo(commands, context.path);
+
+  if (info === undefined) {
+    return [];
+  }
+
+  if (context.pendingOption !== undefined) {
+    return resolvePendingOptionValueSuggestions(
+      shell,
+      context.pendingOption,
+      currentToken,
+    );
+  }
+
+  if (currentToken.startsWith("-")) {
+    return resolveCurrentOptionSuggestions(shell, info, currentToken);
+  }
+
+  if (context.consumedArguments === 0 && info.subcommands.length > 0) {
+    const subcommands = filterItemsByPrefix(info.subcommands, currentToken);
+
+    if (currentToken === "") {
+      return dedupeItems([...subcommands, ...info.options]);
+    }
+
+    return subcommands;
+  }
+
+  const nextArgument = getArgumentAt(info.arguments, context.consumedArguments);
+
+  if (nextArgument !== undefined) {
+    return resolveCurrentArgumentSuggestions(
+      shell,
+      info,
+      currentToken,
+      nextArgument,
+    );
+  }
+
+  if (currentToken === "") {
+    return [...info.options];
+  }
+
+  return [];
+};
+
+const parseCompletionContext = (
+  commands: ReadonlyMap<string, CommandInfo>,
+  wordsBeforeCurrent: readonly string[],
+): CompletionContext => {
+  let context: CompletionContext = {
+    path: [],
+    consumedArguments: 0,
+    pendingOption: undefined,
+    stopOptions: false,
+  };
+
+  for (const token of wordsBeforeCurrent) {
+    const info = getCommandInfo(commands, context.path);
+
+    if (info === undefined) {
+      break;
+    }
+
+    if (context.pendingOption !== undefined) {
+      context = {
+        ...context,
+        pendingOption: undefined,
+      };
+      continue;
+    }
+
+    if (!context.stopOptions && token === "--") {
+      context = {
+        ...context,
+        stopOptions: true,
+      };
+      continue;
+    }
+
+    if (!context.stopOptions) {
+      const attachedValueMatch = matchAttachedOptionValue(
+        info.optionDetails,
+        token,
+      );
+
+      if (attachedValueMatch !== undefined) {
+        continue;
+      }
+
+      const matchedOption = findOptionByToken(info.optionDetails, token);
+
+      if (matchedOption !== undefined) {
+        context = {
+          ...context,
+          pendingOption: matchedOption.takesValue ? matchedOption : undefined,
+        };
+        continue;
+      }
+
+      if (token.startsWith("-")) {
+        continue;
+      }
+    }
+
+    if (!context.stopOptions && context.consumedArguments === 0) {
+      const matchedSubcommand = info.subcommands.find((item) => {
+        return item.name === token;
+      });
+
+      if (matchedSubcommand !== undefined) {
+        context = {
+          path: [...context.path, token],
+          consumedArguments: 0,
+          pendingOption: undefined,
+          stopOptions: false,
+        };
+        continue;
+      }
+
+      if (info.subcommands.length > 0 && info.arguments.length === 0) {
+        break;
+      }
+    }
+
+    const nextArgument = getArgumentAt(
+      info.arguments,
+      context.consumedArguments,
+    );
+
+    if (nextArgument !== undefined) {
+      context = {
+        ...context,
+        consumedArguments: nextArgument.variadic
+          ? context.consumedArguments
+          : context.consumedArguments + 1,
+      };
+      continue;
+    }
+
+    if (info.subcommands.length > 0 && context.consumedArguments === 0) {
+      break;
+    }
+  }
+
+  return context;
+};
+
+const normalizeCompletionRequest = (
+  words: readonly string[],
+  currentWordIndex: number,
+) => {
+  if (currentWordIndex < words.length) {
+    return {
+      words: [...words],
+      currentWordIndex,
+    };
+  }
+
+  return {
+    words: [...words, ""],
+    currentWordIndex: words.length,
+  };
+};
+
+const sanitizeCompletionField = (value: string) => {
+  return value.replace(/[\r\n\t]+/gu, " ").trim();
+};
+
+const formatCompletionOutput = (items: readonly CompletionItem[]) => {
+  return items
+    .map((item) => {
+      return `${sanitizeCompletionField(item.name)}\t${sanitizeCompletionField(item.description)}`;
+    })
+    .join("\n")
+    .concat(items.length > 0 ? "\n" : "");
+};
+
+export function setArgumentCompletionChoices(
+  command: Command,
+  argumentName: string,
+  choices: CompletionChoiceSource,
+): void {
+  const argument = command.registeredArguments.find((candidate) => {
+    return candidate.name() === argumentName;
+  });
+
+  if (argument === undefined) {
+    throw new Error(`Unknown completion argument: ${argumentName}`);
+  }
+
+  completionChoices.set(argument, normalizeCompletionItems(choices));
+}
+
+export function setOptionCompletionChoices(
+  command: Command,
+  optionFlag: string,
+  choices: CompletionChoiceSource,
+): void {
+  const option = command.options.find((candidate) => {
+    return (
+      candidate.long === optionFlag ||
+      candidate.short === optionFlag ||
+      candidate.attributeName() === optionFlag
+    );
+  });
+
+  if (option === undefined) {
+    throw new Error(`Unknown completion option: ${optionFlag}`);
+  }
+
+  completionChoices.set(option, normalizeCompletionItems(choices));
 }
 
 export function collectCommands(
@@ -28,53 +581,97 @@ export function collectCommands(
   prefix: string[] = [],
 ): Map<string, CommandInfo> {
   const result = new Map<string, CommandInfo>();
-  const key = prefix.join(" ") || "__root__";
+  const key = commandKey(prefix);
 
-  const subcommands: CompletionItem[] = program.commands.map((c) => ({
-    name: c.name(),
-    description: c.description(),
-  }));
+  const visibleSubcommands = program.commands.filter(isVisibleCommand);
+  const subcommands = visibleSubcommands.map((command) => {
+    return {
+      name: command.name(),
+      description: command.description(),
+    } satisfies CompletionItem;
+  });
 
-  const options: CompletionItem[] = program.options
-    .map((o) => ({
-      name: o.long ?? o.short ?? "",
-      description: o.description,
-    }))
-    .filter((o) => o.name.length > 0);
+  const optionDetails = program.options
+    .filter(isVisibleOption)
+    .map((option) => {
+      return {
+        name: option.long ?? option.short ?? "",
+        description: option.description,
+        flags: [option.short, option.long].filter((flag): flag is string => {
+          return flag !== undefined;
+        }),
+        takesValue: option.required || option.optional,
+        valueName: readOptionValueName(option.flags),
+        valueChoices: getCompletionChoices(option),
+      } satisfies CompletionOptionInfo;
+    })
+    .filter((option) => {
+      return option.name.length > 0;
+    });
 
-  result.set(key, { subcommands, options });
+  const argumentsInfo = program.registeredArguments.map((argument) => {
+    return {
+      name: argument.name(),
+      description: argument.description ?? "",
+      required: argument.required,
+      variadic: argument.variadic,
+      choices: getCompletionChoices(argument),
+    } satisfies CompletionArgumentInfo;
+  });
 
-  for (const sub of program.commands) {
-    const nested = collectCommands(sub, [...prefix, sub.name()]);
-    for (const [k, v] of nested) {
-      result.set(k, v);
+  result.set(key, {
+    subcommands,
+    options: optionDetails.map((option) => {
+      return {
+        name: option.name,
+        description: option.description,
+      } satisfies CompletionItem;
+    }),
+    arguments: argumentsInfo,
+    optionDetails,
+  });
+
+  for (const subcommand of visibleSubcommands) {
+    const nestedCommands = collectCommands(subcommand, [
+      ...prefix,
+      subcommand.name(),
+    ]);
+
+    for (const [nestedKey, info] of nestedCommands) {
+      result.set(nestedKey, info);
     }
   }
 
   return result;
 }
 
-function allItems(info: CommandInfo): CompletionItem[] {
-  return [...info.subcommands, ...info.options];
+export function resolveCompletionItems(
+  shell: Shell,
+  program: Command,
+  words: readonly string[],
+  currentWordIndex: number,
+): CompletionItem[] {
+  const normalizedRequest = normalizeCompletionRequest(words, currentWordIndex);
+  const commands = collectCommands(program);
+  const context = parseCompletionContext(
+    commands,
+    normalizedRequest.words.slice(1, normalizedRequest.currentWordIndex),
+  );
+
+  return dedupeItems(
+    resolveCurrentTokenSuggestions(
+      shell,
+      commands,
+      context,
+      normalizedRequest.words[normalizedRequest.currentWordIndex] ?? "",
+    ),
+  );
 }
 
 export function generateBashCompletion(
   programName: string,
-  commands: Map<string, CommandInfo>,
+  _commands: Map<string, CommandInfo>,
 ): string {
-  const cases: string[] = [];
-
-  for (const [path, info] of commands) {
-    const items = allItems(info);
-    if (items.length === 0) continue;
-
-    const words = items.map((i) => i.name).join(" ");
-    const key = path === "__root__" ? "" : path;
-    cases.push(
-      `            "${key}")\n                words="${words}"\n                break\n                ;;`,
-    );
-  }
-
   return `# bash completion for ${programName}
 # eval "$(${programName} completion bash)"
 
@@ -82,30 +679,12 @@ _${programName}_completion() {
     local cur prev words cword
     _init_completion || return
 
-    # Collect non-flag words into an array (skip program name at index 0)
-    local -a parts=()
-    local i
-    for (( i=1; i < cword; i++ )); do
-        [[ "\${words[i]}" == -* ]] && continue
-        parts+=("\${words[i]}")
-    done
+    COMPREPLY=()
+    local name
+    while IFS=$'\\t' read -r name _; do
+        [[ -n "$name" ]] && COMPREPLY+=("$name")
+    done < <(${programName} __complete bash "$cword" -- "\${words[@]}" 2>/dev/null)
 
-    # Try the full path, then progressively shorten until a case matches
-    local words=""
-    local n=\${#parts[@]}
-    while true; do
-        local cmd_path="\${parts[*]:0:n}"
-        case "$cmd_path" in
-${cases.join("\n")}
-            *)
-                if (( n <= 0 )); then break; fi
-                (( n-- ))
-                continue
-                ;;
-        esac
-    done
-
-    COMPREPLY=( $(compgen -W "$words" -- "$cur") )
     return 0
 }
 
@@ -113,92 +692,44 @@ complete -F _${programName}_completion ${programName}
 `;
 }
 
-/**
- * Escape a string for use in zsh _describe specs.
- *
- * _describe uses the format 'name:description' so literal colons in either
- * field must be escaped as \\: and backslashes as \\\\.  Single quotes inside
- * the single-quoted spec also need shell escaping.
- */
-function zshDescribeEscape(text: string): string {
-  return text
-    .replace(/\\/g, "\\\\")
-    .replace(/:/g, "\\:")
-    .replace(/'/g, "'\\''");
-}
-
-/** Build a zsh _describe spec array literal from CompletionItem[]. */
-function zshDescribeSpecs(items: CompletionItem[]): string {
-  return items
-    .map((i) => {
-      const name = zshDescribeEscape(i.name);
-      const desc = i.description ? zshDescribeEscape(i.description) : name;
-      return `'${name}:${desc}'`;
-    })
-    .join(" ");
-}
-
 export function generateZshCompletion(
   programName: string,
-  commands: Map<string, CommandInfo>,
+  _commands: Map<string, CommandInfo>,
 ): string {
-  const cases: string[] = [];
-
-  for (const [path, info] of commands) {
-    if (info.subcommands.length === 0 && info.options.length === 0) continue;
-
-    const lines: string[] = [];
-    const key = path === "__root__" ? "" : path;
-    lines.push(`            "${key}")`);
-
-    if (info.subcommands.length > 0) {
-      lines.push(
-        `                _subcmds=(${zshDescribeSpecs(info.subcommands)})`,
-      );
-    }
-    if (info.options.length > 0) {
-      lines.push(`                _opts=(${zshDescribeSpecs(info.options)})`);
-    }
-
-    lines.push("                break");
-    lines.push("                ;;");
-    cases.push(lines.join("\n"));
-  }
-
   return `#compdef ${programName}
 # zsh completion for ${programName}
 # eval "$(${programName} completion zsh)"
 
 _${programName}() {
-    local i w
+    local output
+    output="$(${programName} __complete zsh "$((CURRENT - 1))" -- "\${words[@]}" 2>/dev/null)" || return 1
 
-    # Collect non-flag words into an array (skip element 1 which is the program)
-    local -a parts=()
-    for (( i=2; i < CURRENT; i++ )); do
-        w="\${words[i]}"
-        [[ "$w" == -* ]] && continue
-        parts+=("$w")
-    done
+    local -a completions
+    completions=()
 
-    # Try the full path, then progressively shorten until a case matches
-    local -a _subcmds _opts
-    local n=\${#parts}
-    while true; do
-        local cmd_path="\${(j: :)parts[1,n]}"
-        case "$cmd_path" in
-${cases.join("\n")}
-            *)
-                if (( n <= 0 )); then break; fi
-                (( n-- ))
-                continue
-                ;;
-        esac
-    done
+    if [[ -n "$output" ]]; then
+        local -a lines
+        local line name desc
+        lines=("\${(@f)output}")
 
-    local _ret=1
-    (( \${#_subcmds} )) && _describe -t commands 'command' _subcmds && _ret=0
-    (( \${#_opts} ))    && _describe -t options 'option' _opts     && _ret=0
-    return $_ret
+        for line in "\${lines[@]}"; do
+            name="\${line%%$'\\t'*}"
+            if [[ "$line" == *$'\\t'* ]]; then
+                desc="\${line#*$'\\t'}"
+            else
+                desc="$name"
+            fi
+
+            name="\${name//\\\\/\\\\\\\\}"
+            name="\${name//:/\\\\:}"
+            desc="\${desc//\\\\/\\\\\\\\}"
+            desc="\${desc//:/\\\\:}"
+            completions+=("$name:$desc")
+        done
+    fi
+
+    (( \${#completions} )) || return 1
+    _describe -t values 'value' completions
 }
 
 compdef _${programName} ${programName}
@@ -225,7 +756,7 @@ export function registerCompletionCommand(
   io: { stdout: (text: string) => void },
   program: Command,
 ): void {
-  parent
+  const completionCommand = parent
     .command("completion")
     .description("Generate shell completion script")
     .argument("<shell>", `Shell type: ${SUPPORTED_SHELLS.join(", ")}`)
@@ -239,6 +770,43 @@ export function registerCompletionCommand(
       const programName = program.name();
       const output = generateCompletion(shell, programName, program);
       io.stdout(output);
+    });
+
+  setArgumentCompletionChoices(completionCommand, "shell", [
+    ...SUPPORTED_SHELLS,
+  ]);
+
+  parent
+    .command("__complete", { hidden: true })
+    .argument("<shell>", "Shell type")
+    .argument("<current-word-index>", "Index of the current word")
+    .argument("[words...]", "Shell words")
+    .action((shell: string, currentWordIndex: string, words: string[]) => {
+      if (!isSupportedShell(shell)) {
+        throw new CompletionError(
+          `Unsupported shell: ${shell}. Supported shells: ${SUPPORTED_SHELLS.join(", ")}`,
+        );
+      }
+
+      const parsedCurrentWordIndex = Number.parseInt(currentWordIndex, 10);
+
+      if (
+        !Number.isInteger(parsedCurrentWordIndex) ||
+        parsedCurrentWordIndex < 0
+      ) {
+        throw new CompletionError(
+          `Invalid current word index: ${currentWordIndex}`,
+        );
+      }
+
+      const items = resolveCompletionItems(
+        shell,
+        program,
+        words,
+        parsedCurrentWordIndex,
+      );
+
+      io.stdout(formatCompletionOutput(items));
     });
 }
 
