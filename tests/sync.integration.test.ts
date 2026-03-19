@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 import { execa } from "execa";
 import { afterEach, describe, expect, it } from "vitest";
 
+import { syncSecretArtifactSuffix } from "#app/config/sync.ts";
 import {
   createAgeKeyPair,
   createTemporaryDirectory,
@@ -303,18 +304,23 @@ describe("sync CLI integration", () => {
     expect(pushResult.stdout).toContain("Synchronized local config");
     expect(
       await readFile(
-        join(syncDirectory, "plain", "bundle", "plain.txt"),
+        join(syncDirectory, "files", "bundle", "plain.txt"),
         "utf8",
       ),
     ).toBe("plain value\n");
     await expect(
-      readFile(join(syncDirectory, "plain", "bundle", "ignored.txt"), "utf8"),
+      readFile(join(syncDirectory, "files", "bundle", "ignored.txt"), "utf8"),
     ).rejects.toMatchObject({
       code: "ENOENT",
     });
     expect(
       await readFile(
-        join(syncDirectory, "secret", "bundle", "secret.json.age"),
+        join(
+          syncDirectory,
+          "files",
+          "bundle",
+          `secret.json${syncSecretArtifactSuffix}`,
+        ),
         "utf8",
       ),
     ).toContain("BEGIN AGE ENCRYPTED FILE");
@@ -404,7 +410,12 @@ describe("sync CLI integration", () => {
     await runCli(["set", "secret", secretFile], { env });
     await runCli(["push"], { env });
     await writeFile(
-      join(syncDirectory, "secret", "bundle", "secret.txt.age"),
+      join(
+        syncDirectory,
+        "files",
+        "bundle",
+        `secret.txt${syncSecretArtifactSuffix}`,
+      ),
       "not a valid age payload",
       "utf8",
     );

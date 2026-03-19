@@ -11,6 +11,7 @@ import {
   readSyncConfig,
   resolveSyncMode,
   SyncConfigError,
+  syncSecretArtifactSuffix,
 } from "#app/config/sync.ts";
 import {
   resolveConfiguredAbsolutePath,
@@ -250,6 +251,61 @@ describe("parseSyncConfig", () => {
               name: "bundle",
               repoPath: "bundle",
               secretGlobs: ["**"],
+            },
+          ],
+        },
+        {
+          HOME: testHomeDirectory,
+        },
+      );
+    }).toThrowError(SyncConfigError);
+  });
+
+  it("rejects repository paths and rules that use the reserved secret suffix", () => {
+    expect(() => {
+      parseSyncConfig(
+        {
+          version: 1,
+          age: {
+            identityFile: "/tmp/identity.txt",
+            recipients: ["age1example"],
+          },
+          entries: [
+            {
+              kind: "file",
+              localPath: "~/bundle/token.txt",
+              name: "bundle/token.txt",
+              repoPath: `bundle/token.txt${syncSecretArtifactSuffix}`,
+            },
+          ],
+        },
+        {
+          HOME: testHomeDirectory,
+        },
+      );
+    }).toThrowError(SyncConfigError);
+
+    expect(() => {
+      parseSyncConfig(
+        {
+          version: 1,
+          age: {
+            identityFile: "/tmp/identity.txt",
+            recipients: ["age1example"],
+          },
+          entries: [
+            {
+              kind: "directory",
+              localPath: "~/bundle",
+              name: "bundle",
+              repoPath: "bundle",
+              rules: [
+                {
+                  match: "exact",
+                  mode: "secret",
+                  path: `token.txt${syncSecretArtifactSuffix}`,
+                },
+              ],
             },
           ],
         },

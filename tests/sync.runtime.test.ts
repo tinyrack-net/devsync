@@ -13,9 +13,9 @@ import { afterEach, describe, expect, it } from "vitest";
 import {
   parseSyncConfig,
   type ResolvedSyncConfig,
-  resolveSyncPlainDirectoryPath,
-  resolveSyncSecretDirectoryPath,
+  resolveSyncArtifactsDirectoryPath,
   type SyncConfig,
+  syncSecretArtifactSuffix,
 } from "#app/config/sync.ts";
 import { encryptSecretFile } from "#app/services/sync/crypto.ts";
 import {
@@ -186,6 +186,37 @@ describe("sync runtime helpers", () => {
     );
   });
 
+  it("rejects local descendants that use the reserved secret suffix", async () => {
+    const workspace = await createWorkspace();
+    const homeDirectory = join(workspace, "home");
+    const xdgConfigHome = join(workspace, "xdg");
+    const bundleDirectory = join(homeDirectory, "bundle");
+
+    await mkdir(bundleDirectory, { recursive: true });
+    await writeFile(
+      join(bundleDirectory, `token.txt${syncSecretArtifactSuffix}`),
+      "reserved\n",
+    );
+
+    const config = createResolvedConfig({
+      entries: [
+        {
+          kind: "directory",
+          localPath: "~/bundle",
+          name: "bundle",
+          repoPath: "bundle",
+        },
+      ],
+      homeDirectory,
+      recipients: ["age1example"],
+      xdgConfigHome,
+    });
+
+    await expect(buildLocalSnapshot(config)).rejects.toThrowError(
+      /reserved suffix/u,
+    );
+  });
+
   it("tracks executable secret files on non-Windows platforms", async () => {
     if (process.platform === "win32") {
       return;
@@ -232,7 +263,7 @@ describe("sync runtime helpers", () => {
     });
   });
 
-  it("builds repo artifacts and collects existing artifact keys for plain and secret outputs", async () => {
+  it("builds repo artifacts and collects existing artifact keys in the merged files tree", async () => {
     const workspace = await createWorkspace();
     const homeDirectory = join(workspace, "home");
     const xdgConfigHome = join(workspace, "xdg");
@@ -294,24 +325,16 @@ describe("sync runtime helpers", () => {
     const artifacts = await buildRepoArtifacts(snapshot, config);
 
     await writeArtifactsToDirectory(
-      resolveSyncPlainDirectoryPath(syncDirectory),
-      artifacts.filter((artifact) => {
-        return artifact.category === "plain";
-      }),
-    );
-    await writeArtifactsToDirectory(
-      resolveSyncSecretDirectoryPath(syncDirectory),
-      artifacts.filter((artifact) => {
-        return artifact.category === "secret";
-      }),
+      resolveSyncArtifactsDirectoryPath(syncDirectory),
+      artifacts,
     );
 
     expect(await collectExistingArtifactKeys(syncDirectory, config)).toEqual(
       new Set([
-        "plain:bundle/",
-        "plain:bundle/link",
-        "plain:bundle/plain.txt",
-        "secret:bundle/secret.txt",
+        "bundle/",
+        "bundle/link",
+        "bundle/plain.txt",
+        `bundle/secret.txt${syncSecretArtifactSuffix}`,
       ]),
     );
   });
@@ -345,9 +368,9 @@ describe("sync runtime helpers", () => {
       });
     };
 
-    await mkdir(join(syncDirectory, "plain", "bundle"), { recursive: true });
+    await mkdir(join(syncDirectory, "files", "bundle"), { recursive: true });
     await writeFile(
-      join(syncDirectory, "plain", "bundle", "secret.txt"),
+      join(syncDirectory, "files", "bundle", "secret.txt"),
       "plain\n",
     );
 
@@ -373,9 +396,14 @@ describe("sync runtime helpers", () => {
     ).rejects.toThrowError(/stored in plain text/u);
 
     await rm(syncDirectory, { force: true, recursive: true });
-    await mkdir(join(syncDirectory, "secret", "bundle"), { recursive: true });
+    await mkdir(join(syncDirectory, "files", "bundle"), { recursive: true });
     await writeFile(
-      join(syncDirectory, "secret", "bundle", "plain.txt.age"),
+      join(
+        syncDirectory,
+        "files",
+        "bundle",
+        `plain.txt${syncSecretArtifactSuffix}`,
+      ),
       "ciphertext ignored before decrypt",
       "utf8",
     );
@@ -395,9 +423,23 @@ describe("sync runtime helpers", () => {
     ).rejects.toThrowError(/stored in secret form/u);
 
     await rm(syncDirectory, { force: true, recursive: true });
-    await mkdir(join(syncDirectory, "secret", "bundle"), { recursive: true });
+    await mkdir(
+      join(
+        syncDirectory,
+        "files",
+        "bundle",
+        `broken${syncSecretArtifactSuffix}`,
+      ),
+      { recursive: true },
+    );
     await writeFile(
-      join(syncDirectory, "secret", "bundle", "broken.txt"),
+      join(
+        syncDirectory,
+        "files",
+        "bundle",
+        `broken${syncSecretArtifactSuffix}`,
+        "value.txt",
+      ),
       "oops\n",
     );
 
@@ -413,12 +455,17 @@ describe("sync runtime helpers", () => {
           },
         ]),
       ),
-    ).rejects.toThrowError(/must end with \.age/u);
+    ).rejects.toThrowError(/reserved suffix/u);
 
     await rm(syncDirectory, { force: true, recursive: true });
-    await mkdir(join(syncDirectory, "secret", "other"), { recursive: true });
+    await mkdir(join(syncDirectory, "files", "other"), { recursive: true });
     await writeFile(
-      join(syncDirectory, "secret", "other", "token.txt.age"),
+      join(
+        syncDirectory,
+        "files",
+        "other",
+        `token.txt${syncSecretArtifactSuffix}`,
+      ),
       "ignored\n",
       "utf8",
     );
@@ -439,10 +486,15 @@ describe("sync runtime helpers", () => {
 
     if (process.platform !== "win32") {
       await rm(syncDirectory, { force: true, recursive: true });
-      await mkdir(join(syncDirectory, "secret", "bundle"), { recursive: true });
+      await mkdir(join(syncDirectory, "files", "bundle"), { recursive: true });
       await symlink(
-        join(workspace, "target.age"),
-        join(syncDirectory, "secret", "bundle", "token.txt.age"),
+        join(workspace, "target.secret"),
+        join(
+          syncDirectory,
+          "files",
+          "bundle",
+          `token.txt${syncSecretArtifactSuffix}`,
+        ),
       );
 
       await expect(
@@ -462,9 +514,9 @@ describe("sync runtime helpers", () => {
     }
 
     await rm(syncDirectory, { force: true, recursive: true });
-    await mkdir(join(syncDirectory, "plain"), { recursive: true });
+    await mkdir(join(syncDirectory, "files"), { recursive: true });
     await writeFile(
-      join(syncDirectory, "plain", "bundle"),
+      join(syncDirectory, "files", "bundle"),
       "not a directory\n",
     );
 
@@ -483,9 +535,9 @@ describe("sync runtime helpers", () => {
     ).rejects.toThrowError(/is not stored as a directory/u);
 
     await rm(syncDirectory, { force: true, recursive: true });
-    await mkdir(join(syncDirectory, "plain", "bundle"), { recursive: true });
+    await mkdir(join(syncDirectory, "files", "bundle"), { recursive: true });
     await writeFile(
-      join(syncDirectory, "plain", "bundle", "keep.txt"),
+      join(syncDirectory, "files", "bundle", "keep.txt"),
       "keep\n",
     );
 
@@ -516,9 +568,14 @@ describe("sync runtime helpers", () => {
     ).toEqual(["bundle", "bundle/keep.txt"]);
 
     await rm(syncDirectory, { force: true, recursive: true });
-    await mkdir(join(syncDirectory, "secret", "bundle"), { recursive: true });
+    await mkdir(join(syncDirectory, "files", "bundle"), { recursive: true });
     await writeFile(
-      join(syncDirectory, "secret", "bundle", "keep.txt.age"),
+      join(
+        syncDirectory,
+        "files",
+        "bundle",
+        `keep.txt${syncSecretArtifactSuffix}`,
+      ),
       "not really ciphertext",
       "utf8",
     );
@@ -545,9 +602,14 @@ describe("sync runtime helpers", () => {
     ).rejects.toThrowError();
 
     await rm(syncDirectory, { force: true, recursive: true });
-    await mkdir(join(syncDirectory, "secret", "bundle"), { recursive: true });
+    await mkdir(join(syncDirectory, "files", "bundle"), { recursive: true });
     await writeSecretFile(
-      join(syncDirectory, "secret", "bundle", "keep.txt.age"),
+      join(
+        syncDirectory,
+        "files",
+        "bundle",
+        `keep.txt${syncSecretArtifactSuffix}`,
+      ),
     );
 
     const decrypted = await buildRepositorySnapshot(

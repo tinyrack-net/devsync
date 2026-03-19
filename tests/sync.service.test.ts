@@ -3,6 +3,7 @@ import { join } from "node:path";
 
 import { afterEach, describe, expect, it } from "vitest";
 
+import { syncSecretArtifactSuffix } from "#app/config/sync.ts";
 import { createSyncManager, SyncError } from "#app/services/sync/index.ts";
 import {
   createAgeKeyPair,
@@ -358,18 +359,20 @@ describe("createSyncManager", () => {
       secret: true,
       target: settingsFile,
     });
-    await mkdir(join(initResult.syncDirectory, "plain", "mytool"), {
-      recursive: true,
-    });
-    await mkdir(join(initResult.syncDirectory, "secret", "mytool"), {
+    await mkdir(join(initResult.syncDirectory, "files", "mytool"), {
       recursive: true,
     });
     await writeFile(
-      join(initResult.syncDirectory, "plain", "mytool", "settings.json"),
+      join(initResult.syncDirectory, "files", "mytool", "settings.json"),
       "stale plain copy\n",
     );
     await writeFile(
-      join(initResult.syncDirectory, "secret", "mytool", "settings.json.age"),
+      join(
+        initResult.syncDirectory,
+        "files",
+        "mytool",
+        `settings.json${syncSecretArtifactSuffix}`,
+      ),
       "stale encrypted copy\n",
     );
 
@@ -389,7 +392,7 @@ describe("createSyncManager", () => {
     expect(config.entries).toEqual([]);
     await expect(
       readFile(
-        join(initResult.syncDirectory, "plain", "mytool", "settings.json"),
+        join(initResult.syncDirectory, "files", "mytool", "settings.json"),
         "utf8",
       ),
     ).rejects.toMatchObject({
@@ -397,7 +400,12 @@ describe("createSyncManager", () => {
     });
     await expect(
       readFile(
-        join(initResult.syncDirectory, "secret", "mytool", "settings.json.age"),
+        join(
+          initResult.syncDirectory,
+          "files",
+          "mytool",
+          `settings.json${syncSecretArtifactSuffix}`,
+        ),
         "utf8",
       ),
     ).rejects.toMatchObject({
@@ -496,7 +504,7 @@ describe("createSyncManager", () => {
     expect(pushResult.encryptedFileCount).toBe(1);
     expect(
       await readFile(
-        join(xdgConfigHome, "devsync", "sync", "plain", "bundle", "plain.txt"),
+        join(xdgConfigHome, "devsync", "sync", "files", "bundle", "plain.txt"),
         "utf8",
       ),
     ).toBe("plain value\n");
@@ -506,7 +514,7 @@ describe("createSyncManager", () => {
           xdgConfigHome,
           "devsync",
           "sync",
-          "plain",
+          "files",
           "bundle",
           "ignored.txt",
         ),
@@ -521,9 +529,9 @@ describe("createSyncManager", () => {
           xdgConfigHome,
           "devsync",
           "sync",
-          "secret",
+          "files",
           "bundle",
-          "secret.json.age",
+          `secret.json${syncSecretArtifactSuffix}`,
         ),
         "utf8",
       ),
@@ -745,13 +753,18 @@ describe("createSyncManager", () => {
     expect(normalPush.plainFileCount).toBe(1);
     expect(
       await readFile(
-        join(syncDirectory, "plain", "bundle", "token.txt"),
+        join(syncDirectory, "files", "bundle", "token.txt"),
         "utf8",
       ),
     ).toBe("token-v1\n");
     await expect(
       readFile(
-        join(syncDirectory, "secret", "bundle", "token.txt.age"),
+        join(
+          syncDirectory,
+          "files",
+          "bundle",
+          `token.txt${syncSecretArtifactSuffix}`,
+        ),
         "utf8",
       ),
     ).rejects.toMatchObject({
@@ -770,13 +783,18 @@ describe("createSyncManager", () => {
 
     expect(secretPush.encryptedFileCount).toBe(1);
     await expect(
-      readFile(join(syncDirectory, "plain", "bundle", "token.txt"), "utf8"),
+      readFile(join(syncDirectory, "files", "bundle", "token.txt"), "utf8"),
     ).rejects.toMatchObject({
       code: "ENOENT",
     });
     expect(
       await readFile(
-        join(syncDirectory, "secret", "bundle", "token.txt.age"),
+        join(
+          syncDirectory,
+          "files",
+          "bundle",
+          `token.txt${syncSecretArtifactSuffix}`,
+        ),
         "utf8",
       ),
     ).toContain("BEGIN AGE ENCRYPTED FILE");
@@ -793,13 +811,18 @@ describe("createSyncManager", () => {
 
     expect(ignorePush.deletedArtifactCount).toBeGreaterThanOrEqual(1);
     await expect(
-      readFile(join(syncDirectory, "plain", "bundle", "token.txt"), "utf8"),
+      readFile(join(syncDirectory, "files", "bundle", "token.txt"), "utf8"),
     ).rejects.toMatchObject({
       code: "ENOENT",
     });
     await expect(
       readFile(
-        join(syncDirectory, "secret", "bundle", "token.txt.age"),
+        join(
+          syncDirectory,
+          "files",
+          "bundle",
+          `token.txt${syncSecretArtifactSuffix}`,
+        ),
         "utf8",
       ),
     ).rejects.toMatchObject({
@@ -841,7 +864,12 @@ describe("createSyncManager", () => {
       dryRun: false,
     });
     await writeFile(
-      join(syncDirectory, "secret", "bundle", "token.txt.age"),
+      join(
+        syncDirectory,
+        "files",
+        "bundle",
+        `token.txt${syncSecretArtifactSuffix}`,
+      ),
       "not a valid age payload",
       "utf8",
     );
