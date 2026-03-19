@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 
 import { type createDefaultCliServices, runCli } from "#app/cli/index.ts";
+import {
+  type SupportedSkillInstallAgent,
+  supportedSkillInstallAgents,
+} from "#app/skills/agents.ts";
 import type {
   createSkillInstaller,
   createSkillUninstaller,
@@ -176,13 +180,13 @@ const createTestServices = () => {
   const apiKeyOverrides: Array<string | undefined> = [];
   const inspectRequests: WebPageInspectRequest[] = [];
   const installRequests: Array<{
-    agent: "pi";
+    agent: SupportedSkillInstallAgent;
     dryRun: boolean;
     force: boolean;
     targetDirectory?: string;
   }> = [];
   const uninstallRequests: Array<{
-    agent: "pi";
+    agent: SupportedSkillInstallAgent;
     dryRun: boolean;
     targetDirectory?: string;
   }> = [];
@@ -336,7 +340,7 @@ describe("runCli", () => {
 
     expect(result.exitCode).toBe(0);
     expect(result.stdout).toContain("Usage: devtools [options] [command]");
-    expect(result.stdout).toContain("web             Web utilities");
+    expect(result.stdout).toMatch(/web\s+Web utilities/);
     expect(result.stderr).toBe("");
   });
 
@@ -405,6 +409,10 @@ describe("runCli", () => {
     expect(result.stdout).toContain("--target-dir <path>");
     expect(result.stdout).toContain("--dry-run");
     expect(result.stdout).toContain("--force");
+    expect(result.stdout).toContain("pi");
+    expect(result.stdout).toContain("codex");
+    expect(result.stdout).toContain("claude");
+    expect(result.stdout).toContain("opencode");
   });
 
   it("shows help for uninstall skills", async () => {
@@ -416,6 +424,10 @@ describe("runCli", () => {
     );
     expect(result.stdout).toContain("--target-dir <path>");
     expect(result.stdout).toContain("--dry-run");
+    expect(result.stdout).toContain("pi");
+    expect(result.stdout).toContain("codex");
+    expect(result.stdout).toContain("claude");
+    expect(result.stdout).toContain("opencode");
   });
 
   it("shows help for the new web commands", async () => {
@@ -446,84 +458,96 @@ describe("runCli", () => {
     );
   });
 
-  it("installs bundled skills for pi", async () => {
+  it.each(
+    supportedSkillInstallAgents,
+  )("installs bundled skills for %s", async (agent) => {
+    const targetDirectory = `/tmp/${agent}-skills`;
     const result = await runWithCapturedIo([
       "install",
       "skills",
-      "pi",
+      agent,
       "--target-dir",
-      "/tmp/pi-skills",
+      targetDirectory,
       "--force",
     ]);
 
     expect(result.exitCode).toBe(0);
-    expect(result.stdout).toContain("Installed 1 skills for pi.");
+    expect(result.stdout).toContain(`Installed 1 skills for ${agent}.`);
     expect(result.installRequests).toEqual([
       {
-        agent: "pi",
+        agent,
         dryRun: false,
         force: true,
-        targetDirectory: "/tmp/pi-skills",
+        targetDirectory,
       },
     ]);
   });
 
-  it("supports dry-run skill installation", async () => {
+  it.each(
+    supportedSkillInstallAgents,
+  )("supports dry-run %s skill installation", async (agent) => {
     const result = await runWithCapturedIo([
       "install",
       "skills",
-      "pi",
+      agent,
       "--dry-run",
     ]);
 
     expect(result.exitCode).toBe(0);
-    expect(result.stdout).toContain("Dry run for pi: 1 skills evaluated.");
+    expect(result.stdout).toContain(
+      `Dry run for ${agent}: 1 skills evaluated.`,
+    );
     expect(result.stdout).toContain("No filesystem changes were made.");
     expect(result.installRequests).toEqual([
       {
-        agent: "pi",
+        agent,
         dryRun: true,
         force: false,
       },
     ]);
   });
 
-  it("uninstalls bundled skills for pi", async () => {
+  it.each(
+    supportedSkillInstallAgents,
+  )("uninstalls bundled skills for %s", async (agent) => {
+    const targetDirectory = `/tmp/${agent}-skills`;
     const result = await runWithCapturedIo([
       "uninstall",
       "skills",
-      "pi",
+      agent,
       "--target-dir",
-      "/tmp/pi-skills",
+      targetDirectory,
     ]);
 
     expect(result.exitCode).toBe(0);
-    expect(result.stdout).toContain("Removed 1 skills for pi.");
+    expect(result.stdout).toContain(`Removed 1 skills for ${agent}.`);
     expect(result.uninstallRequests).toEqual([
       {
-        agent: "pi",
+        agent,
         dryRun: false,
-        targetDirectory: "/tmp/pi-skills",
+        targetDirectory,
       },
     ]);
   });
 
-  it("supports dry-run skill uninstallation", async () => {
+  it.each(
+    supportedSkillInstallAgents,
+  )("supports dry-run %s skill uninstallation", async (agent) => {
     const result = await runWithCapturedIo([
       "uninstall",
       "skills",
-      "pi",
+      agent,
       "--dry-run",
     ]);
 
     expect(result.exitCode).toBe(0);
     expect(result.stdout).toContain(
-      "Dry run for pi uninstall: 1 skills evaluated.",
+      `Dry run for ${agent} uninstall: 1 skills evaluated.`,
     );
     expect(result.stdout).toContain("No filesystem changes were made.");
     expect(result.uninstallRequests).toEqual([
       {
-        agent: "pi",
+        agent,
         dryRun: true,
       },
     ]);
@@ -745,10 +769,12 @@ describe("runCli", () => {
   });
 
   it("rejects unsupported skill install agents", async () => {
-    const result = await runWithCapturedIo(["install", "skills", "codex"]);
+    const result = await runWithCapturedIo(["install", "skills", "copilot"]);
 
     expect(result.exitCode).toBe(1);
-    expect(result.stderr).toContain('Invalid input: expected "pi"');
+    expect(result.stderr).toContain(
+      'Invalid option: expected one of "pi"|"codex"|"claude"|"opencode"',
+    );
   });
 
   it("rejects invalid search sites with zod validation", async () => {

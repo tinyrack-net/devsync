@@ -2,6 +2,10 @@ import { fileURLToPath } from "node:url";
 
 import { Command, CommanderError } from "commander";
 import {
+  CompletionError,
+  registerCompletionCommand,
+} from "#app/cli/completion.ts";
+import {
   createSkillInstaller,
   createSkillUninstaller,
   registerInstallSkillsCommand,
@@ -160,6 +164,8 @@ export const createProgram = (
     webSitemapReader: services.webSitemapReader,
   });
 
+  registerCompletionCommand(program, io, program);
+
   return program;
 };
 
@@ -191,7 +197,8 @@ export const runCli = async (
       error instanceof WebPageInspectError ||
       error instanceof WebPageLinksError ||
       error instanceof WebSearchError ||
-      error instanceof WebSitemapError
+      error instanceof WebSitemapError ||
+      error instanceof CompletionError
     ) {
       io.stderr(`error: ${error.message}\n`);
       return 1;
