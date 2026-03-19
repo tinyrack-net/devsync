@@ -1,7 +1,6 @@
 {
   "name": "devsync",
-  "version": "0.1.0",
-  "private": true,
+  "version": "1.0.0",
   "description": "A personal CLI tool for git-backed configuration sync.",
   "type": "module",
   "license": "MIT",
