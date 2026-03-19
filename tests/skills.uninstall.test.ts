@@ -16,6 +16,7 @@ import { supportedSkillInstallAgents } from "#app/skills/agents.ts";
 import {
   createSkillUninstaller,
   formatSkillUninstallResult,
+  runUninstallSkillsCommand,
   SkillUninstallError,
 } from "#app/skills/install.ts";
 
@@ -102,6 +103,57 @@ describe("formatSkillUninstallResult", () => {
     expect(output).toContain("Dry run for pi uninstall: 1 skills evaluated.");
     expect(output).toContain("Summary: 1 would remove, 0 skipped.");
     expect(output).toContain("No filesystem changes were made.");
+  });
+});
+
+describe("runUninstallSkillsCommand", () => {
+  it("maps validated input to the uninstaller and formats the result", async () => {
+    const requests: Array<{
+      agent: (typeof supportedSkillInstallAgents)[number];
+      dryRun: boolean;
+      targetDirectory?: string;
+    }> = [];
+
+    const output = await runUninstallSkillsCommand(
+      {
+        agent: "pi",
+        options: {
+          dryRun: true,
+          targetDir: "/tmp/pi-skills",
+        },
+      },
+      {
+        skillUninstaller: {
+          uninstall: async (request) => {
+            requests.push(request);
+
+            return {
+              agent: request.agent,
+              dryRun: request.dryRun,
+              skillsDirectory: "/repo/skills",
+              targetDirectory: request.targetDirectory ?? "/tmp/pi-skills",
+              uninstalledSkills: [
+                {
+                  name: "web-research",
+                  sourcePath: "/repo/skills/web-research",
+                  targetPath: "/tmp/pi-skills/web-research",
+                  status: request.dryRun ? "would-remove" : "removed",
+                },
+              ],
+            };
+          },
+        },
+      },
+    );
+
+    expect(output).toContain("Dry run for pi uninstall: 1 skills evaluated.");
+    expect(requests).toEqual([
+      {
+        agent: "pi",
+        dryRun: true,
+        targetDirectory: "/tmp/pi-skills",
+      },
+    ]);
   });
 });
 

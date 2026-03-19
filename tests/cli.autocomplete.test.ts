@@ -3,43 +3,32 @@ import { fileURLToPath } from "node:url";
 import { execa } from "execa";
 import { describe, expect, it } from "vitest";
 
-import { runCli } from "#app/cli/index.ts";
-
 const cliPath = fileURLToPath(new URL("../src/index.ts", import.meta.url));
+
+const runCli = async (args: readonly string[]) => {
+  return execa(process.execPath, [cliPath, ...args], {
+    env: {
+      FORCE_COLOR: "0",
+      NODE_NO_WARNINGS: "1",
+      NO_COLOR: "1",
+    },
+  });
+};
 
 describe("autocomplete command", () => {
   it("appears in root help", async () => {
-    let stdout = "";
-    let stderr = "";
+    const result = await runCli([]);
 
-    const exitCode = await runCli([], {
-      stdout: (text: string) => {
-        stdout += text;
-      },
-      stderr: (text: string) => {
-        stderr += text;
-      },
-    });
-
-    expect(exitCode).toBe(0);
-    expect(stderr).toBe("");
-    expect(stdout).toContain("autocomplete");
-    expect(stdout).toContain("Display autocomplete installation instructions");
+    expect(result.exitCode).toBe(0);
+    expect(result.stderr).toBe("");
+    expect(result.stdout).toContain("autocomplete");
+    expect(result.stdout).toContain(
+      "Display autocomplete installation instructions",
+    );
   });
 
   it("prints bash autocomplete setup instructions", async () => {
-    const result = await execa(
-      process.execPath,
-      [cliPath, "autocomplete", "bash"],
-      {
-        env: {
-          FORCE_COLOR: "0",
-          NODE_NO_WARNINGS: "1",
-          NO_COLOR: "1",
-        },
-        reject: false,
-      },
-    );
+    const result = await runCli(["autocomplete", "bash"]);
 
     expect(result.exitCode).toBe(0);
     expect(result.stdout).toContain(

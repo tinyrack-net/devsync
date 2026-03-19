@@ -1,10 +1,24 @@
-import { Args, Flags } from "@oclif/core";
+import { Args, Command, Flags } from "@oclif/core";
 
-import { BaseCommand } from "#app/cli/base-command.ts";
-import { runWebDocsSearchCommand } from "#app/web/search.ts";
+import {
+  createBraveSearchEngine,
+  createSearchEngineRegistry,
+  runWebDocsSearchCommand,
+} from "#app/web/search.ts";
 import { defaultWebRequestTimeoutMs } from "#app/web/shared.ts";
 
-export default class WebDocsSearch extends BaseCommand {
+const createCommandSearchEngineRegistry = (apiKeyOverride?: string) => {
+  const { BRAVE_SEARCH_API_KEY: braveSearchApiKey } = process.env;
+
+  return createSearchEngineRegistry("brave", [
+    createBraveSearchEngine({
+      apiKey: apiKeyOverride ?? braveSearchApiKey,
+      fetchImplementation: fetch,
+    }),
+  ]);
+};
+
+export default class WebDocsSearch extends Command {
   public static override summary =
     "Search documentation within a specific site or docs path";
 
@@ -52,16 +66,13 @@ export default class WebDocsSearch extends BaseCommand {
         options: {
           ...flags,
           apiKey: flags["api-key"],
-          engine:
-            flags.engine ??
-            this.services.createSearchEngineRegistry().defaultEngineName,
         },
       },
       {
-        createSearchEngineRegistry: this.services.createSearchEngineRegistry,
+        createSearchEngineRegistry: createCommandSearchEngineRegistry,
       },
     );
 
-    this.writeStdout(output);
+    process.stdout.write(output);
   }
 }

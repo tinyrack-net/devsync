@@ -1,10 +1,18 @@
-import { Args, Flags } from "@oclif/core";
+import { Args, Command, Flags } from "@oclif/core";
 
-import { BaseCommand } from "#app/cli/base-command.ts";
-import { runWebFetchCommand, webPageOutputFormats } from "#app/web/fetch.ts";
+import {
+  createFetchWebPageReader,
+  runWebFetchCommand,
+  webPageOutputFormats,
+} from "#app/web/fetch.ts";
 import { defaultWebRequestTimeoutMs } from "#app/web/shared.ts";
 
-export default class WebFetch extends BaseCommand {
+const webPageReader = createFetchWebPageReader({
+  fetchImplementation: fetch,
+  userAgent: "devtools/0.1.0",
+});
+
+export default class WebFetch extends Command {
   public static override summary =
     "Fetch a web page and convert it to structured output";
 
@@ -37,10 +45,10 @@ export default class WebFetch extends BaseCommand {
         options: flags,
       },
       {
-        webPageReader: this.services.webPageReader,
+        webPageReader,
       },
     );
 
-    this.writeStdout(output);
+    process.stdout.write(output);
   }
 }

@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   createWebPageLinkReader,
   formatWebPageLinks,
+  runWebLinksCommand,
   WebPageLinksError,
 } from "#app/web/links.ts";
 
@@ -38,6 +39,53 @@ describe("formatWebPageLinks", () => {
     expect(JSON.parse(formatWebPageLinks(sampleLinks, true))).toEqual(
       sampleLinks,
     );
+  });
+});
+
+describe("runWebLinksCommand", () => {
+  it("maps validated input to the link reader and formats json output", async () => {
+    const requests: Array<{
+      url: string;
+      timeoutMs: number;
+      sameOriginOnly: boolean;
+    }> = [];
+
+    const output = await runWebLinksCommand(
+      {
+        url: "https://example.com/article",
+        options: {
+          json: true,
+          sameOrigin: true,
+          timeout: 1_000,
+        },
+      },
+      {
+        webPageLinkReader: {
+          read: async (request) => {
+            requests.push(request);
+
+            return {
+              ...sampleLinks,
+              finalUrl: request.url,
+              requestedUrl: request.url,
+              sameOriginOnly: request.sameOriginOnly,
+            };
+          },
+        },
+      },
+    );
+
+    expect(JSON.parse(output)).toMatchObject({
+      finalUrl: "https://example.com/article",
+      sameOriginOnly: true,
+    });
+    expect(requests).toEqual([
+      {
+        url: "https://example.com/article",
+        timeoutMs: 1_000,
+        sameOriginOnly: true,
+      },
+    ]);
   });
 });
 

@@ -17,6 +17,7 @@ import { supportedSkillInstallAgents } from "#app/skills/agents.ts";
 import {
   createSkillInstaller,
   formatSkillInstallResult,
+  runInstallSkillsCommand,
   SkillInstallError,
 } from "#app/skills/install.ts";
 
@@ -107,6 +108,60 @@ describe("formatSkillInstallResult", () => {
       "Summary: 1 would install, 0 would replace, 0 skipped.",
     );
     expect(output).toContain("No filesystem changes were made.");
+  });
+});
+
+describe("runInstallSkillsCommand", () => {
+  it("maps validated input to the installer and formats the result", async () => {
+    const requests: Array<{
+      agent: (typeof supportedSkillInstallAgents)[number];
+      dryRun: boolean;
+      force: boolean;
+      targetDirectory?: string;
+    }> = [];
+
+    const output = await runInstallSkillsCommand(
+      {
+        agent: "pi",
+        options: {
+          dryRun: true,
+          force: true,
+          targetDir: "/tmp/pi-skills",
+        },
+      },
+      {
+        skillInstaller: {
+          install: async (request) => {
+            requests.push(request);
+
+            return {
+              agent: request.agent,
+              dryRun: request.dryRun,
+              skillsDirectory: "/repo/skills",
+              targetDirectory: request.targetDirectory ?? "/tmp/pi-skills",
+              installedSkills: [
+                {
+                  name: "web-research",
+                  sourcePath: "/repo/skills/web-research",
+                  targetPath: "/tmp/pi-skills/web-research",
+                  status: request.dryRun ? "would-install" : "installed",
+                },
+              ],
+            };
+          },
+        },
+      },
+    );
+
+    expect(output).toContain("Dry run for pi: 1 skills evaluated.");
+    expect(requests).toEqual([
+      {
+        agent: "pi",
+        dryRun: true,
+        force: true,
+        targetDirectory: "/tmp/pi-skills",
+      },
+    ]);
   });
 });
 

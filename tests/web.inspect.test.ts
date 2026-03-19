@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   createWebPageInspector,
   formatWebPageInspection,
+  runWebInspectCommand,
   WebPageInspectError,
 } from "#app/web/inspect.ts";
 
@@ -38,6 +39,57 @@ describe("formatWebPageInspection", () => {
     expect(JSON.parse(formatWebPageInspection(sampleInspection, true))).toEqual(
       sampleInspection,
     );
+  });
+});
+
+describe("runWebInspectCommand", () => {
+  it("maps validated input to the inspector and formats the result", async () => {
+    const requests: Array<{ url: string; timeoutMs: number }> = [];
+
+    const output = await runWebInspectCommand(
+      {
+        url: "https://example.com/article",
+        options: {
+          json: true,
+          timeout: 1_000,
+        },
+      },
+      {
+        webPageInspector: {
+          inspect: async (request) => {
+            requests.push(request);
+            return sampleInspection;
+          },
+        },
+      },
+    );
+
+    expect(JSON.parse(output)).toEqual(sampleInspection);
+    expect(requests).toEqual([
+      {
+        url: "https://example.com/article",
+        timeoutMs: 1_000,
+      },
+    ]);
+  });
+
+  it("validates timeout values", async () => {
+    await expect(
+      runWebInspectCommand(
+        {
+          url: "https://example.com/article",
+          options: {
+            json: false,
+            timeout: 0,
+          },
+        },
+        {
+          webPageInspector: {
+            inspect: async () => sampleInspection,
+          },
+        },
+      ),
+    ).rejects.toThrowError("Timeout must be greater than 0.");
   });
 });
 

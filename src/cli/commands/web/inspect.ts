@@ -1,10 +1,17 @@
-import { Args, Flags } from "@oclif/core";
+import { Args, Command, Flags } from "@oclif/core";
 
-import { BaseCommand } from "#app/cli/base-command.ts";
-import { runWebInspectCommand } from "#app/web/inspect.ts";
+import {
+  createWebPageInspector,
+  runWebInspectCommand,
+} from "#app/web/inspect.ts";
 import { defaultWebRequestTimeoutMs } from "#app/web/shared.ts";
 
-export default class WebInspect extends BaseCommand {
+const webPageInspector = createWebPageInspector({
+  fetchImplementation: fetch,
+  userAgent: "devtools/0.1.0",
+});
+
+export default class WebInspect extends Command {
   public static override summary =
     "Fetch a web page and print metadata without article extraction";
 
@@ -35,10 +42,10 @@ export default class WebInspect extends BaseCommand {
         options: flags,
       },
       {
-        webPageInspector: this.services.webPageInspector,
+        webPageInspector,
       },
     );
 
-    this.writeStdout(output);
+    process.stdout.write(output);
   }
 }

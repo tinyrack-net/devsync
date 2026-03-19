@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   createWebSitemapReader,
   formatWebSitemap,
+  runWebSitemapCommand,
   WebSitemapError,
 } from "#app/web/sitemap.ts";
 
@@ -52,6 +53,76 @@ describe("formatWebSitemap", () => {
     expect(JSON.parse(formatWebSitemap(sampleSitemap, true))).toEqual(
       sampleSitemap,
     );
+  });
+});
+
+describe("runWebSitemapCommand", () => {
+  it("maps validated input to the sitemap reader and formats json output", async () => {
+    const requests: Array<{
+      url: string;
+      timeoutMs: number;
+      sameOriginOnly: boolean;
+      concurrency: number;
+    }> = [];
+
+    const output = await runWebSitemapCommand(
+      {
+        url: "https://example.com",
+        options: {
+          concurrency: 2,
+          json: true,
+          sameOrigin: true,
+          timeout: 1_000,
+        },
+      },
+      {
+        webSitemapReader: {
+          read: async (request) => {
+            requests.push(request);
+
+            return {
+              ...sampleSitemap,
+              requestedUrl: request.url,
+              sameOriginOnly: request.sameOriginOnly,
+            };
+          },
+        },
+      },
+    );
+
+    expect(JSON.parse(output)).toMatchObject({
+      requestedUrl: "https://example.com",
+      sameOriginOnly: true,
+    });
+    expect(requests).toEqual([
+      {
+        url: "https://example.com",
+        timeoutMs: 1_000,
+        sameOriginOnly: true,
+        concurrency: 2,
+      },
+    ]);
+  });
+
+  it("validates concurrency values", async () => {
+    await expect(
+      runWebSitemapCommand(
+        {
+          url: "https://example.com",
+          options: {
+            concurrency: 0,
+            json: false,
+            sameOrigin: false,
+            timeout: 1_000,
+          },
+        },
+        {
+          webSitemapReader: {
+            read: async () => sampleSitemap,
+          },
+        },
+      ),
+    ).rejects.toThrowError("Concurrency must be greater than 0.");
   });
 });
 

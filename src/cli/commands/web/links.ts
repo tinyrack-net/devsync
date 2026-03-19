@@ -1,10 +1,14 @@
-import { Args, Flags } from "@oclif/core";
+import { Args, Command, Flags } from "@oclif/core";
 
-import { BaseCommand } from "#app/cli/base-command.ts";
-import { runWebLinksCommand } from "#app/web/links.ts";
+import { createWebPageLinkReader, runWebLinksCommand } from "#app/web/links.ts";
 import { defaultWebRequestTimeoutMs } from "#app/web/shared.ts";
 
-export default class WebLinks extends BaseCommand {
+const webPageLinkReader = createWebPageLinkReader({
+  fetchImplementation: fetch,
+  userAgent: "devtools/0.1.0",
+});
+
+export default class WebLinks extends Command {
   public static override summary =
     "Fetch a web page and extract normalized links";
 
@@ -43,10 +47,10 @@ export default class WebLinks extends BaseCommand {
         },
       },
       {
-        webPageLinkReader: this.services.webPageLinkReader,
+        webPageLinkReader,
       },
     );
 
-    this.writeStdout(output);
+    process.stdout.write(output);
   }
 }

@@ -1,12 +1,22 @@
-import { Args, Flags } from "@oclif/core";
+import { fileURLToPath } from "node:url";
 
-import { BaseCommand } from "#app/cli/base-command.ts";
+import { Args, Command, Flags } from "@oclif/core";
+
 import {
+  createSkillUninstaller,
   runUninstallSkillsCommand,
   supportedSkillInstallAgents,
 } from "#app/skills/install.ts";
 
-export default class UninstallSkills extends BaseCommand {
+const bundledSkillsDirectory = fileURLToPath(
+  new URL("../../../../skills", import.meta.url),
+);
+
+const skillUninstaller = createSkillUninstaller({
+  skillsDirectory: bundledSkillsDirectory,
+});
+
+export default class UninstallSkills extends Command {
   public static override summary =
     "Uninstall bundled skill templates for an agent harness";
 
@@ -39,10 +49,10 @@ export default class UninstallSkills extends BaseCommand {
         },
       },
       {
-        skillUninstaller: this.services.skillUninstaller,
+        skillUninstaller,
       },
     );
 
-    this.writeStdout(output);
+    process.stdout.write(output);
   }
 }

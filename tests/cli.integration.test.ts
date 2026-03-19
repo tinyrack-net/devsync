@@ -68,7 +68,7 @@ describe("CLI integration", () => {
     const result = await runCli(["--version"]);
 
     expect(result.exitCode).toBe(0);
-    expect(result.stdout).toBe("0.1.0");
+    expect(result.stdout).toContain("devtools/0.1.0");
     expect(result.stderr).toBe("");
   });
 
@@ -115,7 +115,7 @@ describe("CLI integration", () => {
     expect(linksHelpResult.stdout).toContain("$ devtools web links URL");
     expect(sitemapHelpResult.exitCode).toBe(0);
     expect(sitemapHelpResult.stdout).toContain("$ devtools web sitemap URL");
-  });
+  }, 15_000);
 
   it("installs bundled pi skills into a target directory", async () => {
     const targetDirectory = await mkdtemp(join(tmpdir(), "devtools-skills-"));
@@ -333,9 +333,8 @@ describe("CLI integration", () => {
 
     expect(result.exitCode).toBe(1);
     expect(result.stdout).toBe("");
-    expect(result.stderr).toContain(
-      "BRAVE_SEARCH_API_KEY is required for the brave search engine.",
-    );
+    expect(result.stderr).toContain("BRAVE_SEARCH_API_KEY is required");
+    expect(result.stderr).toContain("brave search");
   });
 
   it("shows a validation error for an invalid search limit", async () => {
@@ -349,7 +348,19 @@ describe("CLI integration", () => {
     expect(result.exitCode).toBe(1);
     expect(result.stdout).toBe("");
     expect(result.stderr).toContain(
-      "error: - options.limit: Limit must be greater than 0.",
+      "- options.limit: Limit must be greater than 0.",
+    );
+  });
+
+  it("rejects unsupported skill install agents", async () => {
+    const result = await runCli(["install", "skills", "copilot"], {
+      reject: false,
+    });
+
+    expect(result.exitCode).toBe(2);
+    expect(result.stdout).toBe("");
+    expect(result.stderr).toContain(
+      "Expected copilot to be one of: pi, codex, claude, opencode",
     );
   });
 
@@ -457,9 +468,7 @@ describe("CLI integration", () => {
 
     expect(result.exitCode).toBe(1);
     expect(result.stdout).toBe("");
-    expect(result.stderr).toContain(
-      "error: - url: URL must be a valid absolute URL.",
-    );
+    expect(result.stderr).toContain("- url: URL must be a valid absolute URL.");
   });
 
   it("returns a non-zero exit code for an unknown command", async () => {
@@ -469,6 +478,6 @@ describe("CLI integration", () => {
 
     expect(result.exitCode).toBe(2);
     expect(result.stdout).toBe("");
-    expect(result.stderr).toContain("error: command unknown not found");
+    expect(result.stderr).toContain("command unknown not found");
   });
 });

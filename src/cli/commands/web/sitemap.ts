@@ -1,13 +1,17 @@
-import { Args, Flags } from "@oclif/core";
-
-import { BaseCommand } from "#app/cli/base-command.ts";
+import { Args, Command, Flags } from "@oclif/core";
 import { defaultWebRequestTimeoutMs } from "#app/web/shared.ts";
 import {
+  createWebSitemapReader,
   defaultSitemapConcurrency,
   runWebSitemapCommand,
 } from "#app/web/sitemap.ts";
 
-export default class WebSitemap extends BaseCommand {
+const webSitemapReader = createWebSitemapReader({
+  fetchImplementation: fetch,
+  userAgent: "devtools/0.1.0",
+});
+
+export default class WebSitemap extends Command {
   public static override summary =
     "Read a sitemap.xml file or discover sitemap URLs for a site";
 
@@ -52,10 +56,10 @@ export default class WebSitemap extends BaseCommand {
         },
       },
       {
-        webSitemapReader: this.services.webSitemapReader,
+        webSitemapReader,
       },
     );
 
-    this.writeStdout(output);
+    process.stdout.write(output);
   }
 }

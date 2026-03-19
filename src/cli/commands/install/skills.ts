@@ -1,12 +1,22 @@
-import { Args, Flags } from "@oclif/core";
+import { fileURLToPath } from "node:url";
 
-import { BaseCommand } from "#app/cli/base-command.ts";
+import { Args, Command, Flags } from "@oclif/core";
+
 import {
+  createSkillInstaller,
   runInstallSkillsCommand,
   supportedSkillInstallAgents,
 } from "#app/skills/install.ts";
 
-export default class InstallSkills extends BaseCommand {
+const bundledSkillsDirectory = fileURLToPath(
+  new URL("../../../../skills", import.meta.url),
+);
+
+const skillInstaller = createSkillInstaller({
+  skillsDirectory: bundledSkillsDirectory,
+});
+
+export default class InstallSkills extends Command {
   public static override summary =
     "Install bundled skill templates for an agent harness";
 
@@ -44,10 +54,10 @@ export default class InstallSkills extends BaseCommand {
         },
       },
       {
-        skillInstaller: this.services.skillInstaller,
+        skillInstaller,
       },
     );
 
-    this.writeStdout(output);
+    process.stdout.write(output);
   }
 }

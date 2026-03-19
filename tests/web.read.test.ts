@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   createFetchWebPageReader,
   formatWebPageContent,
+  runWebFetchCommand,
   WebPageReadError,
 } from "#app/web/fetch.ts";
 
@@ -47,6 +48,57 @@ describe("formatWebPageContent", () => {
     expect(JSON.parse(formatWebPageContent(sampleContent, "json"))).toEqual(
       sampleContent,
     );
+  });
+});
+
+describe("runWebFetchCommand", () => {
+  it("reads a page with validated input and formats the requested output", async () => {
+    const requests: Array<{ url: string; timeoutMs: number }> = [];
+
+    const output = await runWebFetchCommand(
+      {
+        url: "https://example.com/article",
+        options: {
+          format: "markdown",
+          timeout: 1_000,
+        },
+      },
+      {
+        webPageReader: {
+          read: async (request) => {
+            requests.push(request);
+            return sampleContent;
+          },
+        },
+      },
+    );
+
+    expect(output).toBe("# Heading\n\nParagraph text.\n");
+    expect(requests).toEqual([
+      {
+        url: "https://example.com/article",
+        timeoutMs: 1_000,
+      },
+    ]);
+  });
+
+  it("validates fetch urls", async () => {
+    await expect(
+      runWebFetchCommand(
+        {
+          url: "not-a-url",
+          options: {
+            format: "markdown",
+            timeout: 1_000,
+          },
+        },
+        {
+          webPageReader: {
+            read: async () => sampleContent,
+          },
+        },
+      ),
+    ).rejects.toThrowError("URL must be a valid absolute URL.");
   });
 });
 
