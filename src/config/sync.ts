@@ -16,45 +16,68 @@ export const syncPlainDirectoryName = "plain";
 export const syncSecretDirectoryName = "secret";
 
 const syncEntryKinds = ["file", "directory"] as const;
+export const syncModes = ["normal", "secret", "ignore"] as const;
+const syncRuleMatches = ["exact", "subtree"] as const;
 
 const requiredTrimmedStringSchema = z
   .string()
   .trim()
   .min(1, "Value must not be empty.");
 
-const syncConfigEntrySchema = z.object({
-  name: requiredTrimmedStringSchema,
-  kind: z.enum(syncEntryKinds),
-  ignoreGlobs: z.array(requiredTrimmedStringSchema).optional(),
-  localPath: requiredTrimmedStringSchema,
-  repoPath: requiredTrimmedStringSchema,
-  secretGlobs: z.array(requiredTrimmedStringSchema).optional(),
-});
+const syncConfigRuleSchema = z
+  .object({
+    match: z.enum(syncRuleMatches),
+    mode: z.enum(syncModes),
+    path: requiredTrimmedStringSchema,
+  })
+  .strict();
 
-const syncConfigSchema = z.object({
-  version: z.literal(1),
-  age: z.object({
-    recipients: z
-      .array(requiredTrimmedStringSchema)
-      .min(1, "At least one age recipient is required."),
-    identityFile: requiredTrimmedStringSchema,
-  }),
-  entries: z.array(syncConfigEntrySchema),
-  ignoreGlobs: z.array(requiredTrimmedStringSchema),
-  secretGlobs: z.array(requiredTrimmedStringSchema),
-});
+const syncConfigEntrySchema = z
+  .object({
+    defaultMode: z.enum(syncModes).optional(),
+    kind: z.enum(syncEntryKinds),
+    localPath: requiredTrimmedStringSchema,
+    name: requiredTrimmedStringSchema,
+    repoPath: requiredTrimmedStringSchema,
+    rules: z.array(syncConfigRuleSchema).optional(),
+  })
+  .strict();
+
+const syncConfigSchema = z
+  .object({
+    version: z.literal(1),
+    age: z
+      .object({
+        recipients: z
+          .array(requiredTrimmedStringSchema)
+          .min(1, "At least one age recipient is required."),
+        identityFile: requiredTrimmedStringSchema,
+      })
+      .strict(),
+    entries: z.array(syncConfigEntrySchema),
+  })
+  .strict();
 
 export type SyncConfigEntryKind = (typeof syncEntryKinds)[number];
+export type SyncMode = (typeof syncModes)[number];
+export type SyncRuleMatch = (typeof syncRuleMatches)[number];
 export type SyncConfig = z.infer<typeof syncConfigSchema>;
+export type SyncConfigRule = z.infer<typeof syncConfigRuleSchema>;
+
+export type ResolvedSyncConfigRule = Readonly<{
+  match: SyncRuleMatch;
+  mode: SyncMode;
+  path: string;
+}>;
 
 export type ResolvedSyncConfigEntry = Readonly<{
   configuredLocalPath: string;
-  ignoreGlobs: readonly string[];
+  defaultMode: SyncMode;
   kind: SyncConfigEntryKind;
   localPath: string;
   name: string;
   repoPath: string;
-  secretGlobs: readonly string[];
+  rules: readonly ResolvedSyncConfigRule[];
 }>;
 
 export type ResolvedSyncConfig = Readonly<{
@@ -64,8 +87,6 @@ export type ResolvedSyncConfig = Readonly<{
     recipients: readonly string[];
   }>;
   entries: readonly ResolvedSyncConfigEntry[];
-  ignoreGlobs: readonly string[];
-  secretGlobs: readonly string[];
   version: 1;
 }>;
 
@@ -94,7 +115,10 @@ export const normalizeSyncRepoPath = (value: string) => {
   return normalizedValue;
 };
 
-const normalizeEntryScopedGlob = (value: string, description: string) => {
+export const normalizeSyncRulePath = (
+  value: string,
+  description = "Rule path",
+) => {
   const posixValue = value.replaceAll("\\", "/");
 
   if (
@@ -106,7 +130,7 @@ const normalizeEntryScopedGlob = (value: string, description: string) => {
     posixValue.startsWith("/")
   ) {
     throw new SyncConfigError(
-      `${description} must be a relative POSIX pattern without '..': ${value}`,
+      `${description} must be a relative POSIX path without '..': ${value}`,
     );
   }
 
@@ -121,15 +145,15 @@ const normalizeEntryScopedGlob = (value: string, description: string) => {
     normalizedValue.startsWith("/")
   ) {
     throw new SyncConfigError(
-      `${description} must be a relative POSIX pattern without '..': ${value}`,
+      `${description} must be a relative POSIX path without '..': ${value}`,
     );
   }
 
   return normalizedValue;
 };
 
-const findOwningEntry = (
-  config: ResolvedSyncConfig,
+export const findOwningSyncEntry = (
+  config: Pick<ResolvedSyncConfig, "entries">,
   repoPath: string,
 ): ResolvedSyncConfigEntry | undefined => {
   return config.entries.find((entry) => {
@@ -140,12 +164,12 @@ const findOwningEntry = (
   });
 };
 
-const resolveEntryRelativePath = (
-  entry: ResolvedSyncConfigEntry,
+const resolveEntryRelativeRepoPath = (
+  entry: Pick<ResolvedSyncConfigEntry, "kind" | "repoPath">,
   repoPath: string,
 ) => {
   if (entry.kind === "file") {
-    return repoPath === entry.repoPath ? "*" : undefined;
+    return repoPath === entry.repoPath ? "" : undefined;
   }
 
   if (repoPath === entry.repoPath) {
@@ -159,35 +183,59 @@ const resolveEntryRelativePath = (
   return repoPath.slice(entry.repoPath.length + 1);
 };
 
-const matchesScopedGlobList = (
-  config: ResolvedSyncConfig,
-  repoPath: string,
-  selector: (entry: ResolvedSyncConfigEntry) => readonly string[],
-  globalGlobs: readonly string[],
+const getRulePathDepth = (path: string) => {
+  return path.split("/").length;
+};
+
+const compareRuleSpecificity = (
+  left: Pick<ResolvedSyncConfigRule, "match" | "path">,
+  right: Pick<ResolvedSyncConfigRule, "match" | "path">,
 ) => {
-  if (
-    globalGlobs.some((pattern) => {
-      return posix.matchesGlob(repoPath, pattern);
+  const depthComparison =
+    getRulePathDepth(right.path) - getRulePathDepth(left.path);
+
+  if (depthComparison !== 0) {
+    return depthComparison;
+  }
+
+  if (left.match === right.match) {
+    return 0;
+  }
+
+  return left.match === "exact" ? -1 : 1;
+};
+
+const matchesRule = (
+  rule: Pick<ResolvedSyncConfigRule, "match" | "path">,
+  relativePath: string,
+) => {
+  if (relativePath === "") {
+    return false;
+  }
+
+  if (rule.match === "exact") {
+    return rule.path === relativePath;
+  }
+
+  return rule.path === relativePath || relativePath.startsWith(`${rule.path}/`);
+};
+
+export const resolveRelativeSyncMode = (
+  defaultMode: SyncMode,
+  rules: readonly Pick<ResolvedSyncConfigRule, "match" | "mode" | "path">[],
+  relativePath: string,
+) => {
+  if (relativePath === "") {
+    return defaultMode;
+  }
+
+  const matchingRule = [...rules]
+    .filter((rule) => {
+      return matchesRule(rule, relativePath);
     })
-  ) {
-    return true;
-  }
+    .sort(compareRuleSpecificity)[0];
 
-  const owningEntry = findOwningEntry(config, repoPath);
-
-  if (owningEntry === undefined) {
-    return false;
-  }
-
-  const entryRelativePath = resolveEntryRelativePath(owningEntry, repoPath);
-
-  if (entryRelativePath === undefined) {
-    return false;
-  }
-
-  return selector(owningEntry).some((pattern) => {
-    return posix.matchesGlob(entryRelativePath, pattern);
-  });
+  return matchingRule?.mode ?? defaultMode;
 };
 
 const isPathEqualOrNested = (left: string, right: string) => {
@@ -314,6 +362,28 @@ const validatePathOverlaps = (
   }
 };
 
+const validateRules = (entry: ResolvedSyncConfigEntry) => {
+  if (entry.kind === "file" && entry.rules.length > 0) {
+    throw new SyncConfigError(
+      `File sync entries must not define child rules: ${entry.name}`,
+    );
+  }
+
+  const seenRules = new Set<string>();
+
+  for (const rule of entry.rules) {
+    const key = `${rule.match}:${rule.path}`;
+
+    if (seenRules.has(key)) {
+      throw new SyncConfigError(
+        `Duplicate sync rule for ${entry.name}: ${rule.match} ${rule.path}`,
+      );
+    }
+
+    seenRules.add(key);
+  }
+};
+
 export const parseSyncConfig = (
   input: unknown,
   environment: NodeJS.ProcessEnv = process.env,
@@ -325,19 +395,25 @@ export const parseSyncConfig = (
   }
 
   const entries = result.data.entries.map((entry) => {
-    return {
+    const resolvedEntry = {
       configuredLocalPath: entry.localPath,
-      ignoreGlobs: (entry.ignoreGlobs ?? []).map((glob) => {
-        return normalizeEntryScopedGlob(glob, "Entry ignore glob");
-      }),
+      defaultMode: entry.defaultMode ?? "normal",
       kind: entry.kind,
       localPath: resolveSyncEntryLocalPath(entry.localPath, environment),
       name: entry.name,
       repoPath: normalizeSyncRepoPath(entry.repoPath),
-      secretGlobs: (entry.secretGlobs ?? []).map((glob) => {
-        return normalizeEntryScopedGlob(glob, "Entry secret glob");
+      rules: (entry.rules ?? []).map((rule) => {
+        return {
+          match: rule.match,
+          mode: rule.mode,
+          path: normalizeSyncRulePath(rule.path, "Entry rule path"),
+        } satisfies ResolvedSyncConfigRule;
       }),
     } satisfies ResolvedSyncConfigEntry;
+
+    validateRules(resolvedEntry);
+
+    return resolvedEntry;
   });
 
   validateUniqueNames(entries);
@@ -354,12 +430,6 @@ export const parseSyncConfig = (
       recipients: [...new Set(result.data.age.recipients)],
     },
     entries,
-    ignoreGlobs: result.data.ignoreGlobs.map((glob) => {
-      return glob.replaceAll("\\", "/");
-    }),
-    secretGlobs: result.data.secretGlobs.map((glob) => {
-      return glob.replaceAll("\\", "/");
-    }),
     version: 1,
   };
 };
@@ -377,8 +447,6 @@ export const createInitialSyncConfig = (input: {
       ],
     },
     entries: [],
-    ignoreGlobs: [],
-    secretGlobs: [],
   };
 };
 
@@ -439,34 +507,35 @@ export const readSyncConfig = async (
   }
 };
 
-export const matchesIgnoreGlob = (
+export const resolveSyncMode = (
   config: ResolvedSyncConfig,
   repoPath: string,
-) => {
-  return matchesScopedGlobList(
-    config,
-    repoPath,
-    (entry) => {
-      return entry.ignoreGlobs;
-    },
-    config.ignoreGlobs,
-  );
-};
+): SyncMode | undefined => {
+  const entry = findOwningSyncEntry(config, repoPath);
 
-export const matchesSecretGlob = (
-  config: ResolvedSyncConfig,
-  repoPath: string,
-) => {
-  if (matchesIgnoreGlob(config, repoPath)) {
-    return false;
+  if (entry === undefined) {
+    return undefined;
   }
 
-  return matchesScopedGlobList(
-    config,
-    repoPath,
-    (entry) => {
-      return entry.secretGlobs;
-    },
-    config.secretGlobs,
-  );
+  const relativePath = resolveEntryRelativeRepoPath(entry, repoPath);
+
+  if (relativePath === undefined) {
+    return undefined;
+  }
+
+  return resolveRelativeSyncMode(entry.defaultMode, entry.rules, relativePath);
+};
+
+export const isIgnoredSyncPath = (
+  config: ResolvedSyncConfig,
+  repoPath: string,
+) => {
+  return resolveSyncMode(config, repoPath) === "ignore";
+};
+
+export const isSecretSyncPath = (
+  config: ResolvedSyncConfig,
+  repoPath: string,
+) => {
+  return resolveSyncMode(config, repoPath) === "secret";
 };

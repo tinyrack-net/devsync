@@ -3,40 +3,77 @@ import {
   parseSyncConfig,
   type ResolvedSyncConfig,
   type ResolvedSyncConfigEntry,
+  type ResolvedSyncConfigRule,
   resolveSyncConfigFilePath,
   type SyncConfig,
-  type SyncConfigEntryKind,
 } from "#app/config/sync.ts";
 
 import { writeTextFileAtomically } from "./filesystem.ts";
 
 type SyncConfigDocumentEntry = SyncConfig["entries"][number];
 
+const compareRuleMatches = (
+  left: ResolvedSyncConfigRule["match"],
+  right: ResolvedSyncConfigRule["match"],
+) => {
+  if (left === right) {
+    return 0;
+  }
+
+  return left === "exact" ? -1 : 1;
+};
+
+export const sortSyncRules = (
+  rules: readonly Pick<ResolvedSyncConfigRule, "match" | "mode" | "path">[],
+) => {
+  return [...rules].sort((left, right) => {
+    const pathComparison = left.path.localeCompare(right.path);
+
+    if (pathComparison !== 0) {
+      return pathComparison;
+    }
+
+    const matchComparison = compareRuleMatches(left.match, right.match);
+
+    if (matchComparison !== 0) {
+      return matchComparison;
+    }
+
+    return left.mode.localeCompare(right.mode);
+  });
+};
+
 export const createSyncConfigDocumentEntry = (
   entry: Pick<
     ResolvedSyncConfigEntry,
     | "configuredLocalPath"
-    | "ignoreGlobs"
+    | "defaultMode"
     | "kind"
     | "name"
     | "repoPath"
-    | "secretGlobs"
+    | "rules"
   >,
 ): SyncConfigDocumentEntry => {
   return {
-    ...(entry.ignoreGlobs.length === 0
+    ...(entry.defaultMode === "normal"
       ? {}
       : {
-          ignoreGlobs: sortSyncGlobs(entry.ignoreGlobs),
+          defaultMode: entry.defaultMode,
         }),
     kind: entry.kind,
     localPath: entry.configuredLocalPath,
     name: entry.name,
     repoPath: entry.repoPath,
-    ...(entry.secretGlobs.length === 0
+    ...(entry.rules.length === 0
       ? {}
       : {
-          secretGlobs: sortSyncGlobs(entry.secretGlobs),
+          rules: sortSyncRules(entry.rules).map((rule) => {
+            return {
+              match: rule.match,
+              mode: rule.mode,
+              path: rule.path,
+            };
+          }),
         }),
   };
 };
@@ -53,8 +90,6 @@ export const createSyncConfigDocument = (
     entries: config.entries.map((entry) => {
       return createSyncConfigDocumentEntry(entry);
     }),
-    ignoreGlobs: [...config.ignoreGlobs],
-    secretGlobs: [...config.secretGlobs],
   };
 };
 
@@ -66,81 +101,10 @@ export const sortSyncConfigEntries = (
   });
 };
 
-export const sortSyncGlobs = (globs: readonly string[]) => {
-  return [...globs].sort((left, right) => {
-    return left.localeCompare(right);
-  });
-};
-
-export const buildEntryCanonicalSecretGlob = (entry: {
-  kind: SyncConfigEntryKind;
-}) => {
-  return entry.kind === "directory" ? "**" : "*";
-};
-
-export const buildLegacyGlobalCanonicalSecretGlob = (entry: {
-  kind: SyncConfigEntryKind;
-  repoPath: string;
-}) => {
-  return entry.kind === "directory" ? `${entry.repoPath}/**` : entry.repoPath;
-};
-
-export const addCanonicalEntrySecretGlob = (entry: SyncConfigDocumentEntry) => {
-  const entrySecretGlobs = entry.secretGlobs ?? [];
-  const canonicalSecretGlob = buildEntryCanonicalSecretGlob(entry);
-
-  if (entrySecretGlobs.includes(canonicalSecretGlob)) {
-    return {
-      added: false,
-      entry: createSyncConfigDocumentEntry({
-        configuredLocalPath: entry.localPath,
-        ignoreGlobs: entry.ignoreGlobs ?? [],
-        kind: entry.kind,
-        name: entry.name,
-        repoPath: entry.repoPath,
-        secretGlobs: entrySecretGlobs,
-      }),
-    };
-  }
-
-  return {
-    added: true,
-    entry: createSyncConfigDocumentEntry({
-      configuredLocalPath: entry.localPath,
-      ignoreGlobs: entry.ignoreGlobs ?? [],
-      kind: entry.kind,
-      name: entry.name,
-      repoPath: entry.repoPath,
-      secretGlobs: [...entrySecretGlobs, canonicalSecretGlob],
-    }),
-  };
-};
-
-export const removeLegacyGlobalCanonicalSecretGlob = (
-  secretGlobs: readonly string[],
-  entry: {
-    kind: SyncConfigEntryKind;
-    repoPath: string;
-  },
-) => {
-  const canonicalSecretGlob = buildLegacyGlobalCanonicalSecretGlob(entry);
-  const nextSecretGlobs = secretGlobs.filter((glob) => {
-    return glob !== canonicalSecretGlob;
-  });
-
-  return {
-    removed: nextSecretGlobs.length !== secretGlobs.length,
-    secretGlobs: sortSyncGlobs(nextSecretGlobs),
-  };
-};
-
-export const countConfiguredSecretGlobs = (config: ResolvedSyncConfig) => {
-  return (
-    config.secretGlobs.length +
-    config.entries.reduce((total, entry) => {
-      return total + entry.secretGlobs.length;
-    }, 0)
-  );
+export const countConfiguredRules = (config: ResolvedSyncConfig) => {
+  return config.entries.reduce((total, entry) => {
+    return total + entry.rules.length;
+  }, 0);
 };
 
 export const writeValidatedSyncConfig = async (
@@ -154,16 +118,14 @@ export const writeValidatedSyncConfig = async (
       config.entries.map((entry) => {
         return createSyncConfigDocumentEntry({
           configuredLocalPath: entry.localPath,
-          ignoreGlobs: entry.ignoreGlobs ?? [],
+          defaultMode: entry.defaultMode ?? "normal",
           kind: entry.kind,
           name: entry.name,
           repoPath: entry.repoPath,
-          secretGlobs: entry.secretGlobs ?? [],
+          rules: entry.rules ?? [],
         });
       }),
     ),
-    ignoreGlobs: sortSyncGlobs(config.ignoreGlobs),
-    secretGlobs: sortSyncGlobs(config.secretGlobs),
   } satisfies SyncConfig;
 
   parseSyncConfig(nextConfig, environment);

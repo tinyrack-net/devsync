@@ -16,7 +16,7 @@ import {
   resolveDevtoolsSyncDirectory,
 } from "#app/config/xdg.ts";
 
-import { countConfiguredSecretGlobs } from "./config-file.ts";
+import { countConfiguredRules } from "./config-file.ts";
 import {
   createAgeIdentityFile,
   readAgeRecipientsFromIdentityFile,
@@ -40,7 +40,7 @@ type SyncInitResult = Readonly<{
   identityFile: string;
   generatedIdentity: boolean;
   recipientCount: number;
-  secretGlobCount: number;
+  ruleCount: number;
   syncDirectory: string;
 }>;
 
@@ -170,7 +170,7 @@ export const initializeSync = async (
         generatedIdentity: false,
         identityFile: config.age.identityFile,
         recipientCount: config.age.recipients.length,
-        secretGlobCount: countConfiguredSecretGlobs(config),
+        ruleCount: countConfiguredRules(config),
         syncDirectory,
       };
     }
@@ -228,7 +228,7 @@ export const initializeSync = async (
         generatedIdentity: false,
         identityFile: config.age.identityFile,
         recipientCount: config.age.recipients.length,
-        secretGlobCount: countConfiguredSecretGlobs(config),
+        ruleCount: countConfiguredRules(config),
         syncDirectory,
       };
     }
@@ -258,7 +258,7 @@ export const initializeSync = async (
         dependencies.environment,
       ),
       recipientCount: ageBootstrap.recipients.length,
-      secretGlobCount: 0,
+      ruleCount: 0,
       syncDirectory,
     };
   } catch (error: unknown) {

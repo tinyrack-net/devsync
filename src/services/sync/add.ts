@@ -4,6 +4,7 @@ import {
   readSyncConfig,
   resolveSyncConfigFilePath,
   type SyncConfigEntryKind,
+  type SyncMode,
 } from "#app/config/sync.ts";
 import {
   resolveDevtoolsSyncDirectory,
@@ -11,7 +12,6 @@ import {
 } from "#app/config/xdg.ts";
 
 import {
-  addCanonicalEntrySecretGlob,
   createSyncConfigDocument,
   createSyncConfigDocumentEntry,
   sortSyncConfigEntries,
@@ -35,10 +35,10 @@ type SyncAddRequest = Readonly<{
 type SyncAddResult = Readonly<{
   alreadyTracked: boolean;
   configPath: string;
+  defaultMode: SyncMode;
   kind: SyncConfigEntryKind;
   localPath: string;
   repoPath: string;
-  secretGlobAdded: boolean;
   syncDirectory: string;
 }>;
 
@@ -87,12 +87,12 @@ const buildAddEntryCandidate = async (
 
   return {
     configuredLocalPath: buildConfiguredHomeLocalPath(repoPath),
-    ignoreGlobs: [],
+    defaultMode: "normal",
     kind,
     localPath: targetPath,
     name: repoPath,
     repoPath,
-    secretGlobs: [],
+    rules: [],
   } satisfies ResolvedSyncConfigEntry;
 };
 
@@ -152,31 +152,39 @@ export const addSyncTarget = async (
       }
     }
 
-    let secretGlobAdded = false;
     const nextConfig = createSyncConfigDocument(config);
+    const desiredDefaultMode: SyncMode = request.secret ? "secret" : "normal";
+    let defaultMode =
+      existingEntry?.defaultMode ?? (request.secret ? "secret" : "normal");
 
     if (!alreadyTracked) {
       nextConfig.entries = sortSyncConfigEntries([
         ...nextConfig.entries,
-        createSyncConfigDocumentEntry(candidate),
+        createSyncConfigDocumentEntry({
+          ...candidate,
+          defaultMode: desiredDefaultMode,
+        }),
       ]);
-    }
-
-    if (request.secret) {
+      defaultMode = desiredDefaultMode;
+    } else if (request.secret && existingEntry?.defaultMode !== "secret") {
       nextConfig.entries = nextConfig.entries.map((entry) => {
         if (entry.repoPath !== candidate.repoPath) {
           return entry;
         }
 
-        const secretGlobResult = addCanonicalEntrySecretGlob(entry);
-
-        secretGlobAdded = secretGlobResult.added;
-
-        return secretGlobResult.entry;
+        return {
+          ...entry,
+          defaultMode: "secret",
+        };
       });
+
+      defaultMode = "secret";
     }
 
-    if (!alreadyTracked || secretGlobAdded) {
+    if (
+      !alreadyTracked ||
+      (request.secret && existingEntry?.defaultMode !== "secret")
+    ) {
       await writeValidatedSyncConfig(
         syncDirectory,
         nextConfig,
@@ -187,10 +195,10 @@ export const addSyncTarget = async (
     return {
       alreadyTracked,
       configPath: resolveSyncConfigFilePath(syncDirectory),
+      defaultMode,
       kind: candidate.kind,
       localPath: candidate.localPath,
       repoPath: candidate.repoPath,
-      secretGlobAdded,
       syncDirectory,
     };
   } catch (error: unknown) {

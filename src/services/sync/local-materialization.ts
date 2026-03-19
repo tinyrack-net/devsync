@@ -2,9 +2,9 @@ import { lstat, mkdir, mkdtemp, rm, symlink } from "node:fs/promises";
 import { basename, dirname, join, posix } from "node:path";
 
 import {
-  matchesIgnoreGlob,
   type ResolvedSyncConfig,
   type ResolvedSyncConfigEntry,
+  resolveSyncMode,
 } from "#app/config/sync.ts";
 import { SyncError } from "./error.ts";
 import {
@@ -35,6 +35,19 @@ type EntryMaterialization =
       type: "directory";
     }>;
 
+const resolveManagedSyncMode = (
+  config: ResolvedSyncConfig,
+  repoPath: string,
+) => {
+  const mode = resolveSyncMode(config, repoPath);
+
+  if (mode === undefined) {
+    throw new SyncError(`Unmanaged sync path found during pull: ${repoPath}`);
+  }
+
+  return mode;
+};
+
 const copyIgnoredLocalNodesToDirectory = async (
   sourceDirectory: string,
   targetDirectory: string,
@@ -49,6 +62,12 @@ const copyIgnoredLocalNodesToDirectory = async (
 
   let copiedNodeCount = 0;
   const entries = await listDirectoryEntries(sourceDirectory);
+  const directoryMode = resolveManagedSyncMode(config, repoPathPrefix);
+
+  if (directoryMode === "ignore") {
+    await mkdir(targetDirectory, { recursive: true });
+    copiedNodeCount += 1;
+  }
 
   for (const entry of entries) {
     const sourcePath = join(sourceDirectory, entry.name);
@@ -56,22 +75,23 @@ const copyIgnoredLocalNodesToDirectory = async (
     const repoPath = posix.join(repoPathPrefix, entry.name);
     const entryStats = await lstat(sourcePath);
 
-    if (matchesIgnoreGlob(config, repoPath)) {
-      await copyFilesystemNode(sourcePath, targetPath, entryStats);
-      copiedNodeCount += 1;
+    if (entryStats.isDirectory()) {
+      copiedNodeCount += await copyIgnoredLocalNodesToDirectory(
+        sourcePath,
+        targetPath,
+        config,
+        repoPath,
+      );
       continue;
     }
 
-    if (!entryStats.isDirectory()) {
+    if (resolveManagedSyncMode(config, repoPath) !== "ignore") {
       continue;
     }
 
-    copiedNodeCount += await copyIgnoredLocalNodesToDirectory(
-      sourcePath,
-      targetPath,
-      config,
-      repoPath,
-    );
+    await mkdir(dirname(targetPath), { recursive: true });
+    await copyFilesystemNode(sourcePath, targetPath, entryStats);
+    copiedNodeCount += 1;
   }
 
   return copiedNodeCount;
@@ -274,17 +294,19 @@ const collectIgnoredLocalKeys = async (
     return false;
   }
 
-  if (matchesIgnoreGlob(config, repoPath)) {
-    await collectLocalLeafKeys(targetPath, repoPath, keys);
+  const mode = resolveManagedSyncMode(config, repoPath);
+
+  if (!stats.isDirectory()) {
+    if (mode !== "ignore") {
+      return false;
+    }
+
+    keys.add(repoPath);
 
     return true;
   }
 
-  if (!stats.isDirectory()) {
-    return false;
-  }
-
-  let preservedIgnoredChildren = false;
+  let preservedIgnoredChildren = mode === "ignore";
   const entries = await listDirectoryEntries(targetPath);
 
   for (const entry of entries) {
@@ -296,11 +318,11 @@ const collectIgnoredLocalKeys = async (
       preservedIgnoredChildren;
   }
 
-  if (preservedIgnoredChildren) {
+  if (mode === "ignore" || preservedIgnoredChildren) {
     keys.add(buildDirectoryKey(repoPath));
   }
 
-  return preservedIgnoredChildren;
+  return mode === "ignore" || preservedIgnoredChildren;
 };
 
 export const countDeletedLocalNodes = async (
@@ -308,10 +330,6 @@ export const countDeletedLocalNodes = async (
   desiredKeys: ReadonlySet<string>,
   config: ResolvedSyncConfig,
 ) => {
-  if (matchesIgnoreGlob(config, entry.repoPath)) {
-    return 0;
-  }
-
   const existingKeys = new Set<string>();
   const preservedIgnoredKeys = new Set<string>();
 
@@ -333,7 +351,10 @@ export const applyEntryMaterialization = async (
   materialization: EntryMaterialization,
   config: ResolvedSyncConfig,
 ) => {
-  if (matchesIgnoreGlob(config, entry.repoPath)) {
+  if (
+    entry.kind === "file" &&
+    resolveManagedSyncMode(config, entry.repoPath) === "ignore"
+  ) {
     return;
   }
 

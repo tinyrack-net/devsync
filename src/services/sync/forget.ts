@@ -13,7 +13,6 @@ import { resolveDevtoolsSyncDirectory } from "#app/config/xdg.ts";
 
 import {
   createSyncConfigDocument,
-  removeLegacyGlobalCanonicalSecretGlob,
   sortSyncConfigEntries,
   writeValidatedSyncConfig,
 } from "./config-file.ts";
@@ -41,7 +40,6 @@ type SyncForgetResult = Readonly<{
   plainArtifactCount: number;
   repoPath: string;
   secretArtifactCount: number;
-  secretGlobRemoved: boolean;
   syncDirectory: string;
 }>;
 
@@ -243,13 +241,6 @@ export const forgetSyncTarget = async (
       }),
     );
 
-    const secretGlobResult = removeLegacyGlobalCanonicalSecretGlob(
-      nextConfig.secretGlobs,
-      entry,
-    );
-
-    nextConfig.secretGlobs = secretGlobResult.secretGlobs;
-
     await writeValidatedSyncConfig(
       syncDirectory,
       nextConfig,
@@ -263,8 +254,6 @@ export const forgetSyncTarget = async (
       plainArtifactCount,
       repoPath: entry.repoPath,
       secretArtifactCount,
-      secretGlobRemoved:
-        entry.secretGlobs.length > 0 || secretGlobResult.removed,
       syncDirectory,
     };
   } catch (error: unknown) {

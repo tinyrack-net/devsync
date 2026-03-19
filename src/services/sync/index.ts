@@ -4,6 +4,7 @@ import { createGitService, type GitRunner } from "./git.ts";
 import { initializeSync } from "./init.ts";
 import { pullSync } from "./pull.ts";
 import { pushSync } from "./push.ts";
+import { setSyncTargetMode } from "./set.ts";
 
 export { SyncError } from "./error.ts";
 
@@ -51,6 +52,19 @@ export const createSyncManager = (dependencies?: {
     },
     push: (request: Readonly<{ dryRun: boolean }>) => {
       return pushSync(request, {
+        environment,
+        git,
+      });
+    },
+    set: (
+      request: Readonly<{
+        recursive: boolean;
+        state: "ignore" | "normal" | "secret";
+        target: string;
+      }>,
+    ) => {
+      return setSyncTargetMode(request, {
+        cwd,
         environment,
         git,
       });

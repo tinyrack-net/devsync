@@ -1,24 +1,38 @@
+import { rm, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
 
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 
 import {
-  matchesIgnoreGlob,
-  matchesSecretGlob,
+  isIgnoredSyncPath,
+  isSecretSyncPath,
   parseSyncConfig,
+  readSyncConfig,
+  resolveSyncMode,
   SyncConfigError,
 } from "#app/config/sync.ts";
 import {
   resolveConfiguredAbsolutePath,
-  resolveDevtoolsSyncDirectory,
   resolveHomeConfiguredAbsolutePath,
   resolveHomeDirectory,
   resolveXdgConfigHome,
 } from "#app/config/xdg.ts";
+import { createTemporaryDirectory } from "./helpers/sync-fixture.ts";
 
 const testHomeDirectory = "/tmp/devtools-home";
 const testXdgConfigHome = "/tmp/devtools-xdg";
+const temporaryDirectories: string[] = [];
+
+afterEach(async () => {
+  while (temporaryDirectories.length > 0) {
+    const directory = temporaryDirectories.pop();
+
+    if (directory !== undefined) {
+      await rm(directory, { force: true, recursive: true });
+    }
+  }
+});
 
 describe("resolveHomeDirectory", () => {
   it("falls back to the operating system home directory", () => {
@@ -52,11 +66,11 @@ describe("resolveXdgConfigHome", () => {
       resolveXdgConfigHome({
         XDG_CONFIG_HOME: testXdgConfigHome,
       }),
-    ).toBe("/tmp/devtools-xdg");
+    ).toBe(testXdgConfigHome);
   });
 });
 
-describe("resolveHomeConfiguredAbsolutePath", () => {
+describe("configured path resolution", () => {
   it("expands home-relative path prefixes", () => {
     expect(
       resolveHomeConfiguredAbsolutePath("~/demo", {
@@ -64,10 +78,8 @@ describe("resolveHomeConfiguredAbsolutePath", () => {
       }),
     ).toBe(join(testHomeDirectory, "demo"));
   });
-});
 
-describe("resolveConfiguredAbsolutePath", () => {
-  it("expands supported path prefixes", () => {
+  it("expands supported path prefixes for devtools-owned paths", () => {
     expect(
       resolveConfiguredAbsolutePath("~/demo", {
         HOME: testHomeDirectory,
@@ -77,12 +89,12 @@ describe("resolveConfiguredAbsolutePath", () => {
       resolveConfiguredAbsolutePath("$XDG_CONFIG_HOME/devtools/keys.txt", {
         XDG_CONFIG_HOME: testXdgConfigHome,
       }),
-    ).toBe("/tmp/devtools-xdg/devtools/keys.txt");
+    ).toBe(join(testXdgConfigHome, "devtools", "keys.txt"));
   });
 });
 
 describe("parseSyncConfig", () => {
-  it("resolves configured paths and normalizes repo paths", () => {
+  it("resolves home-scoped entry paths and normalizes rules", () => {
     const config = parseSyncConfig(
       {
         version: 1,
@@ -92,16 +104,25 @@ describe("parseSyncConfig", () => {
         },
         entries: [
           {
-            name: ".config/mytool",
+            defaultMode: "secret",
             kind: "directory",
-            ignoreGlobs: ["cache\\*.tmp"],
             localPath: "~/.config/mytool",
+            name: ".config/mytool",
             repoPath: ".config\\mytool",
-            secretGlobs: ["nested\\*.json"],
+            rules: [
+              {
+                match: "subtree",
+                mode: "ignore",
+                path: "cache\\tmp",
+              },
+              {
+                match: "exact",
+                mode: "normal",
+                path: "cache\\tmp\\keep.json",
+              },
+            ],
           },
         ],
-        ignoreGlobs: [".config/mytool\\ignored/**"],
-        secretGlobs: [".config/mytool/**/*.json"],
       },
       {
         HOME: testHomeDirectory,
@@ -110,21 +131,30 @@ describe("parseSyncConfig", () => {
     );
 
     expect(config.age.identityFile).toBe(
-      "/tmp/devtools-xdg/devtools/age/keys.txt",
+      join(testXdgConfigHome, "devtools", "age", "keys.txt"),
     );
     expect(config.entries).toEqual([
       {
         configuredLocalPath: "~/.config/mytool",
-        ignoreGlobs: ["cache/*.tmp"],
+        defaultMode: "secret",
         kind: "directory",
-        localPath: "/tmp/devtools-home/.config/mytool",
+        localPath: join(testHomeDirectory, ".config", "mytool"),
         name: ".config/mytool",
         repoPath: ".config/mytool",
-        secretGlobs: ["nested/*.json"],
+        rules: [
+          {
+            match: "subtree",
+            mode: "ignore",
+            path: "cache/tmp",
+          },
+          {
+            match: "exact",
+            mode: "normal",
+            path: "cache/tmp/keep.json",
+          },
+        ],
       },
     ]);
-    expect(config.ignoreGlobs).toEqual([".config/mytool/ignored/**"]);
-    expect(config.secretGlobs).toEqual([".config/mytool/**/*.json"]);
   });
 
   it("accepts absolute sync entry paths that stay inside HOME", () => {
@@ -137,14 +167,12 @@ describe("parseSyncConfig", () => {
         },
         entries: [
           {
-            name: "bundle",
             kind: "directory",
             localPath: "/tmp/devtools-home/bundle",
+            name: "bundle",
             repoPath: "bundle",
           },
         ],
-        ignoreGlobs: [],
-        secretGlobs: [],
       },
       {
         HOME: testHomeDirectory,
@@ -152,6 +180,7 @@ describe("parseSyncConfig", () => {
     );
 
     expect(config.entries[0]?.localPath).toBe("/tmp/devtools-home/bundle");
+    expect(config.entries[0]?.defaultMode).toBe("normal");
   });
 
   it("rejects sync entry local paths outside HOME", () => {
@@ -165,14 +194,12 @@ describe("parseSyncConfig", () => {
           },
           entries: [
             {
-              name: "bundle",
               kind: "directory",
               localPath: "/tmp/outside-home/bundle",
+              name: "bundle",
               repoPath: "bundle",
             },
           ],
-          ignoreGlobs: [],
-          secretGlobs: [],
         },
         {
           HOME: testHomeDirectory,
@@ -192,14 +219,12 @@ describe("parseSyncConfig", () => {
           },
           entries: [
             {
-              name: "bundle",
               kind: "directory",
               localPath: "$XDG_CONFIG_HOME/bundle",
+              name: "bundle",
               repoPath: "bundle",
             },
           ],
-          ignoreGlobs: [],
-          secretGlobs: [],
         },
         {
           HOME: testHomeDirectory,
@@ -209,7 +234,217 @@ describe("parseSyncConfig", () => {
     }).toThrowError(SyncConfigError);
   });
 
-  it("matches global and entry-level secret globs", () => {
+  it("rejects legacy glob fields", () => {
+    expect(() => {
+      parseSyncConfig(
+        {
+          version: 1,
+          age: {
+            identityFile: "/tmp/identity.txt",
+            recipients: ["age1example"],
+          },
+          entries: [
+            {
+              kind: "directory",
+              localPath: "~/bundle",
+              name: "bundle",
+              repoPath: "bundle",
+              secretGlobs: ["**"],
+            },
+          ],
+        },
+        {
+          HOME: testHomeDirectory,
+        },
+      );
+    }).toThrowError(SyncConfigError);
+  });
+
+  it("rejects child rules on file entries", () => {
+    expect(() => {
+      parseSyncConfig(
+        {
+          version: 1,
+          age: {
+            identityFile: "/tmp/identity.txt",
+            recipients: ["age1example"],
+          },
+          entries: [
+            {
+              kind: "file",
+              localPath: "~/bundle.json",
+              name: "bundle.json",
+              repoPath: "bundle.json",
+              rules: [
+                {
+                  match: "exact",
+                  mode: "secret",
+                  path: "nested.json",
+                },
+              ],
+            },
+          ],
+        },
+        {
+          HOME: testHomeDirectory,
+        },
+      );
+    }).toThrowError(SyncConfigError);
+  });
+
+  it("rejects duplicate rules for the same path and scope", () => {
+    expect(() => {
+      parseSyncConfig(
+        {
+          version: 1,
+          age: {
+            identityFile: "/tmp/identity.txt",
+            recipients: ["age1example"],
+          },
+          entries: [
+            {
+              kind: "directory",
+              localPath: "~/bundle",
+              name: "bundle",
+              repoPath: "bundle",
+              rules: [
+                {
+                  match: "subtree",
+                  mode: "ignore",
+                  path: "cache",
+                },
+                {
+                  match: "subtree",
+                  mode: "secret",
+                  path: "cache",
+                },
+              ],
+            },
+          ],
+        },
+        {
+          HOME: testHomeDirectory,
+        },
+      );
+    }).toThrowError(SyncConfigError);
+  });
+
+  it("rejects duplicate entry names and overlapping entry paths", () => {
+    expect(() => {
+      parseSyncConfig(
+        {
+          version: 1,
+          age: {
+            identityFile: "/tmp/identity.txt",
+            recipients: ["age1example"],
+          },
+          entries: [
+            {
+              kind: "file",
+              localPath: "~/bundle/one.json",
+              name: "bundle",
+              repoPath: "bundle/one.json",
+            },
+            {
+              kind: "file",
+              localPath: "~/bundle/two.json",
+              name: "bundle",
+              repoPath: "bundle/two.json",
+            },
+          ],
+        },
+        {
+          HOME: testHomeDirectory,
+        },
+      );
+    }).toThrowError(SyncConfigError);
+
+    expect(() => {
+      parseSyncConfig(
+        {
+          version: 1,
+          age: {
+            identityFile: "/tmp/identity.txt",
+            recipients: ["age1example"],
+          },
+          entries: [
+            {
+              kind: "directory",
+              localPath: "~/bundle",
+              name: "bundle",
+              repoPath: "bundle",
+            },
+            {
+              kind: "file",
+              localPath: "~/bundle/file.txt",
+              name: "bundle/file.txt",
+              repoPath: "bundle/file.txt",
+            },
+          ],
+        },
+        {
+          HOME: testHomeDirectory,
+        },
+      );
+    }).toThrowError(SyncConfigError);
+  });
+
+  it("rejects the home directory itself and escaping rule paths", () => {
+    expect(() => {
+      parseSyncConfig(
+        {
+          version: 1,
+          age: {
+            identityFile: "/tmp/identity.txt",
+            recipients: ["age1example"],
+          },
+          entries: [
+            {
+              kind: "directory",
+              localPath: "~",
+              name: "bundle",
+              repoPath: "bundle",
+            },
+          ],
+        },
+        {
+          HOME: testHomeDirectory,
+        },
+      );
+    }).toThrowError(SyncConfigError);
+
+    expect(() => {
+      parseSyncConfig(
+        {
+          version: 1,
+          age: {
+            identityFile: "/tmp/identity.txt",
+            recipients: ["age1example"],
+          },
+          entries: [
+            {
+              kind: "directory",
+              localPath: "~/bundle",
+              name: "bundle",
+              repoPath: "bundle",
+              rules: [
+                {
+                  match: "exact",
+                  mode: "secret",
+                  path: "../token.txt",
+                },
+              ],
+            },
+          ],
+        },
+        {
+          HOME: testHomeDirectory,
+        },
+      );
+    }).toThrowError(SyncConfigError);
+  });
+
+  it("resolves modes with exact rules overriding subtree rules and defaults", () => {
     const config = parseSyncConfig(
       {
         version: 1,
@@ -219,35 +454,39 @@ describe("parseSyncConfig", () => {
         },
         entries: [
           {
-            name: "bundle",
+            defaultMode: "secret",
             kind: "directory",
-            localPath: "/tmp/devtools-home/bundle",
+            localPath: "~/bundle",
+            name: "bundle",
             repoPath: "bundle",
-            secretGlobs: ["nested/*.json"],
-          },
-          {
-            name: "settings",
-            kind: "file",
-            localPath: "/tmp/devtools-home/settings.json",
-            repoPath: "settings.json",
-            secretGlobs: ["*"],
+            rules: [
+              {
+                match: "subtree",
+                mode: "ignore",
+                path: "private",
+              },
+              {
+                match: "exact",
+                mode: "normal",
+                path: "private/public.json",
+              },
+            ],
           },
         ],
-        ignoreGlobs: [],
-        secretGlobs: ["bundle/global.json"],
       },
       {
         HOME: testHomeDirectory,
       },
     );
 
-    expect(matchesSecretGlob(config, "bundle/global.json")).toBe(true);
-    expect(matchesSecretGlob(config, "bundle/nested/token.json")).toBe(true);
-    expect(matchesSecretGlob(config, "settings.json")).toBe(true);
-    expect(matchesSecretGlob(config, "bundle/plain.txt")).toBe(false);
+    expect(resolveSyncMode(config, "bundle/plain.txt")).toBe("secret");
+    expect(resolveSyncMode(config, "bundle/private/token.txt")).toBe("ignore");
+    expect(resolveSyncMode(config, "bundle/private/public.json")).toBe(
+      "normal",
+    );
   });
 
-  it("matches global and entry-level ignore globs and lets ignore win", () => {
+  it("prefers deeper subtree rules and exact matches over same-path subtrees", () => {
     const config = parseSyncConfig(
       {
         version: 1,
@@ -257,165 +496,100 @@ describe("parseSyncConfig", () => {
         },
         entries: [
           {
-            name: "bundle",
+            defaultMode: "normal",
             kind: "directory",
-            ignoreGlobs: ["ignored/*.json"],
-            localPath: "/tmp/devtools-home/bundle",
+            localPath: "~/bundle",
+            name: "bundle",
             repoPath: "bundle",
-            secretGlobs: ["ignored/*.json", "nested/*.json"],
-          },
-          {
-            name: "settings",
-            kind: "file",
-            ignoreGlobs: ["*"],
-            localPath: "/tmp/devtools-home/settings.json",
-            repoPath: "settings.json",
-            secretGlobs: ["*"],
+            rules: [
+              {
+                match: "subtree",
+                mode: "secret",
+                path: "private",
+              },
+              {
+                match: "subtree",
+                mode: "ignore",
+                path: "private/public",
+              },
+              {
+                match: "exact",
+                mode: "normal",
+                path: "private/public/file.txt",
+              },
+              {
+                match: "subtree",
+                mode: "secret",
+                path: "private/public/file.txt",
+              },
+            ],
           },
         ],
-        ignoreGlobs: ["bundle/global-ignore.json"],
-        secretGlobs: ["bundle/global-secret.json"],
       },
       {
         HOME: testHomeDirectory,
       },
     );
 
-    expect(matchesIgnoreGlob(config, "bundle/global-ignore.json")).toBe(true);
-    expect(matchesIgnoreGlob(config, "bundle/ignored/token.json")).toBe(true);
-    expect(matchesIgnoreGlob(config, "settings.json")).toBe(true);
-    expect(matchesSecretGlob(config, "bundle/global-secret.json")).toBe(true);
-    expect(matchesSecretGlob(config, "bundle/ignored/token.json")).toBe(false);
-    expect(matchesSecretGlob(config, "settings.json")).toBe(false);
+    expect(resolveSyncMode(config, "bundle/private/secret.txt")).toBe("secret");
+    expect(resolveSyncMode(config, "bundle/private/public/child.txt")).toBe(
+      "ignore",
+    );
+    expect(resolveSyncMode(config, "bundle/private/public/file.txt")).toBe(
+      "normal",
+    );
   });
 
-  it("rejects overlapping repository paths", () => {
-    expect(() => {
-      parseSyncConfig(
-        {
-          version: 1,
-          age: {
-            identityFile: "/tmp/identity.txt",
-            recipients: ["age1example"],
+  it("returns undefined for unmanaged paths and exposes helper predicates", () => {
+    const config = parseSyncConfig(
+      {
+        version: 1,
+        age: {
+          identityFile: "/tmp/identity.txt",
+          recipients: ["age1example"],
+        },
+        entries: [
+          {
+            defaultMode: "secret",
+            kind: "directory",
+            localPath: "~/bundle",
+            name: "bundle",
+            repoPath: "bundle",
+            rules: [
+              {
+                match: "exact",
+                mode: "ignore",
+                path: "ignored.txt",
+              },
+            ],
           },
-          entries: [
-            {
-              name: "bundle",
-              kind: "directory",
-              localPath: "/tmp/devtools-home/bundle",
-              repoPath: "bundle",
-            },
-            {
-              name: "bundle-file",
-              kind: "file",
-              localPath: "/tmp/devtools-home/bundle-file",
-              repoPath: "bundle/settings.json",
-            },
-          ],
-          ignoreGlobs: [],
-          secretGlobs: [],
-        },
-        {
-          HOME: testHomeDirectory,
-        },
-      );
-    }).toThrowError(SyncConfigError);
+        ],
+      },
+      {
+        HOME: testHomeDirectory,
+      },
+    );
+
+    expect(resolveSyncMode(config, "elsewhere/file.txt")).toBeUndefined();
+    expect(isSecretSyncPath(config, "bundle/token.txt")).toBe(true);
+    expect(isIgnoredSyncPath(config, "bundle/ignored.txt")).toBe(true);
+    expect(isSecretSyncPath(config, "elsewhere/file.txt")).toBe(false);
+    expect(isIgnoredSyncPath(config, "elsewhere/file.txt")).toBe(false);
   });
 
-  it("rejects overlapping local paths", () => {
-    expect(() => {
-      parseSyncConfig(
-        {
-          version: 1,
-          age: {
-            identityFile: "/tmp/identity.txt",
-            recipients: ["age1example"],
-          },
-          entries: [
-            {
-              name: "bundle",
-              kind: "directory",
-              localPath: "/tmp/devtools-home/local",
-              repoPath: "bundle",
-            },
-            {
-              name: "bundle-file",
-              kind: "file",
-              localPath: "/tmp/devtools-home/local/settings.json",
-              repoPath: "settings.json",
-            },
-          ],
-          ignoreGlobs: [],
-          secretGlobs: [],
-        },
-        {
-          HOME: testHomeDirectory,
-        },
-      );
-    }).toThrowError(SyncConfigError);
-  });
+  it("wraps malformed JSON when reading a sync config file", async () => {
+    const syncDirectory = await createTemporaryDirectory(
+      "devtools-sync-config-",
+    );
 
-  it("rejects entry secret globs that escape the entry root", () => {
-    expect(() => {
-      parseSyncConfig(
-        {
-          version: 1,
-          age: {
-            identityFile: "/tmp/identity.txt",
-            recipients: ["age1example"],
-          },
-          entries: [
-            {
-              name: "bundle",
-              kind: "directory",
-              localPath: "/tmp/devtools-home/bundle",
-              repoPath: "bundle",
-              secretGlobs: ["../secret.json"],
-            },
-          ],
-          ignoreGlobs: [],
-          secretGlobs: [],
-        },
-        {
-          HOME: testHomeDirectory,
-        },
-      );
-    }).toThrowError(SyncConfigError);
-  });
+    temporaryDirectories.push(syncDirectory);
 
-  it("rejects entry ignore globs that escape the entry root", () => {
-    expect(() => {
-      parseSyncConfig(
-        {
-          version: 1,
-          age: {
-            identityFile: "/tmp/identity.txt",
-            recipients: ["age1example"],
-          },
-          entries: [
-            {
-              name: "bundle",
-              kind: "directory",
-              ignoreGlobs: ["../ignored.json"],
-              localPath: "/tmp/devtools-home/bundle",
-              repoPath: "bundle",
-            },
-          ],
-          ignoreGlobs: [],
-          secretGlobs: [],
-        },
-        {
-          HOME: testHomeDirectory,
-        },
-      );
-    }).toThrowError(SyncConfigError);
-  });
+    await writeFile(join(syncDirectory, "config.json"), "{\n", "utf8");
 
-  it("resolves the default sync directory from XDG", () => {
-    expect(
-      resolveDevtoolsSyncDirectory({
-        XDG_CONFIG_HOME: "/tmp/devtools-xdg",
+    await expect(
+      readSyncConfig(syncDirectory, {
+        HOME: testHomeDirectory,
       }),
-    ).toBe("/tmp/devtools-xdg/devtools/sync");
+    ).rejects.toThrowError(SyncConfigError);
   });
 });

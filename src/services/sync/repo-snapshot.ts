@@ -2,10 +2,9 @@ import { lstat, readFile, readlink } from "node:fs/promises";
 import { join } from "node:path";
 
 import {
-  matchesIgnoreGlob,
-  matchesSecretGlob,
+  findOwningSyncEntry,
   type ResolvedSyncConfig,
-  type ResolvedSyncConfigEntry,
+  resolveSyncMode,
   resolveSyncPlainDirectoryPath,
   resolveSyncSecretDirectoryPath,
 } from "#app/config/sync.ts";
@@ -20,16 +19,17 @@ import {
 } from "./filesystem.ts";
 import { addSnapshotNode, type SnapshotNode } from "./local-snapshot.ts";
 
-const findOwningEntry = (
+const resolveManagedSyncMode = (
   config: ResolvedSyncConfig,
   repoPath: string,
-): ResolvedSyncConfigEntry | undefined => {
-  return config.entries.find((entry) => {
-    return (
-      entry.repoPath === repoPath ||
-      (entry.kind === "directory" && repoPath.startsWith(`${entry.repoPath}/`))
-    );
-  });
+) => {
+  const mode = resolveSyncMode(config, repoPath);
+
+  if (mode === undefined) {
+    throw new SyncError(`Unmanaged sync path found in repository: ${repoPath}`);
+  }
+
+  return mode;
 };
 
 const readPlainSnapshotNode = async (
@@ -38,19 +38,19 @@ const readPlainSnapshotNode = async (
   config: ResolvedSyncConfig,
   snapshot: Map<string, SnapshotNode>,
 ) => {
-  if (matchesIgnoreGlob(config, repoPath)) {
+  const mode = resolveManagedSyncMode(config, repoPath);
+
+  if (mode === "ignore") {
     return;
   }
 
-  const owningEntry = findOwningEntry(config, repoPath);
-
-  if (owningEntry === undefined) {
+  if (findOwningSyncEntry(config, repoPath) === undefined) {
     throw new SyncError(
       `Unmanaged plain sync path found in repository: ${repoPath}`,
     );
   }
 
-  if (matchesSecretGlob(config, repoPath)) {
+  if (mode === "secret") {
     throw new SyncError(
       `Secret sync path is stored in plain text in the repository: ${repoPath}`,
     );
@@ -98,10 +98,6 @@ const readPlainRepositoryTree = async (
     const stats = await lstat(absolutePath);
 
     if (stats.isDirectory()) {
-      if (matchesIgnoreGlob(config, relativePath)) {
-        continue;
-      }
-
       await readPlainRepositoryTree(
         absolutePath,
         config,
@@ -134,10 +130,6 @@ const readSecretRepositoryTree = async (
     const stats = await lstat(absolutePath);
 
     if (stats.isDirectory()) {
-      if (matchesIgnoreGlob(config, relativePath)) {
-        continue;
-      }
-
       await readSecretRepositoryTree(
         absolutePath,
         config,
@@ -166,22 +158,21 @@ const readSecretRepositoryTree = async (
     }
 
     const repoPath = relativePath.slice(0, -".age".length);
+    const mode = resolveManagedSyncMode(config, repoPath);
 
-    if (matchesIgnoreGlob(config, repoPath)) {
-      continue;
-    }
-
-    const owningEntry = findOwningEntry(config, repoPath);
-
-    if (owningEntry === undefined) {
+    if (findOwningSyncEntry(config, repoPath) === undefined) {
       throw new SyncError(
         `Unmanaged secret sync path found in repository: ${repoPath}`,
       );
     }
 
-    if (!matchesSecretGlob(config, repoPath)) {
+    if (mode === "ignore") {
+      continue;
+    }
+
+    if (mode !== "secret") {
       throw new SyncError(
-        `Secret repository file does not match any secret glob: ${repoPath}`,
+        `Plain sync path is stored in secret form in the repository: ${repoPath}`,
       );
     }
 
@@ -204,40 +195,38 @@ export const buildRepositorySnapshot = async (
   const snapshot = new Map<string, SnapshotNode>();
   const plainDirectory = resolveSyncPlainDirectoryPath(syncDirectory);
 
-  for (const entry of config.entries) {
-    if (entry.kind !== "directory") {
-      continue;
-    }
-
-    if (matchesIgnoreGlob(config, entry.repoPath)) {
-      continue;
-    }
-
-    const stats = await getPathStats(
-      join(plainDirectory, ...entry.repoPath.split("/")),
-    );
-
-    if (stats === undefined) {
-      continue;
-    }
-
-    if (!stats.isDirectory()) {
-      throw new SyncError(
-        `Directory sync entry is not stored as a directory in the repository: ${entry.repoPath}`,
-      );
-    }
-
-    addSnapshotNode(snapshot, entry.repoPath, {
-      type: "directory",
-    });
-  }
-
   await readPlainRepositoryTree(plainDirectory, config, snapshot);
   await readSecretRepositoryTree(
     resolveSyncSecretDirectoryPath(syncDirectory),
     config,
     snapshot,
   );
+
+  for (const entry of config.entries) {
+    if (entry.kind !== "directory") {
+      continue;
+    }
+
+    const plainPath = join(plainDirectory, ...entry.repoPath.split("/"));
+    const stats = await getPathStats(plainPath);
+
+    if (stats !== undefined && !stats.isDirectory()) {
+      throw new SyncError(
+        `Directory sync entry is not stored as a directory in the repository: ${entry.repoPath}`,
+      );
+    }
+
+    const mode = resolveManagedSyncMode(config, entry.repoPath);
+    const hasTrackedChildren = [...snapshot.keys()].some((repoPath) => {
+      return repoPath.startsWith(`${entry.repoPath}/`);
+    });
+
+    if (stats?.isDirectory() && (mode !== "ignore" || hasTrackedChildren)) {
+      addSnapshotNode(snapshot, entry.repoPath, {
+        type: "directory",
+      });
+    }
+  }
 
   return snapshot;
 };

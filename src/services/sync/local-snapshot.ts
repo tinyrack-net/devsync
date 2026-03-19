@@ -1,11 +1,7 @@
 import { lstat, readFile, readlink } from "node:fs/promises";
 import { join, posix } from "node:path";
 
-import {
-  matchesIgnoreGlob,
-  matchesSecretGlob,
-  type ResolvedSyncConfig,
-} from "#app/config/sync.ts";
+import { type ResolvedSyncConfig, resolveSyncMode } from "#app/config/sync.ts";
 import { SyncError } from "./error.ts";
 import {
   getPathStats,
@@ -50,6 +46,19 @@ export const addSnapshotNode = (
   snapshot.set(repoPath, node);
 };
 
+const resolveManagedSyncMode = (
+  config: ResolvedSyncConfig,
+  repoPath: string,
+) => {
+  const mode = resolveSyncMode(config, repoPath);
+
+  if (mode === undefined) {
+    throw new SyncError(`Unmanaged local sync path found: ${repoPath}`);
+  }
+
+  return mode;
+};
+
 const addLocalNode = async (
   snapshot: Map<string, SnapshotNode>,
   config: ResolvedSyncConfig,
@@ -57,7 +66,9 @@ const addLocalNode = async (
   path: string,
   stats: Awaited<ReturnType<typeof lstat>>,
 ) => {
-  if (matchesIgnoreGlob(config, repoPath)) {
+  const mode = resolveManagedSyncMode(config, repoPath);
+
+  if (mode === "ignore") {
     return;
   }
 
@@ -68,7 +79,7 @@ const addLocalNode = async (
   }
 
   if (stats.isSymbolicLink()) {
-    if (matchesSecretGlob(config, repoPath)) {
+    if (mode === "secret") {
       throw new SyncError(
         `Secret sync paths must be regular files, not symlinks: ${repoPath}`,
       );
@@ -89,7 +100,7 @@ const addLocalNode = async (
   addSnapshotNode(snapshot, repoPath, {
     contents: await readFile(path),
     executable: isExecutableMode(stats.mode),
-    secret: matchesSecretGlob(config, repoPath),
+    secret: mode === "secret",
     type: "file",
   });
 };
@@ -108,10 +119,6 @@ const walkLocalDirectory = async (
     const stats = await lstat(localPath);
 
     if (stats.isDirectory()) {
-      if (matchesIgnoreGlob(config, repoPath)) {
-        continue;
-      }
-
       await walkLocalDirectory(snapshot, config, localPath, repoPath);
       continue;
     }
@@ -124,17 +131,19 @@ export const buildLocalSnapshot = async (config: ResolvedSyncConfig) => {
   const snapshot = new Map<string, SnapshotNode>();
 
   for (const entry of config.entries) {
-    if (matchesIgnoreGlob(config, entry.repoPath)) {
-      continue;
-    }
-
     const stats = await getPathStats(entry.localPath);
 
     if (stats === undefined) {
       continue;
     }
 
+    const entryMode = resolveManagedSyncMode(config, entry.repoPath);
+
     if (entry.kind === "file") {
+      if (entryMode === "ignore") {
+        continue;
+      }
+
       if (stats.isDirectory()) {
         throw new SyncError(
           `Sync entry ${entry.name} expects a file, but found a directory: ${entry.localPath}`,
@@ -157,10 +166,14 @@ export const buildLocalSnapshot = async (config: ResolvedSyncConfig) => {
       );
     }
 
-    addSnapshotNode(snapshot, entry.repoPath, {
-      type: "directory",
-    });
+    const snapshotSizeBeforeWalk = snapshot.size;
     await walkLocalDirectory(snapshot, config, entry.localPath, entry.repoPath);
+
+    if (entryMode !== "ignore" || snapshot.size > snapshotSizeBeforeWalk) {
+      addSnapshotNode(snapshot, entry.repoPath, {
+        type: "directory",
+      });
+    }
   }
 
   return snapshot;
