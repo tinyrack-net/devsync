@@ -1,31 +1,31 @@
 {
-  "name": "devtools",
+  "name": "devsync",
   "version": "0.1.0",
   "private": true,
-  "description": "A personal CLI tool for web search, page extraction, and development-agent workflows.",
+  "description": "A personal CLI tool for git-backed configuration sync.",
   "type": "module",
   "license": "MIT",
   "author": "winetree94",
   "repository": {
     "type": "git",
-    "url": "https://git.winetree94.com/winetree94/devtools.git"
+    "url": "https://git.winetree94.com/winetree94/devsync.git"
   },
   "keywords": [
     "cli",
-    "web-search",
-    "web-scraping",
-    "agent",
-    "devtools"
+    "sync",
+    "dotfiles",
+    "config-sync",
+    "devsync"
   ],
   "imports": {
     "#app/*": "./src/*"
   },
   "bin": {
-    "devtools": "./src/index.ts"
+    "devsync": "./src/index.ts"
   },
   "oclif": {
-    "bin": "devtools",
-    "dirname": "devtools",
+    "bin": "devsync",
+    "dirname": "devsync",
     "commands": {
       "strategy": "explicit",
       "target": "./src/cli/commands/index.ts",
@@ -35,20 +35,6 @@
     "plugins": [
       "@oclif/plugin-autocomplete"
     ],
-    "topics": {
-      "install": {
-        "description": "Install packaged resources"
-      },
-      "uninstall": {
-        "description": "Uninstall packaged resources"
-      },
-      "sync": {
-        "description": "Configuration sync utilities"
-      },
-      "web": {
-        "description": "Web utilities"
-      }
-    },
     "additionalHelpFlags": [
       "-h"
     ]
@@ -68,20 +54,14 @@
     "format": "biome format --write ."
   },
   "dependencies": {
-    "@mozilla/readability": "^0.6.0",
     "@oclif/core": "^4.9.0",
     "@oclif/plugin-autocomplete": "^3.2.41",
     "age-encryption": "^0.3.0",
-    "dotenv": "^17.3.1",
-    "jsdom": "^29.0.0",
-    "turndown": "^7.2.2",
     "zod": "^4.3.6"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.4.8",
-    "@types/jsdom": "^28.0.0",
     "@types/node": "^25.5.0",
-    "@types/turndown": "^5.0.6",
     "@vitest/coverage-v8": "^4.1.0",
     "execa": "^9.6.1",
     "typescript": "^5.9.3",

@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-- `devtools`, a personal CLI tool built with Node.js and TypeScript
+- `devsync`, a personal CLI tool built with Node.js and TypeScript
 - Module system: ESM
 - Runtime: execute `.ts` files directly with Node.js
 - Minimum supported Node.js version: 24
@@ -25,21 +25,18 @@
 - Keep `src/index.ts` as the CLI entrypoint only
 - Place CLI-specific modules under `src/cli/`
 - Place environment/configuration modules under `src/config/`
-- Place skill management modules under `src/skills/`
+- Place sync-related modules under `src/services/sync/`
 - Place reusable cross-domain pure utilities under `src/lib/`
-- Keep domain-specific helpers with their owning domain, e.g. web parsing/formatting under `src/web/`
 - Avoid leaving feature modules like `cli-types.ts` or `cli-validation.ts` in the `src/` root
 - Place tests under `tests/` with names matching `<domain>.<topic>.test.ts`
-- Place test helpers and fixture servers under `tests/helpers/`
-- Place bundled skill templates under `skills/<skill-name>/`
+- Place test helpers under `tests/helpers/`
 
 ## Key Dependencies
 
 - `@oclif/core` for CLI command definitions
-- `zod` for input validation and environment schema
-- `jsdom` and `@mozilla/readability` for HTML parsing and article extraction
-- `turndown` for HTML-to-Markdown conversion
-- `dotenv` for `.env` file loading in non-production environments
+- `@oclif/plugin-autocomplete` for shell autocomplete support
+- `zod` for input validation and config schema
+- `age-encryption` for secret file encryption
 
 ## Validation Requirements
 
