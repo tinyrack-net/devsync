@@ -1,20 +1,21 @@
 import { z } from "zod";
-
+import {
+  ensureTrailingNewline,
+  normalizeWhitespace,
+  readOptionalString,
+  splitTokens,
+} from "#app/lib/string.ts";
+import { formatInputIssues } from "#app/lib/validation.ts";
 import {
   createHtmlPageLoader,
   readCanonicalUrl,
   withHtmlDocument,
-} from "#app/web/page.ts";
+} from "#app/services/web/page.ts";
 import {
   absoluteHttpUrlSchema,
-  ensureTrailingNewline,
-  formatInputIssues,
   isSameOriginUrl,
   normalizeAbsoluteUrl,
-  normalizeWhitespace,
-  readOptionalString,
-  splitTokens,
-} from "#app/web/shared.ts";
+} from "#app/services/web/url.ts";
 
 const linkKinds = ["same-origin", "fragment", "external"] as const;
 

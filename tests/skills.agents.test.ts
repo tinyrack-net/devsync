@@ -7,7 +7,7 @@ import {
   resolveSkillInstallTargetDirectory,
   type SupportedSkillInstallAgent,
   supportedSkillInstallAgents,
-} from "#app/skills/agents.ts";
+} from "#app/services/skills/agents.ts";
 
 const defaultTargetDirectories = {
   pi: join(homedir(), ".pi", "agent", "skills"),

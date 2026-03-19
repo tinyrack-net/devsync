@@ -1,10 +1,9 @@
 import { Args, Command, Flags } from "@oclif/core";
-
+import { defaultWebRequestTimeoutMs } from "#app/services/web/http.ts";
 import {
   createWebPageInspector,
   runWebInspectCommand,
-} from "#app/web/inspect.ts";
-import { defaultWebRequestTimeoutMs } from "#app/web/shared.ts";
+} from "#app/services/web/inspect.ts";
 
 const webPageInspector = createWebPageInspector({
   fetchImplementation: fetch,

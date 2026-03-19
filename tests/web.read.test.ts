@@ -5,7 +5,7 @@ import {
   formatWebPageContent,
   runWebFetchCommand,
   WebPageReadError,
-} from "#app/web/fetch.ts";
+} from "#app/services/web/fetch.ts";
 
 type WebPageContent = Awaited<
   ReturnType<ReturnType<typeof createFetchWebPageReader>["read"]>

@@ -1,20 +1,16 @@
 import { Readability } from "@mozilla/readability";
 import TurndownService from "turndown";
 import { z } from "zod";
-
+import { ensureTrailingNewline, normalizeWhitespace } from "#app/lib/string.ts";
+import { formatInputIssues } from "#app/lib/validation.ts";
 import {
   createHtmlPageLoader,
   readCanonicalUrl,
   readDocumentTitle,
   readMetaContent,
   withHtmlDocument,
-} from "#app/web/page.ts";
-import {
-  absoluteHttpUrlSchema,
-  ensureTrailingNewline,
-  formatInputIssues,
-  normalizeWhitespace,
-} from "#app/web/shared.ts";
+} from "#app/services/web/page.ts";
+import { absoluteHttpUrlSchema } from "#app/services/web/url.ts";
 
 export const webPageOutputFormats = [
   "markdown",

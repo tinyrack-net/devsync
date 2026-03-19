@@ -13,13 +13,13 @@ import { join } from "node:path";
 
 import { afterEach, describe, expect, it } from "vitest";
 
-import { supportedSkillInstallAgents } from "#app/skills/agents.ts";
+import { supportedSkillInstallAgents } from "#app/services/skills/agents.ts";
 import {
   createSkillInstaller,
   formatSkillInstallResult,
   runInstallSkillsCommand,
   SkillInstallError,
-} from "#app/skills/install.ts";
+} from "#app/services/skills/install.ts";
 
 const temporaryDirectories: string[] = [];
 

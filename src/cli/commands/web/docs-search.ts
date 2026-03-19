@@ -1,11 +1,10 @@
 import { Args, Command, Flags } from "@oclif/core";
-
+import { defaultWebRequestTimeoutMs } from "#app/services/web/http.ts";
 import {
   createBraveSearchEngine,
   createSearchEngineRegistry,
   runWebDocsSearchCommand,
-} from "#app/web/search.ts";
-import { defaultWebRequestTimeoutMs } from "#app/web/shared.ts";
+} from "#app/services/web/search.ts";
 
 const createCommandSearchEngineRegistry = (apiKeyOverride?: string) => {
   const { BRAVE_SEARCH_API_KEY: braveSearchApiKey } = process.env;

@@ -1,10 +1,10 @@
 import { Args, Command, Flags } from "@oclif/core";
-import { defaultWebRequestTimeoutMs } from "#app/web/shared.ts";
+import { defaultWebRequestTimeoutMs } from "#app/services/web/http.ts";
 import {
   createWebSitemapReader,
   defaultSitemapConcurrency,
   runWebSitemapCommand,
-} from "#app/web/sitemap.ts";
+} from "#app/services/web/sitemap.ts";
 
 const webSitemapReader = createWebSitemapReader({
   fetchImplementation: fetch,

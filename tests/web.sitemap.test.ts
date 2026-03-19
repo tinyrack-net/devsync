@@ -5,7 +5,7 @@ import {
   formatWebSitemap,
   runWebSitemapCommand,
   WebSitemapError,
-} from "#app/web/sitemap.ts";
+} from "#app/services/web/sitemap.ts";
 
 type WebSitemap = Awaited<
   ReturnType<ReturnType<typeof createWebSitemapReader>["read"]>

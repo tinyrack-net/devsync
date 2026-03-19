@@ -6,7 +6,7 @@ import {
   createSkillInstaller,
   runInstallSkillsCommand,
   supportedSkillInstallAgents,
-} from "#app/skills/install.ts";
+} from "#app/services/skills/install.ts";
 
 const bundledSkillsDirectory = fileURLToPath(
   new URL("../../../../skills", import.meta.url),

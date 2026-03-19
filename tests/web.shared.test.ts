@@ -1,22 +1,28 @@
 import { describe, expect, it, vi } from "vitest";
 
+import { isJsonObject } from "#app/lib/object.ts";
 import {
-  absoluteHttpUrlSchema,
-  createRequestHeaders,
   ensureTrailingNewline,
-  fetchWithTimeout,
-  formatInputIssues,
-  isJsonObject,
-  isSameOriginUrl,
-  normalizeAbsoluteUrl,
-  normalizeSearchSite,
   normalizeWhitespace,
   readOptionalString,
   readString,
-  requireContentType,
   splitTokens,
+} from "#app/lib/string.ts";
+import {
+  formatInputIssues,
   trimmedOptionalStringSchema,
-} from "#app/web/shared.ts";
+} from "#app/lib/validation.ts";
+import {
+  createRequestHeaders,
+  fetchWithTimeout,
+  requireContentType,
+} from "#app/services/web/http.ts";
+import {
+  absoluteHttpUrlSchema,
+  isSameOriginUrl,
+  normalizeAbsoluteUrl,
+  normalizeSearchSite,
+} from "#app/services/web/url.ts";
 
 describe("trimmedOptionalStringSchema", () => {
   it("normalizes blank values to undefined", () => {

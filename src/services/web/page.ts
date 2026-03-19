@@ -1,12 +1,12 @@
 import { JSDOM } from "jsdom";
 
+import { readOptionalString } from "#app/lib/string.ts";
 import {
   createRequestHeaders,
   fetchWithTimeout,
-  normalizeAbsoluteUrl,
-  readOptionalString,
   requireContentType,
-} from "#app/web/shared.ts";
+} from "#app/services/web/http.ts";
+import { normalizeAbsoluteUrl } from "#app/services/web/url.ts";
 
 export type HtmlPageLoadRequest = Readonly<{
   url: string;

@@ -1,15 +1,17 @@
 import { JSDOM } from "jsdom";
 import { z } from "zod";
 
+import { ensureTrailingNewline } from "#app/lib/string.ts";
+import { formatInputIssues } from "#app/lib/validation.ts";
+import {
+  createRequestHeaders,
+  fetchWithTimeout,
+} from "#app/services/web/http.ts";
 import {
   absoluteHttpUrlSchema,
-  createRequestHeaders,
-  ensureTrailingNewline,
-  fetchWithTimeout,
-  formatInputIssues,
   isSameOriginUrl,
   normalizeAbsoluteUrl,
-} from "#app/web/shared.ts";
+} from "#app/services/web/url.ts";
 
 export const defaultSitemapConcurrency = "4";
 

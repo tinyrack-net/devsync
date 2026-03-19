@@ -4,8 +4,8 @@ import {
   createFetchWebPageReader,
   runWebFetchCommand,
   webPageOutputFormats,
-} from "#app/web/fetch.ts";
-import { defaultWebRequestTimeoutMs } from "#app/web/shared.ts";
+} from "#app/services/web/fetch.ts";
+import { defaultWebRequestTimeoutMs } from "#app/services/web/http.ts";
 
 const webPageReader = createFetchWebPageReader({
   fetchImplementation: fetch,

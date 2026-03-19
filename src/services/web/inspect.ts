@@ -1,18 +1,14 @@
 import { z } from "zod";
-
+import { ensureTrailingNewline, readOptionalString } from "#app/lib/string.ts";
+import { formatInputIssues } from "#app/lib/validation.ts";
 import {
   createHtmlPageLoader,
   readCanonicalUrl,
   readDocumentTitle,
   readMetaContent,
   withHtmlDocument,
-} from "#app/web/page.ts";
-import {
-  absoluteHttpUrlSchema,
-  ensureTrailingNewline,
-  formatInputIssues,
-  readOptionalString,
-} from "#app/web/shared.ts";
+} from "#app/services/web/page.ts";
+import { absoluteHttpUrlSchema } from "#app/services/web/url.ts";
 
 type WebPageInspectRequest = Readonly<{
   url: string;

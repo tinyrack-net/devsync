@@ -13,16 +13,24 @@ import { fileURLToPath } from "node:url";
 import { execa } from "execa";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
-import type { SupportedSkillInstallAgent } from "#app/skills/agents.ts";
+import type { SupportedSkillInstallAgent } from "#app/services/skills/agents.ts";
 import {
   startWebFixtureServer,
   type WebFixtureServer,
 } from "./helpers/web-fixture-server.ts";
 
 const cliPath = fileURLToPath(new URL("../src/index.ts", import.meta.url));
-const bundledSkillPath = fileURLToPath(
-  new URL("../skills/web-research", import.meta.url),
-);
+const bundledSkills = {
+  "verification-before-completion": fileURLToPath(
+    new URL("../skills/verification-before-completion", import.meta.url),
+  ),
+  "web-research": fileURLToPath(
+    new URL("../skills/web-research", import.meta.url),
+  ),
+} as const;
+const bundledSkillNames = Object.keys(bundledSkills).sort((left, right) => {
+  return left.localeCompare(right);
+}) as Array<keyof typeof bundledSkills>;
 const defaultTargetDirectories = {
   pi: [".pi", "agent", "skills"],
   codex: [".agents", "skills"],
@@ -130,29 +138,54 @@ describe("CLI integration", () => {
       ]);
 
       expect(result.exitCode).toBe(0);
-      expect(result.stdout).toContain("Installed 1 skills for pi.");
+      expect(result.stdout).toContain(
+        `Installed ${bundledSkillNames.length} skills for pi.`,
+      );
       expect(result.stderr).toBe("");
 
       const entries = (await readdir(targetDirectory)).sort((left, right) => {
         return left.localeCompare(right);
       });
 
-      expect(entries).toEqual(["web-research"]);
+      expect(entries).toEqual(bundledSkillNames);
 
-      const skillLinkPath = join(targetDirectory, "web-research");
-      const linkStats = await lstat(skillLinkPath);
+      for (const skillName of bundledSkillNames) {
+        const skillLinkPath = join(targetDirectory, skillName);
+        const linkStats = await lstat(skillLinkPath);
 
-      expect(linkStats.isSymbolicLink()).toBe(true);
-      expect(await realpath(skillLinkPath)).toBe(bundledSkillPath);
-      expect(await readFile(join(skillLinkPath, "SKILL.md"), "utf8")).toContain(
-        "name: web-research",
-      );
+        expect(linkStats.isSymbolicLink()).toBe(true);
+        expect(await realpath(skillLinkPath)).toBe(bundledSkills[skillName]);
+      }
+
       expect(
         await readFile(
-          join(skillLinkPath, "references", "commands.md"),
+          join(targetDirectory, "web-research", "SKILL.md"),
+          "utf8",
+        ),
+      ).toContain("name: web-research");
+      expect(
+        await readFile(
+          join(targetDirectory, "web-research", "references", "commands.md"),
           "utf8",
         ),
       ).toContain("Web Command Reference");
+      expect(
+        await readFile(
+          join(targetDirectory, "verification-before-completion", "SKILL.md"),
+          "utf8",
+        ),
+      ).toContain("name: verification-before-completion");
+      expect(
+        await readFile(
+          join(
+            targetDirectory,
+            "verification-before-completion",
+            "references",
+            "completion-report-checklist.md",
+          ),
+          "utf8",
+        ),
+      ).toContain("Completion Report Checklist");
     } finally {
       await rm(targetDirectory, { force: true, recursive: true });
     }
@@ -173,9 +206,12 @@ describe("CLI integration", () => {
       expect(result.stdout).toContain(
         `Target directory: ${join(agentDirectory, "skills")}`,
       );
-      expect(
-        await realpath(join(agentDirectory, "skills", "web-research")),
-      ).toBe(bundledSkillPath);
+
+      for (const skillName of bundledSkillNames) {
+        expect(await realpath(join(agentDirectory, "skills", skillName))).toBe(
+          bundledSkills[skillName],
+        );
+      }
     } finally {
       await rm(workspaceDirectory, { force: true, recursive: true });
     }
@@ -200,14 +236,17 @@ describe("CLI integration", () => {
 
       expect(installResult.exitCode).toBe(0);
       expect(installResult.stdout).toContain(
-        `Installed 1 skills for ${agent}.`,
+        `Installed ${bundledSkillNames.length} skills for ${agent}.`,
       );
       expect(installResult.stdout).toContain(
         `Target directory: ${expectedTargetDirectory}`,
       );
-      expect(
-        await realpath(join(expectedTargetDirectory, "web-research")),
-      ).toBe(bundledSkillPath);
+
+      for (const skillName of bundledSkillNames) {
+        expect(await realpath(join(expectedTargetDirectory, skillName))).toBe(
+          bundledSkills[skillName],
+        );
+      }
 
       const uninstallResult = await runCli(["uninstall", "skills", agent], {
         env: {
@@ -217,13 +256,16 @@ describe("CLI integration", () => {
 
       expect(uninstallResult.exitCode).toBe(0);
       expect(uninstallResult.stdout).toContain(
-        `Removed 1 skills for ${agent}.`,
+        `Removed ${bundledSkillNames.length} skills for ${agent}.`,
       );
-      await expect(
-        lstat(join(expectedTargetDirectory, "web-research")),
-      ).rejects.toMatchObject({
-        code: "ENOENT",
-      });
+
+      for (const skillName of bundledSkillNames) {
+        await expect(
+          lstat(join(expectedTargetDirectory, skillName)),
+        ).rejects.toMatchObject({
+          code: "ENOENT",
+        });
+      }
     } finally {
       await rm(homeDirectory, { force: true, recursive: true });
     }
@@ -246,7 +288,9 @@ describe("CLI integration", () => {
       ]);
 
       expect(result.exitCode).toBe(0);
-      expect(result.stdout).toContain("Dry run for pi: 1 skills evaluated.");
+      expect(result.stdout).toContain(
+        `Dry run for pi: ${bundledSkillNames.length} skills evaluated.`,
+      );
       expect(result.stdout).toContain("No filesystem changes were made.");
       await expect(lstat(targetDirectory)).rejects.toMatchObject({
         code: "ENOENT",
@@ -277,12 +321,17 @@ describe("CLI integration", () => {
       ]);
 
       expect(result.exitCode).toBe(0);
-      expect(result.stdout).toContain("Removed 1 skills for pi.");
-      await expect(
-        lstat(join(targetDirectory, "web-research")),
-      ).rejects.toMatchObject({
-        code: "ENOENT",
-      });
+      expect(result.stdout).toContain(
+        `Removed ${bundledSkillNames.length} skills for pi.`,
+      );
+
+      for (const skillName of bundledSkillNames) {
+        await expect(
+          lstat(join(targetDirectory, skillName)),
+        ).rejects.toMatchObject({
+          code: "ENOENT",
+        });
+      }
     } finally {
       await rm(targetDirectory, { force: true, recursive: true });
     }
@@ -313,11 +362,14 @@ describe("CLI integration", () => {
 
       expect(result.exitCode).toBe(0);
       expect(result.stdout).toContain(
-        "Dry run for pi uninstall: 1 skills evaluated.",
+        `Dry run for pi uninstall: ${bundledSkillNames.length} skills evaluated.`,
       );
-      expect(await realpath(join(targetDirectory, "web-research"))).toBe(
-        bundledSkillPath,
-      );
+
+      for (const skillName of bundledSkillNames) {
+        expect(await realpath(join(targetDirectory, skillName))).toBe(
+          bundledSkills[skillName],
+        );
+      }
     } finally {
       await rm(targetDirectory, { force: true, recursive: true });
     }

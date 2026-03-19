@@ -1,7 +1,9 @@
 import { Args, Command, Flags } from "@oclif/core";
-
-import { createWebPageLinkReader, runWebLinksCommand } from "#app/web/links.ts";
-import { defaultWebRequestTimeoutMs } from "#app/web/shared.ts";
+import { defaultWebRequestTimeoutMs } from "#app/services/web/http.ts";
+import {
+  createWebPageLinkReader,
+  runWebLinksCommand,
+} from "#app/services/web/links.ts";
 
 const webPageLinkReader = createWebPageLinkReader({
   fetchImplementation: fetch,

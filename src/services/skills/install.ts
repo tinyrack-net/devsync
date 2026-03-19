@@ -11,16 +11,15 @@ import {
 import { basename, dirname, join, relative, resolve } from "node:path";
 
 import { z } from "zod";
-
+import { formatInputIssues } from "#app/lib/validation.ts";
 import {
   resolveSkillInstallTargetDirectory,
   type SupportedSkillInstallAgent,
   supportedSkillInstallAgents,
-} from "#app/skills/agents.ts";
-import { formatInputIssues } from "#app/web/shared.ts";
+} from "#app/services/skills/agents.ts";
 
-export type { SupportedSkillInstallAgent } from "#app/skills/agents.ts";
-export { supportedSkillInstallAgents } from "#app/skills/agents.ts";
+export type { SupportedSkillInstallAgent } from "#app/services/skills/agents.ts";
+export { supportedSkillInstallAgents } from "#app/services/skills/agents.ts";
 
 type SkillInstallRequest = Readonly<{
   agent: SupportedSkillInstallAgent;
