@@ -1,91 +1,20 @@
+import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
+import { format } from "node:util";
 
-import { Command, CommanderError } from "commander";
-import {
-  CompletionError,
-  registerCompletionCommand,
-} from "#app/cli/completion.ts";
-import {
-  createSkillInstaller,
-  createSkillUninstaller,
-  registerInstallSkillsCommand,
-  registerUninstallSkillsCommand,
-  SkillInstallError,
-  SkillUninstallError,
-} from "#app/skills/install.ts";
-import {
-  createFetchWebPageReader,
-  registerWebFetchCommand,
-  WebPageReadError,
-} from "#app/web/fetch.ts";
-import {
-  createWebPageInspector,
-  registerWebInspectCommand,
-  WebPageInspectError,
-} from "#app/web/inspect.ts";
-import {
-  createWebPageLinkReader,
-  registerWebLinksCommand,
-  WebPageLinksError,
-} from "#app/web/links.ts";
-import {
-  createBraveSearchEngine,
-  createSearchEngineRegistry,
-  registerWebDocsSearchCommand,
-  registerWebSearchCommand,
-  WebSearchError,
-} from "#app/web/search.ts";
-import {
-  createWebSitemapReader,
-  registerWebSitemapCommand,
-  WebSitemapError,
-} from "#app/web/sitemap.ts";
+import { Errors, flush, run, settings } from "@oclif/core";
 
-const defaultSkillsDirectory = fileURLToPath(
-  new URL("../../skills", import.meta.url),
-);
+import { withCliRuntime } from "#app/cli/runtime.ts";
+import {
+  type CliServices,
+  createDefaultCliServices,
+} from "#app/cli/services.ts";
 
-export const createDefaultCliServices = () => {
-  const { BRAVE_SEARCH_API_KEY: braveSearchApiKey } = process.env;
+const workspaceRoot = fileURLToPath(new URL("../../", import.meta.url));
+const entryScriptPath = fileURLToPath(new URL("../index.ts", import.meta.url));
 
-  return {
-    createSearchEngineRegistry: (apiKeyOverride?: string) => {
-      return createSearchEngineRegistry("brave", [
-        createBraveSearchEngine({
-          apiKey: apiKeyOverride ?? braveSearchApiKey,
-          fetchImplementation: fetch,
-        }),
-      ]);
-    },
-    webPageReader: createFetchWebPageReader({
-      fetchImplementation: fetch,
-      userAgent: "devtools/0.1.0",
-    }),
-    webPageInspector: createWebPageInspector({
-      fetchImplementation: fetch,
-      userAgent: "devtools/0.1.0",
-    }),
-    webPageLinkReader: createWebPageLinkReader({
-      fetchImplementation: fetch,
-      userAgent: "devtools/0.1.0",
-    }),
-    webSitemapReader: createWebSitemapReader({
-      fetchImplementation: fetch,
-      userAgent: "devtools/0.1.0",
-    }),
-    skillInstaller: createSkillInstaller({
-      skillsDirectory: defaultSkillsDirectory,
-    }),
-    skillUninstaller: createSkillUninstaller({
-      skillsDirectory: defaultSkillsDirectory,
-    }),
-  };
-};
-
-export type CliServices = ReturnType<typeof createDefaultCliServices>;
-
-type PackageInfo = {
-  name: string;
+const require = createRequire(import.meta.url);
+const packageJson = require("../../package.json") as {
   version: string;
 };
 
@@ -94,116 +23,136 @@ type CliIo = {
   stderr: (text: string) => void;
 };
 
-export const createProgram = (
-  packageInfo: PackageInfo,
-  io: CliIo,
-  services: CliServices,
-) => {
-  const program = new Command();
-
-  program
-    .name(packageInfo.name)
-    .description("devtools CLI")
-    .helpOption("-h, --help", "Show help")
-    .version(packageInfo.version, "-v, --version", "Show version")
-    .showHelpAfterError();
-
-  program.configureOutput({
-    outputError: (text, write) => {
-      write(text);
-    },
-    writeErr: (text) => {
-      io.stderr(text);
-    },
-    writeOut: (text) => {
-      io.stdout(text);
-    },
-  });
-
-  program.exitOverride();
-
-  const installCommand = program
-    .command("install")
-    .description("Install packaged resources");
-  const uninstallCommand = program
-    .command("uninstall")
-    .description("Uninstall packaged resources");
-  const webCommand = program.command("web").description("Web utilities");
-
-  registerInstallSkillsCommand(installCommand, {
-    io,
-    skillInstaller: services.skillInstaller,
-  });
-  registerUninstallSkillsCommand(uninstallCommand, {
-    io,
-    skillUninstaller: services.skillUninstaller,
-  });
-
-  registerWebSearchCommand(webCommand, {
-    io,
-    createSearchEngineRegistry: services.createSearchEngineRegistry,
-  });
-  registerWebDocsSearchCommand(webCommand, {
-    io,
-    createSearchEngineRegistry: services.createSearchEngineRegistry,
-  });
-  registerWebFetchCommand(webCommand, {
-    io,
-    webPageReader: services.webPageReader,
-  });
-  registerWebInspectCommand(webCommand, {
-    io,
-    webPageInspector: services.webPageInspector,
-  });
-  registerWebLinksCommand(webCommand, {
-    io,
-    webPageLinkReader: services.webPageLinkReader,
-  });
-  registerWebSitemapCommand(webCommand, {
-    io,
-    webSitemapReader: services.webSitemapReader,
-  });
-
-  registerCompletionCommand(program, io, program);
-
-  return program;
+const isVersionRequest = (args: readonly string[]) => {
+  return args.length === 1 && (args[0] === "--version" || args[0] === "-v");
 };
+
+const readErrorExitCode = (error: unknown) => {
+  if (error instanceof Errors.ExitError) {
+    return error.oclif?.exit ?? 0;
+  }
+
+  if (
+    error instanceof Error &&
+    "oclif" in error &&
+    typeof error.oclif === "object" &&
+    error.oclif !== null &&
+    "exit" in error.oclif &&
+    typeof error.oclif.exit === "number"
+  ) {
+    return error.oclif.exit;
+  }
+
+  if (
+    error instanceof Error &&
+    "exitCode" in error &&
+    typeof error.exitCode === "number"
+  ) {
+    return error.exitCode;
+  }
+
+  return 1;
+};
+
+const readChunkText = (
+  chunk: Uint8Array | string,
+  encoding?: BufferEncoding | null,
+) => {
+  if (typeof chunk === "string") {
+    return chunk;
+  }
+
+  return Buffer.from(chunk).toString(encoding ?? "utf8");
+};
+
+const patchWritable = (
+  writable: NodeJS.WriteStream,
+  write: (text: string) => void,
+) => {
+  const originalWrite = writable.write.bind(writable);
+
+  writable.write = ((
+    chunk: Uint8Array | string,
+    encoding?: BufferEncoding | ((error?: Error | null) => void),
+    callback?: (error?: Error | null) => void,
+  ) => {
+    const resolvedEncoding =
+      typeof encoding === "function" ? undefined : encoding;
+    const resolvedCallback =
+      typeof encoding === "function" ? encoding : callback;
+
+    write(readChunkText(chunk, resolvedEncoding ?? null));
+    resolvedCallback?.();
+    return true;
+  }) as typeof writable.write;
+
+  return () => {
+    writable.write = originalWrite;
+  };
+};
+
+const patchConsoleMethod = (
+  key: "error" | "log",
+  write: (text: string) => void,
+) => {
+  const originalMethod = console[key];
+
+  console[key] = ((...args: unknown[]) => {
+    const text = args.length === 0 ? "" : format(...args);
+    write(`${text}\n`);
+  }) as typeof originalMethod;
+
+  return () => {
+    console[key] = originalMethod;
+  };
+};
+
+export type { CliServices } from "#app/cli/services.ts";
+export { createDefaultCliServices } from "#app/cli/services.ts";
 
 export const runCli = async (
   args: readonly string[],
-  packageInfo: PackageInfo,
   io: CliIo,
   services: CliServices = createDefaultCliServices(),
 ) => {
-  const program = createProgram(packageInfo, io, services);
-
-  if (args.length === 0) {
-    program.outputHelp();
+  if (isVersionRequest(args)) {
+    io.stdout(`${packageJson.version}\n`);
     return 0;
   }
 
+  const restoreStdout = patchWritable(process.stdout, io.stdout);
+  const restoreStderr = patchWritable(process.stderr, io.stderr);
+  const restoreConsoleLog = patchConsoleMethod("log", io.stdout);
+  const restoreConsoleError = patchConsoleMethod("error", io.stderr);
+  const originalArgv = process.argv;
+  const originalExitCode = process.exitCode;
+
+  settings.debug = false;
+  settings.enableAutoTranspile = false;
+
+  process.argv = [process.execPath, entryScriptPath, ...args];
+  process.exitCode = undefined;
+
   try {
-    await program.parseAsync(args, { from: "user" });
-    return 0;
+    await withCliRuntime({ services }, async () => {
+      await run([...args], workspaceRoot);
+    });
+    await flush();
+    return process.exitCode ?? 0;
   } catch (error: unknown) {
-    if (error instanceof CommanderError) {
-      return error.exitCode;
-    }
+    await flush();
 
-    if (
-      error instanceof SkillInstallError ||
-      error instanceof SkillUninstallError ||
-      error instanceof WebPageReadError ||
-      error instanceof WebPageInspectError ||
-      error instanceof WebPageLinksError ||
-      error instanceof WebSearchError ||
-      error instanceof WebSitemapError ||
-      error instanceof CompletionError
-    ) {
+    if (!(error instanceof Errors.ExitError) && error instanceof Error) {
       io.stderr(`error: ${error.message}\n`);
-      return 1;
     }
 
-    throw error;
+    return readErrorExitCode(error);
+  } finally {
+    process.argv = originalArgv;
+    process.exitCode = originalExitCode;
+    restoreConsoleError();
+    restoreConsoleLog();
+    restoreStdout();
+    restoreStderr();
   }
 };

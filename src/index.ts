@@ -1,24 +1,19 @@
 #!/usr/bin/env node
 
-import { createRequire } from "node:module";
-
 import { runCli } from "#app/cli/index.ts";
 import { loadEnvironment } from "#app/config/env.ts";
 
 loadEnvironment();
 
-const require = createRequire(import.meta.url);
-const packageJson = require("../package.json") as {
-  name: string;
-  version: string;
-};
+const stdoutWrite = process.stdout.write.bind(process.stdout);
+const stderrWrite = process.stderr.write.bind(process.stderr);
 
-const exitCode = await runCli(process.argv.slice(2), packageJson, {
+const exitCode = await runCli(process.argv.slice(2), {
   stdout: (text) => {
-    process.stdout.write(text);
+    stdoutWrite(text);
   },
   stderr: (text) => {
-    process.stderr.write(text);
+    stderrWrite(text);
   },
 });
 

@@ -1,0 +1,46 @@
+import { Args, Flags } from "@oclif/core";
+
+import { BaseCommand } from "#app/cli/base-command.ts";
+import { runWebFetchCommand, webPageOutputFormats } from "#app/web/fetch.ts";
+import { defaultWebRequestTimeoutMs } from "#app/web/shared.ts";
+
+export default class WebFetch extends BaseCommand {
+  public static override summary =
+    "Fetch a web page and convert it to structured output";
+
+  public static override args = {
+    url: Args.string({
+      description: "Web page URL",
+      required: true,
+    }),
+  };
+
+  public static override flags = {
+    format: Flags.string({
+      char: "f",
+      default: "markdown",
+      description: "Output format",
+      options: [...webPageOutputFormats],
+    }),
+    timeout: Flags.integer({
+      char: "t",
+      default: Number.parseInt(defaultWebRequestTimeoutMs, 10),
+      description: "Request timeout in milliseconds",
+    }),
+  };
+
+  public override async run(): Promise<void> {
+    const { args, flags } = await this.parse(WebFetch);
+    const output = await runWebFetchCommand(
+      {
+        url: args.url,
+        options: flags,
+      },
+      {
+        webPageReader: this.services.webPageReader,
+      },
+    );
+
+    this.writeStdout(output);
+  }
+}

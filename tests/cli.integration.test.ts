@@ -84,7 +84,7 @@ describe("CLI integration", () => {
 
     expect(installHelpResult.exitCode).toBe(0);
     expect(installHelpResult.stdout).toContain(
-      "Usage: devtools install skills [options] <agent>",
+      "$ devtools install skills AGENT",
     );
     expect(installHelpResult.stdout).toContain("pi");
     expect(installHelpResult.stdout).toContain("codex");
@@ -92,7 +92,7 @@ describe("CLI integration", () => {
     expect(installHelpResult.stdout).toContain("opencode");
     expect(uninstallHelpResult.exitCode).toBe(0);
     expect(uninstallHelpResult.stdout).toContain(
-      "Usage: devtools uninstall skills [options] <agent>",
+      "$ devtools uninstall skills AGENT",
     );
     expect(uninstallHelpResult.stdout).toContain("pi");
     expect(uninstallHelpResult.stdout).toContain("codex");
@@ -100,35 +100,21 @@ describe("CLI integration", () => {
     expect(uninstallHelpResult.stdout).toContain("opencode");
 
     expect(webHelpResult.exitCode).toBe(0);
-    expect(webHelpResult.stdout).toContain(
-      "Usage: devtools web [options] [command]",
-    );
-    expect(webHelpResult.stdout).toContain(
-      "docs-search [options] <site> <query>",
-    );
-    expect(webHelpResult.stdout).toContain("inspect [options] <url>");
-    expect(webHelpResult.stdout).toContain("links [options] <url>");
-    expect(webHelpResult.stdout).toContain("sitemap [options] <url>");
+    expect(webHelpResult.stdout).toContain("$ devtools web COMMAND");
+    expect(webHelpResult.stdout).toContain("web docs-search");
+    expect(webHelpResult.stdout).toContain("web inspect");
+    expect(webHelpResult.stdout).toContain("web links");
+    expect(webHelpResult.stdout).toContain("web sitemap");
     expect(searchHelpResult.exitCode).toBe(0);
-    expect(searchHelpResult.stdout).toContain(
-      "Usage: devtools web search [options] <query>",
-    );
+    expect(searchHelpResult.stdout).toContain("$ devtools web search QUERY");
     expect(fetchHelpResult.exitCode).toBe(0);
-    expect(fetchHelpResult.stdout).toContain(
-      "Usage: devtools web fetch [options] <url>",
-    );
+    expect(fetchHelpResult.stdout).toContain("$ devtools web fetch URL");
     expect(inspectHelpResult.exitCode).toBe(0);
-    expect(inspectHelpResult.stdout).toContain(
-      "Usage: devtools web inspect [options] <url>",
-    );
+    expect(inspectHelpResult.stdout).toContain("$ devtools web inspect URL");
     expect(linksHelpResult.exitCode).toBe(0);
-    expect(linksHelpResult.stdout).toContain(
-      "Usage: devtools web links [options] <url>",
-    );
+    expect(linksHelpResult.stdout).toContain("$ devtools web links URL");
     expect(sitemapHelpResult.exitCode).toBe(0);
-    expect(sitemapHelpResult.stdout).toContain(
-      "Usage: devtools web sitemap [options] <url>",
-    );
+    expect(sitemapHelpResult.stdout).toContain("$ devtools web sitemap URL");
   });
 
   it("installs bundled pi skills into a target directory", async () => {
@@ -481,9 +467,8 @@ describe("CLI integration", () => {
       reject: false,
     });
 
-    expect(result.exitCode).toBe(1);
+    expect(result.exitCode).toBe(2);
     expect(result.stdout).toBe("");
-    expect(result.stderr).toContain("error: unknown command 'unknown'");
-    expect(result.stderr).toContain("Usage: devtools [options] [command]");
+    expect(result.stderr).toContain("error: command unknown not found");
   });
 });

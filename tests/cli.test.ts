@@ -47,11 +47,6 @@ type SkillUninstallResult = Awaited<
 >;
 type WebSearchEngine = Parameters<typeof createSearchEngineRegistry>[1][number];
 
-const packageInfo = {
-  name: "devtools",
-  version: "0.1.0",
-} as const;
-
 const samplePageContent = {
   requestedUrl: "https://example.com/requested",
   finalUrl: "https://example.com/final",
@@ -308,12 +303,11 @@ const runWithCapturedIo = async (
 
   const exitCode = await runCli(
     args,
-    packageInfo,
     {
-      stdout: (text) => {
+      stdout: (text: string) => {
         stdout.push(text);
       },
-      stderr: (text) => {
+      stderr: (text: string) => {
         stderr.push(text);
       },
     },
@@ -339,8 +333,10 @@ describe("runCli", () => {
     const result = await runWithCapturedIo([]);
 
     expect(result.exitCode).toBe(0);
-    expect(result.stdout).toContain("Usage: devtools [options] [command]");
-    expect(result.stdout).toMatch(/web\s+Web utilities/);
+    expect(result.stdout).toContain("USAGE");
+    expect(result.stdout).toContain("$ devtools [COMMAND]");
+    expect(result.stdout).toContain("web        Web utilities");
+    expect(result.stdout).toContain("autocomplete");
     expect(result.stderr).toBe("");
   });
 
@@ -355,10 +351,8 @@ describe("runCli", () => {
     const result = await runWithCapturedIo(["install", "--help"]);
 
     expect(result.exitCode).toBe(0);
-    expect(result.stdout).toContain(
-      "Usage: devtools install [options] [command]",
-    );
-    expect(result.stdout).toContain("skills [options] <agent>");
+    expect(result.stdout).toContain("$ devtools install COMMAND");
+    expect(result.stdout).toContain("install skills");
     expect(result.stderr).toBe("");
   });
 
@@ -366,10 +360,8 @@ describe("runCli", () => {
     const result = await runWithCapturedIo(["uninstall", "--help"]);
 
     expect(result.exitCode).toBe(0);
-    expect(result.stdout).toContain(
-      "Usage: devtools uninstall [options] [command]",
-    );
-    expect(result.stdout).toContain("skills [options] <agent>");
+    expect(result.stdout).toContain("$ devtools uninstall COMMAND");
+    expect(result.stdout).toContain("uninstall skills");
     expect(result.stderr).toBe("");
   });
 
@@ -377,13 +369,13 @@ describe("runCli", () => {
     const result = await runWithCapturedIo(["web", "--help"]);
 
     expect(result.exitCode).toBe(0);
-    expect(result.stdout).toContain("Usage: devtools web [options] [command]");
-    expect(result.stdout).toContain("search [options] <query>");
-    expect(result.stdout).toContain("docs-search [options] <site> <query>");
-    expect(result.stdout).toContain("fetch [options] <url>");
-    expect(result.stdout).toContain("inspect [options] <url>");
-    expect(result.stdout).toContain("links [options] <url>");
-    expect(result.stdout).toContain("sitemap [options] <url>");
+    expect(result.stdout).toContain("$ devtools web COMMAND");
+    expect(result.stdout).toContain("web search");
+    expect(result.stdout).toContain("web docs-search");
+    expect(result.stdout).toContain("web fetch");
+    expect(result.stdout).toContain("web inspect");
+    expect(result.stdout).toContain("web links");
+    expect(result.stdout).toContain("web sitemap");
     expect(result.stderr).toBe("");
   });
 
@@ -391,11 +383,9 @@ describe("runCli", () => {
     const result = await runWithCapturedIo(["web", "search", "--help"]);
 
     expect(result.exitCode).toBe(0);
-    expect(result.stdout).toContain(
-      "Usage: devtools web search [options] <query>",
-    );
-    expect(result.stdout).toContain("--api-key <key>");
-    expect(result.stdout).toContain("--site <site>");
+    expect(result.stdout).toContain("$ devtools web search QUERY");
+    expect(result.stdout).toContain("--api-key=<value>");
+    expect(result.stdout).toContain("--site=<value>");
     expect(result.stderr).toBe("");
   });
 
@@ -403,10 +393,8 @@ describe("runCli", () => {
     const result = await runWithCapturedIo(["install", "skills", "--help"]);
 
     expect(result.exitCode).toBe(0);
-    expect(result.stdout).toContain(
-      "Usage: devtools install skills [options] <agent>",
-    );
-    expect(result.stdout).toContain("--target-dir <path>");
+    expect(result.stdout).toContain("$ devtools install skills AGENT");
+    expect(result.stdout).toContain("--target-dir=<value>");
     expect(result.stdout).toContain("--dry-run");
     expect(result.stdout).toContain("--force");
     expect(result.stdout).toContain("pi");
@@ -419,10 +407,8 @@ describe("runCli", () => {
     const result = await runWithCapturedIo(["uninstall", "skills", "--help"]);
 
     expect(result.exitCode).toBe(0);
-    expect(result.stdout).toContain(
-      "Usage: devtools uninstall skills [options] <agent>",
-    );
-    expect(result.stdout).toContain("--target-dir <path>");
+    expect(result.stdout).toContain("$ devtools uninstall skills AGENT");
+    expect(result.stdout).toContain("--target-dir=<value>");
     expect(result.stdout).toContain("--dry-run");
     expect(result.stdout).toContain("pi");
     expect(result.stdout).toContain("codex");
@@ -441,20 +427,14 @@ describe("runCli", () => {
     ]);
 
     expect(inspectHelp.exitCode).toBe(0);
-    expect(inspectHelp.stdout).toContain(
-      "Usage: devtools web inspect [options] <url>",
-    );
+    expect(inspectHelp.stdout).toContain("$ devtools web inspect URL");
     expect(linksHelp.exitCode).toBe(0);
-    expect(linksHelp.stdout).toContain(
-      "Usage: devtools web links [options] <url>",
-    );
+    expect(linksHelp.stdout).toContain("$ devtools web links URL");
     expect(sitemapHelp.exitCode).toBe(0);
-    expect(sitemapHelp.stdout).toContain(
-      "Usage: devtools web sitemap [options] <url>",
-    );
+    expect(sitemapHelp.stdout).toContain("$ devtools web sitemap URL");
     expect(docsSearchHelp.exitCode).toBe(0);
     expect(docsSearchHelp.stdout).toContain(
-      "Usage: devtools web docs-search [options] <site> <query>",
+      "$ devtools web docs-search SITE QUERY",
     );
   });
 
@@ -558,7 +538,7 @@ describe("runCli", () => {
 
     expect(result.exitCode).toBe(0);
     expect(result.stdout).toContain("1. brave result for typescript");
-    expect(result.apiKeyOverrides).toEqual([undefined, undefined, undefined]);
+    expect(result.apiKeyOverrides).toEqual([undefined, undefined]);
   });
 
   it("supports restricting search results to a site", async () => {
@@ -620,11 +600,7 @@ describe("runCli", () => {
     ]);
 
     expect(result.exitCode).toBe(0);
-    expect(result.apiKeyOverrides).toEqual([
-      undefined,
-      undefined,
-      "secret-key",
-    ]);
+    expect(result.apiKeyOverrides).toEqual([undefined, "secret-key"]);
   });
 
   it("fetches a web page as markdown by default", async () => {
@@ -771,9 +747,9 @@ describe("runCli", () => {
   it("rejects unsupported skill install agents", async () => {
     const result = await runWithCapturedIo(["install", "skills", "copilot"]);
 
-    expect(result.exitCode).toBe(1);
+    expect(result.exitCode).toBe(2);
     expect(result.stderr).toContain(
-      'Invalid option: expected one of "pi"|"codex"|"claude"|"opencode"',
+      "Expected copilot to be one of: pi, codex, claude, opencode",
     );
   });
 
@@ -833,7 +809,7 @@ describe("runCli", () => {
   it("returns an error for an unknown command", async () => {
     const result = await runWithCapturedIo(["unknown"]);
 
-    expect(result.exitCode).toBe(1);
-    expect(result.stderr).toContain("error: unknown command 'unknown'");
+    expect(result.exitCode).toBe(2);
+    expect(result.stderr).toContain("error: command unknown not found");
   });
 });
