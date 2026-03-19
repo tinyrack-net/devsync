@@ -47,6 +47,8 @@ npm link
 
 - Sync repo: `~/.config/devsync/sync`
 - Default age identity file: `$XDG_CONFIG_HOME/devsync/age/keys.txt`
+- Tracked artifacts live under `~/.config/devsync/sync/files`
+- Secret file artifacts use the suffix `.devsync.secret`, for example `token.json.devsync.secret`
 
 ## Usage
 
