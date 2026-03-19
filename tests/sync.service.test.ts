@@ -112,7 +112,7 @@ describe("createSyncManager", () => {
     expect(gitResult.stdout.trim()).toBe("true");
   });
 
-  it("adds tracked entries and canonical secret globs", async () => {
+  it("adds tracked entries and entry-scoped canonical secret globs", async () => {
     const workspace = await createWorkspace();
     const xdgConfigHome = join(workspace, "xdg");
     const settingsDirectory = join(xdgConfigHome, "mytool");
@@ -155,7 +155,10 @@ describe("createSyncManager", () => {
         localPath: string;
         name: string;
         repoPath: string;
+        ignoreGlobs?: string[];
+        secretGlobs?: string[];
       }>;
+      ignoreGlobs: string[];
       secretGlobs: string[];
     };
 
@@ -172,18 +175,18 @@ describe("createSyncManager", () => {
         localPath: "$XDG_CONFIG_HOME/mytool/secrets",
         name: "mytool/secrets",
         repoPath: "mytool/secrets",
+        secretGlobs: ["**"],
       },
       {
         kind: "file",
         localPath: "$XDG_CONFIG_HOME/mytool/settings.json",
         name: "mytool/settings.json",
         repoPath: "mytool/settings.json",
+        secretGlobs: ["*"],
       },
     ]);
-    expect(config.secretGlobs).toEqual([
-      "mytool/secrets/**",
-      "mytool/settings.json",
-    ]);
+    expect(config.ignoreGlobs).toEqual([]);
+    expect(config.secretGlobs).toEqual([]);
   });
 
   it("forgets tracked entries and removes repository artifacts", async () => {
@@ -260,6 +263,58 @@ describe("createSyncManager", () => {
     });
   });
 
+  it("forgets legacy global canonical secret globs", async () => {
+    const workspace = await createWorkspace();
+    const xdgConfigHome = join(workspace, "xdg");
+    const settingsDirectory = join(xdgConfigHome, "mytool");
+    const settingsFile = join(settingsDirectory, "settings.json");
+    const ageKeys = await createAgeKeyPair();
+
+    await writeIdentityFile(xdgConfigHome, ageKeys.identity);
+    await mkdir(settingsDirectory, { recursive: true });
+    await writeFile(settingsFile, "{}\n");
+
+    const manager = createSyncManager({
+      environment: {
+        XDG_CONFIG_HOME: xdgConfigHome,
+      },
+    });
+    const initResult = await manager.init({
+      identityFile: "$XDG_CONFIG_HOME/devtools/age/keys.txt",
+      recipients: [ageKeys.recipient],
+    });
+
+    await updateSyncConfig(initResult.syncDirectory, {
+      version: 1,
+      age: {
+        identityFile: "$XDG_CONFIG_HOME/devtools/age/keys.txt",
+        recipients: [ageKeys.recipient],
+      },
+      entries: [
+        {
+          name: "settings",
+          kind: "file",
+          localPath: "$XDG_CONFIG_HOME/mytool/settings.json",
+          repoPath: "mytool/settings.json",
+        },
+      ],
+      ignoreGlobs: [],
+      secretGlobs: ["mytool/settings.json"],
+    });
+
+    const forgetResult = await manager.forget({
+      target: settingsFile,
+    });
+    const config = JSON.parse(
+      await readFile(join(initResult.syncDirectory, "config.json"), "utf8"),
+    ) as {
+      secretGlobs: string[];
+    };
+
+    expect(forgetResult.secretGlobRemoved).toBe(true);
+    expect(config.secretGlobs).toEqual([]);
+  });
+
   it("rejects add targets outside XDG config and basename-only forget", async () => {
     const workspace = await createWorkspace();
     const xdgConfigHome = join(workspace, "xdg");
@@ -333,9 +388,11 @@ describe("createSyncManager", () => {
           kind: "directory",
           localPath: "$XDG_CONFIG_HOME/devtools/local/bundle",
           repoPath: "bundle",
+          secretGlobs: ["secret.json"],
         },
       ],
-      secretGlobs: ["bundle/secret.json"],
+      ignoreGlobs: [],
+      secretGlobs: [],
     });
 
     await mkdir(localBundlePath, { recursive: true });
@@ -444,9 +501,11 @@ describe("createSyncManager", () => {
           kind: "directory",
           localPath: "$XDG_CONFIG_HOME/devtools/local/bundle",
           repoPath: "bundle",
+          secretGlobs: ["secret-link"],
         },
       ],
-      secretGlobs: ["bundle/secret-link"],
+      ignoreGlobs: [],
+      secretGlobs: [],
     });
 
     await mkdir(localBundlePath, { recursive: true });
@@ -456,5 +515,224 @@ describe("createSyncManager", () => {
     await expect(manager.push({ dryRun: false })).rejects.toThrowError(
       SyncError,
     );
+  });
+
+  it("omits ignored paths on push and preserves them on pull", async () => {
+    const workspace = await createWorkspace();
+    const xdgConfigHome = join(workspace, "xdg");
+    const localBundlePath = join(xdgConfigHome, "devtools", "local", "bundle");
+    const ageKeys = await createAgeKeyPair();
+
+    await writeIdentityFile(xdgConfigHome, ageKeys.identity);
+
+    const manager = createSyncManager({
+      environment: {
+        XDG_CONFIG_HOME: xdgConfigHome,
+      },
+    });
+    const initResult = await manager.init({
+      identityFile: "$XDG_CONFIG_HOME/devtools/age/keys.txt",
+      recipients: [ageKeys.recipient],
+    });
+
+    await updateSyncConfig(initResult.syncDirectory, {
+      version: 1,
+      age: {
+        identityFile: "$XDG_CONFIG_HOME/devtools/age/keys.txt",
+        recipients: [ageKeys.recipient],
+      },
+      entries: [
+        {
+          name: "bundle",
+          kind: "directory",
+          localPath: "$XDG_CONFIG_HOME/devtools/local/bundle",
+          repoPath: "bundle",
+          ignoreGlobs: [
+            "ignored-dir/**",
+            "ignored-local.txt",
+            "ignored-secret.json",
+          ],
+          secretGlobs: ["ignored-secret.json", "secret.json"],
+        },
+      ],
+      ignoreGlobs: ["bundle/global-ignore.txt"],
+      secretGlobs: [],
+    });
+
+    await mkdir(join(localBundlePath, "ignored-dir"), { recursive: true });
+    await writeFile(join(localBundlePath, "plain.txt"), "plain value\n");
+    await writeFile(
+      join(localBundlePath, "secret.json"),
+      JSON.stringify({ token: "super-secret-token" }, null, 2),
+    );
+    await writeFile(
+      join(localBundlePath, "ignored-local.txt"),
+      "ignored local value\n",
+    );
+    await writeFile(
+      join(localBundlePath, "global-ignore.txt"),
+      "ignored by global rule\n",
+    );
+    await writeFile(
+      join(localBundlePath, "ignored-secret.json"),
+      JSON.stringify({ token: "ignored-secret-local" }, null, 2),
+    );
+    await writeFile(
+      join(localBundlePath, "ignored-dir", "keep.txt"),
+      "ignored subtree value\n",
+    );
+    await mkdir(
+      join(initResult.syncDirectory, "plain", "bundle", "ignored-dir"),
+      {
+        recursive: true,
+      },
+    );
+    await mkdir(join(initResult.syncDirectory, "secret", "bundle"), {
+      recursive: true,
+    });
+    await writeFile(
+      join(initResult.syncDirectory, "plain", "bundle", "ignored-local.txt"),
+      "stale ignored local copy\n",
+    );
+    await writeFile(
+      join(initResult.syncDirectory, "plain", "bundle", "global-ignore.txt"),
+      "stale ignored global copy\n",
+    );
+    await writeFile(
+      join(
+        initResult.syncDirectory,
+        "plain",
+        "bundle",
+        "ignored-dir",
+        "keep.txt",
+      ),
+      "stale ignored subtree copy\n",
+    );
+    await writeFile(
+      join(
+        initResult.syncDirectory,
+        "secret",
+        "bundle",
+        "ignored-secret.json.age",
+      ),
+      "stale ignored secret copy\n",
+    );
+
+    const pushResult = await manager.push({ dryRun: false });
+
+    expect(pushResult.plainFileCount).toBe(1);
+    expect(pushResult.encryptedFileCount).toBe(1);
+    expect(pushResult.directoryCount).toBe(1);
+    expect(await readFile(join(localBundlePath, "plain.txt"), "utf8")).toBe(
+      "plain value\n",
+    );
+    expect(
+      await readFile(
+        join(initResult.syncDirectory, "plain", "bundle", "plain.txt"),
+        "utf8",
+      ),
+    ).toBe("plain value\n");
+    expect(
+      await readFile(
+        join(initResult.syncDirectory, "secret", "bundle", "secret.json.age"),
+        "utf8",
+      ),
+    ).not.toContain("super-secret-token");
+    await expect(
+      readFile(
+        join(initResult.syncDirectory, "plain", "bundle", "ignored-local.txt"),
+        "utf8",
+      ),
+    ).rejects.toMatchObject({
+      code: "ENOENT",
+    });
+    await expect(
+      readFile(
+        join(initResult.syncDirectory, "plain", "bundle", "global-ignore.txt"),
+        "utf8",
+      ),
+    ).rejects.toMatchObject({
+      code: "ENOENT",
+    });
+    await expect(
+      readFile(
+        join(
+          initResult.syncDirectory,
+          "plain",
+          "bundle",
+          "ignored-dir",
+          "keep.txt",
+        ),
+        "utf8",
+      ),
+    ).rejects.toMatchObject({
+      code: "ENOENT",
+    });
+    await expect(
+      readFile(
+        join(
+          initResult.syncDirectory,
+          "secret",
+          "bundle",
+          "ignored-secret.json.age",
+        ),
+        "utf8",
+      ),
+    ).rejects.toMatchObject({
+      code: "ENOENT",
+    });
+
+    await writeFile(join(localBundlePath, "plain.txt"), "wrong value\n");
+    await writeFile(
+      join(localBundlePath, "secret.json"),
+      JSON.stringify({ token: "wrong-secret" }, null, 2),
+    );
+    await writeFile(join(localBundlePath, "extra.txt"), "delete me\n");
+    await writeFile(
+      join(localBundlePath, "ignored-local.txt"),
+      "ignored local changed\n",
+    );
+    await writeFile(
+      join(localBundlePath, "global-ignore.txt"),
+      "global ignore changed\n",
+    );
+    await writeFile(
+      join(localBundlePath, "ignored-secret.json"),
+      JSON.stringify({ token: "ignored-secret-changed" }, null, 2),
+    );
+    await writeFile(
+      join(localBundlePath, "ignored-dir", "keep.txt"),
+      "ignored subtree changed\n",
+    );
+
+    const pullResult = await manager.pull({ dryRun: false });
+
+    expect(pullResult.plainFileCount).toBe(1);
+    expect(pullResult.decryptedFileCount).toBe(1);
+    expect(pullResult.directoryCount).toBe(1);
+    expect(pullResult.deletedLocalCount).toBe(1);
+    expect(await readFile(join(localBundlePath, "plain.txt"), "utf8")).toBe(
+      "plain value\n",
+    );
+    expect(
+      await readFile(join(localBundlePath, "secret.json"), "utf8"),
+    ).toContain("super-secret-token");
+    expect(
+      await readFile(join(localBundlePath, "ignored-local.txt"), "utf8"),
+    ).toBe("ignored local changed\n");
+    expect(
+      await readFile(join(localBundlePath, "global-ignore.txt"), "utf8"),
+    ).toBe("global ignore changed\n");
+    expect(
+      await readFile(join(localBundlePath, "ignored-secret.json"), "utf8"),
+    ).toContain("ignored-secret-changed");
+    expect(
+      await readFile(join(localBundlePath, "ignored-dir", "keep.txt"), "utf8"),
+    ).toBe("ignored subtree changed\n");
+    await expect(
+      readFile(join(localBundlePath, "extra.txt"), "utf8"),
+    ).rejects.toMatchObject({
+      code: "ENOENT",
+    });
   });
 });

@@ -20,6 +20,7 @@ import { z } from "zod";
 import {
   createInitialSyncConfig,
   formatSyncConfig,
+  matchesIgnoreGlob,
   matchesSecretGlob,
   normalizeSyncRepoPath,
   parseSyncConfig,
@@ -332,14 +333,29 @@ const buildConfiguredXdgLocalPath = (repoPath: string) => {
 const createSyncConfigDocumentEntry = (
   entry: Pick<
     ResolvedSyncConfigEntry,
-    "configuredLocalPath" | "kind" | "name" | "repoPath"
+    | "configuredLocalPath"
+    | "ignoreGlobs"
+    | "kind"
+    | "name"
+    | "repoPath"
+    | "secretGlobs"
   >,
 ): SyncConfigDocumentEntry => {
   return {
+    ...(entry.ignoreGlobs.length === 0
+      ? {}
+      : {
+          ignoreGlobs: sortSyncGlobs(entry.ignoreGlobs),
+        }),
     kind: entry.kind,
     localPath: entry.configuredLocalPath,
     name: entry.name,
     repoPath: entry.repoPath,
+    ...(entry.secretGlobs.length === 0
+      ? {}
+      : {
+          secretGlobs: sortSyncGlobs(entry.secretGlobs),
+        }),
   };
 };
 
@@ -353,6 +369,7 @@ const createSyncConfigDocument = (config: ResolvedSyncConfig): SyncConfig => {
     entries: config.entries.map((entry) => {
       return createSyncConfigDocumentEntry(entry);
     }),
+    ignoreGlobs: [...config.ignoreGlobs],
     secretGlobs: [...config.secretGlobs],
   };
 };
@@ -363,13 +380,19 @@ const sortSyncConfigEntries = (entries: readonly SyncConfigDocumentEntry[]) => {
   });
 };
 
-const sortSecretGlobs = (secretGlobs: readonly string[]) => {
-  return [...secretGlobs].sort((left, right) => {
+const sortSyncGlobs = (globs: readonly string[]) => {
+  return [...globs].sort((left, right) => {
     return left.localeCompare(right);
   });
 };
 
-const buildCanonicalSecretGlob = (entry: {
+const buildEntryCanonicalSecretGlob = (entry: {
+  kind: SyncConfigEntryKind;
+}) => {
+  return entry.kind === "directory" ? "**" : "*";
+};
+
+const buildLegacyGlobalCanonicalSecretGlob = (entry: {
   kind: SyncConfigEntryKind;
   repoPath: string;
 }) => {
@@ -384,44 +407,62 @@ const tryNormalizeRepoPathInput = (value: string) => {
   }
 };
 
-const addCanonicalSecretGlob = (
-  secretGlobs: readonly string[],
-  entry: {
-    kind: SyncConfigEntryKind;
-    repoPath: string;
-  },
-) => {
-  const canonicalSecretGlob = buildCanonicalSecretGlob(entry);
+const addCanonicalEntrySecretGlob = (entry: SyncConfigDocumentEntry) => {
+  const entrySecretGlobs = entry.secretGlobs ?? [];
+  const canonicalSecretGlob = buildEntryCanonicalSecretGlob(entry);
 
-  if (secretGlobs.includes(canonicalSecretGlob)) {
+  if (entrySecretGlobs.includes(canonicalSecretGlob)) {
     return {
       added: false,
-      secretGlobs: sortSecretGlobs(secretGlobs),
+      entry: createSyncConfigDocumentEntry({
+        configuredLocalPath: entry.localPath,
+        ignoreGlobs: entry.ignoreGlobs ?? [],
+        kind: entry.kind,
+        name: entry.name,
+        repoPath: entry.repoPath,
+        secretGlobs: entrySecretGlobs,
+      }),
     };
   }
 
   return {
     added: true,
-    secretGlobs: sortSecretGlobs([...secretGlobs, canonicalSecretGlob]),
+    entry: createSyncConfigDocumentEntry({
+      configuredLocalPath: entry.localPath,
+      ignoreGlobs: entry.ignoreGlobs ?? [],
+      kind: entry.kind,
+      name: entry.name,
+      repoPath: entry.repoPath,
+      secretGlobs: [...entrySecretGlobs, canonicalSecretGlob],
+    }),
   };
 };
 
-const removeCanonicalSecretGlob = (
+const removeLegacyGlobalCanonicalSecretGlob = (
   secretGlobs: readonly string[],
   entry: {
     kind: SyncConfigEntryKind;
     repoPath: string;
   },
 ) => {
-  const canonicalSecretGlob = buildCanonicalSecretGlob(entry);
+  const canonicalSecretGlob = buildLegacyGlobalCanonicalSecretGlob(entry);
   const nextSecretGlobs = secretGlobs.filter((glob) => {
     return glob !== canonicalSecretGlob;
   });
 
   return {
     removed: nextSecretGlobs.length !== secretGlobs.length,
-    secretGlobs: sortSecretGlobs(nextSecretGlobs),
+    secretGlobs: sortSyncGlobs(nextSecretGlobs),
   };
+};
+
+const countConfiguredSecretGlobs = (config: ResolvedSyncConfig) => {
+  return (
+    config.secretGlobs.length +
+    config.entries.reduce((total, entry) => {
+      return total + entry.secretGlobs.length;
+    }, 0)
+  );
 };
 
 const isExecutableMode = (mode: number | bigint) => {
@@ -459,6 +500,10 @@ const addLocalNode = async (
   path: string,
   stats: Awaited<ReturnType<typeof lstat>>,
 ) => {
+  if (matchesIgnoreGlob(config, repoPath)) {
+    return;
+  }
+
   if (stats.isDirectory()) {
     throw new SyncError(
       `Expected a file-like path but found a directory: ${path}`,
@@ -506,6 +551,10 @@ const walkLocalDirectory = async (
     const stats = await lstat(localPath);
 
     if (stats.isDirectory()) {
+      if (matchesIgnoreGlob(config, repoPath)) {
+        continue;
+      }
+
       await walkLocalDirectory(snapshot, config, localPath, repoPath);
       continue;
     }
@@ -518,6 +567,10 @@ const buildLocalSnapshot = async (config: ResolvedSyncConfig) => {
   const snapshot = new Map<string, SnapshotNode>();
 
   for (const entry of config.entries) {
+    if (matchesIgnoreGlob(config, entry.repoPath)) {
+      continue;
+    }
+
     const stats = await getPathStats(entry.localPath);
 
     if (stats === undefined) {
@@ -692,6 +745,88 @@ const writeSymlinkNode = async (path: string, linkTarget: string) => {
   await symlink(linkTarget, path);
 };
 
+const copyFilesystemNode = async (
+  sourcePath: string,
+  targetPath: string,
+  stats?: Awaited<ReturnType<typeof lstat>>,
+) => {
+  const sourceStats = stats ?? (await lstat(sourcePath));
+
+  if (sourceStats.isDirectory()) {
+    await mkdir(targetPath, { recursive: true });
+
+    const entries = await listDirectoryEntries(sourcePath);
+
+    for (const entry of entries) {
+      await copyFilesystemNode(
+        join(sourcePath, entry.name),
+        join(targetPath, entry.name),
+      );
+    }
+
+    return;
+  }
+
+  if (sourceStats.isSymbolicLink()) {
+    await writeSymlinkNode(targetPath, await readlink(sourcePath));
+
+    return;
+  }
+
+  if (!sourceStats.isFile()) {
+    throw new SyncError(`Unsupported filesystem entry: ${sourcePath}`);
+  }
+
+  await writeFileNode(targetPath, {
+    contents: await readFile(sourcePath),
+    executable: isExecutableMode(sourceStats.mode),
+    secret: false,
+    type: "file",
+  });
+};
+
+const copyIgnoredLocalNodesToDirectory = async (
+  sourceDirectory: string,
+  targetDirectory: string,
+  config: ResolvedSyncConfig,
+  repoPathPrefix: string,
+): Promise<number> => {
+  const stats = await getPathStats(sourceDirectory);
+
+  if (stats === undefined || !stats.isDirectory()) {
+    return 0;
+  }
+
+  let copiedNodeCount = 0;
+  const entries = await listDirectoryEntries(sourceDirectory);
+
+  for (const entry of entries) {
+    const sourcePath = join(sourceDirectory, entry.name);
+    const targetPath = join(targetDirectory, entry.name);
+    const repoPath = posix.join(repoPathPrefix, entry.name);
+    const entryStats = await lstat(sourcePath);
+
+    if (matchesIgnoreGlob(config, repoPath)) {
+      await copyFilesystemNode(sourcePath, targetPath, entryStats);
+      copiedNodeCount += 1;
+      continue;
+    }
+
+    if (!entryStats.isDirectory()) {
+      continue;
+    }
+
+    copiedNodeCount += await copyIgnoredLocalNodesToDirectory(
+      sourcePath,
+      targetPath,
+      config,
+      repoPath,
+    );
+  }
+
+  return copiedNodeCount;
+};
+
 const writeArtifactsToDirectory = async (
   rootDirectory: string,
   artifacts: readonly RepoArtifact[],
@@ -789,8 +924,20 @@ const writeValidatedSyncConfig = async (
 ) => {
   const nextConfig = {
     ...config,
-    entries: sortSyncConfigEntries(config.entries),
-    secretGlobs: sortSecretGlobs(config.secretGlobs),
+    entries: sortSyncConfigEntries(
+      config.entries.map((entry) => {
+        return createSyncConfigDocumentEntry({
+          configuredLocalPath: entry.localPath,
+          ignoreGlobs: entry.ignoreGlobs ?? [],
+          kind: entry.kind,
+          name: entry.name,
+          repoPath: entry.repoPath,
+          secretGlobs: entry.secretGlobs ?? [],
+        });
+      }),
+    ),
+    ignoreGlobs: sortSyncGlobs(config.ignoreGlobs),
+    secretGlobs: sortSyncGlobs(config.secretGlobs),
   } satisfies SyncConfig;
 
   parseSyncConfig(nextConfig, environment);
@@ -847,10 +994,12 @@ const buildAddEntryCandidate = async (
 
   return {
     configuredLocalPath: buildConfiguredXdgLocalPath(repoPath),
+    ignoreGlobs: [],
     kind,
     localPath: targetPath,
     name: repoPath,
     repoPath,
+    secretGlobs: [],
   } satisfies ResolvedSyncConfigEntry;
 };
 
@@ -1029,20 +1178,31 @@ const stageAndReplaceFilePath = async (
   }
 };
 
-const stageAndReplaceDirectoryPath = async (
-  targetPath: string,
-  nodes: ReadonlyMap<string, FileLikeSnapshotNode>,
+const stageAndReplaceMergedDirectoryPath = async (
+  entry: ResolvedSyncConfigEntry,
+  config: ResolvedSyncConfig,
+  desiredNodes: ReadonlyMap<string, FileLikeSnapshotNode>,
 ) => {
-  await mkdir(dirname(targetPath), { recursive: true });
+  await mkdir(dirname(entry.localPath), { recursive: true });
   const stagingDirectory = await mkdtemp(
-    join(dirname(targetPath), `.${basename(targetPath)}.devtools-sync-`),
+    join(
+      dirname(entry.localPath),
+      `.${basename(entry.localPath)}.devtools-sync-`,
+    ),
   );
 
   try {
-    for (const relativePath of [...nodes.keys()].sort((left, right) => {
+    const preservedIgnoredNodeCount = await copyIgnoredLocalNodesToDirectory(
+      entry.localPath,
+      stagingDirectory,
+      config,
+      entry.repoPath,
+    );
+
+    for (const relativePath of [...desiredNodes.keys()].sort((left, right) => {
       return left.localeCompare(right);
     })) {
-      const node = nodes.get(relativePath);
+      const node = desiredNodes.get(relativePath);
 
       if (node === undefined) {
         continue;
@@ -1057,12 +1217,15 @@ const stageAndReplaceDirectoryPath = async (
       }
     }
 
-    await replacePathAtomically(targetPath, stagingDirectory);
-  } catch (error: unknown) {
-    await rm(stagingDirectory, { force: true, recursive: true }).catch(
-      () => {},
-    );
-    throw error;
+    if (preservedIgnoredNodeCount === 0 && desiredNodes.size === 0) {
+      await removePathAtomically(entry.localPath);
+
+      return;
+    }
+
+    await replacePathAtomically(entry.localPath, stagingDirectory);
+  } finally {
+    await rm(stagingDirectory, { force: true, recursive: true });
   }
 };
 
@@ -1104,6 +1267,10 @@ const readPlainSnapshotNode = async (
   config: ResolvedSyncConfig,
   snapshot: Map<string, SnapshotNode>,
 ) => {
+  if (matchesIgnoreGlob(config, repoPath)) {
+    return;
+  }
+
   const owningEntry = findOwningEntry(config, repoPath);
 
   if (owningEntry === undefined) {
@@ -1160,6 +1327,10 @@ const readPlainRepositoryTree = async (
     const stats = await lstat(absolutePath);
 
     if (stats.isDirectory()) {
+      if (matchesIgnoreGlob(config, relativePath)) {
+        continue;
+      }
+
       await readPlainRepositoryTree(
         absolutePath,
         config,
@@ -1192,6 +1363,10 @@ const readSecretRepositoryTree = async (
     const stats = await lstat(absolutePath);
 
     if (stats.isDirectory()) {
+      if (matchesIgnoreGlob(config, relativePath)) {
+        continue;
+      }
+
       await readSecretRepositoryTree(
         absolutePath,
         config,
@@ -1220,6 +1395,11 @@ const readSecretRepositoryTree = async (
     }
 
     const repoPath = relativePath.slice(0, -".age".length);
+
+    if (matchesIgnoreGlob(config, repoPath)) {
+      continue;
+    }
+
     const owningEntry = findOwningEntry(config, repoPath);
 
     if (owningEntry === undefined) {
@@ -1255,6 +1435,10 @@ const buildRepositorySnapshot = async (
 
   for (const entry of config.entries) {
     if (entry.kind !== "directory") {
+      continue;
+    }
+
+    if (matchesIgnoreGlob(config, entry.repoPath)) {
       continue;
     }
 
@@ -1398,24 +1582,88 @@ const collectLocalLeafKeys = async (
   }
 };
 
+const collectIgnoredLocalKeys = async (
+  targetPath: string,
+  repoPath: string,
+  config: ResolvedSyncConfig,
+  keys: Set<string>,
+): Promise<boolean> => {
+  const stats = await getPathStats(targetPath);
+
+  if (stats === undefined) {
+    return false;
+  }
+
+  if (matchesIgnoreGlob(config, repoPath)) {
+    await collectLocalLeafKeys(targetPath, repoPath, keys);
+
+    return true;
+  }
+
+  if (!stats.isDirectory()) {
+    return false;
+  }
+
+  let preservedIgnoredChildren = false;
+  const entries = await listDirectoryEntries(targetPath);
+
+  for (const entry of entries) {
+    const childPath = join(targetPath, entry.name);
+    const childRepoPath = posix.join(repoPath, entry.name);
+
+    preservedIgnoredChildren =
+      (await collectIgnoredLocalKeys(childPath, childRepoPath, config, keys)) ||
+      preservedIgnoredChildren;
+  }
+
+  if (preservedIgnoredChildren) {
+    keys.add(buildDirectoryKey(repoPath));
+  }
+
+  return preservedIgnoredChildren;
+};
+
 const countDeletedLocalNodes = async (
   entry: ResolvedSyncConfigEntry,
   desiredKeys: ReadonlySet<string>,
+  config: ResolvedSyncConfig,
 ) => {
+  if (matchesIgnoreGlob(config, entry.repoPath)) {
+    return 0;
+  }
+
   const existingKeys = new Set<string>();
+  const preservedIgnoredKeys = new Set<string>();
 
   await collectLocalLeafKeys(entry.localPath, entry.repoPath, existingKeys);
+  await collectIgnoredLocalKeys(
+    entry.localPath,
+    entry.repoPath,
+    config,
+    preservedIgnoredKeys,
+  );
 
   return [...existingKeys].filter((key) => {
-    return !desiredKeys.has(key);
+    return !desiredKeys.has(key) && !preservedIgnoredKeys.has(key);
   }).length;
 };
 
 const applyEntryMaterialization = async (
   entry: ResolvedSyncConfigEntry,
   materialization: EntryMaterialization,
+  config: ResolvedSyncConfig,
 ) => {
+  if (matchesIgnoreGlob(config, entry.repoPath)) {
+    return;
+  }
+
   if (materialization.type === "absent") {
+    if (entry.kind === "directory") {
+      await stageAndReplaceMergedDirectoryPath(entry, config, new Map());
+
+      return;
+    }
+
     await removePathAtomically(entry.localPath);
 
     return;
@@ -1427,7 +1675,11 @@ const applyEntryMaterialization = async (
     return;
   }
 
-  await stageAndReplaceDirectoryPath(entry.localPath, materialization.nodes);
+  await stageAndReplaceMergedDirectoryPath(
+    entry,
+    config,
+    materialization.nodes,
+  );
 };
 
 const buildPullCounts = (
@@ -1646,13 +1898,17 @@ export const createSyncManager = (dependencies?: {
         }
 
         if (request.secret) {
-          const secretGlobResult = addCanonicalSecretGlob(
-            nextConfig.secretGlobs,
-            candidate,
-          );
+          nextConfig.entries = nextConfig.entries.map((entry) => {
+            if (entry.repoPath !== candidate.repoPath) {
+              return entry;
+            }
 
-          nextConfig.secretGlobs = secretGlobResult.secretGlobs;
-          secretGlobAdded = secretGlobResult.added;
+            const secretGlobResult = addCanonicalEntrySecretGlob(entry);
+
+            secretGlobAdded = secretGlobResult.added;
+
+            return secretGlobResult.entry;
+          });
         }
 
         if (!alreadyTracked || secretGlobAdded) {
@@ -1712,7 +1968,7 @@ export const createSyncManager = (dependencies?: {
           }),
         );
 
-        const secretGlobResult = removeCanonicalSecretGlob(
+        const secretGlobResult = removeLegacyGlobalCanonicalSecretGlob(
           nextConfig.secretGlobs,
           entry,
         );
@@ -1728,7 +1984,8 @@ export const createSyncManager = (dependencies?: {
           plainArtifactCount,
           repoPath: entry.repoPath,
           secretArtifactCount,
-          secretGlobRemoved: secretGlobResult.removed,
+          secretGlobRemoved:
+            entry.secretGlobs.length > 0 || secretGlobResult.removed,
           syncDirectory,
         };
       } catch (error: unknown) {
@@ -1761,7 +2018,7 @@ export const createSyncManager = (dependencies?: {
             generatedIdentity: false,
             identityFile: config.age.identityFile,
             recipientCount: config.age.recipients.length,
-            secretGlobCount: config.secretGlobs.length,
+            secretGlobCount: countConfiguredSecretGlobs(config),
             syncDirectory,
           };
         }
@@ -1816,7 +2073,7 @@ export const createSyncManager = (dependencies?: {
             generatedIdentity: false,
             identityFile: config.age.identityFile,
             recipientCount: config.age.recipients.length,
-            secretGlobCount: config.secretGlobs.length,
+            secretGlobCount: countConfiguredSecretGlobs(config),
             syncDirectory,
           };
         }
@@ -1885,10 +2142,11 @@ export const createSyncManager = (dependencies?: {
           deletedLocalCount += await countDeletedLocalNodes(
             entry,
             materialization.desiredKeys,
+            config,
           );
 
           if (!request.dryRun) {
-            await applyEntryMaterialization(entry, materialization);
+            await applyEntryMaterialization(entry, materialization, config);
           }
         }
 

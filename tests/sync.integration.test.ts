@@ -179,7 +179,10 @@ describe("sync CLI integration", () => {
         localPath: string;
         name: string;
         repoPath: string;
+        ignoreGlobs?: string[];
+        secretGlobs?: string[];
       }>;
+      ignoreGlobs: string[];
       secretGlobs: string[];
     };
 
@@ -191,6 +194,7 @@ describe("sync CLI integration", () => {
         localPath: "$XDG_CONFIG_HOME/mytool/secrets",
         name: "mytool/secrets",
         repoPath: "mytool/secrets",
+        secretGlobs: ["**"],
       },
       {
         kind: "file",
@@ -199,7 +203,8 @@ describe("sync CLI integration", () => {
         repoPath: "mytool/settings.json",
       },
     ]);
-    expect(configAfterAdd.secretGlobs).toEqual(["mytool/secrets/**"]);
+    expect(configAfterAdd.ignoreGlobs).toEqual([]);
+    expect(configAfterAdd.secretGlobs).toEqual([]);
 
     await mkdir(join(syncDirectory, "plain", "mytool", "secrets"), {
       recursive: true,
@@ -227,6 +232,7 @@ describe("sync CLI integration", () => {
       entries: Array<{
         repoPath: string;
       }>;
+      ignoreGlobs: string[];
       secretGlobs: string[];
     };
 
@@ -236,6 +242,7 @@ describe("sync CLI integration", () => {
         repoPath: "mytool/settings.json",
       },
     ]);
+    expect(configAfterForget.ignoreGlobs).toEqual([]);
     expect(configAfterForget.secretGlobs).toEqual([]);
     await expect(
       readFile(join(syncDirectory, "plain", "mytool", "secrets", "token.txt")),
@@ -246,6 +253,104 @@ describe("sync CLI integration", () => {
       readFile(
         join(syncDirectory, "secret", "mytool", "secrets", "token.txt.age"),
       ),
+    ).rejects.toMatchObject({
+      code: "ENOENT",
+    });
+  });
+
+  it("preserves ignored local files across CLI push and pull", async () => {
+    const workspace = await createWorkspace();
+    const xdgConfigHome = join(workspace, "xdg");
+    const localBundlePath = join(xdgConfigHome, "devtools", "local", "bundle");
+    const syncDirectory = join(xdgConfigHome, "devtools", "sync");
+    const ageKeys = await createAgeKeyPair();
+
+    await writeIdentityFile(xdgConfigHome, ageKeys.identity);
+    await runCli(
+      [
+        "sync",
+        "init",
+        "--recipient",
+        ageKeys.recipient,
+        "--identity",
+        "$XDG_CONFIG_HOME/devtools/age/keys.txt",
+      ],
+      {
+        env: {
+          XDG_CONFIG_HOME: xdgConfigHome,
+        },
+      },
+    );
+
+    await writeJsonFile(join(syncDirectory, "config.json"), {
+      version: 1,
+      age: {
+        identityFile: "$XDG_CONFIG_HOME/devtools/age/keys.txt",
+        recipients: [ageKeys.recipient],
+      },
+      entries: [
+        {
+          name: "bundle",
+          kind: "directory",
+          localPath: "$XDG_CONFIG_HOME/devtools/local/bundle",
+          repoPath: "bundle",
+          ignoreGlobs: ["ignored.txt"],
+          secretGlobs: ["secret.json"],
+        },
+      ],
+      ignoreGlobs: [],
+      secretGlobs: [],
+    });
+
+    await mkdir(localBundlePath, { recursive: true });
+    await writeFile(join(localBundlePath, "plain.txt"), "plain value\n");
+    await writeFile(
+      join(localBundlePath, "secret.json"),
+      JSON.stringify({ token: "cli-secret" }, null, 2),
+    );
+    await writeFile(join(localBundlePath, "ignored.txt"), "local ignore\n");
+
+    const pushResult = await runCli(["sync", "push"], {
+      env: {
+        XDG_CONFIG_HOME: xdgConfigHome,
+      },
+    });
+
+    expect(pushResult.stdout).toContain("Synchronized local config");
+    await expect(
+      readFile(join(syncDirectory, "plain", "bundle", "ignored.txt"), "utf8"),
+    ).rejects.toMatchObject({
+      code: "ENOENT",
+    });
+
+    await writeFile(join(localBundlePath, "plain.txt"), "wrong value\n");
+    await writeFile(
+      join(localBundlePath, "secret.json"),
+      JSON.stringify({ token: "wrong-secret" }, null, 2),
+    );
+    await writeFile(join(localBundlePath, "ignored.txt"), "keep me local\n");
+    await writeFile(join(localBundlePath, "extra.txt"), "delete me\n");
+
+    const pullResult = await runCli(["sync", "pull"], {
+      env: {
+        XDG_CONFIG_HOME: xdgConfigHome,
+      },
+    });
+
+    expect(pullResult.stdout).toContain(
+      "Applied sync repository to local config.",
+    );
+    expect(await readFile(join(localBundlePath, "plain.txt"), "utf8")).toBe(
+      "plain value\n",
+    );
+    expect(
+      await readFile(join(localBundlePath, "secret.json"), "utf8"),
+    ).toContain("cli-secret");
+    expect(await readFile(join(localBundlePath, "ignored.txt"), "utf8")).toBe(
+      "keep me local\n",
+    );
+    await expect(
+      readFile(join(localBundlePath, "extra.txt"), "utf8"),
     ).rejects.toMatchObject({
       code: "ENOENT",
     });
@@ -297,9 +402,11 @@ describe("sync CLI integration", () => {
           kind: "directory",
           localPath: "$XDG_CONFIG_HOME/devtools/local/bundle",
           repoPath: "bundle",
+          secretGlobs: ["secret.json"],
         },
       ],
-      secretGlobs: ["bundle/secret.json"],
+      ignoreGlobs: [],
+      secretGlobs: [],
     });
 
     await mkdir(machineABundle, { recursive: true });

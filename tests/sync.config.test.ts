@@ -3,7 +3,12 @@ import { join } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
-import { parseSyncConfig, SyncConfigError } from "#app/config/sync.ts";
+import {
+  matchesIgnoreGlob,
+  matchesSecretGlob,
+  parseSyncConfig,
+  SyncConfigError,
+} from "#app/config/sync.ts";
 import {
   resolveConfiguredAbsolutePath,
   resolveDevtoolsSyncDirectory,
@@ -50,10 +55,13 @@ describe("parseSyncConfig", () => {
           {
             name: "bundle",
             kind: "directory",
+            ignoreGlobs: ["cache\\*.tmp"],
             localPath: "$XDG_CONFIG_HOME/devtools/local/bundle",
             repoPath: "bundle\\settings",
+            secretGlobs: ["nested\\*.json"],
           },
         ],
+        ignoreGlobs: ["bundle\\ignored/**"],
         secretGlobs: ["bundle/**/*.json"],
       },
       {
@@ -67,13 +75,92 @@ describe("parseSyncConfig", () => {
     expect(config.entries).toEqual([
       {
         configuredLocalPath: "$XDG_CONFIG_HOME/devtools/local/bundle",
+        ignoreGlobs: ["cache/*.tmp"],
         kind: "directory",
         localPath: "/tmp/devtools-xdg/devtools/local/bundle",
         name: "bundle",
         repoPath: "bundle/settings",
+        secretGlobs: ["nested/*.json"],
       },
     ]);
+    expect(config.ignoreGlobs).toEqual(["bundle/ignored/**"]);
     expect(config.secretGlobs).toEqual(["bundle/**/*.json"]);
+  });
+
+  it("matches global and entry-level secret globs", () => {
+    const config = parseSyncConfig(
+      {
+        version: 1,
+        age: {
+          identityFile: "/tmp/identity.txt",
+          recipients: ["age1example"],
+        },
+        entries: [
+          {
+            name: "bundle",
+            kind: "directory",
+            localPath: "/tmp/bundle",
+            repoPath: "bundle",
+            secretGlobs: ["nested/*.json"],
+          },
+          {
+            name: "settings",
+            kind: "file",
+            localPath: "/tmp/settings.json",
+            repoPath: "settings.json",
+            secretGlobs: ["*"],
+          },
+        ],
+        ignoreGlobs: [],
+        secretGlobs: ["bundle/global.json"],
+      },
+      {},
+    );
+
+    expect(matchesSecretGlob(config, "bundle/global.json")).toBe(true);
+    expect(matchesSecretGlob(config, "bundle/nested/token.json")).toBe(true);
+    expect(matchesSecretGlob(config, "settings.json")).toBe(true);
+    expect(matchesSecretGlob(config, "bundle/plain.txt")).toBe(false);
+  });
+
+  it("matches global and entry-level ignore globs and lets ignore win", () => {
+    const config = parseSyncConfig(
+      {
+        version: 1,
+        age: {
+          identityFile: "/tmp/identity.txt",
+          recipients: ["age1example"],
+        },
+        entries: [
+          {
+            name: "bundle",
+            kind: "directory",
+            ignoreGlobs: ["ignored/*.json"],
+            localPath: "/tmp/bundle",
+            repoPath: "bundle",
+            secretGlobs: ["ignored/*.json", "nested/*.json"],
+          },
+          {
+            name: "settings",
+            kind: "file",
+            ignoreGlobs: ["*"],
+            localPath: "/tmp/settings.json",
+            repoPath: "settings.json",
+            secretGlobs: ["*"],
+          },
+        ],
+        ignoreGlobs: ["bundle/global-ignore.json"],
+        secretGlobs: ["bundle/global-secret.json"],
+      },
+      {},
+    );
+
+    expect(matchesIgnoreGlob(config, "bundle/global-ignore.json")).toBe(true);
+    expect(matchesIgnoreGlob(config, "bundle/ignored/token.json")).toBe(true);
+    expect(matchesIgnoreGlob(config, "settings.json")).toBe(true);
+    expect(matchesSecretGlob(config, "bundle/global-secret.json")).toBe(true);
+    expect(matchesSecretGlob(config, "bundle/ignored/token.json")).toBe(false);
+    expect(matchesSecretGlob(config, "settings.json")).toBe(false);
   });
 
   it("rejects overlapping repository paths", () => {
@@ -99,6 +186,7 @@ describe("parseSyncConfig", () => {
               repoPath: "bundle/settings.json",
             },
           ],
+          ignoreGlobs: [],
           secretGlobs: [],
         },
         {},
@@ -129,6 +217,59 @@ describe("parseSyncConfig", () => {
               repoPath: "settings.json",
             },
           ],
+          ignoreGlobs: [],
+          secretGlobs: [],
+        },
+        {},
+      );
+    }).toThrowError(SyncConfigError);
+  });
+
+  it("rejects entry secret globs that escape the entry root", () => {
+    expect(() => {
+      parseSyncConfig(
+        {
+          version: 1,
+          age: {
+            identityFile: "/tmp/identity.txt",
+            recipients: ["age1example"],
+          },
+          entries: [
+            {
+              name: "bundle",
+              kind: "directory",
+              localPath: "/tmp/bundle",
+              repoPath: "bundle",
+              secretGlobs: ["../secret.json"],
+            },
+          ],
+          ignoreGlobs: [],
+          secretGlobs: [],
+        },
+        {},
+      );
+    }).toThrowError(SyncConfigError);
+  });
+
+  it("rejects entry ignore globs that escape the entry root", () => {
+    expect(() => {
+      parseSyncConfig(
+        {
+          version: 1,
+          age: {
+            identityFile: "/tmp/identity.txt",
+            recipients: ["age1example"],
+          },
+          entries: [
+            {
+              name: "bundle",
+              kind: "directory",
+              ignoreGlobs: ["../ignored.json"],
+              localPath: "/tmp/bundle",
+              repoPath: "bundle",
+            },
+          ],
+          ignoreGlobs: [],
           secretGlobs: [],
         },
         {},

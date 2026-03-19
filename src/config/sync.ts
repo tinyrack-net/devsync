@@ -20,6 +20,15 @@ const requiredTrimmedStringSchema = z
   .trim()
   .min(1, "Value must not be empty.");
 
+const syncConfigEntrySchema = z.object({
+  name: requiredTrimmedStringSchema,
+  kind: z.enum(syncEntryKinds),
+  ignoreGlobs: z.array(requiredTrimmedStringSchema).optional(),
+  localPath: requiredTrimmedStringSchema,
+  repoPath: requiredTrimmedStringSchema,
+  secretGlobs: z.array(requiredTrimmedStringSchema).optional(),
+});
+
 const syncConfigSchema = z.object({
   version: z.literal(1),
   age: z.object({
@@ -28,14 +37,8 @@ const syncConfigSchema = z.object({
       .min(1, "At least one age recipient is required."),
     identityFile: requiredTrimmedStringSchema,
   }),
-  entries: z.array(
-    z.object({
-      name: requiredTrimmedStringSchema,
-      kind: z.enum(syncEntryKinds),
-      localPath: requiredTrimmedStringSchema,
-      repoPath: requiredTrimmedStringSchema,
-    }),
-  ),
+  entries: z.array(syncConfigEntrySchema),
+  ignoreGlobs: z.array(requiredTrimmedStringSchema),
   secretGlobs: z.array(requiredTrimmedStringSchema),
 });
 
@@ -44,10 +47,12 @@ export type SyncConfig = z.infer<typeof syncConfigSchema>;
 
 export type ResolvedSyncConfigEntry = Readonly<{
   configuredLocalPath: string;
+  ignoreGlobs: readonly string[];
   kind: SyncConfigEntryKind;
   localPath: string;
   name: string;
   repoPath: string;
+  secretGlobs: readonly string[];
 }>;
 
 export type ResolvedSyncConfig = Readonly<{
@@ -57,6 +62,7 @@ export type ResolvedSyncConfig = Readonly<{
     recipients: readonly string[];
   }>;
   entries: readonly ResolvedSyncConfigEntry[];
+  ignoreGlobs: readonly string[];
   secretGlobs: readonly string[];
   version: 1;
 }>;
@@ -84,6 +90,102 @@ export const normalizeSyncRepoPath = (value: string) => {
   }
 
   return normalizedValue;
+};
+
+const normalizeEntryScopedGlob = (value: string, description: string) => {
+  const posixValue = value.replaceAll("\\", "/");
+
+  if (
+    posixValue === "" ||
+    posixValue === "." ||
+    posixValue === ".." ||
+    posixValue.startsWith("../") ||
+    posixValue.includes("/../") ||
+    posixValue.startsWith("/")
+  ) {
+    throw new SyncConfigError(
+      `${description} must be a relative POSIX pattern without '..': ${value}`,
+    );
+  }
+
+  const normalizedValue = posix.normalize(posixValue);
+
+  if (
+    normalizedValue === "" ||
+    normalizedValue === "." ||
+    normalizedValue === ".." ||
+    normalizedValue.startsWith("../") ||
+    normalizedValue.includes("/../") ||
+    normalizedValue.startsWith("/")
+  ) {
+    throw new SyncConfigError(
+      `${description} must be a relative POSIX pattern without '..': ${value}`,
+    );
+  }
+
+  return normalizedValue;
+};
+
+const findOwningEntry = (
+  config: ResolvedSyncConfig,
+  repoPath: string,
+): ResolvedSyncConfigEntry | undefined => {
+  return config.entries.find((entry) => {
+    return (
+      entry.repoPath === repoPath ||
+      (entry.kind === "directory" && repoPath.startsWith(`${entry.repoPath}/`))
+    );
+  });
+};
+
+const resolveEntryRelativePath = (
+  entry: ResolvedSyncConfigEntry,
+  repoPath: string,
+) => {
+  if (entry.kind === "file") {
+    return repoPath === entry.repoPath ? "*" : undefined;
+  }
+
+  if (repoPath === entry.repoPath) {
+    return "";
+  }
+
+  if (!repoPath.startsWith(`${entry.repoPath}/`)) {
+    return undefined;
+  }
+
+  return repoPath.slice(entry.repoPath.length + 1);
+};
+
+const matchesScopedGlobList = (
+  config: ResolvedSyncConfig,
+  repoPath: string,
+  selector: (entry: ResolvedSyncConfigEntry) => readonly string[],
+  globalGlobs: readonly string[],
+) => {
+  if (
+    globalGlobs.some((pattern) => {
+      return posix.matchesGlob(repoPath, pattern);
+    })
+  ) {
+    return true;
+  }
+
+  const owningEntry = findOwningEntry(config, repoPath);
+
+  if (owningEntry === undefined) {
+    return false;
+  }
+
+  const entryRelativePath = resolveEntryRelativePath(owningEntry, repoPath);
+
+  if (entryRelativePath === undefined) {
+    return false;
+  }
+
+  return selector(owningEntry).some((pattern) => {
+    return posix.matchesGlob(entryRelativePath, pattern);
+  });
 };
 
 const isPathEqualOrNested = (left: string, right: string) => {
@@ -166,10 +268,16 @@ export const parseSyncConfig = (
   const entries = result.data.entries.map((entry) => {
     return {
       configuredLocalPath: entry.localPath,
+      ignoreGlobs: (entry.ignoreGlobs ?? []).map((glob) => {
+        return normalizeEntryScopedGlob(glob, "Entry ignore glob");
+      }),
       kind: entry.kind,
       localPath: resolveConfiguredAbsolutePath(entry.localPath, environment),
       name: entry.name,
       repoPath: normalizeSyncRepoPath(entry.repoPath),
+      secretGlobs: (entry.secretGlobs ?? []).map((glob) => {
+        return normalizeEntryScopedGlob(glob, "Entry secret glob");
+      }),
     } satisfies ResolvedSyncConfigEntry;
   });
 
@@ -187,6 +295,9 @@ export const parseSyncConfig = (
       recipients: [...new Set(result.data.age.recipients)],
     },
     entries,
+    ignoreGlobs: result.data.ignoreGlobs.map((glob) => {
+      return glob.replaceAll("\\", "/");
+    }),
     secretGlobs: result.data.secretGlobs.map((glob) => {
       return glob.replaceAll("\\", "/");
     }),
@@ -207,6 +318,7 @@ export const createInitialSyncConfig = (input: {
       ],
     },
     entries: [],
+    ignoreGlobs: [],
     secretGlobs: [],
   };
 };
@@ -268,11 +380,34 @@ export const readSyncConfig = async (
   }
 };
 
+export const matchesIgnoreGlob = (
+  config: ResolvedSyncConfig,
+  repoPath: string,
+) => {
+  return matchesScopedGlobList(
+    config,
+    repoPath,
+    (entry) => {
+      return entry.ignoreGlobs;
+    },
+    config.ignoreGlobs,
+  );
+};
+
 export const matchesSecretGlob = (
   config: ResolvedSyncConfig,
   repoPath: string,
 ) => {
-  return config.secretGlobs.some((pattern) => {
-    return posix.matchesGlob(repoPath, pattern);
-  });
+  if (matchesIgnoreGlob(config, repoPath)) {
+    return false;
+  }
+
+  return matchesScopedGlobList(
+    config,
+    repoPath,
+    (entry) => {
+      return entry.secretGlobs;
+    },
+    config.secretGlobs,
+  );
 };
