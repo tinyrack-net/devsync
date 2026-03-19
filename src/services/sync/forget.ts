@@ -9,7 +9,7 @@ import {
   resolveSyncPlainDirectoryPath,
   resolveSyncSecretDirectoryPath,
 } from "#app/config/sync.ts";
-import { resolveDevtoolsSyncDirectory } from "#app/config/xdg.ts";
+import { resolveDevsyncSyncDirectory } from "#app/config/xdg.ts";
 
 import {
   createSyncConfigDocument,
@@ -210,9 +210,7 @@ export const forgetSyncTarget = async (
       throw new SyncError("Target path is required.");
     }
 
-    const syncDirectory = resolveDevtoolsSyncDirectory(
-      dependencies.environment,
-    );
+    const syncDirectory = resolveDevsyncSyncDirectory(dependencies.environment);
 
     await ensureGitRepository(syncDirectory, dependencies.git);
 

@@ -121,7 +121,7 @@ export const replacePathAtomically = async (
 ) => {
   const backupPath = join(
     dirname(targetPath),
-    `.${basename(targetPath)}.devtools-sync-backup-${randomUUID()}`,
+    `.${basename(targetPath)}.devsync-sync-backup-${randomUUID()}`,
   );
   const existingStats = await getPathStats(targetPath);
   let targetMoved = false;
@@ -157,7 +157,7 @@ export const removePathAtomically = async (targetPath: string) => {
 
   const backupPath = join(
     dirname(targetPath),
-    `.${basename(targetPath)}.devtools-sync-remove-${randomUUID()}`,
+    `.${basename(targetPath)}.devsync-sync-remove-${randomUUID()}`,
   );
 
   await rename(targetPath, backupPath);
@@ -170,7 +170,7 @@ export const writeTextFileAtomically = async (
 ) => {
   await mkdir(dirname(targetPath), { recursive: true });
   const stagingDirectory = await mkdtemp(
-    join(dirname(targetPath), `.${basename(targetPath)}.devtools-sync-`),
+    join(dirname(targetPath), `.${basename(targetPath)}.devsync-sync-`),
   );
   const stagedPath = join(stagingDirectory, basename(targetPath));
 

@@ -46,16 +46,22 @@ export const resolveXdgConfigHome = (
   return resolve(resolveHomeDirectory(environment), ".config");
 };
 
-export const resolveDevtoolsConfigDirectory = (
+export const resolveDevsyncConfigDirectory = (
   environment: NodeJS.ProcessEnv = process.env,
 ) => {
-  return resolve(resolveXdgConfigHome(environment), "devtools");
+  return resolve(resolveXdgConfigHome(environment), "devsync");
 };
 
-export const resolveDevtoolsSyncDirectory = (
+export const resolveDevsyncSyncDirectory = (
   environment: NodeJS.ProcessEnv = process.env,
 ) => {
-  return resolve(resolveDevtoolsConfigDirectory(environment), "sync");
+  return resolve(resolveDevsyncConfigDirectory(environment), "sync");
+};
+
+export const resolveDevsyncAgeDirectory = (
+  environment: NodeJS.ProcessEnv = process.env,
+) => {
+  return resolve(resolveDevsyncConfigDirectory(environment), "age");
 };
 
 export const expandHomePath = (

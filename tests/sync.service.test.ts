@@ -14,7 +14,7 @@ import {
 const temporaryDirectories: string[] = [];
 
 const createWorkspace = async () => {
-  const directory = await createTemporaryDirectory("devtools-sync-test-");
+  const directory = await createTemporaryDirectory("devsync-sync-test-");
 
   temporaryDirectories.push(directory);
 
@@ -64,17 +64,14 @@ describe("createSyncManager", () => {
 
     expect(result.generatedIdentity).toBe(true);
     expect(result.identityFile).toBe(
-      join(xdgConfigHome, "devtools", "age", "keys.txt"),
+      join(xdgConfigHome, "devsync", "age", "keys.txt"),
     );
     expect(config.age.identityFile).toBe(
-      "$XDG_CONFIG_HOME/devtools/age/keys.txt",
+      "$XDG_CONFIG_HOME/devsync/age/keys.txt",
     );
     expect(config.age.recipients).toHaveLength(1);
     expect(
-      await readFile(
-        join(xdgConfigHome, "devtools", "age", "keys.txt"),
-        "utf8",
-      ),
+      await readFile(join(xdgConfigHome, "devsync", "age", "keys.txt"), "utf8"),
     ).toContain("AGE-SECRET-KEY-");
   });
 
@@ -90,15 +87,15 @@ describe("createSyncManager", () => {
       environment: createSyncEnvironment(homeDirectory, xdgConfigHome),
     });
     const result = await manager.init({
-      identityFile: "$XDG_CONFIG_HOME/devtools/age/keys.txt",
+      identityFile: "$XDG_CONFIG_HOME/devsync/age/keys.txt",
       recipients: [ageKeys.recipient],
     });
 
-    expect(result.syncDirectory).toBe(join(xdgConfigHome, "devtools", "sync"));
+    expect(result.syncDirectory).toBe(join(xdgConfigHome, "devsync", "sync"));
     expect(result.gitAction).toBe("initialized");
     expect(
       await readFile(join(result.syncDirectory, "config.json"), "utf8"),
-    ).toContain("$XDG_CONFIG_HOME/devtools/age/keys.txt");
+    ).toContain("$XDG_CONFIG_HOME/devsync/age/keys.txt");
 
     const gitResult = await runGit(
       ["-C", result.syncDirectory, "rev-parse", "--is-inside-work-tree"],
@@ -107,7 +104,6 @@ describe("createSyncManager", () => {
 
     expect(gitResult.stdout.trim()).toBe("true");
   });
-
   it("adds tracked entries and stores default modes instead of glob fields", async () => {
     const workspace = await createWorkspace();
     const homeDirectory = join(workspace, "home");
@@ -126,7 +122,7 @@ describe("createSyncManager", () => {
       environment: createSyncEnvironment(homeDirectory, xdgConfigHome),
     });
     const initResult = await manager.init({
-      identityFile: "$XDG_CONFIG_HOME/devtools/age/keys.txt",
+      identityFile: "$XDG_CONFIG_HOME/devsync/age/keys.txt",
       recipients: [ageKeys.recipient],
     });
 
@@ -204,7 +200,7 @@ describe("createSyncManager", () => {
     });
 
     await manager.init({
-      identityFile: "$XDG_CONFIG_HOME/devtools/age/keys.txt",
+      identityFile: "$XDG_CONFIG_HOME/devsync/age/keys.txt",
       recipients: [ageKeys.recipient],
     });
     await manager.add({
@@ -234,7 +230,7 @@ describe("createSyncManager", () => {
     });
     const config = JSON.parse(
       await readFile(
-        join(xdgConfigHome, "devtools", "sync", "config.json"),
+        join(xdgConfigHome, "devsync", "sync", "config.json"),
         "utf8",
       ),
     ) as {
@@ -289,7 +285,7 @@ describe("createSyncManager", () => {
       environment: createSyncEnvironment(homeDirectory, xdgConfigHome),
     });
     const initResult = await manager.init({
-      identityFile: "$XDG_CONFIG_HOME/devtools/age/keys.txt",
+      identityFile: "$XDG_CONFIG_HOME/devsync/age/keys.txt",
       recipients: [ageKeys.recipient],
     });
 
@@ -366,7 +362,7 @@ describe("createSyncManager", () => {
     });
 
     await manager.init({
-      identityFile: "$XDG_CONFIG_HOME/devtools/age/keys.txt",
+      identityFile: "$XDG_CONFIG_HOME/devsync/age/keys.txt",
       recipients: [ageKeys.recipient],
     });
     await manager.add({
@@ -392,7 +388,7 @@ describe("createSyncManager", () => {
     expect(pushResult.encryptedFileCount).toBe(1);
     expect(
       await readFile(
-        join(xdgConfigHome, "devtools", "sync", "plain", "bundle", "plain.txt"),
+        join(xdgConfigHome, "devsync", "sync", "plain", "bundle", "plain.txt"),
         "utf8",
       ),
     ).toBe("plain value\n");
@@ -400,7 +396,7 @@ describe("createSyncManager", () => {
       readFile(
         join(
           xdgConfigHome,
-          "devtools",
+          "devsync",
           "sync",
           "plain",
           "bundle",
@@ -415,7 +411,7 @@ describe("createSyncManager", () => {
       await readFile(
         join(
           xdgConfigHome,
-          "devtools",
+          "devsync",
           "sync",
           "secret",
           "bundle",
@@ -467,7 +463,7 @@ describe("createSyncManager", () => {
     });
 
     await manager.init({
-      identityFile: "$XDG_CONFIG_HOME/devtools/age/keys.txt",
+      identityFile: "$XDG_CONFIG_HOME/devsync/age/keys.txt",
       recipients: [ageKeys.recipient],
     });
     await manager.add({
@@ -513,7 +509,7 @@ describe("createSyncManager", () => {
     });
 
     await manager.init({
-      identityFile: "$XDG_CONFIG_HOME/devtools/age/keys.txt",
+      identityFile: "$XDG_CONFIG_HOME/devsync/age/keys.txt",
       recipients: [ageKeys.recipient],
     });
     await manager.add({
@@ -553,7 +549,7 @@ describe("createSyncManager", () => {
     });
     const config = JSON.parse(
       await readFile(
-        join(xdgConfigHome, "devtools", "sync", "config.json"),
+        join(xdgConfigHome, "devsync", "sync", "config.json"),
         "utf8",
       ),
     ) as {
@@ -614,7 +610,7 @@ describe("createSyncManager", () => {
     const xdgConfigHome = join(workspace, "xdg");
     const bundleDirectory = join(homeDirectory, "bundle");
     const tokenFile = join(bundleDirectory, "token.txt");
-    const syncDirectory = join(xdgConfigHome, "devtools", "sync");
+    const syncDirectory = join(xdgConfigHome, "devsync", "sync");
     const ageKeys = await createAgeKeyPair();
 
     await writeIdentityFile(xdgConfigHome, ageKeys.identity);
@@ -626,7 +622,7 @@ describe("createSyncManager", () => {
     });
 
     await manager.init({
-      identityFile: "$XDG_CONFIG_HOME/devtools/age/keys.txt",
+      identityFile: "$XDG_CONFIG_HOME/devsync/age/keys.txt",
       recipients: [ageKeys.recipient],
     });
     await manager.add({
@@ -709,7 +705,7 @@ describe("createSyncManager", () => {
     const xdgConfigHome = join(workspace, "xdg");
     const bundleDirectory = join(homeDirectory, "bundle");
     const tokenFile = join(bundleDirectory, "token.txt");
-    const syncDirectory = join(xdgConfigHome, "devtools", "sync");
+    const syncDirectory = join(xdgConfigHome, "devsync", "sync");
     const ageKeys = await createAgeKeyPair();
 
     await writeIdentityFile(xdgConfigHome, ageKeys.identity);
@@ -721,7 +717,7 @@ describe("createSyncManager", () => {
     });
 
     await manager.init({
-      identityFile: "$XDG_CONFIG_HOME/devtools/age/keys.txt",
+      identityFile: "$XDG_CONFIG_HOME/devsync/age/keys.txt",
       recipients: [ageKeys.recipient],
     });
     await manager.add({

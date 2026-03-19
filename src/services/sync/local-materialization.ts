@@ -103,7 +103,7 @@ const stageAndReplaceFilePath = async (
 ) => {
   await mkdir(dirname(targetPath), { recursive: true });
   const stagingDirectory = await mkdtemp(
-    join(dirname(targetPath), `.${basename(targetPath)}.devtools-sync-`),
+    join(dirname(targetPath), `.${basename(targetPath)}.devsync-sync-`),
   );
   const stagedPath = join(stagingDirectory, basename(targetPath));
 
@@ -129,7 +129,7 @@ const stageAndReplaceMergedDirectoryPath = async (
   const stagingDirectory = await mkdtemp(
     join(
       dirname(entry.localPath),
-      `.${basename(entry.localPath)}.devtools-sync-`,
+      `.${basename(entry.localPath)}.devsync-sync-`,
     ),
   );
 

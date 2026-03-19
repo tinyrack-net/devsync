@@ -32,9 +32,9 @@ describe("autocomplete command", () => {
 
     expect(result.exitCode).toBe(0);
     expect(result.stdout).toContain(
-      "Setup Instructions for DEVTOOLS CLI Autocomplete",
+      "Setup Instructions for DEVSYNC CLI Autocomplete",
     );
-    expect(result.stdout).toContain("devtools autocomplete script bash");
+    expect(result.stdout).toContain("devsync autocomplete script bash");
     expect(result.stderr).toContain("Building the autocomplete cache");
   });
 });

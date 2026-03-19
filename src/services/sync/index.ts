@@ -18,21 +18,21 @@ export const createSyncManager = (dependencies?: {
   const git = createGitService(dependencies?.gitRunner);
 
   return {
-    add: (request: Readonly<{ secret: boolean; target: string }>) => {
+    add: async (request: Readonly<{ secret: boolean; target: string }>) => {
       return addSyncTarget(request, {
         cwd,
         environment,
         git,
       });
     },
-    forget: (request: Readonly<{ target: string }>) => {
+    forget: async (request: Readonly<{ target: string }>) => {
       return forgetSyncTarget(request, {
         cwd,
         environment,
         git,
       });
     },
-    init: (
+    init: async (
       request: Readonly<{
         identityFile?: string;
         recipients: readonly string[];
@@ -44,19 +44,19 @@ export const createSyncManager = (dependencies?: {
         git,
       });
     },
-    pull: (request: Readonly<{ dryRun: boolean }>) => {
+    pull: async (request: Readonly<{ dryRun: boolean }>) => {
       return pullSync(request, {
         environment,
         git,
       });
     },
-    push: (request: Readonly<{ dryRun: boolean }>) => {
+    push: async (request: Readonly<{ dryRun: boolean }>) => {
       return pushSync(request, {
         environment,
         git,
       });
     },
-    set: (
+    set: async (
       request: Readonly<{
         recursive: boolean;
         state: "ignore" | "normal" | "secret";

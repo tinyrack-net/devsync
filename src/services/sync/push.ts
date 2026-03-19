@@ -7,7 +7,7 @@ import {
   resolveSyncPlainDirectoryPath,
   resolveSyncSecretDirectoryPath,
 } from "#app/config/sync.ts";
-import { resolveDevtoolsSyncDirectory } from "#app/config/xdg.ts";
+import { resolveDevsyncSyncDirectory } from "#app/config/xdg.ts";
 
 import { SyncError } from "./error.ts";
 import { replacePathAtomically } from "./filesystem.ts";
@@ -75,9 +75,7 @@ export const pushSync = async (
   }>,
 ): Promise<SyncPushResult> => {
   try {
-    const syncDirectory = resolveDevtoolsSyncDirectory(
-      dependencies.environment,
-    );
+    const syncDirectory = resolveDevsyncSyncDirectory(dependencies.environment);
 
     await ensureGitRepository(syncDirectory, dependencies.git);
 
@@ -102,7 +100,7 @@ export const pushSync = async (
 
     if (!request.dryRun) {
       const stagingRoot = await mkdtemp(
-        join(syncDirectory, ".devtools-sync-push-"),
+        join(syncDirectory, ".devsync-sync-push-"),
       );
       const nextPlainDirectory = join(stagingRoot, "plain");
       const nextSecretDirectory = join(stagingRoot, "secret");

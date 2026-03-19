@@ -13,7 +13,7 @@ import {
 } from "#app/config/sync.ts";
 import {
   resolveConfiguredAbsolutePath,
-  resolveDevtoolsSyncDirectory,
+  resolveDevsyncSyncDirectory,
 } from "#app/config/xdg.ts";
 
 import { countConfiguredRules } from "./config-file.ts";
@@ -44,7 +44,7 @@ type SyncInitResult = Readonly<{
   syncDirectory: string;
 }>;
 
-const defaultSyncIdentityFile = "$XDG_CONFIG_HOME/devtools/age/keys.txt";
+const defaultSyncIdentityFile = "$XDG_CONFIG_HOME/devsync/age/keys.txt";
 
 const normalizeRecipients = (recipients: readonly string[]) => {
   return [
@@ -147,9 +147,7 @@ export const initializeSync = async (
   }>,
 ): Promise<SyncInitResult> => {
   try {
-    const syncDirectory = resolveDevtoolsSyncDirectory(
-      dependencies.environment,
-    );
+    const syncDirectory = resolveDevsyncSyncDirectory(dependencies.environment);
     const configPath = resolveSyncConfigFilePath(syncDirectory);
     const configExists = await pathExists(configPath);
 

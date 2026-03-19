@@ -7,7 +7,7 @@ import {
   type SyncMode,
 } from "#app/config/sync.ts";
 import {
-  resolveDevtoolsSyncDirectory,
+  resolveDevsyncSyncDirectory,
   resolveHomeDirectory,
 } from "#app/config/xdg.ts";
 
@@ -65,7 +65,7 @@ const buildAddEntryCandidate = async (
     throw new SyncError(`Unsupported sync target type: ${targetPath}`);
   })();
 
-  const syncDirectory = resolveDevtoolsSyncDirectory(environment);
+  const syncDirectory = resolveDevsyncSyncDirectory(environment);
 
   if (doPathsOverlap(targetPath, syncDirectory)) {
     throw new SyncError(
@@ -111,9 +111,7 @@ export const addSyncTarget = async (
       throw new SyncError("Target path is required.");
     }
 
-    const syncDirectory = resolveDevtoolsSyncDirectory(
-      dependencies.environment,
-    );
+    const syncDirectory = resolveDevsyncSyncDirectory(dependencies.environment);
 
     await ensureGitRepository(syncDirectory, dependencies.git);
 

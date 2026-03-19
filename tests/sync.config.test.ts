@@ -20,8 +20,8 @@ import {
 } from "#app/config/xdg.ts";
 import { createTemporaryDirectory } from "./helpers/sync-fixture.ts";
 
-const testHomeDirectory = "/tmp/devtools-home";
-const testXdgConfigHome = "/tmp/devtools-xdg";
+const testHomeDirectory = "/tmp/devsync-home";
+const testXdgConfigHome = "/tmp/devsync-xdg";
 const temporaryDirectories: string[] = [];
 
 afterEach(async () => {
@@ -79,17 +79,17 @@ describe("configured path resolution", () => {
     ).toBe(join(testHomeDirectory, "demo"));
   });
 
-  it("expands supported path prefixes for devtools-owned paths", () => {
+  it("expands supported path prefixes for devsync-owned paths", () => {
     expect(
       resolveConfiguredAbsolutePath("~/demo", {
         HOME: testHomeDirectory,
       }),
     ).toBe(join(testHomeDirectory, "demo"));
     expect(
-      resolveConfiguredAbsolutePath("$XDG_CONFIG_HOME/devtools/keys.txt", {
+      resolveConfiguredAbsolutePath("$XDG_CONFIG_HOME/devsync/keys.txt", {
         XDG_CONFIG_HOME: testXdgConfigHome,
       }),
-    ).toBe(join(testXdgConfigHome, "devtools", "keys.txt"));
+    ).toBe(join(testXdgConfigHome, "devsync", "keys.txt"));
   });
 });
 
@@ -99,7 +99,7 @@ describe("parseSyncConfig", () => {
       {
         version: 1,
         age: {
-          identityFile: "$XDG_CONFIG_HOME/devtools/age/keys.txt",
+          identityFile: "$XDG_CONFIG_HOME/devsync/age/keys.txt",
           recipients: ["age1example"],
         },
         entries: [
@@ -131,7 +131,7 @@ describe("parseSyncConfig", () => {
     );
 
     expect(config.age.identityFile).toBe(
-      join(testXdgConfigHome, "devtools", "age", "keys.txt"),
+      join(testXdgConfigHome, "devsync", "age", "keys.txt"),
     );
     expect(config.entries).toEqual([
       {
@@ -168,7 +168,7 @@ describe("parseSyncConfig", () => {
         entries: [
           {
             kind: "directory",
-            localPath: "/tmp/devtools-home/bundle",
+            localPath: "/tmp/devsync-home/bundle",
             name: "bundle",
             repoPath: "bundle",
           },
@@ -179,7 +179,7 @@ describe("parseSyncConfig", () => {
       },
     );
 
-    expect(config.entries[0]?.localPath).toBe("/tmp/devtools-home/bundle");
+    expect(config.entries[0]?.localPath).toBe("/tmp/devsync-home/bundle");
     expect(config.entries[0]?.defaultMode).toBe("normal");
   });
 
@@ -214,7 +214,7 @@ describe("parseSyncConfig", () => {
         {
           version: 1,
           age: {
-            identityFile: "$XDG_CONFIG_HOME/devtools/age/keys.txt",
+            identityFile: "$XDG_CONFIG_HOME/devsync/age/keys.txt",
             recipients: ["age1example"],
           },
           entries: [
@@ -234,7 +234,7 @@ describe("parseSyncConfig", () => {
     }).toThrowError(SyncConfigError);
   });
 
-  it("rejects legacy glob fields", () => {
+  it("rejects unsupported glob fields", () => {
     expect(() => {
       parseSyncConfig(
         {
@@ -579,7 +579,7 @@ describe("parseSyncConfig", () => {
 
   it("wraps malformed JSON when reading a sync config file", async () => {
     const syncDirectory = await createTemporaryDirectory(
-      "devtools-sync-config-",
+      "devsync-sync-config-",
     );
 
     temporaryDirectories.push(syncDirectory);

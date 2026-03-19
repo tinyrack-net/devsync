@@ -10,7 +10,7 @@ import {
   type SyncMode,
 } from "#app/config/sync.ts";
 import {
-  resolveDevtoolsSyncDirectory,
+  resolveDevsyncSyncDirectory,
   resolveHomeDirectory,
 } from "#app/config/xdg.ts";
 
@@ -287,9 +287,7 @@ export const setSyncTargetMode = async (
   }>,
 ): Promise<SyncSetResult> => {
   try {
-    const syncDirectory = resolveDevtoolsSyncDirectory(
-      dependencies.environment,
-    );
+    const syncDirectory = resolveDevsyncSyncDirectory(dependencies.environment);
 
     await ensureGitRepository(syncDirectory, dependencies.git);
 

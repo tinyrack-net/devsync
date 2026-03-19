@@ -18,7 +18,7 @@ import {
 const temporaryDirectories: string[] = [];
 
 const createWorkspace = async () => {
-  const directory = await createTemporaryDirectory("devtools-sync-crypto-");
+  const directory = await createTemporaryDirectory("devsync-sync-crypto-");
 
   temporaryDirectories.push(directory);
 

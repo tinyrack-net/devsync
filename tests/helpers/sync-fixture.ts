@@ -25,7 +25,7 @@ export const writeIdentityFile = async (
   xdgConfigHome: string,
   identity: string,
 ) => {
-  const identityFile = join(xdgConfigHome, "devtools", "age", "keys.txt");
+  const identityFile = join(xdgConfigHome, "devsync", "age", "keys.txt");
 
   await mkdir(dirname(identityFile), { recursive: true });
   await writeFile(identityFile, `${identity}\n`);

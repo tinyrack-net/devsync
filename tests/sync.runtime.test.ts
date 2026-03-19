@@ -40,7 +40,7 @@ import {
 const temporaryDirectories: string[] = [];
 
 const createWorkspace = async () => {
-  const directory = await createTemporaryDirectory("devtools-sync-runtime-");
+  const directory = await createTemporaryDirectory("devsync-sync-runtime-");
 
   temporaryDirectories.push(directory);
 
@@ -69,7 +69,7 @@ const createResolvedConfig = (
     {
       version: 1,
       age: {
-        identityFile: "$XDG_CONFIG_HOME/devtools/age/keys.txt",
+        identityFile: "$XDG_CONFIG_HOME/devsync/age/keys.txt",
         recipients: [...input.recipients],
       },
       entries: input.entries,

@@ -4,7 +4,7 @@ import { isAbsolute, join, posix, relative } from "node:path";
 import { z } from "zod";
 import {
   resolveConfiguredAbsolutePath,
-  resolveDevtoolsSyncDirectory,
+  resolveDevsyncSyncDirectory,
   resolveHomeConfiguredAbsolutePath,
   resolveHomeDirectory,
 } from "#app/config/xdg.ts";
@@ -458,13 +458,13 @@ export const resolveSyncConfigPath = (
   environment: NodeJS.ProcessEnv = process.env,
 ) => {
   return posix.join(
-    resolveDevtoolsSyncDirectory(environment).replaceAll("\\", "/"),
+    resolveDevsyncSyncDirectory(environment).replaceAll("\\", "/"),
     syncConfigFileName,
   );
 };
 
 export const resolveSyncConfigFilePath = (
-  syncDirectory: string = resolveDevtoolsSyncDirectory(),
+  syncDirectory: string = resolveDevsyncSyncDirectory(),
 ) => {
   return join(syncDirectory, syncConfigFileName);
 };
@@ -478,7 +478,7 @@ export const resolveSyncSecretDirectoryPath = (syncDirectory: string) => {
 };
 
 export const readSyncConfig = async (
-  syncDirectory: string = resolveDevtoolsSyncDirectory(),
+  syncDirectory: string = resolveDevsyncSyncDirectory(),
   environment: NodeJS.ProcessEnv = process.env,
 ) => {
   try {

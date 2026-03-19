@@ -3,7 +3,7 @@ import { mkdir } from "node:fs/promises";
 
 import { Command, Flags } from "@oclif/core";
 
-import { resolveDevtoolsSyncDirectory } from "#app/config/xdg.ts";
+import { resolveDevsyncSyncDirectory } from "#app/config/xdg.ts";
 import { ensureTrailingNewline } from "#app/lib/string.ts";
 
 const readEnvironmentVariable = (name: "ComSpec" | "SHELL") => {
@@ -67,7 +67,7 @@ export default class SyncCd extends Command {
 
   public override async run(): Promise<void> {
     const { flags } = await this.parse(SyncCd);
-    const syncDirectory = resolveDevtoolsSyncDirectory();
+    const syncDirectory = resolveDevsyncSyncDirectory();
 
     if (flags.print || !process.stdin.isTTY || !process.stdout.isTTY) {
       process.stdout.write(ensureTrailingNewline(syncDirectory));
