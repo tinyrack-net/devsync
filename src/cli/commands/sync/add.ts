@@ -7,11 +7,11 @@ const syncManager = createSyncManager();
 
 export default class SyncAdd extends Command {
   public static override summary =
-    "Add a local config path to sync config.json";
+    "Add a local file or directory under your home directory to sync config.json";
 
   public static override args = {
     target: Args.string({
-      description: "Local config file or directory to track",
+      description: "Local file or directory under your home directory to track",
       required: true,
     }),
   };

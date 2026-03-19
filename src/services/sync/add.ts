@@ -7,7 +7,7 @@ import {
 } from "#app/config/sync.ts";
 import {
   resolveDevtoolsSyncDirectory,
-  resolveXdgConfigHome,
+  resolveHomeDirectory,
 } from "#app/config/xdg.ts";
 
 import {
@@ -21,7 +21,7 @@ import { SyncError } from "./error.ts";
 import { getPathStats } from "./filesystem.ts";
 import { ensureGitRepository, type GitService } from "./git.ts";
 import {
-  buildConfiguredXdgLocalPath,
+  buildConfiguredHomeLocalPath,
   buildRepoPathWithinRoot,
   doPathsOverlap,
   resolveCommandTargetPath,
@@ -81,12 +81,12 @@ const buildAddEntryCandidate = async (
 
   const repoPath = buildRepoPathWithinRoot(
     targetPath,
-    resolveXdgConfigHome(environment),
+    resolveHomeDirectory(environment),
     "Sync target",
   );
 
   return {
-    configuredLocalPath: buildConfiguredXdgLocalPath(repoPath),
+    configuredLocalPath: buildConfiguredHomeLocalPath(repoPath),
     ignoreGlobs: [],
     kind,
     localPath: targetPath,

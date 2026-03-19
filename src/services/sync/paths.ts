@@ -1,7 +1,7 @@
-import { relative, resolve } from "node:path";
+import { isAbsolute, relative, resolve } from "node:path";
 
 import { normalizeSyncRepoPath } from "#app/config/sync.ts";
-import { expandConfiguredPath } from "#app/config/xdg.ts";
+import { expandHomePath } from "#app/config/xdg.ts";
 
 import { SyncError } from "./error.ts";
 
@@ -13,7 +13,10 @@ export const isPathEqualOrNested = (path: string, rootPath: string) => {
   const rootToPath = relative(rootPath, path);
 
   return (
-    rootToPath === "" || (!rootToPath.startsWith("..") && rootToPath !== "..")
+    rootToPath === "" ||
+    (!isAbsolute(rootToPath) &&
+      !rootToPath.startsWith("..") &&
+      rootToPath !== "..")
   );
 };
 
@@ -29,7 +32,7 @@ export const resolveCommandTargetPath = (
   environment: NodeJS.ProcessEnv,
   cwd: string,
 ) => {
-  return resolve(cwd, expandConfiguredPath(target, environment));
+  return resolve(cwd, expandHomePath(target, environment));
 };
 
 export const buildRepoPathWithinRoot = (
@@ -45,7 +48,11 @@ export const buildRepoPathWithinRoot = (
     );
   }
 
-  if (relativePath.startsWith("..") || relativePath === "..") {
+  if (
+    isAbsolute(relativePath) ||
+    relativePath.startsWith("..") ||
+    relativePath === ".."
+  ) {
     throw new SyncError(
       `${description} must be inside ${rootPath}: ${absolutePath}`,
     );
@@ -54,8 +61,8 @@ export const buildRepoPathWithinRoot = (
   return normalizeSyncRepoPath(relativePath);
 };
 
-export const buildConfiguredXdgLocalPath = (repoPath: string) => {
-  return `$XDG_CONFIG_HOME/${repoPath}`;
+export const buildConfiguredHomeLocalPath = (repoPath: string) => {
+  return `~/${repoPath}`;
 };
 
 export const tryNormalizeRepoPathInput = (value: string) => {

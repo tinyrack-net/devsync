@@ -33,6 +33,16 @@ const updateSyncConfig = async (syncDirectory: string, value: unknown) => {
   await writeJsonFile(join(syncDirectory, "config.json"), value);
 };
 
+const createSyncEnvironment = (
+  homeDirectory: string,
+  xdgConfigHome: string,
+): NodeJS.ProcessEnv => {
+  return {
+    HOME: homeDirectory,
+    XDG_CONFIG_HOME: xdgConfigHome,
+  };
+};
+
 afterEach(async () => {
   while (temporaryDirectories.length > 0) {
     const directory = temporaryDirectories.pop();
@@ -46,11 +56,10 @@ afterEach(async () => {
 describe("createSyncManager", () => {
   it("generates a default local age identity when init flags are omitted", async () => {
     const workspace = await createWorkspace();
+    const homeDirectory = join(workspace, "home");
     const xdgConfigHome = join(workspace, "xdg");
     const manager = createSyncManager({
-      environment: {
-        XDG_CONFIG_HOME: xdgConfigHome,
-      },
+      environment: createSyncEnvironment(homeDirectory, xdgConfigHome),
     });
 
     const result = await manager.init({
@@ -83,15 +92,14 @@ describe("createSyncManager", () => {
 
   it("initializes the sync repository inside the XDG config path", async () => {
     const workspace = await createWorkspace();
+    const homeDirectory = join(workspace, "home");
     const xdgConfigHome = join(workspace, "xdg");
     const ageKeys = await createAgeKeyPair();
 
     await writeIdentityFile(xdgConfigHome, ageKeys.identity);
 
     const manager = createSyncManager({
-      environment: {
-        XDG_CONFIG_HOME: xdgConfigHome,
-      },
+      environment: createSyncEnvironment(homeDirectory, xdgConfigHome),
     });
     const result = await manager.init({
       identityFile: "$XDG_CONFIG_HOME/devtools/age/keys.txt",
@@ -114,8 +122,9 @@ describe("createSyncManager", () => {
 
   it("adds tracked entries and entry-scoped canonical secret globs", async () => {
     const workspace = await createWorkspace();
+    const homeDirectory = join(workspace, "home");
     const xdgConfigHome = join(workspace, "xdg");
-    const settingsDirectory = join(xdgConfigHome, "mytool");
+    const settingsDirectory = join(homeDirectory, ".config", "mytool");
     const settingsFile = join(settingsDirectory, "settings.json");
     const secretsDirectory = join(settingsDirectory, "secrets");
     const ageKeys = await createAgeKeyPair();
@@ -126,9 +135,7 @@ describe("createSyncManager", () => {
     await writeFile(join(secretsDirectory, "token.txt"), "secret\n");
 
     const manager = createSyncManager({
-      environment: {
-        XDG_CONFIG_HOME: xdgConfigHome,
-      },
+      environment: createSyncEnvironment(homeDirectory, xdgConfigHome),
     });
     const initResult = await manager.init({
       identityFile: "$XDG_CONFIG_HOME/devtools/age/keys.txt",
@@ -163,25 +170,25 @@ describe("createSyncManager", () => {
     };
 
     expect(fileAddResult.alreadyTracked).toBe(false);
-    expect(fileAddResult.repoPath).toBe("mytool/settings.json");
+    expect(fileAddResult.repoPath).toBe(".config/mytool/settings.json");
     expect(fileAddResult.localPath).toBe(settingsFile);
     expect(repeatFileAddResult.alreadyTracked).toBe(true);
     expect(repeatFileAddResult.secretGlobAdded).toBe(true);
-    expect(directoryAddResult.repoPath).toBe("mytool/secrets");
+    expect(directoryAddResult.repoPath).toBe(".config/mytool/secrets");
     expect(directoryAddResult.kind).toBe("directory");
     expect(config.entries).toEqual([
       {
         kind: "directory",
-        localPath: "$XDG_CONFIG_HOME/mytool/secrets",
-        name: "mytool/secrets",
-        repoPath: "mytool/secrets",
+        localPath: "~/.config/mytool/secrets",
+        name: ".config/mytool/secrets",
+        repoPath: ".config/mytool/secrets",
         secretGlobs: ["**"],
       },
       {
         kind: "file",
-        localPath: "$XDG_CONFIG_HOME/mytool/settings.json",
-        name: "mytool/settings.json",
-        repoPath: "mytool/settings.json",
+        localPath: "~/.config/mytool/settings.json",
+        name: ".config/mytool/settings.json",
+        repoPath: ".config/mytool/settings.json",
         secretGlobs: ["*"],
       },
     ]);
@@ -191,8 +198,9 @@ describe("createSyncManager", () => {
 
   it("forgets tracked entries and removes repository artifacts", async () => {
     const workspace = await createWorkspace();
+    const homeDirectory = join(workspace, "home");
     const xdgConfigHome = join(workspace, "xdg");
-    const settingsDirectory = join(xdgConfigHome, "mytool");
+    const settingsDirectory = join(homeDirectory, "mytool");
     const settingsFile = join(settingsDirectory, "settings.json");
     const ageKeys = await createAgeKeyPair();
 
@@ -201,9 +209,7 @@ describe("createSyncManager", () => {
     await writeFile(settingsFile, "{}\n");
 
     const manager = createSyncManager({
-      environment: {
-        XDG_CONFIG_HOME: xdgConfigHome,
-      },
+      environment: createSyncEnvironment(homeDirectory, xdgConfigHome),
     });
     const initResult = await manager.init({
       identityFile: "$XDG_CONFIG_HOME/devtools/age/keys.txt",
@@ -265,8 +271,9 @@ describe("createSyncManager", () => {
 
   it("forgets legacy global canonical secret globs", async () => {
     const workspace = await createWorkspace();
+    const homeDirectory = join(workspace, "home");
     const xdgConfigHome = join(workspace, "xdg");
-    const settingsDirectory = join(xdgConfigHome, "mytool");
+    const settingsDirectory = join(homeDirectory, "mytool");
     const settingsFile = join(settingsDirectory, "settings.json");
     const ageKeys = await createAgeKeyPair();
 
@@ -275,9 +282,7 @@ describe("createSyncManager", () => {
     await writeFile(settingsFile, "{}\n");
 
     const manager = createSyncManager({
-      environment: {
-        XDG_CONFIG_HOME: xdgConfigHome,
-      },
+      environment: createSyncEnvironment(homeDirectory, xdgConfigHome),
     });
     const initResult = await manager.init({
       identityFile: "$XDG_CONFIG_HOME/devtools/age/keys.txt",
@@ -294,7 +299,7 @@ describe("createSyncManager", () => {
         {
           name: "settings",
           kind: "file",
-          localPath: "$XDG_CONFIG_HOME/mytool/settings.json",
+          localPath: "~/mytool/settings.json",
           repoPath: "mytool/settings.json",
         },
       ],
@@ -315,25 +320,24 @@ describe("createSyncManager", () => {
     expect(config.secretGlobs).toEqual([]);
   });
 
-  it("rejects add targets outside XDG config and basename-only forget", async () => {
+  it("rejects add targets outside HOME and basename-only forget", async () => {
     const workspace = await createWorkspace();
+    const homeDirectory = join(workspace, "home");
     const xdgConfigHome = join(workspace, "xdg");
-    const otherHome = join(workspace, "other");
-    const settingsDirectory = join(xdgConfigHome, "mytool");
+    const otherDirectory = join(workspace, "other");
+    const settingsDirectory = join(homeDirectory, "mytool");
     const settingsFile = join(settingsDirectory, "settings.json");
-    const outsideFile = join(otherHome, "outside.json");
+    const outsideFile = join(otherDirectory, "outside.json");
     const ageKeys = await createAgeKeyPair();
 
     await writeIdentityFile(xdgConfigHome, ageKeys.identity);
     await mkdir(settingsDirectory, { recursive: true });
-    await mkdir(otherHome, { recursive: true });
+    await mkdir(otherDirectory, { recursive: true });
     await writeFile(settingsFile, "{}\n");
     await writeFile(outsideFile, "{}\n");
 
     const manager = createSyncManager({
-      environment: {
-        XDG_CONFIG_HOME: xdgConfigHome,
-      },
+      environment: createSyncEnvironment(homeDirectory, xdgConfigHome),
     });
 
     await manager.init({
@@ -360,16 +364,15 @@ describe("createSyncManager", () => {
 
   it("pushes encrypted snapshots and pulls them back with mirror deletion", async () => {
     const workspace = await createWorkspace();
+    const homeDirectory = join(workspace, "home");
     const xdgConfigHome = join(workspace, "xdg");
-    const localBundlePath = join(xdgConfigHome, "devtools", "local", "bundle");
+    const localBundlePath = join(homeDirectory, "devtools-local", "bundle");
     const ageKeys = await createAgeKeyPair();
 
     await writeIdentityFile(xdgConfigHome, ageKeys.identity);
 
     const manager = createSyncManager({
-      environment: {
-        XDG_CONFIG_HOME: xdgConfigHome,
-      },
+      environment: createSyncEnvironment(homeDirectory, xdgConfigHome),
     });
     const initResult = await manager.init({
       identityFile: "$XDG_CONFIG_HOME/devtools/age/keys.txt",
@@ -386,7 +389,7 @@ describe("createSyncManager", () => {
         {
           name: "bundle",
           kind: "directory",
-          localPath: "$XDG_CONFIG_HOME/devtools/local/bundle",
+          localPath: "~/devtools-local/bundle",
           repoPath: "bundle",
           secretGlobs: ["secret.json"],
         },
@@ -473,16 +476,15 @@ describe("createSyncManager", () => {
 
   it("rejects secret symlinks on push", async () => {
     const workspace = await createWorkspace();
+    const homeDirectory = join(workspace, "home");
     const xdgConfigHome = join(workspace, "xdg");
-    const localBundlePath = join(xdgConfigHome, "devtools", "local", "bundle");
+    const localBundlePath = join(homeDirectory, "devtools-local", "bundle");
     const ageKeys = await createAgeKeyPair();
 
     await writeIdentityFile(xdgConfigHome, ageKeys.identity);
 
     const manager = createSyncManager({
-      environment: {
-        XDG_CONFIG_HOME: xdgConfigHome,
-      },
+      environment: createSyncEnvironment(homeDirectory, xdgConfigHome),
     });
     const initResult = await manager.init({
       identityFile: "$XDG_CONFIG_HOME/devtools/age/keys.txt",
@@ -499,7 +501,7 @@ describe("createSyncManager", () => {
         {
           name: "bundle",
           kind: "directory",
-          localPath: "$XDG_CONFIG_HOME/devtools/local/bundle",
+          localPath: "~/devtools-local/bundle",
           repoPath: "bundle",
           secretGlobs: ["secret-link"],
         },
@@ -519,16 +521,15 @@ describe("createSyncManager", () => {
 
   it("omits ignored paths on push and preserves them on pull", async () => {
     const workspace = await createWorkspace();
+    const homeDirectory = join(workspace, "home");
     const xdgConfigHome = join(workspace, "xdg");
-    const localBundlePath = join(xdgConfigHome, "devtools", "local", "bundle");
+    const localBundlePath = join(homeDirectory, "devtools-local", "bundle");
     const ageKeys = await createAgeKeyPair();
 
     await writeIdentityFile(xdgConfigHome, ageKeys.identity);
 
     const manager = createSyncManager({
-      environment: {
-        XDG_CONFIG_HOME: xdgConfigHome,
-      },
+      environment: createSyncEnvironment(homeDirectory, xdgConfigHome),
     });
     const initResult = await manager.init({
       identityFile: "$XDG_CONFIG_HOME/devtools/age/keys.txt",
@@ -545,7 +546,7 @@ describe("createSyncManager", () => {
         {
           name: "bundle",
           kind: "directory",
-          localPath: "$XDG_CONFIG_HOME/devtools/local/bundle",
+          localPath: "~/devtools-local/bundle",
           repoPath: "bundle",
           ignoreGlobs: [
             "ignored-dir/**",

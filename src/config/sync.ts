@@ -1,10 +1,12 @@
 import { readFile } from "node:fs/promises";
-import { join, posix, relative } from "node:path";
+import { isAbsolute, join, posix, relative } from "node:path";
 
 import { z } from "zod";
 import {
   resolveConfiguredAbsolutePath,
   resolveDevtoolsSyncDirectory,
+  resolveHomeConfiguredAbsolutePath,
+  resolveHomeDirectory,
 } from "#app/config/xdg.ts";
 import { ensureTrailingNewline } from "#app/lib/string.ts";
 import { formatInputIssues } from "#app/lib/validation.ts";
@@ -194,12 +196,69 @@ const isPathEqualOrNested = (left: string, right: string) => {
 
   const leftContainsRight =
     leftToRight === "" ||
-    (!leftToRight.startsWith("..") && leftToRight !== "..");
+    (!isAbsolute(leftToRight) &&
+      !leftToRight.startsWith("..") &&
+      leftToRight !== "..");
   const rightContainsLeft =
     rightToLeft === "" ||
-    (!rightToLeft.startsWith("..") && rightToLeft !== "..");
+    (!isAbsolute(rightToLeft) &&
+      !rightToLeft.startsWith("..") &&
+      rightToLeft !== "..");
 
   return leftContainsRight || rightContainsLeft;
+};
+
+const resolveSyncEntryLocalPath = (
+  value: string,
+  environment: NodeJS.ProcessEnv,
+) => {
+  const homeDirectory = resolveHomeDirectory(environment);
+  let resolvedLocalPath: string;
+
+  try {
+    resolvedLocalPath = resolveHomeConfiguredAbsolutePath(value, environment);
+  } catch (error: unknown) {
+    throw new SyncConfigError(
+      error instanceof Error
+        ? error.message
+        : `Invalid sync entry local path: ${value}`,
+    );
+  }
+
+  const relativePath = relative(homeDirectory, resolvedLocalPath);
+
+  if (relativePath === "") {
+    throw new SyncConfigError(
+      `Sync entry local path must be inside ${homeDirectory}, not the home directory itself: ${value}`,
+    );
+  }
+
+  if (
+    isAbsolute(relativePath) ||
+    relativePath.startsWith("..") ||
+    relativePath === ".."
+  ) {
+    throw new SyncConfigError(
+      `Sync entry local path must be inside ${homeDirectory}: ${value}`,
+    );
+  }
+
+  return resolvedLocalPath;
+};
+
+const resolveConfiguredIdentityFile = (
+  value: string,
+  environment: NodeJS.ProcessEnv,
+) => {
+  try {
+    return resolveConfiguredAbsolutePath(value, environment);
+  } catch (error: unknown) {
+    throw new SyncConfigError(
+      error instanceof Error
+        ? error.message
+        : `Invalid sync age identity file path: ${value}`,
+    );
+  }
 };
 
 const validateUniqueNames = (entries: readonly ResolvedSyncConfigEntry[]) => {
@@ -272,7 +331,7 @@ export const parseSyncConfig = (
         return normalizeEntryScopedGlob(glob, "Entry ignore glob");
       }),
       kind: entry.kind,
-      localPath: resolveConfiguredAbsolutePath(entry.localPath, environment),
+      localPath: resolveSyncEntryLocalPath(entry.localPath, environment),
       name: entry.name,
       repoPath: normalizeSyncRepoPath(entry.repoPath),
       secretGlobs: (entry.secretGlobs ?? []).map((glob) => {
@@ -288,7 +347,7 @@ export const parseSyncConfig = (
   return {
     age: {
       configuredIdentityFile: result.data.age.identityFile,
-      identityFile: resolveConfiguredAbsolutePath(
+      identityFile: resolveConfiguredIdentityFile(
         result.data.age.identityFile,
         environment,
       ),

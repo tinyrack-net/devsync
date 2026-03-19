@@ -7,7 +7,7 @@ const syncManager = createSyncManager();
 
 export default class SyncForget extends Command {
   public static override summary =
-    "Remove a tracked config path from sync config.json";
+    "Remove a tracked local path or repository path from sync config.json";
 
   public static override args = {
     target: Args.string({

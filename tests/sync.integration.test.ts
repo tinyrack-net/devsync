@@ -37,6 +37,16 @@ const runCli = async (
   });
 };
 
+const createSyncEnvironment = (
+  homeDirectory: string,
+  xdgConfigHome: string,
+): NodeJS.ProcessEnv => {
+  return {
+    HOME: homeDirectory,
+    XDG_CONFIG_HOME: xdgConfigHome,
+  };
+};
+
 afterEach(async () => {
   while (temporaryDirectories.length > 0) {
     const directory = temporaryDirectories.pop();
@@ -50,11 +60,10 @@ afterEach(async () => {
 describe("sync CLI integration", () => {
   it("generates a default age identity for bare sync init", async () => {
     const workspace = await createWorkspace();
+    const homeDirectory = join(workspace, "home");
     const xdgConfigHome = join(workspace, "xdg");
     const result = await runCli(["sync", "init"], {
-      env: {
-        XDG_CONFIG_HOME: xdgConfigHome,
-      },
+      env: createSyncEnvironment(homeDirectory, xdgConfigHome),
     });
 
     expect(result.stdout).toContain("Initialized sync directory.");
@@ -118,11 +127,10 @@ describe("sync CLI integration", () => {
 
   it("prints the sync directory in non-interactive mode", async () => {
     const workspace = await createWorkspace();
+    const homeDirectory = join(workspace, "home");
     const xdgConfigHome = join(workspace, "xdg");
     const result = await runCli(["sync", "cd"], {
-      env: {
-        XDG_CONFIG_HOME: xdgConfigHome,
-      },
+      env: createSyncEnvironment(homeDirectory, xdgConfigHome),
     });
 
     expect(result.stdout).toBe(`${join(xdgConfigHome, "devtools", "sync")}`);
@@ -130,8 +138,9 @@ describe("sync CLI integration", () => {
 
   it("adds and forgets tracked sync targets from the CLI", async () => {
     const workspace = await createWorkspace();
+    const homeDirectory = join(workspace, "home");
     const xdgConfigHome = join(workspace, "xdg");
-    const settingsDirectory = join(xdgConfigHome, "mytool");
+    const settingsDirectory = join(homeDirectory, ".config", "mytool");
     const settingsFile = join(settingsDirectory, "settings.json");
     const secretsDirectory = join(settingsDirectory, "secrets");
     const syncDirectory = join(xdgConfigHome, "devtools", "sync");
@@ -152,23 +161,17 @@ describe("sync CLI integration", () => {
         "$XDG_CONFIG_HOME/devtools/age/keys.txt",
       ],
       {
-        env: {
-          XDG_CONFIG_HOME: xdgConfigHome,
-        },
+        env: createSyncEnvironment(homeDirectory, xdgConfigHome),
       },
     );
 
     const addFileResult = await runCli(["sync", "add", settingsFile], {
-      env: {
-        XDG_CONFIG_HOME: xdgConfigHome,
-      },
+      env: createSyncEnvironment(homeDirectory, xdgConfigHome),
     });
     const addDirectoryResult = await runCli(
       ["sync", "add", secretsDirectory, "--secret"],
       {
-        env: {
-          XDG_CONFIG_HOME: xdgConfigHome,
-        },
+        env: createSyncEnvironment(homeDirectory, xdgConfigHome),
       },
     );
     const configAfterAdd = JSON.parse(
@@ -191,41 +194,49 @@ describe("sync CLI integration", () => {
     expect(configAfterAdd.entries).toEqual([
       {
         kind: "directory",
-        localPath: "$XDG_CONFIG_HOME/mytool/secrets",
-        name: "mytool/secrets",
-        repoPath: "mytool/secrets",
+        localPath: "~/.config/mytool/secrets",
+        name: ".config/mytool/secrets",
+        repoPath: ".config/mytool/secrets",
         secretGlobs: ["**"],
       },
       {
         kind: "file",
-        localPath: "$XDG_CONFIG_HOME/mytool/settings.json",
-        name: "mytool/settings.json",
-        repoPath: "mytool/settings.json",
+        localPath: "~/.config/mytool/settings.json",
+        name: ".config/mytool/settings.json",
+        repoPath: ".config/mytool/settings.json",
       },
     ]);
     expect(configAfterAdd.ignoreGlobs).toEqual([]);
     expect(configAfterAdd.secretGlobs).toEqual([]);
 
-    await mkdir(join(syncDirectory, "plain", "mytool", "secrets"), {
+    await mkdir(join(syncDirectory, "plain", ".config", "mytool", "secrets"), {
       recursive: true,
     });
-    await mkdir(join(syncDirectory, "secret", "mytool", "secrets"), {
+    await mkdir(join(syncDirectory, "secret", ".config", "mytool", "secrets"), {
       recursive: true,
     });
     await writeFile(
-      join(syncDirectory, "plain", "mytool", "secrets", "token.txt"),
+      join(syncDirectory, "plain", ".config", "mytool", "secrets", "token.txt"),
       "stale plain copy\n",
     );
     await writeFile(
-      join(syncDirectory, "secret", "mytool", "secrets", "token.txt.age"),
+      join(
+        syncDirectory,
+        "secret",
+        ".config",
+        "mytool",
+        "secrets",
+        "token.txt.age",
+      ),
       "stale encrypted copy\n",
     );
 
-    const forgetResult = await runCli(["sync", "forget", "mytool/secrets"], {
-      env: {
-        XDG_CONFIG_HOME: xdgConfigHome,
+    const forgetResult = await runCli(
+      ["sync", "forget", ".config/mytool/secrets"],
+      {
+        env: createSyncEnvironment(homeDirectory, xdgConfigHome),
       },
-    });
+    );
     const configAfterForget = JSON.parse(
       await readFile(join(syncDirectory, "config.json"), "utf8"),
     ) as {
@@ -239,19 +250,35 @@ describe("sync CLI integration", () => {
     expect(forgetResult.stdout).toContain("Forgot sync target.");
     expect(configAfterForget.entries).toMatchObject([
       {
-        repoPath: "mytool/settings.json",
+        repoPath: ".config/mytool/settings.json",
       },
     ]);
     expect(configAfterForget.ignoreGlobs).toEqual([]);
     expect(configAfterForget.secretGlobs).toEqual([]);
     await expect(
-      readFile(join(syncDirectory, "plain", "mytool", "secrets", "token.txt")),
+      readFile(
+        join(
+          syncDirectory,
+          "plain",
+          ".config",
+          "mytool",
+          "secrets",
+          "token.txt",
+        ),
+      ),
     ).rejects.toMatchObject({
       code: "ENOENT",
     });
     await expect(
       readFile(
-        join(syncDirectory, "secret", "mytool", "secrets", "token.txt.age"),
+        join(
+          syncDirectory,
+          "secret",
+          ".config",
+          "mytool",
+          "secrets",
+          "token.txt.age",
+        ),
       ),
     ).rejects.toMatchObject({
       code: "ENOENT",
@@ -260,8 +287,9 @@ describe("sync CLI integration", () => {
 
   it("preserves ignored local files across CLI push and pull", async () => {
     const workspace = await createWorkspace();
+    const homeDirectory = join(workspace, "home");
     const xdgConfigHome = join(workspace, "xdg");
-    const localBundlePath = join(xdgConfigHome, "devtools", "local", "bundle");
+    const localBundlePath = join(homeDirectory, "devtools-local", "bundle");
     const syncDirectory = join(xdgConfigHome, "devtools", "sync");
     const ageKeys = await createAgeKeyPair();
 
@@ -276,9 +304,7 @@ describe("sync CLI integration", () => {
         "$XDG_CONFIG_HOME/devtools/age/keys.txt",
       ],
       {
-        env: {
-          XDG_CONFIG_HOME: xdgConfigHome,
-        },
+        env: createSyncEnvironment(homeDirectory, xdgConfigHome),
       },
     );
 
@@ -292,7 +318,7 @@ describe("sync CLI integration", () => {
         {
           name: "bundle",
           kind: "directory",
-          localPath: "$XDG_CONFIG_HOME/devtools/local/bundle",
+          localPath: "~/devtools-local/bundle",
           repoPath: "bundle",
           ignoreGlobs: ["ignored.txt"],
           secretGlobs: ["secret.json"],
@@ -311,9 +337,7 @@ describe("sync CLI integration", () => {
     await writeFile(join(localBundlePath, "ignored.txt"), "local ignore\n");
 
     const pushResult = await runCli(["sync", "push"], {
-      env: {
-        XDG_CONFIG_HOME: xdgConfigHome,
-      },
+      env: createSyncEnvironment(homeDirectory, xdgConfigHome),
     });
 
     expect(pushResult.stdout).toContain("Synchronized local config");
@@ -332,9 +356,7 @@ describe("sync CLI integration", () => {
     await writeFile(join(localBundlePath, "extra.txt"), "delete me\n");
 
     const pullResult = await runCli(["sync", "pull"], {
-      env: {
-        XDG_CONFIG_HOME: xdgConfigHome,
-      },
+      env: createSyncEnvironment(homeDirectory, xdgConfigHome),
     });
 
     expect(pullResult.stdout).toContain(
@@ -359,10 +381,12 @@ describe("sync CLI integration", () => {
   it("round-trips an encrypted sync repo across two machines with manual git", async () => {
     const workspace = await createWorkspace();
     const remoteRepository = join(workspace, "remote.git");
+    const machineAHome = join(workspace, "machine-a-home");
+    const machineBHome = join(workspace, "machine-b-home");
     const machineAXdg = join(workspace, "machine-a-xdg");
     const machineBXdg = join(workspace, "machine-b-xdg");
-    const machineABundle = join(machineAXdg, "devtools", "local", "bundle");
-    const machineBBundle = join(machineBXdg, "devtools", "local", "bundle");
+    const machineABundle = join(machineAHome, "devtools-local", "bundle");
+    const machineBBundle = join(machineBHome, "devtools-local", "bundle");
     const ageKeys = await createAgeKeyPair();
     const identityExpression = "$XDG_CONFIG_HOME/devtools/age/keys.txt";
 
@@ -381,9 +405,7 @@ describe("sync CLI integration", () => {
         identityExpression,
       ],
       {
-        env: {
-          XDG_CONFIG_HOME: machineAXdg,
-        },
+        env: createSyncEnvironment(machineAHome, machineAXdg),
       },
     );
     const syncDirectoryA = join(machineAXdg, "devtools", "sync");
@@ -400,7 +422,7 @@ describe("sync CLI integration", () => {
         {
           name: "bundle",
           kind: "directory",
-          localPath: "$XDG_CONFIG_HOME/devtools/local/bundle",
+          localPath: "~/devtools-local/bundle",
           repoPath: "bundle",
           secretGlobs: ["secret.json"],
         },
@@ -417,9 +439,7 @@ describe("sync CLI integration", () => {
     );
 
     const pushResult = await runCli(["sync", "push"], {
-      env: {
-        XDG_CONFIG_HOME: machineAXdg,
-      },
+      env: createSyncEnvironment(machineAHome, machineAXdg),
     });
 
     expect(pushResult.stdout).toContain("Synchronized local config");
@@ -457,17 +477,13 @@ describe("sync CLI integration", () => {
     ]);
 
     const initBResult = await runCli(["sync", "init", remoteRepository], {
-      env: {
-        XDG_CONFIG_HOME: machineBXdg,
-      },
+      env: createSyncEnvironment(machineBHome, machineBXdg),
     });
 
     expect(initBResult.stdout).toContain("Sync directory already initialized.");
 
     const pullResult = await runCli(["sync", "pull"], {
-      env: {
-        XDG_CONFIG_HOME: machineBXdg,
-      },
+      env: createSyncEnvironment(machineBHome, machineBXdg),
     });
 
     expect(pullResult.stdout).toContain(

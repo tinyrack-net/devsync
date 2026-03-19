@@ -19,6 +19,18 @@ const readTrimmedEnvironmentValue = (
 const bracedXdgConfigHomeToken = "$" + "{XDG_CONFIG_HOME}";
 const bracedXdgConfigHomePrefix = `${bracedXdgConfigHomeToken}/`;
 
+export const resolveHomeDirectory = (
+  environment: NodeJS.ProcessEnv = process.env,
+) => {
+  const configuredValue = readTrimmedEnvironmentValue(environment, "HOME");
+
+  if (configuredValue !== undefined) {
+    return resolve(configuredValue);
+  }
+
+  return resolve(homedir());
+};
+
 export const resolveXdgConfigHome = (
   environment: NodeJS.ProcessEnv = process.env,
 ) => {
@@ -31,7 +43,7 @@ export const resolveXdgConfigHome = (
     return resolve(configuredValue);
   }
 
-  return resolve(homedir(), ".config");
+  return resolve(resolveHomeDirectory(environment), ".config");
 };
 
 export const resolveDevtoolsConfigDirectory = (
@@ -46,17 +58,29 @@ export const resolveDevtoolsSyncDirectory = (
   return resolve(resolveDevtoolsConfigDirectory(environment), "sync");
 };
 
-export const expandConfiguredPath = (
+export const expandHomePath = (
   value: string,
   environment: NodeJS.ProcessEnv = process.env,
 ) => {
   let expandedValue = value.trim();
 
   if (expandedValue === "~") {
-    expandedValue = homedir();
+    expandedValue = resolveHomeDirectory(environment);
   } else if (expandedValue.startsWith("~/")) {
-    expandedValue = resolve(homedir(), expandedValue.slice(2));
+    expandedValue = resolve(
+      resolveHomeDirectory(environment),
+      expandedValue.slice(2),
+    );
   }
+
+  return expandedValue;
+};
+
+export const expandConfiguredPath = (
+  value: string,
+  environment: NodeJS.ProcessEnv = process.env,
+) => {
+  let expandedValue = expandHomePath(value, environment);
 
   if (expandedValue === "$XDG_CONFIG_HOME") {
     expandedValue = resolveXdgConfigHome(environment);
@@ -86,6 +110,21 @@ export const resolveConfiguredAbsolutePath = (
   if (!isAbsolute(expandedValue)) {
     throw new Error(
       `Configured path must be absolute or start with ~ or $XDG_CONFIG_HOME: ${value}`,
+    );
+  }
+
+  return resolve(expandedValue);
+};
+
+export const resolveHomeConfiguredAbsolutePath = (
+  value: string,
+  environment: NodeJS.ProcessEnv = process.env,
+) => {
+  const expandedValue = expandHomePath(value, environment);
+
+  if (!isAbsolute(expandedValue)) {
+    throw new Error(
+      `Configured path must be absolute or start with ~: ${value}`,
     );
   }
 

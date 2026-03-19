@@ -12,31 +12,70 @@ import {
 import {
   resolveConfiguredAbsolutePath,
   resolveDevtoolsSyncDirectory,
+  resolveHomeConfiguredAbsolutePath,
+  resolveHomeDirectory,
   resolveXdgConfigHome,
 } from "#app/config/xdg.ts";
+
+const testHomeDirectory = "/tmp/devtools-home";
+const testXdgConfigHome = "/tmp/devtools-xdg";
+
+describe("resolveHomeDirectory", () => {
+  it("falls back to the operating system home directory", () => {
+    expect(resolveHomeDirectory({})).toBe(homedir());
+  });
+
+  it("prefers HOME when set", () => {
+    expect(
+      resolveHomeDirectory({
+        HOME: testHomeDirectory,
+      }),
+    ).toBe(testHomeDirectory);
+  });
+});
 
 describe("resolveXdgConfigHome", () => {
   it("falls back to the default XDG config home", () => {
     expect(resolveXdgConfigHome({})).toBe(join(homedir(), ".config"));
   });
 
+  it("derives the default XDG config home from HOME", () => {
+    expect(
+      resolveXdgConfigHome({
+        HOME: testHomeDirectory,
+      }),
+    ).toBe(join(testHomeDirectory, ".config"));
+  });
+
   it("prefers XDG_CONFIG_HOME when set", () => {
     expect(
       resolveXdgConfigHome({
-        XDG_CONFIG_HOME: "/tmp/devtools-xdg",
+        XDG_CONFIG_HOME: testXdgConfigHome,
       }),
     ).toBe("/tmp/devtools-xdg");
   });
 });
 
+describe("resolveHomeConfiguredAbsolutePath", () => {
+  it("expands home-relative path prefixes", () => {
+    expect(
+      resolveHomeConfiguredAbsolutePath("~/demo", {
+        HOME: testHomeDirectory,
+      }),
+    ).toBe(join(testHomeDirectory, "demo"));
+  });
+});
+
 describe("resolveConfiguredAbsolutePath", () => {
   it("expands supported path prefixes", () => {
-    expect(resolveConfiguredAbsolutePath("~/demo")).toBe(
-      join(homedir(), "demo"),
-    );
+    expect(
+      resolveConfiguredAbsolutePath("~/demo", {
+        HOME: testHomeDirectory,
+      }),
+    ).toBe(join(testHomeDirectory, "demo"));
     expect(
       resolveConfiguredAbsolutePath("$XDG_CONFIG_HOME/devtools/keys.txt", {
-        XDG_CONFIG_HOME: "/tmp/devtools-xdg",
+        XDG_CONFIG_HOME: testXdgConfigHome,
       }),
     ).toBe("/tmp/devtools-xdg/devtools/keys.txt");
   });
@@ -53,19 +92,20 @@ describe("parseSyncConfig", () => {
         },
         entries: [
           {
-            name: "bundle",
+            name: ".config/mytool",
             kind: "directory",
             ignoreGlobs: ["cache\\*.tmp"],
-            localPath: "$XDG_CONFIG_HOME/devtools/local/bundle",
-            repoPath: "bundle\\settings",
+            localPath: "~/.config/mytool",
+            repoPath: ".config\\mytool",
             secretGlobs: ["nested\\*.json"],
           },
         ],
-        ignoreGlobs: ["bundle\\ignored/**"],
-        secretGlobs: ["bundle/**/*.json"],
+        ignoreGlobs: [".config/mytool\\ignored/**"],
+        secretGlobs: [".config/mytool/**/*.json"],
       },
       {
-        XDG_CONFIG_HOME: "/tmp/devtools-xdg",
+        HOME: testHomeDirectory,
+        XDG_CONFIG_HOME: testXdgConfigHome,
       },
     );
 
@@ -74,17 +114,99 @@ describe("parseSyncConfig", () => {
     );
     expect(config.entries).toEqual([
       {
-        configuredLocalPath: "$XDG_CONFIG_HOME/devtools/local/bundle",
+        configuredLocalPath: "~/.config/mytool",
         ignoreGlobs: ["cache/*.tmp"],
         kind: "directory",
-        localPath: "/tmp/devtools-xdg/devtools/local/bundle",
-        name: "bundle",
-        repoPath: "bundle/settings",
+        localPath: "/tmp/devtools-home/.config/mytool",
+        name: ".config/mytool",
+        repoPath: ".config/mytool",
         secretGlobs: ["nested/*.json"],
       },
     ]);
-    expect(config.ignoreGlobs).toEqual(["bundle/ignored/**"]);
-    expect(config.secretGlobs).toEqual(["bundle/**/*.json"]);
+    expect(config.ignoreGlobs).toEqual([".config/mytool/ignored/**"]);
+    expect(config.secretGlobs).toEqual([".config/mytool/**/*.json"]);
+  });
+
+  it("accepts absolute sync entry paths that stay inside HOME", () => {
+    const config = parseSyncConfig(
+      {
+        version: 1,
+        age: {
+          identityFile: "/tmp/identity.txt",
+          recipients: ["age1example"],
+        },
+        entries: [
+          {
+            name: "bundle",
+            kind: "directory",
+            localPath: "/tmp/devtools-home/bundle",
+            repoPath: "bundle",
+          },
+        ],
+        ignoreGlobs: [],
+        secretGlobs: [],
+      },
+      {
+        HOME: testHomeDirectory,
+      },
+    );
+
+    expect(config.entries[0]?.localPath).toBe("/tmp/devtools-home/bundle");
+  });
+
+  it("rejects sync entry local paths outside HOME", () => {
+    expect(() => {
+      parseSyncConfig(
+        {
+          version: 1,
+          age: {
+            identityFile: "/tmp/identity.txt",
+            recipients: ["age1example"],
+          },
+          entries: [
+            {
+              name: "bundle",
+              kind: "directory",
+              localPath: "/tmp/outside-home/bundle",
+              repoPath: "bundle",
+            },
+          ],
+          ignoreGlobs: [],
+          secretGlobs: [],
+        },
+        {
+          HOME: testHomeDirectory,
+        },
+      );
+    }).toThrowError(SyncConfigError);
+  });
+
+  it("rejects XDG tokens for sync entry local paths", () => {
+    expect(() => {
+      parseSyncConfig(
+        {
+          version: 1,
+          age: {
+            identityFile: "$XDG_CONFIG_HOME/devtools/age/keys.txt",
+            recipients: ["age1example"],
+          },
+          entries: [
+            {
+              name: "bundle",
+              kind: "directory",
+              localPath: "$XDG_CONFIG_HOME/bundle",
+              repoPath: "bundle",
+            },
+          ],
+          ignoreGlobs: [],
+          secretGlobs: [],
+        },
+        {
+          HOME: testHomeDirectory,
+          XDG_CONFIG_HOME: testXdgConfigHome,
+        },
+      );
+    }).toThrowError(SyncConfigError);
   });
 
   it("matches global and entry-level secret globs", () => {
@@ -99,14 +221,14 @@ describe("parseSyncConfig", () => {
           {
             name: "bundle",
             kind: "directory",
-            localPath: "/tmp/bundle",
+            localPath: "/tmp/devtools-home/bundle",
             repoPath: "bundle",
             secretGlobs: ["nested/*.json"],
           },
           {
             name: "settings",
             kind: "file",
-            localPath: "/tmp/settings.json",
+            localPath: "/tmp/devtools-home/settings.json",
             repoPath: "settings.json",
             secretGlobs: ["*"],
           },
@@ -114,7 +236,9 @@ describe("parseSyncConfig", () => {
         ignoreGlobs: [],
         secretGlobs: ["bundle/global.json"],
       },
-      {},
+      {
+        HOME: testHomeDirectory,
+      },
     );
 
     expect(matchesSecretGlob(config, "bundle/global.json")).toBe(true);
@@ -136,7 +260,7 @@ describe("parseSyncConfig", () => {
             name: "bundle",
             kind: "directory",
             ignoreGlobs: ["ignored/*.json"],
-            localPath: "/tmp/bundle",
+            localPath: "/tmp/devtools-home/bundle",
             repoPath: "bundle",
             secretGlobs: ["ignored/*.json", "nested/*.json"],
           },
@@ -144,7 +268,7 @@ describe("parseSyncConfig", () => {
             name: "settings",
             kind: "file",
             ignoreGlobs: ["*"],
-            localPath: "/tmp/settings.json",
+            localPath: "/tmp/devtools-home/settings.json",
             repoPath: "settings.json",
             secretGlobs: ["*"],
           },
@@ -152,7 +276,9 @@ describe("parseSyncConfig", () => {
         ignoreGlobs: ["bundle/global-ignore.json"],
         secretGlobs: ["bundle/global-secret.json"],
       },
-      {},
+      {
+        HOME: testHomeDirectory,
+      },
     );
 
     expect(matchesIgnoreGlob(config, "bundle/global-ignore.json")).toBe(true);
@@ -176,20 +302,22 @@ describe("parseSyncConfig", () => {
             {
               name: "bundle",
               kind: "directory",
-              localPath: "/tmp/bundle",
+              localPath: "/tmp/devtools-home/bundle",
               repoPath: "bundle",
             },
             {
               name: "bundle-file",
               kind: "file",
-              localPath: "/tmp/bundle-file",
+              localPath: "/tmp/devtools-home/bundle-file",
               repoPath: "bundle/settings.json",
             },
           ],
           ignoreGlobs: [],
           secretGlobs: [],
         },
-        {},
+        {
+          HOME: testHomeDirectory,
+        },
       );
     }).toThrowError(SyncConfigError);
   });
@@ -207,20 +335,22 @@ describe("parseSyncConfig", () => {
             {
               name: "bundle",
               kind: "directory",
-              localPath: "/tmp/local",
+              localPath: "/tmp/devtools-home/local",
               repoPath: "bundle",
             },
             {
               name: "bundle-file",
               kind: "file",
-              localPath: "/tmp/local/settings.json",
+              localPath: "/tmp/devtools-home/local/settings.json",
               repoPath: "settings.json",
             },
           ],
           ignoreGlobs: [],
           secretGlobs: [],
         },
-        {},
+        {
+          HOME: testHomeDirectory,
+        },
       );
     }).toThrowError(SyncConfigError);
   });
@@ -238,7 +368,7 @@ describe("parseSyncConfig", () => {
             {
               name: "bundle",
               kind: "directory",
-              localPath: "/tmp/bundle",
+              localPath: "/tmp/devtools-home/bundle",
               repoPath: "bundle",
               secretGlobs: ["../secret.json"],
             },
@@ -246,7 +376,9 @@ describe("parseSyncConfig", () => {
           ignoreGlobs: [],
           secretGlobs: [],
         },
-        {},
+        {
+          HOME: testHomeDirectory,
+        },
       );
     }).toThrowError(SyncConfigError);
   });
@@ -265,14 +397,16 @@ describe("parseSyncConfig", () => {
               name: "bundle",
               kind: "directory",
               ignoreGlobs: ["../ignored.json"],
-              localPath: "/tmp/bundle",
+              localPath: "/tmp/devtools-home/bundle",
               repoPath: "bundle",
             },
           ],
           ignoreGlobs: [],
           secretGlobs: [],
         },
-        {},
+        {
+          HOME: testHomeDirectory,
+        },
       );
     }).toThrowError(SyncConfigError);
   });
