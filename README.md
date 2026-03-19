@@ -20,6 +20,7 @@ A personal CLI tool for development-agent workflows.
 - **Sitemap discovery and parsing** with nested sitemap support
 - **Structured JSON output** across agent-oriented commands
 - **Web-research skill template** for Pi, Codex, Claude, and OpenCode
+- **Verification-before-completion skill template** for completion-time validation workflows
 - **Skill installation and uninstallation** for Pi, Codex, Claude, and OpenCode via symlinked local templates
 - **Timeouts and deterministic output** for automation-friendly behavior
 - **No build step for execution**: runs TypeScript directly with Node.js
@@ -84,13 +85,19 @@ npm run start -- <command>
 
 ## Skill templates
 
-The repository includes a bundled web research skill under `skills/web-research/`.
+The repository includes bundled skills under:
 
-It also includes on-demand reference documents for command selection and workflows:
+- `skills/web-research/`
+- `skills/verification-before-completion/`
+
+It also includes on-demand reference documents for each skill:
 
 - `skills/web-research/SKILL.md`
 - `skills/web-research/references/commands.md`
 - `skills/web-research/references/workflows.md`
+- `skills/verification-before-completion/SKILL.md`
+- `skills/verification-before-completion/references/command-discovery.md`
+- `skills/verification-before-completion/references/completion-report-checklist.md`
 
 Install the bundled skill into a supported agent's global skills directory:
 
@@ -360,20 +367,32 @@ npm run coverage         # Run tests with coverage
 src/
   index.ts               # CLI entrypoint
   cli/
-    index.ts             # Command registration and program setup
+    commands/            # Command implementations
   config/
     env.ts               # Environment loading and validation
-  skills/
-    install.ts           # Skill install/uninstall logic
-  web/
-    fetch.ts             # Web page fetch and article extraction
-    inspect.ts           # Page metadata inspection
-    links.ts             # Link extraction and normalization
-    page.ts              # Shared HTML page loading and DOM helpers
-    search.ts            # Web search (Brave) and docs-search
-    shared.ts            # Shared utilities, schemas, and fetch helpers
-    sitemap.ts           # Sitemap discovery and parsing
+  lib/                   # Cross-domain pure utilities
+    object.ts            # Object/record manipulation
+    string.ts            # String parsing/normalization
+    validation.ts        # Common Zod schemas and validation helpers
+  services/              # Domain-specific services
+    skills/
+      agents.ts          # Agent definitions and skill paths
+      install.ts         # Skill install/uninstall logic
+    web/
+      fetch.ts           # Web page fetch and article extraction
+      http.ts            # Shared HTTP/fetch helpers
+      inspect.ts         # Page metadata inspection
+      links.ts           # Link extraction and normalization
+      page.ts            # Shared HTML page loading and DOM helpers
+      search.ts          # Web search (Brave) and docs-search
+      sitemap.ts         # Sitemap discovery and parsing
+      url.ts             # URL manipulation helpers
 skills/
+  verification-before-completion/
+    SKILL.md             # Completion-time validation skill definition
+    references/
+      command-discovery.md # Validation command discovery guide
+      completion-report-checklist.md # Completion reporting checklist
   web-research/
     SKILL.md             # Pi skill definition
     references/
