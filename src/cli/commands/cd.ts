@@ -1,10 +1,11 @@
 import { spawn } from "node:child_process";
 import { mkdir } from "node:fs/promises";
 
-import { Command, Flags } from "@oclif/core";
+import { Flags } from "@oclif/core";
 
+import { BaseCommand } from "#app/cli/base-command.ts";
 import { resolveDevsyncSyncDirectory } from "#app/config/xdg.ts";
-import { ensureTrailingNewline } from "#app/lib/string.ts";
+import { output } from "#app/lib/output.ts";
 
 const readEnvironmentVariable = (name: "ComSpec" | "SHELL") => {
   return process.env[name]?.trim();
@@ -54,7 +55,7 @@ const spawnShellInDirectory = async (directory: string) => {
   });
 };
 
-export default class SyncCd extends Command {
+export default class SyncCd extends BaseCommand {
   public static override summary =
     "Open a shell in the sync directory or print its path";
 
@@ -70,7 +71,7 @@ export default class SyncCd extends Command {
     const syncDirectory = resolveDevsyncSyncDirectory();
 
     if (flags.print || !process.stdin.isTTY || !process.stdout.isTTY) {
-      process.stdout.write(ensureTrailingNewline(syncDirectory));
+      this.print(output(syncDirectory));
 
       return;
     }

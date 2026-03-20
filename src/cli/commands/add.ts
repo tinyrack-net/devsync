@@ -1,10 +1,11 @@
-import { Args, Command, Flags } from "@oclif/core";
+import { Args, Flags } from "@oclif/core";
 
-import { formatSyncAddResult } from "#app/cli/sync-output.ts";
+import { BaseCommand } from "#app/cli/base-command.ts";
+import { formatSyncAddResult } from "#app/lib/output.ts";
 import { addSyncTarget } from "#app/services/add.ts";
 import { createSyncContext } from "#app/services/runtime.ts";
 
-export default class SyncAdd extends Command {
+export default class SyncAdd extends BaseCommand {
   public static override summary =
     "Add a local file or directory under your home directory to sync config.json";
 
@@ -35,6 +36,6 @@ export default class SyncAdd extends Command {
       ),
     );
 
-    process.stdout.write(output);
+    this.print(output);
   }
 }

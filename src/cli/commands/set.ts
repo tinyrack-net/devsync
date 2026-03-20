@@ -1,10 +1,11 @@
-import { Args, Command, Flags } from "@oclif/core";
+import { Args, Flags } from "@oclif/core";
 
-import { formatSyncSetResult } from "#app/cli/sync-output.ts";
+import { BaseCommand } from "#app/cli/base-command.ts";
+import { formatSyncSetResult } from "#app/lib/output.ts";
 import { createSyncContext } from "#app/services/runtime.ts";
 import { setSyncTargetMode } from "#app/services/set.ts";
 
-export default class SyncSet extends Command {
+export default class SyncSet extends BaseCommand {
   public static override summary =
     "Set sync mode for a tracked directory root, child file, or child subtree";
 
@@ -42,6 +43,6 @@ export default class SyncSet extends Command {
       ),
     );
 
-    process.stdout.write(output);
+    this.print(output);
   }
 }

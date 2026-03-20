@@ -1,10 +1,11 @@
-import { Args, Command } from "@oclif/core";
+import { Args } from "@oclif/core";
 
-import { formatSyncForgetResult } from "#app/cli/sync-output.ts";
+import { BaseCommand } from "#app/cli/base-command.ts";
+import { formatSyncForgetResult } from "#app/lib/output.ts";
 import { forgetSyncTarget } from "#app/services/forget.ts";
 import { createSyncContext } from "#app/services/runtime.ts";
 
-export default class SyncForget extends Command {
+export default class SyncForget extends BaseCommand {
   public static override summary =
     "Remove a tracked local path or repository path from sync config.json";
 
@@ -27,6 +28,6 @@ export default class SyncForget extends Command {
       ),
     );
 
-    process.stdout.write(output);
+    this.print(output);
   }
 }

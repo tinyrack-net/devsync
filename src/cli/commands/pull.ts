@@ -1,10 +1,11 @@
-import { Command, Flags } from "@oclif/core";
+import { Flags } from "@oclif/core";
 
-import { formatSyncPullResult } from "#app/cli/sync-output.ts";
+import { BaseCommand } from "#app/cli/base-command.ts";
+import { formatSyncPullResult } from "#app/lib/output.ts";
 import { pullSync } from "#app/services/pull.ts";
 import { createSyncContext } from "#app/services/runtime.ts";
 
-export default class SyncPull extends Command {
+export default class SyncPull extends BaseCommand {
   public static override summary =
     "Apply the git-backed sync repository to local config paths";
 
@@ -26,6 +27,6 @@ export default class SyncPull extends Command {
       ),
     );
 
-    process.stdout.write(output);
+    this.print(output);
   }
 }

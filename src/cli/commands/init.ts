@@ -1,10 +1,11 @@
-import { Args, Command, Flags } from "@oclif/core";
+import { Args, Flags } from "@oclif/core";
 
-import { formatSyncInitResult } from "#app/cli/sync-output.ts";
+import { BaseCommand } from "#app/cli/base-command.ts";
+import { formatSyncInitResult } from "#app/lib/output.ts";
 import { initializeSync } from "#app/services/init.ts";
 import { createSyncContext } from "#app/services/runtime.ts";
 
-export default class SyncInit extends Command {
+export default class SyncInit extends BaseCommand {
   public static override summary = "Initialize the git-backed sync directory";
 
   public static override args = {
@@ -38,6 +39,6 @@ export default class SyncInit extends Command {
       ),
     );
 
-    process.stdout.write(output);
+    this.print(output);
   }
 }
