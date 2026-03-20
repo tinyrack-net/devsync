@@ -1,3 +1,5 @@
+import { createColors } from "picocolors";
+
 import { ensureTrailingNewline } from "#app/lib/string.ts";
 import type { SyncAddResult } from "#app/services/add.ts";
 import type { SyncDoctorResult } from "#app/services/doctor.ts";
@@ -12,6 +14,17 @@ import type { SyncStatusResult } from "#app/services/status.ts";
 type OutputLine = false | null | string | undefined;
 
 const OUTPUT_INDENT = "  ";
+const colors = createColors(process.stdout.isTTY || process.stderr.isTTY);
+
+const style = {
+  bullet: (value: string) => colors.dim(value),
+  detail: (value: string) => colors.dim(value),
+  error: (value: string) => colors.bold(colors.red(value)),
+  headline: (value: string) => colors.bold(colors.cyan(value)),
+  success: (value: string) => colors.bold(colors.green(value)),
+  value: (value: string) => colors.reset(value),
+  warn: (value: string) => colors.bold(colors.yellow(value)),
+};
 
 const compactLines = (lines: OutputLine[]) => {
   return lines.filter(
@@ -33,7 +46,7 @@ export const writeStderr = (value: string) => {
 };
 
 export const line = (label: string, value: number | string) => {
-  return `${label}: ${value}`;
+  return `${style.detail(label)}: ${style.value(String(value))}`;
 };
 
 export const summary = (...parts: string[]) => {
@@ -41,7 +54,9 @@ export const summary = (...parts: string[]) => {
 };
 
 export const bullets = (items: readonly string[], indent = OUTPUT_INDENT) => {
-  return items.map((item) => `${indent}- ${item}`);
+  return items.map(
+    (item) => `${indent}${style.bullet("-")} ${style.value(item)}`,
+  );
 };
 
 export const preview = (
@@ -62,16 +77,32 @@ export const preview = (
 export const levelTag = (level: "fail" | "ok" | "warn") => {
   switch (level) {
     case "fail":
-      return "FAIL";
+      return style.error("FAIL");
     case "warn":
-      return "WARN";
+      return style.warn("WARN");
     default:
-      return "OK";
+      return style.success("OK");
   }
 };
 
 export const formatErrorMessage = (message: string) => {
-  return output(message);
+  return output(style.error(message));
+};
+
+const formatHeadline = (
+  message: string,
+  tone: "default" | "error" | "success" | "warn" = "default",
+) => {
+  switch (tone) {
+    case "error":
+      return style.error(message);
+    case "success":
+      return style.success(message);
+    case "warn":
+      return style.warn(message);
+    default:
+      return style.headline(message);
+  }
 };
 
 const formatSetScope = (scope: SyncSetResult["scope"]) => {
@@ -111,9 +142,9 @@ const formatPullSummary = (result: SyncPullResult) => {
 
 const formatTrackedEntry = (entry: SyncListResult["entries"][number]) => {
   const lines = [
-    `- ${entry.repoPath} [${entry.kind}, ${entry.mode}] -> ${entry.localPath}`,
+    `${style.bullet("-")} ${style.value(entry.repoPath)} ${style.detail(`[${entry.kind}, ${entry.mode}] -> ${entry.localPath}`)}`,
     ...entry.overrides.map((override) => {
-      return `${OUTPUT_INDENT}override ${override.selector}: ${override.mode}`;
+      return `${OUTPUT_INDENT}${style.detail("override")} ${style.value(override.selector)}: ${style.value(override.mode)}`;
     }),
   ];
 
@@ -167,9 +198,12 @@ const formatDoctorCheck = (check: SyncDoctorResult["checks"][number]) => {
 
 export const formatSyncInitResult = (result: SyncInitResult) => {
   return output(
-    result.alreadyInitialized
-      ? "Sync directory already initialized."
-      : "Initialized sync directory.",
+    formatHeadline(
+      result.alreadyInitialized
+        ? "Sync directory already initialized."
+        : "Initialized sync directory.",
+      result.alreadyInitialized ? "warn" : "success",
+    ),
     line("Sync directory", result.syncDirectory),
     line("Config file", result.configPath),
     line("Age identity file", result.identityFile),
@@ -195,9 +229,12 @@ export const formatSyncInitResult = (result: SyncInitResult) => {
 
 export const formatSyncAddResult = (result: SyncAddResult) => {
   return output(
-    result.alreadyTracked
-      ? "Sync target already tracked."
-      : "Added sync target.",
+    formatHeadline(
+      result.alreadyTracked
+        ? "Sync target already tracked."
+        : "Added sync target.",
+      result.alreadyTracked ? "warn" : "success",
+    ),
     line("Sync directory", result.syncDirectory),
     line("Config file", result.configPath),
     line("Local path", result.localPath),
@@ -209,7 +246,7 @@ export const formatSyncAddResult = (result: SyncAddResult) => {
 
 export const formatSyncForgetResult = (result: SyncForgetResult) => {
   return output(
-    "Forgot sync target.",
+    formatHeadline("Forgot sync target.", "warn"),
     line("Sync directory", result.syncDirectory),
     line("Config file", result.configPath),
     line("Local path", result.localPath),
@@ -223,9 +260,12 @@ export const formatSyncForgetResult = (result: SyncForgetResult) => {
 
 export const formatSyncSetResult = (result: SyncSetResult) => {
   return output(
-    result.action === "unchanged"
-      ? "Sync mode unchanged."
-      : "Updated sync mode.",
+    formatHeadline(
+      result.action === "unchanged"
+        ? "Sync mode unchanged."
+        : "Updated sync mode.",
+      result.action === "unchanged" ? "warn" : "success",
+    ),
     line("Sync directory", result.syncDirectory),
     line("Config file", result.configPath),
     line("Owning entry", result.entryRepoPath),
@@ -238,9 +278,12 @@ export const formatSyncSetResult = (result: SyncSetResult) => {
 
 export const formatSyncPushResult = (result: SyncPushResult) => {
   return output(
-    result.dryRun
-      ? "Dry run for sync push."
-      : "Synchronized local config into the sync repository.",
+    formatHeadline(
+      result.dryRun
+        ? "Dry run for sync push."
+        : "Synchronized local config into the sync repository.",
+      result.dryRun ? "warn" : "success",
+    ),
     line("Sync directory", result.syncDirectory),
     line("Config file", result.configPath),
     formatPushSummary(result),
@@ -250,9 +293,12 @@ export const formatSyncPushResult = (result: SyncPushResult) => {
 
 export const formatSyncPullResult = (result: SyncPullResult) => {
   return output(
-    result.dryRun
-      ? "Dry run for sync pull."
-      : "Applied sync repository to local config.",
+    formatHeadline(
+      result.dryRun
+        ? "Dry run for sync pull."
+        : "Applied sync repository to local config.",
+      result.dryRun ? "warn" : "success",
+    ),
     line("Sync directory", result.syncDirectory),
     line("Config file", result.configPath),
     formatPullSummary(result),
@@ -262,7 +308,7 @@ export const formatSyncPullResult = (result: SyncPullResult) => {
 
 export const formatSyncListResult = (result: SyncListResult) => {
   return output(
-    "Tracked sync configuration.",
+    formatHeadline("Tracked sync configuration."),
     line("Sync directory", result.syncDirectory),
     line("Config file", result.configPath),
     summary(
@@ -278,7 +324,7 @@ export const formatSyncListResult = (result: SyncListResult) => {
 
 export const formatSyncStatusResult = (result: SyncStatusResult) => {
   return output(
-    "Sync status overview.",
+    formatHeadline("Sync status overview."),
     line("Sync directory", result.syncDirectory),
     line("Config file", result.configPath),
     summary(
@@ -293,7 +339,10 @@ export const formatSyncStatusResult = (result: SyncStatusResult) => {
 
 export const formatSyncDoctorResult = (result: SyncDoctorResult) => {
   return output(
-    result.hasFailures ? "Sync doctor found issues." : "Sync doctor passed.",
+    formatHeadline(
+      result.hasFailures ? "Sync doctor found issues." : "Sync doctor passed.",
+      result.hasFailures ? "error" : result.hasWarnings ? "warn" : "success",
+    ),
     line("Sync directory", result.syncDirectory),
     line("Config file", result.configPath),
     formatDoctorCounts(result),
