@@ -1,5 +1,5 @@
 {
-  "name": "devsync",
+  "name": "@tinyrack/devsync",
   "version": "1.0.0",
   "description": "A personal CLI tool for git-backed configuration sync.",
   "type": "module",
@@ -8,6 +8,13 @@
   "repository": {
     "type": "git",
     "url": "https://git.winetree94.com/winetree94/devsync.git"
+  },
+  "homepage": "https://git.winetree94.com/winetree94/devsync",
+  "bugs": {
+    "url": "https://git.winetree94.com/winetree94/devsync/issues"
+  },
+  "publishConfig": {
+    "access": "public"
   },
   "keywords": [
     "cli",
@@ -22,6 +29,11 @@
   "bin": {
     "devsync": "./src/index.ts"
   },
+  "files": [
+    "src",
+    "README.md",
+    "LICENSE"
+  ],
   "oclif": {
     "bin": "devsync",
     "dirname": "devsync",
