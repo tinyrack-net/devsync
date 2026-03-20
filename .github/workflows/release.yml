@@ -31,6 +31,13 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Verify tag matches package version
+        run: >-
+          node --input-type=module -e "import pkg from './package.json' with { type:
+          'json' }; const tag = process.env.GITHUB_REF_NAME; const expectedTag =
+          `v${pkg.version}`; if (tag !== expectedTag) { console.error(`Tag ${tag}
+          does not match package.json version ${expectedTag}`); process.exit(1); }"
+
       - name: Run validation
         run: npm run check
 

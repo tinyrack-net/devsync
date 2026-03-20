@@ -58,6 +58,7 @@ npm link
 - CI runs on every push and pull request with `npm run check` on Node.js 24.
 - npm publishing runs automatically when a Git tag matching `v*.*.*` is pushed.
 - The release workflow uses npm Trusted Publishing, so npm access is granted through GitHub Actions OIDC instead of an `NPM_TOKEN` secret.
+- The release workflow fails if the pushed tag does not match `package.json` `version`.
 
 Typical release flow:
 
