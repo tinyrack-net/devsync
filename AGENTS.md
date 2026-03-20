@@ -28,8 +28,9 @@
 - Place sync-related modules under `src/services/sync/`
 - Place reusable cross-domain pure utilities under `src/lib/`
 - Avoid leaving feature modules like `cli-types.ts` or `cli-validation.ts` in the `src/` root
-- Place tests under `tests/` with names matching `<domain>.<topic>.test.ts`
-- Place test helpers under `tests/helpers/`
+- Place unit and integration-style Vitest files next to the source they exercise using `*.test.ts`
+- Reserve the root `tests/` directory for end-to-end CLI coverage using `*.e2e.test.ts`
+- Keep shared test helpers outside the root `tests/` directory unless they are specific to end-to-end coverage
 
 ## Key Dependencies
 
