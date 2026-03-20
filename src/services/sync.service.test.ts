@@ -5,13 +5,16 @@ import { afterEach, describe, expect, it } from "vitest";
 
 import { syncSecretArtifactSuffix } from "#app/config/sync.ts";
 import { addSyncTarget } from "#app/services/add.ts";
+import { runSyncDoctor } from "#app/services/doctor.ts";
 import { DevsyncError } from "#app/services/error.ts";
 import { forgetSyncTarget } from "#app/services/forget.ts";
 import { initializeSync } from "#app/services/init.ts";
+import { listSyncConfig } from "#app/services/list.ts";
 import { pullSync } from "#app/services/pull.ts";
 import { pushSync } from "#app/services/push.ts";
 import { createSyncContext } from "#app/services/runtime.ts";
 import { setSyncTargetMode } from "#app/services/set.ts";
+import { getSyncStatus } from "#app/services/status.ts";
 import {
   createAgeKeyPair,
   createTemporaryDirectory,
@@ -1021,5 +1024,146 @@ describe("sync service", () => {
         context,
       ),
     ).rejects.toThrowError();
+  });
+
+  it("lists tracked entries with overrides", async () => {
+    const workspace = await createWorkspace();
+    const homeDirectory = join(workspace, "home");
+    const xdgConfigHome = join(workspace, "xdg");
+    const bundleDirectory = join(homeDirectory, "bundle");
+    const tokenFile = join(bundleDirectory, "token.txt");
+    const ageKeys = await createAgeKeyPair();
+
+    await writeIdentityFile(xdgConfigHome, ageKeys.identity);
+    await mkdir(bundleDirectory, { recursive: true });
+    await writeFile(tokenFile, "secret\n");
+
+    const context = createSyncContext({
+      environment: createSyncEnvironment(homeDirectory, xdgConfigHome),
+    });
+
+    await initializeSync(
+      {
+        identityFile: "$XDG_CONFIG_HOME/devsync/age/keys.txt",
+        recipients: [ageKeys.recipient],
+      },
+      context,
+    );
+    await addSyncTarget(
+      {
+        secret: false,
+        target: bundleDirectory,
+      },
+      context,
+    );
+    await setSyncTargetMode(
+      {
+        recursive: false,
+        state: "secret",
+        target: tokenFile,
+      },
+      context,
+    );
+
+    const result = await listSyncConfig(context);
+
+    expect(result.entries).toEqual([
+      {
+        kind: "directory",
+        localPath: bundleDirectory,
+        mode: "normal",
+        name: "bundle",
+        overrides: [{ mode: "secret", selector: "token.txt" }],
+        repoPath: "bundle",
+      },
+    ]);
+    expect(result.ruleCount).toBe(1);
+  });
+
+  it("builds status previews for push and pull plans", async () => {
+    const workspace = await createWorkspace();
+    const homeDirectory = join(workspace, "home");
+    const xdgConfigHome = join(workspace, "xdg");
+    const bundleDirectory = join(homeDirectory, "bundle");
+    const plainFile = join(bundleDirectory, "plain.txt");
+    const ageKeys = await createAgeKeyPair();
+
+    await writeIdentityFile(xdgConfigHome, ageKeys.identity);
+    await mkdir(bundleDirectory, { recursive: true });
+    await writeFile(plainFile, "plain\n");
+
+    const context = createSyncContext({
+      environment: createSyncEnvironment(homeDirectory, xdgConfigHome),
+    });
+
+    await initializeSync(
+      {
+        identityFile: "$XDG_CONFIG_HOME/devsync/age/keys.txt",
+        recipients: [ageKeys.recipient],
+      },
+      context,
+    );
+    await addSyncTarget(
+      {
+        secret: false,
+        target: bundleDirectory,
+      },
+      context,
+    );
+    await pushSync(
+      {
+        dryRun: false,
+      },
+      context,
+    );
+
+    const status = await getSyncStatus(context);
+
+    expect(status.push.preview).toContain("bundle/plain.txt");
+    expect(status.pull.preview).toContain("bundle/plain.txt");
+    expect(status.push.plainFileCount).toBe(1);
+    expect(status.pull.plainFileCount).toBe(1);
+  });
+
+  it("reports doctor warnings for missing tracked local paths", async () => {
+    const workspace = await createWorkspace();
+    const homeDirectory = join(workspace, "home");
+    const xdgConfigHome = join(workspace, "xdg");
+    const trackedFile = join(homeDirectory, ".gitconfig");
+    const ageKeys = await createAgeKeyPair();
+
+    await writeIdentityFile(xdgConfigHome, ageKeys.identity);
+    await mkdir(homeDirectory, { recursive: true });
+    await writeFile(trackedFile, "[user]\n  name = test\n");
+
+    const context = createSyncContext({
+      environment: createSyncEnvironment(homeDirectory, xdgConfigHome),
+    });
+
+    await initializeSync(
+      {
+        identityFile: "$XDG_CONFIG_HOME/devsync/age/keys.txt",
+        recipients: [ageKeys.recipient],
+      },
+      context,
+    );
+    await addSyncTarget(
+      {
+        secret: false,
+        target: trackedFile,
+      },
+      context,
+    );
+    await rm(trackedFile);
+
+    const result = await runSyncDoctor(context);
+
+    expect(result.hasFailures).toBe(false);
+    expect(result.hasWarnings).toBe(true);
+    expect(result.checks).toContainEqual({
+      detail: "1 tracked local path is missing.",
+      level: "warn",
+      name: "local-paths",
+    });
   });
 });

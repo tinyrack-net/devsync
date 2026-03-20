@@ -6,7 +6,7 @@ A personal CLI tool for git-backed configuration sync.
 
 ## Features
 
-- Flat sync-focused CLI: `init`, `add`, `set`, `forget`, `push`, `pull`, `cd`
+- Flat sync-focused CLI: `init`, `add`, `set`, `forget`, `list`, `status`, `doctor`, `push`, `pull`, `cd`
 - Git-backed sync repository under `~/.config/devsync/sync`
 - Age-encrypted secret file support
 - Rule-based `normal`, `secret`, and `ignore` modes
@@ -127,6 +127,30 @@ Remove a tracked local path or repository path from sync config.
 devsync forget ~/.gitconfig
 cd ~/mytool && devsync forget ./settings.json
 devsync forget .config/mytool
+```
+
+### `list`
+
+Show tracked entries, modes, and override rules.
+
+```bash
+devsync list
+```
+
+### `status`
+
+Show planned push and pull changes for the current sync config.
+
+```bash
+devsync status
+```
+
+### `doctor`
+
+Check the sync repository, config, age identity, and tracked local paths.
+
+```bash
+devsync doctor
 ```
 
 ### `push`

@@ -2,11 +2,14 @@ import { describe, expect, it } from "vitest";
 
 import {
   formatSyncAddResult,
+  formatSyncDoctorResult,
   formatSyncForgetResult,
   formatSyncInitResult,
+  formatSyncListResult,
   formatSyncPullResult,
   formatSyncPushResult,
   formatSyncSetResult,
+  formatSyncStatusResult,
 } from "#app/cli/sync-output.ts";
 
 describe("sync output formatting", () => {
@@ -101,5 +104,70 @@ describe("sync output formatting", () => {
     ).toContain(
       "local paths would be removed.\nNo filesystem changes were made.\n",
     );
+  });
+
+  it("formats list, status, and doctor results", () => {
+    expect(
+      formatSyncListResult({
+        configPath: "/tmp/sync/config.json",
+        entries: [
+          {
+            kind: "directory",
+            localPath: "/tmp/home/.config/tool",
+            mode: "normal",
+            name: ".config/tool",
+            overrides: [{ mode: "secret", selector: "token.json" }],
+            repoPath: ".config/tool",
+          },
+        ],
+        recipientCount: 1,
+        ruleCount: 1,
+        syncDirectory: "/tmp/sync",
+      }),
+    ).toContain("override token.json: secret\n");
+    expect(
+      formatSyncStatusResult({
+        configPath: "/tmp/sync/config.json",
+        entryCount: 1,
+        pull: {
+          configPath: "/tmp/sync/config.json",
+          decryptedFileCount: 1,
+          deletedLocalCount: 2,
+          directoryCount: 1,
+          dryRun: true,
+          plainFileCount: 0,
+          preview: ["bundle", "bundle/token.txt"],
+          symlinkCount: 0,
+          syncDirectory: "/tmp/sync",
+        },
+        push: {
+          configPath: "/tmp/sync/config.json",
+          deletedArtifactCount: 1,
+          directoryCount: 1,
+          dryRun: true,
+          encryptedFileCount: 1,
+          plainFileCount: 0,
+          preview: ["bundle", "bundle/token.txt"],
+          symlinkCount: 0,
+          syncDirectory: "/tmp/sync",
+        },
+        recipientCount: 1,
+        ruleCount: 0,
+        syncDirectory: "/tmp/sync",
+      }),
+    ).toContain("Push preview: bundle, bundle/token.txt\n");
+    expect(
+      formatSyncDoctorResult({
+        checks: [
+          { detail: "ok", level: "ok", name: "git" },
+          { detail: "warn", level: "warn", name: "entries" },
+          { detail: "fail", level: "fail", name: "age" },
+        ],
+        configPath: "/tmp/sync/config.json",
+        hasFailures: true,
+        hasWarnings: true,
+        syncDirectory: "/tmp/sync",
+      }),
+    ).toContain("Summary: 1 ok, 1 warnings, 1 failures.\n");
   });
 });

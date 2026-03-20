@@ -1,10 +1,13 @@
 import { ensureTrailingNewline } from "#app/lib/string.ts";
 import type { SyncAddResult } from "#app/services/add.ts";
+import type { SyncDoctorResult } from "#app/services/doctor.ts";
 import type { SyncForgetResult } from "#app/services/forget.ts";
 import type { SyncInitResult } from "#app/services/init.ts";
+import type { SyncListResult } from "#app/services/list.ts";
 import type { SyncPullResult } from "#app/services/pull.ts";
 import type { SyncPushResult } from "#app/services/push.ts";
 import type { SyncSetResult } from "#app/services/set.ts";
+import type { SyncStatusResult } from "#app/services/status.ts";
 
 export const formatSyncInitResult = (result: SyncInitResult) => {
   const lines = [
@@ -124,6 +127,74 @@ export const formatSyncPullResult = (result: SyncPullResult) => {
         `Config file: ${result.configPath}`,
         `Summary: ${result.plainFileCount} plain files, ${result.decryptedFileCount} decrypted files, ${result.symlinkCount} symlinks, ${result.directoryCount} directory roots, ${result.deletedLocalCount} local paths removed.`,
       ];
+
+  return ensureTrailingNewline(lines.join("\n"));
+};
+
+export const formatSyncListResult = (result: SyncListResult) => {
+  const lines = [
+    "Tracked sync configuration.",
+    `Sync directory: ${result.syncDirectory}`,
+    `Config file: ${result.configPath}`,
+    `Summary: ${result.recipientCount} recipients, ${result.entries.length} entries, ${result.ruleCount} rules.`,
+    ...(result.entries.length === 0
+      ? ["Entries: none"]
+      : result.entries.flatMap((entry) => {
+          return [
+            `- ${entry.repoPath} [${entry.kind}, ${entry.mode}] -> ${entry.localPath}`,
+            ...(entry.overrides.length === 0
+              ? []
+              : entry.overrides.map((override) => {
+                  return `  override ${override.selector}: ${override.mode}`;
+                })),
+          ];
+        })),
+  ];
+
+  return ensureTrailingNewline(lines.join("\n"));
+};
+
+export const formatSyncStatusResult = (result: SyncStatusResult) => {
+  const lines = [
+    "Sync status overview.",
+    `Sync directory: ${result.syncDirectory}`,
+    `Config file: ${result.configPath}`,
+    `Summary: ${result.recipientCount} recipients, ${result.entryCount} entries, ${result.ruleCount} rules.`,
+    `Push plan: ${result.push.plainFileCount} plain files, ${result.push.encryptedFileCount} encrypted files, ${result.push.symlinkCount} symlinks, ${result.push.directoryCount} directory roots, ${result.push.deletedArtifactCount} stale repository artifacts.`,
+    ...(result.push.preview.length === 0
+      ? ["Push preview: no tracked paths"]
+      : [`Push preview: ${result.push.preview.join(", ")}`]),
+    `Pull plan: ${result.pull.plainFileCount} plain files, ${result.pull.decryptedFileCount} decrypted files, ${result.pull.symlinkCount} symlinks, ${result.pull.directoryCount} directory roots, ${result.pull.deletedLocalCount} local paths.`,
+    ...(result.pull.preview.length === 0
+      ? ["Pull preview: no tracked paths"]
+      : [`Pull preview: ${result.pull.preview.join(", ")}`]),
+  ];
+
+  return ensureTrailingNewline(lines.join("\n"));
+};
+
+export const formatSyncDoctorResult = (result: SyncDoctorResult) => {
+  const counts = result.checks.reduce(
+    (accumulator, check) => {
+      accumulator[check.level] += 1;
+
+      return accumulator;
+    },
+    {
+      fail: 0,
+      ok: 0,
+      warn: 0,
+    },
+  );
+  const lines = [
+    result.hasFailures ? "Sync doctor found issues." : "Sync doctor passed.",
+    `Sync directory: ${result.syncDirectory}`,
+    `Config file: ${result.configPath}`,
+    `Summary: ${counts.ok} ok, ${counts.warn} warnings, ${counts.fail} failures.`,
+    ...result.checks.map((check) => {
+      return `[${check.level.toUpperCase()}] ${check.name}: ${check.detail}`;
+    }),
+  ];
 
   return ensureTrailingNewline(lines.join("\n"));
 };
