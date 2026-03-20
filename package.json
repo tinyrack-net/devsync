@@ -62,7 +62,10 @@
     "coverage": "vitest run --coverage",
     "check": "npm run typecheck && biome check . && npm run test",
     "check:fix": "biome check --write .",
-    "format": "biome format --write ."
+    "format": "biome format --write .",
+    "release:patch": "npm version patch -m \"chore(release): %s\"",
+    "release:minor": "npm version minor -m \"chore(release): %s\"",
+    "release:major": "npm version major -m \"chore(release): %s\""
   },
   "dependencies": {
     "@oclif/core": "^4.9.0",
