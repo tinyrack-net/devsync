@@ -3,6 +3,7 @@ import { createColors } from "picocolors";
 import { ensureTrailingNewline } from "#app/lib/string.ts";
 import type { SyncAddResult } from "#app/services/add.ts";
 import type { SyncDoctorResult } from "#app/services/doctor.ts";
+import { formatDevsyncError } from "#app/services/error.ts";
 import type { SyncForgetResult } from "#app/services/forget.ts";
 import type { SyncInitResult } from "#app/services/init.ts";
 import type { SyncListResult } from "#app/services/list.ts";
@@ -85,8 +86,8 @@ export const levelTag = (level: "fail" | "ok" | "warn") => {
   }
 };
 
-export const formatErrorMessage = (message: string) => {
-  return output(style.error(message));
+export const formatErrorMessage = (message: Error | string) => {
+  return output(...formatDevsyncError(message).split("\n").map(style.error));
 };
 
 const formatHeadline = (

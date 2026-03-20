@@ -379,7 +379,7 @@ describe("sync runtime helpers", () => {
           },
         ]),
       ),
-    ).rejects.toThrowError(/stored in plain text/u);
+    ).rejects.toThrowError(/stored as a plain artifact/u);
 
     await rm(syncDirectory, { force: true, recursive: true });
     await mkdir(join(syncDirectory, "files", "bundle"), { recursive: true });
@@ -407,7 +407,7 @@ describe("sync runtime helpers", () => {
           },
         ]),
       ),
-    ).rejects.toThrowError(/stored in secret form/u);
+    ).rejects.toThrowError(/stored as a secret artifact/u);
 
     await rm(syncDirectory, { force: true, recursive: true });
     await mkdir(
@@ -471,7 +471,7 @@ describe("sync runtime helpers", () => {
           },
         ]),
       ),
-    ).rejects.toThrowError(/Unmanaged sync path/u);
+    ).rejects.toThrowError(/not managed by the current sync configuration/u);
 
     if (process.platform !== "win32") {
       await rm(syncDirectory, { force: true, recursive: true });

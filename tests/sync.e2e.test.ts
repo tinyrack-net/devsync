@@ -360,6 +360,7 @@ describe("sync CLI e2e", () => {
 
     expect(result.exitCode).toBe(1);
     expect(result.stderr).toContain("Directory targets require --recursive");
+    expect(result.stderr).toContain("Hint: Use '--recursive'");
   });
 
   it("reports corrupted secret repository artifacts on pull", async () => {
@@ -406,6 +407,9 @@ describe("sync CLI e2e", () => {
     });
 
     expect(result.exitCode).toBe(1);
-    expect(result.stderr).not.toBe("");
+    expect(result.stderr).toContain(
+      "Failed to decrypt a secret repository artifact.",
+    );
+    expect(result.stderr).toContain("Identity file:");
   });
 });

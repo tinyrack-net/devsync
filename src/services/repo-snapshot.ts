@@ -9,7 +9,7 @@ import {
 } from "#app/config/sync.ts";
 
 import { decryptSecretFile } from "./crypto.ts";
-import { DevsyncError } from "./error.ts";
+import { DevsyncError, wrapUnknownError } from "./error.ts";
 import {
   getPathStats,
   isExecutableMode,
@@ -38,13 +38,23 @@ const readPlainSnapshotNode = async (
 
   if (findOwningSyncEntry(config, repoPath) === undefined) {
     throw new DevsyncError(
-      `Unmanaged plain sync path found in repository: ${repoPath}`,
+      "Repository contains a plain artifact for an unmanaged path.",
+      {
+        code: "UNMANAGED_SYNC_PATH",
+        details: [`Repository path: ${repoPath}`],
+        hint: "Remove the stray artifact or add the path to devsync.",
+      },
     );
   }
 
   if (mode === "secret") {
     throw new DevsyncError(
-      `Secret sync path is stored in plain text in the repository: ${repoPath}`,
+      "Secret sync path is stored as a plain artifact in the repository.",
+      {
+        code: "SECRET_STORED_PLAIN",
+        details: [`Repository path: ${repoPath}`],
+        hint: "Run 'devsync push' after fixing the secret rule so the repository artifact is re-encrypted.",
+      },
     );
   }
 
@@ -61,7 +71,12 @@ const readPlainSnapshotNode = async (
 
   if (!stats.isFile()) {
     throw new DevsyncError(
-      `Unsupported plain repository entry: ${absolutePath}`,
+      "Repository contains an unsupported plain artifact type.",
+      {
+        code: "UNSUPPORTED_REPO_ENTRY",
+        details: [`Repository path: ${repoPath}`],
+        hint: "Keep plain repository artifacts as regular files or symlinks only.",
+      },
     );
   }
 
@@ -100,7 +115,12 @@ const readRepositoryTree = async (
     if (stats.isSymbolicLink()) {
       if (isSecretArtifactPath(relativePath)) {
         throw new DevsyncError(
-          `Secret repository entries must be regular files, not symlinks: ${relativePath}`,
+          "Secret repository artifacts must be regular files, not symlinks.",
+          {
+            code: "SECRET_ARTIFACT_SYMLINK",
+            details: [`Repository path: ${relativePath}`],
+            hint: "Replace the symlink with an encrypted regular file by re-running 'devsync push'.",
+          },
         );
       }
 
@@ -112,9 +132,11 @@ const readRepositoryTree = async (
       const repoPath = stripSecretArtifactSuffix(relativePath);
 
       if (repoPath === undefined || repoPath.length === 0) {
-        throw new DevsyncError(
-          `Secret repository files must include a path before ${relativePath}`,
-        );
+        throw new DevsyncError("Secret repository artifact path is invalid.", {
+          code: "INVALID_SECRET_ARTIFACT_PATH",
+          details: [`Repository path: ${relativePath}`],
+          hint: "Secret artifacts must be stored as '<path>.devsync.secret'.",
+        });
       }
 
       assertStorageSafeRepoPath(repoPath);
@@ -122,7 +144,12 @@ const readRepositoryTree = async (
 
       if (findOwningSyncEntry(config, repoPath) === undefined) {
         throw new DevsyncError(
-          `Unmanaged secret sync path found in repository: ${repoPath}`,
+          "Repository contains a secret artifact for an unmanaged path.",
+          {
+            code: "UNMANAGED_SYNC_PATH",
+            details: [`Repository path: ${repoPath}`],
+            hint: "Remove the stray artifact or add the path to devsync.",
+          },
         );
       }
 
@@ -132,15 +159,39 @@ const readRepositoryTree = async (
 
       if (mode !== "secret") {
         throw new DevsyncError(
-          `Plain sync path is stored in secret form in the repository: ${repoPath}`,
+          "Plain sync path is stored as a secret artifact in the repository.",
+          {
+            code: "PLAIN_STORED_SECRET",
+            details: [`Repository path: ${repoPath}`],
+            hint: "Update the sync rule or run 'devsync push' so the repository storage matches the configured mode.",
+          },
+        );
+      }
+
+      let contents: Uint8Array;
+
+      try {
+        contents = await decryptSecretFile(
+          await readFile(absolutePath, "utf8"),
+          config.age.identityFile,
+        );
+      } catch (error: unknown) {
+        throw wrapUnknownError(
+          "Failed to decrypt a secret repository artifact.",
+          error,
+          {
+            code: "SECRET_ARTIFACT_DECRYPT_FAILED",
+            details: [
+              `Repository path: ${relativePath}`,
+              `Identity file: ${config.age.identityFile}`,
+            ],
+            hint: "Check that the artifact is valid age data and that the configured identity file can decrypt it.",
+          },
         );
       }
 
       addSnapshotNode(snapshot, repoPath, {
-        contents: await decryptSecretFile(
-          await readFile(absolutePath, "utf8"),
-          config.age.identityFile,
-        ),
+        contents,
         executable: isExecutableMode(stats.mode),
         secret: true,
         type: "file",
@@ -150,7 +201,12 @@ const readRepositoryTree = async (
 
     if (!stats.isFile()) {
       throw new DevsyncError(
-        `Unsupported plain repository entry: ${absolutePath}`,
+        "Repository contains an unsupported plain artifact type.",
+        {
+          code: "UNSUPPORTED_REPO_ENTRY",
+          details: [`Repository path: ${relativePath}`],
+          hint: "Keep plain repository artifacts as regular files or symlinks only.",
+        },
       );
     }
 
@@ -177,7 +233,12 @@ export const buildRepositorySnapshot = async (
 
     if (stats !== undefined && !stats.isDirectory()) {
       throw new DevsyncError(
-        `Directory sync entry is not stored as a directory in the repository: ${entry.repoPath}`,
+        "Directory sync entry is not stored as a directory in the repository.",
+        {
+          code: "DIRECTORY_ENTRY_NOT_DIRECTORY",
+          details: [`Repository path: ${entry.repoPath}`],
+          hint: "Run 'devsync push' to recreate the repository directory structure.",
+        },
       );
     }
 

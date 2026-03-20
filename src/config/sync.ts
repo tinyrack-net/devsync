@@ -95,13 +95,23 @@ export const normalizeSyncRepoPath = (value: string) => {
     normalizedValue.startsWith("/")
   ) {
     throw new DevsyncError(
-      `Repository path must be a relative POSIX path without '..': ${value}`,
+      "Repository path must be a relative POSIX path inside the repository root.",
+      {
+        code: "INVALID_REPO_PATH",
+        details: [`Repository path: ${value}`],
+        hint: "Use a relative path like '.config/tool/settings.json' without '..' segments.",
+      },
     );
   }
 
   if (hasReservedSyncArtifactSuffixSegment(normalizedValue)) {
     throw new DevsyncError(
-      `Repository path must not use the reserved suffix ${syncSecretArtifactSuffix}: ${value}`,
+      `Repository path must not use the reserved suffix ${syncSecretArtifactSuffix}.`,
+      {
+        code: "RESERVED_SECRET_SUFFIX",
+        details: [`Repository path: ${value}`],
+        hint: "Rename the path so no segment ends with the secret artifact suffix.",
+      },
     );
   }
 
@@ -123,7 +133,12 @@ export const normalizeSyncOverridePath = (
     posixValue.startsWith("/")
   ) {
     throw new DevsyncError(
-      `${description} must be a relative POSIX path without '..': ${value}`,
+      `${description} must be a relative POSIX path inside the repository root.`,
+      {
+        code: "INVALID_OVERRIDE_PATH",
+        details: [`${description}: ${value}`],
+        hint: "Use a relative child path without '..' segments.",
+      },
     );
   }
 
@@ -138,13 +153,23 @@ export const normalizeSyncOverridePath = (
     normalizedValue.startsWith("/")
   ) {
     throw new DevsyncError(
-      `${description} must be a relative POSIX path without '..': ${value}`,
+      `${description} must be a relative POSIX path inside the repository root.`,
+      {
+        code: "INVALID_OVERRIDE_PATH",
+        details: [`${description}: ${value}`],
+        hint: "Use a relative child path without '..' segments.",
+      },
     );
   }
 
   if (hasReservedSyncArtifactSuffixSegment(normalizedValue)) {
     throw new DevsyncError(
-      `${description} must not use the reserved suffix ${syncSecretArtifactSuffix}: ${value}`,
+      `${description} must not use the reserved suffix ${syncSecretArtifactSuffix}.`,
+      {
+        code: "RESERVED_SECRET_SUFFIX",
+        details: [`${description}: ${value}`],
+        hint: "Rename the path so no segment ends with the secret artifact suffix.",
+      },
     );
   }
 
@@ -290,7 +315,15 @@ const resolveSyncEntryLocalPath = (
 
   if (relativePath === "") {
     throw new DevsyncError(
-      `Sync entry local path must be inside ${homeDirectory}, not the home directory itself: ${value}`,
+      "Sync entry local path cannot be the home directory itself.",
+      {
+        code: "ENTRY_ROOT_DISALLOWED",
+        details: [
+          `Configured path: ${value}`,
+          `Home directory: ${homeDirectory}`,
+        ],
+        hint: "Track a file or subdirectory inside HOME instead.",
+      },
     );
   }
 
@@ -299,9 +332,14 @@ const resolveSyncEntryLocalPath = (
     relativePath.startsWith("..") ||
     relativePath === ".."
   ) {
-    throw new DevsyncError(
-      `Sync entry local path must be inside ${homeDirectory}: ${value}`,
-    );
+    throw new DevsyncError("Sync entry local path must stay inside HOME.", {
+      code: "ENTRY_OUTSIDE_HOME",
+      details: [
+        `Configured path: ${value}`,
+        `Home directory: ${homeDirectory}`,
+      ],
+      hint: "Use a path under HOME, such as '~/...'.",
+    });
   }
 
   return resolvedLocalPath;
@@ -327,7 +365,14 @@ const validateUniqueNames = (entries: readonly ResolvedSyncConfigEntry[]) => {
 
   for (const entry of entries) {
     if (seenNames.has(entry.name)) {
-      throw new DevsyncError(`Duplicate sync entry name: ${entry.name}`);
+      throw new DevsyncError(
+        "Duplicate sync entry name found in config.json.",
+        {
+          code: "DUPLICATE_ENTRY_NAME",
+          details: [`Entry name: ${entry.name}`],
+          hint: "Give each tracked entry a unique name.",
+        },
+      );
     }
 
     seenNames.add(entry.name);
@@ -368,7 +413,15 @@ const validatePathOverlaps = (
 
       if (overlaps) {
         throw new DevsyncError(
-          `${description} paths must not overlap: ${currentEntry.name} (${currentValue}) and ${otherEntry.name} (${otherValue})`,
+          `${description} paths must not overlap in config.json.`,
+          {
+            code: "OVERLAPPING_PATHS",
+            details: [
+              `${currentEntry.name}: ${currentValue}`,
+              `${otherEntry.name}: ${otherValue}`,
+            ],
+            hint: "Split overlapping entries so each tracked root owns a distinct path.",
+          },
         );
       }
     }
@@ -377,9 +430,11 @@ const validatePathOverlaps = (
 
 const validateOverrides = (entry: ResolvedSyncConfigEntry) => {
   if (entry.kind === "file" && entry.overrides.length > 0) {
-    throw new DevsyncError(
-      `File sync entries must not define overrides: ${entry.name}`,
-    );
+    throw new DevsyncError("File sync entries cannot define overrides.", {
+      code: "FILE_ENTRY_OVERRIDES",
+      details: [`Entry: ${entry.name}`],
+      hint: "Remove overrides or change the entry kind to 'directory'.",
+    });
   }
 
   const seenOverrides = new Set<string>();
@@ -388,9 +443,11 @@ const validateOverrides = (entry: ResolvedSyncConfigEntry) => {
     const key = formatSyncOverrideSelector(override);
 
     if (seenOverrides.has(key)) {
-      throw new DevsyncError(
-        `Duplicate sync override for ${entry.name}: ${key}`,
-      );
+      throw new DevsyncError("Duplicate sync override found in config.json.", {
+        code: "DUPLICATE_OVERRIDE",
+        details: [`Entry: ${entry.name}`, `Override: ${key}`],
+        hint: "Keep only one override selector for each path.",
+      });
     }
 
     seenOverrides.add(key);
@@ -404,7 +461,11 @@ export const parseSyncConfig = (
   const result = syncConfigSchema.safeParse(input);
 
   if (!result.success) {
-    throw new DevsyncError(formatInputIssues(result.error.issues));
+    throw new DevsyncError("Sync configuration is invalid.", {
+      code: "CONFIG_VALIDATION_FAILED",
+      details: formatInputIssues(result.error.issues).split("\n"),
+      hint: "Fix the invalid fields in config.json, then run the command again.",
+    });
   }
 
   const entries = result.data.entries.map((entry) => {
@@ -509,16 +570,24 @@ export const readSyncConfig = async (
     }
 
     if (error instanceof SyntaxError) {
-      throw new DevsyncError(
-        `Sync configuration is not valid JSON: ${error.message}`,
-      );
+      throw new DevsyncError("Sync configuration is not valid JSON.", {
+        code: "CONFIG_INVALID_JSON",
+        details: [
+          `Config file: ${resolveSyncConfigFilePath(syncDirectory)}`,
+          error.message,
+        ],
+        hint: "Fix the JSON syntax in config.json, then run the command again.",
+      });
     }
 
-    throw new DevsyncError(
-      error instanceof Error
-        ? error.message
-        : "Failed to read sync configuration.",
-    );
+    throw new DevsyncError("Failed to read sync configuration.", {
+      code: "CONFIG_READ_FAILED",
+      details: [
+        `Config file: ${resolveSyncConfigFilePath(syncDirectory)}`,
+        ...(error instanceof Error ? [error.message] : []),
+      ],
+      hint: "Run 'devsync init' if the sync repository has not been initialized yet.",
+    });
   }
 };
 
@@ -564,7 +633,15 @@ export const resolveManagedSyncMode = (
 
   if (mode === undefined) {
     throw new DevsyncError(
-      `Unmanaged sync path${context ? ` found ${context}` : ""}: ${repoPath}`,
+      "Repository path is not managed by the current sync configuration.",
+      {
+        code: "UNMANAGED_SYNC_PATH",
+        details: [
+          `Repository path: ${repoPath}`,
+          ...(context === undefined ? [] : [`Context: ${context}`]),
+        ],
+        hint: "Add the parent path to devsync, or remove stray artifacts from the sync repository.",
+      },
     );
   }
 

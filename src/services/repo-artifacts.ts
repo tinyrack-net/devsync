@@ -73,7 +73,12 @@ export const assertStorageSafeRepoPath = (repoPath: string) => {
   }
 
   throw new DevsyncError(
-    `Tracked sync paths must not use the reserved suffix ${syncSecretArtifactSuffix}: ${repoPath}`,
+    `Tracked sync paths must not use the reserved suffix ${syncSecretArtifactSuffix}.`,
+    {
+      code: "RESERVED_SECRET_SUFFIX",
+      details: [`Repository path: ${repoPath}`],
+      hint: "Rename the tracked path so no segment ends with the secret artifact suffix.",
+    },
   );
 };
 
@@ -111,9 +116,10 @@ export const buildRepoArtifacts = async (
       const key = buildArtifactKey(artifact);
 
       if (seenArtifactKeys.has(key)) {
-        throw new DevsyncError(
-          `Duplicate repository artifact generated for ${key}`,
-        );
+        throw new DevsyncError("Duplicate repository artifact was generated.", {
+          code: "DUPLICATE_REPO_ARTIFACT",
+          details: [`Artifact key: ${key}`],
+        });
       }
 
       seenArtifactKeys.add(key);
@@ -131,9 +137,10 @@ export const buildRepoArtifacts = async (
       const key = buildArtifactKey(artifact);
 
       if (seenArtifactKeys.has(key)) {
-        throw new DevsyncError(
-          `Duplicate repository artifact generated for ${key}`,
-        );
+        throw new DevsyncError("Duplicate repository artifact was generated.", {
+          code: "DUPLICATE_REPO_ARTIFACT",
+          details: [`Artifact key: ${key}`],
+        });
       }
 
       seenArtifactKeys.add(key);
@@ -152,9 +159,10 @@ export const buildRepoArtifacts = async (
       const key = buildArtifactKey(artifact);
 
       if (seenArtifactKeys.has(key)) {
-        throw new DevsyncError(
-          `Duplicate repository artifact generated for ${key}`,
-        );
+        throw new DevsyncError("Duplicate repository artifact was generated.", {
+          code: "DUPLICATE_REPO_ARTIFACT",
+          details: [`Artifact key: ${key}`],
+        });
       }
 
       seenArtifactKeys.add(key);
@@ -172,9 +180,10 @@ export const buildRepoArtifacts = async (
     const key = buildArtifactKey(artifact);
 
     if (seenArtifactKeys.has(key)) {
-      throw new DevsyncError(
-        `Duplicate repository artifact generated for ${key}`,
-      );
+      throw new DevsyncError("Duplicate repository artifact was generated.", {
+        code: "DUPLICATE_REPO_ARTIFACT",
+        details: [`Artifact key: ${key}`],
+      });
     }
 
     seenArtifactKeys.add(key);

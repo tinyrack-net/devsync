@@ -47,24 +47,92 @@ describe("CLI e2e", () => {
   });
 
   it("shows help for flat sync commands", async () => {
-    const [addHelp, cdHelp, forgetHelp, initHelp, pullHelp, pushHelp, setHelp] =
-      await Promise.all([
-        runCli(["add", "--help"]),
-        runCli(["cd", "--help"]),
-        runCli(["forget", "--help"]),
-        runCli(["init", "--help"]),
-        runCli(["pull", "--help"]),
-        runCli(["push", "--help"]),
-        runCli(["set", "--help"]),
-      ]);
+    const [
+      addHelp,
+      cdHelp,
+      doctorHelp,
+      forgetHelp,
+      initHelp,
+      listHelp,
+      pullHelp,
+      pushHelp,
+      setHelp,
+      statusHelp,
+    ] = await Promise.all([
+      runCli(["add", "--help"]),
+      runCli(["cd", "--help"]),
+      runCli(["doctor", "--help"]),
+      runCli(["forget", "--help"]),
+      runCli(["init", "--help"]),
+      runCli(["list", "--help"]),
+      runCli(["pull", "--help"]),
+      runCli(["push", "--help"]),
+      runCli(["set", "--help"]),
+      runCli(["status", "--help"]),
+    ]);
 
     expect(addHelp.stdout).toContain("$ devsync add TARGET");
+    expect(addHelp.stdout).toContain("EXAMPLES");
+    expect(addHelp.stdout).toContain("$ devsync add ~/.gitconfig");
+    expect(addHelp.stdout).toContain("FLAG DESCRIPTIONS");
+    expect(addHelp.stdout).toContain(
+      "Mark the added file or directory as secret immediately",
+    );
+
     expect(cdHelp.stdout).toContain("$ devsync cd");
+    expect(cdHelp.stdout).toContain("$ devsync cd --print");
+    expect(cdHelp.stdout).toContain(
+      "Write the sync directory path to stdout and exit",
+    );
+
+    expect(doctorHelp.stdout).toContain("$ devsync doctor");
+    expect(doctorHelp.stdout).toContain(
+      "Run health checks for the local sync setup",
+    );
+
     expect(forgetHelp.stdout).toContain("$ devsync forget TARGET");
+    expect(forgetHelp.stdout).toContain("$ devsync forget ~/.gitconfig");
+
     expect(initHelp.stdout).toContain("$ devsync init [REPOSITORY]");
+    expect(initHelp.stdout).toContain(
+      "$ devsync init https://example.com/my-sync-repo.git",
+    );
+    expect(initHelp.stdout).toContain(
+      '--identity "$XDG_CONFIG_HOME/devsync/age/keys.txt" --recipient age1...',
+    );
+    expect(initHelp.stdout).toContain("FLAG DESCRIPTIONS");
+    expect(initHelp.stdout).toContain("Repeat this flag to encrypt");
+
+    expect(listHelp.stdout).toContain("$ devsync list");
+    expect(listHelp.stdout).toContain(
+      "Print the current devsync configuration",
+    );
+
     expect(pullHelp.stdout).toContain("$ devsync pull");
+    expect(pullHelp.stdout).toContain("$ devsync pull --dry-run");
+    expect(pullHelp.stdout).toContain(
+      "Show which local files and directories devsync would create",
+    );
+
     expect(pushHelp.stdout).toContain("$ devsync push");
+    expect(pushHelp.stdout).toContain("$ devsync push --dry-run");
+    expect(pushHelp.stdout).toContain(
+      "Show which repository files devsync would create",
+    );
+
     expect(setHelp.stdout).toContain("$ devsync set STATE TARGET");
+    expect(setHelp.stdout).toContain(
+      "$ devsync set ignore ~/.config/mytool/cache --recursive",
+    );
+    expect(setHelp.stdout).toContain("FLAG DESCRIPTIONS");
+    expect(setHelp.stdout).toContain(
+      "When the target is a directory, update the whole subtree",
+    );
+
+    expect(statusHelp.stdout).toContain("$ devsync status");
+    expect(statusHelp.stdout).toContain(
+      "Compare the tracked local files with the sync",
+    );
   });
 
   it("returns a non-zero exit code for removed command surfaces", async () => {

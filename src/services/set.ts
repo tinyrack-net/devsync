@@ -61,7 +61,11 @@ const resolveTargetPath = async (
     const stats = await getPathStats(localPath);
 
     if (stats === undefined) {
-      throw new DevsyncError(`Sync set target does not exist: ${localPath}`);
+      throw new DevsyncError("Sync set target does not exist.", {
+        code: "TARGET_NOT_FOUND",
+        details: [`Target: ${localPath}`],
+        hint: "Use an existing local path, or pass a repository path inside a tracked directory.",
+      });
     }
 
     return {
@@ -79,7 +83,12 @@ const resolveTargetPath = async (
 
   if (repoPath === undefined) {
     throw new DevsyncError(
-      `Sync set target must be a local path or repository path: ${target}`,
+      "Sync set target is not a valid local or repository path.",
+      {
+        code: "INVALID_SET_TARGET",
+        details: [`Target: ${target}`],
+        hint: "Use an absolute path, a cwd-relative path, or a repository path like '.config/tool/file.json'.",
+      },
     );
   }
 
@@ -104,7 +113,10 @@ const resolveSetTarget = async (
   const trimmedTarget = target.trim();
 
   if (trimmedTarget.length === 0) {
-    throw new DevsyncError("Target path is required.");
+    throw new DevsyncError("Target path is required.", {
+      code: "TARGET_REQUIRED",
+      hint: "Pass a local path or repository path after the mode, for example 'devsync set secret ~/.ssh/id_ed25519'.",
+    });
   }
 
   const homeDirectory = context.paths.homeDirectory;
@@ -126,12 +138,30 @@ const resolveSetTarget = async (
     const localStats = await getPathStats(localTargetPath);
 
     if (explicitLocalPath && localStats === undefined) {
-      throw new DevsyncError(
-        `Sync set target does not exist: ${localTargetPath}`,
-      );
+      throw new DevsyncError("Sync set target does not exist.", {
+        code: "TARGET_NOT_FOUND",
+        details: [`Target: ${localTargetPath}`],
+        hint: "Use an existing local path, or pass a repository path inside a tracked directory.",
+      });
     }
 
     const entry = findOwningSyncEntry(config, localRepoPath);
+
+    if (
+      explicitLocalPath &&
+      entry !== undefined &&
+      entry.kind === "file" &&
+      entry.localPath === localTargetPath
+    ) {
+      throw new DevsyncError(
+        "Tracked file entries cannot be updated with 'devsync set'.",
+        {
+          code: "FILE_ENTRY_SET_UNSUPPORTED",
+          details: [`Target: ${trimmedTarget}`],
+          hint: "Use 'devsync add --secret' when first tracking a file, or forget and re-add it with the desired mode.",
+        },
+      );
+    }
 
     if (entry?.kind === "directory") {
       const relativePath = resolveEntryRelativeRepoPath(entry, localRepoPath);
@@ -149,7 +179,12 @@ const resolveSetTarget = async (
 
     if (explicitLocalPath) {
       throw new DevsyncError(
-        `Sync set target must be inside a tracked directory entry: ${trimmedTarget}`,
+        "Local set target is not inside a tracked directory entry.",
+        {
+          code: "TARGET_NOT_TRACKED",
+          details: [`Target: ${trimmedTarget}`],
+          hint: "Add the parent directory with 'devsync add' first, then apply nested rules with 'devsync set'.",
+        },
       );
     }
   }
@@ -158,7 +193,12 @@ const resolveSetTarget = async (
 
   if (repoPath === undefined) {
     throw new DevsyncError(
-      `Sync set target must be a local path or repository path: ${trimmedTarget}`,
+      "Sync set target is not a valid local or repository path.",
+      {
+        code: "INVALID_SET_TARGET",
+        details: [`Target: ${trimmedTarget}`],
+        hint: "Use an absolute path, a cwd-relative path, or a repository path like '.config/tool/file.json'.",
+      },
     );
   }
 
@@ -166,7 +206,12 @@ const resolveSetTarget = async (
 
   if (entry === undefined || entry.kind !== "directory") {
     throw new DevsyncError(
-      `Sync set target must be inside a tracked directory entry: ${trimmedTarget}`,
+      "Repository set target is not inside a tracked directory entry.",
+      {
+        code: "TARGET_NOT_TRACKED",
+        details: [`Target: ${trimmedTarget}`],
+        hint: "Use a repository path under an existing tracked directory, or add the parent directory first.",
+      },
     );
   }
 
@@ -178,7 +223,12 @@ const resolveSetTarget = async (
 
   if (relativePath === undefined) {
     throw new DevsyncError(
-      `Sync set target must be inside a tracked directory entry: ${trimmedTarget}`,
+      "Repository set target is not inside a tracked directory entry.",
+      {
+        code: "TARGET_NOT_TRACKED",
+        details: [`Target: ${trimmedTarget}`],
+        hint: "Use a repository path under an existing tracked directory, or add the parent directory first.",
+      },
     );
   }
 
@@ -294,9 +344,11 @@ export const setSyncTargetMode = async (
 
   if (target.relativePath === "") {
     if (!request.recursive) {
-      throw new DevsyncError(
-        "Tracked directory roots require --recursive to update the entry mode.",
-      );
+      throw new DevsyncError("Tracked directory roots require --recursive.", {
+        code: "RECURSIVE_REQUIRED",
+        details: [`Target: ${target.localPath}`],
+        hint: `Rerun with '--recursive' to change the default mode for ${target.entry.repoPath}.`,
+      });
     }
 
     const update = updateEntryMode(target.entry, request.state);
@@ -331,9 +383,11 @@ export const setSyncTargetMode = async (
   }
 
   if (target.stats?.isDirectory() && !request.recursive) {
-    throw new DevsyncError(
-      "Directory targets require --recursive. Use a file path for exact overrides.",
-    );
+    throw new DevsyncError("Directory targets require --recursive.", {
+      code: "RECURSIVE_REQUIRED",
+      details: [`Target: ${target.localPath}`],
+      hint: "Use '--recursive' for subtree rules, or point at a file for an exact override.",
+    });
   }
 
   if (
@@ -343,6 +397,11 @@ export const setSyncTargetMode = async (
   ) {
     throw new DevsyncError(
       "--recursive can only be used with directories or tracked directory roots.",
+      {
+        code: "RECURSIVE_INVALID",
+        details: [`Target: ${target.localPath}`],
+        hint: "Remove '--recursive' when setting the mode for a single file.",
+      },
     );
   }
 

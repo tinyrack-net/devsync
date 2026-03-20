@@ -104,6 +104,50 @@ describe("init service", () => {
           environment: createEnvironment(homeDirectory, xdgConfigHome),
         }),
       ),
-    ).rejects.toThrowError(/already exists and is not empty/u);
+    ).rejects.toThrowError(/Sync directory already exists and is not empty/u);
+    await expect(
+      initializeSync(
+        {
+          identityFile: "$XDG_CONFIG_HOME/devsync/age/keys.txt",
+          recipients: [ageKeys.recipient],
+        },
+        createSyncContext({
+          environment: createEnvironment(homeDirectory, xdgConfigHome),
+        }),
+      ),
+    ).rejects.toMatchObject({
+      details: expect.arrayContaining([`Sync directory: ${syncDirectory}`]),
+    });
+  });
+
+  it("rejects recipient mismatches against an existing config", async () => {
+    const workspace = await createWorkspace();
+    const homeDirectory = join(workspace, "home");
+    const xdgConfigHome = join(workspace, "xdg");
+    const ageKeys = await createAgeKeyPair();
+
+    await writeIdentityFile(xdgConfigHome, ageKeys.identity);
+
+    const context = createSyncContext({
+      environment: createEnvironment(homeDirectory, xdgConfigHome),
+    });
+
+    await initializeSync(
+      {
+        identityFile: "$XDG_CONFIG_HOME/devsync/age/keys.txt",
+        recipients: [ageKeys.recipient],
+      },
+      context,
+    );
+
+    await expect(
+      initializeSync(
+        {
+          identityFile: "$XDG_CONFIG_HOME/devsync/age/keys.txt",
+          recipients: ["age1differentrecipient"],
+        },
+        context,
+      ),
+    ).rejects.toThrowError(/different age recipients/u);
   });
 });

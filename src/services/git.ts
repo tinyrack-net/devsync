@@ -1,7 +1,7 @@
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 
-import { DevsyncError } from "./error.ts";
+import { wrapUnknownError } from "./error.ts";
 
 const execFileAsync = promisify(execFile);
 
@@ -65,10 +65,10 @@ export const ensureGitRepository = async (syncDirectory: string) => {
   try {
     await ensureRepository(syncDirectory);
   } catch (error: unknown) {
-    throw new DevsyncError(
-      error instanceof Error
-        ? `Sync directory is not a git repository: ${error.message}`
-        : "Sync directory is not a git repository.",
-    );
+    throw wrapUnknownError("Sync repository is not initialized.", error, {
+      code: "SYNC_REPO_INVALID",
+      details: [`Sync directory: ${syncDirectory}`],
+      hint: "Run 'devsync init' to create or clone the sync repository.",
+    });
   }
 };

@@ -174,7 +174,12 @@ export const buildEntryMaterialization = (
 
     if (node.type === "directory") {
       throw new DevsyncError(
-        `File sync entry resolves to a directory in the repository: ${entry.repoPath}`,
+        "File sync entry resolves to a directory in the repository.",
+        {
+          code: "FILE_ENTRY_RESOLVES_DIRECTORY",
+          details: [`Repository path: ${entry.repoPath}`],
+          hint: "Run 'devsync push' or fix the repository so this path is stored as a file.",
+        },
       );
     }
 
@@ -189,7 +194,12 @@ export const buildEntryMaterialization = (
 
   if (rootNode !== undefined && rootNode.type !== "directory") {
     throw new DevsyncError(
-      `Directory sync entry resolves to a file in the repository: ${entry.repoPath}`,
+      "Directory sync entry resolves to a file in the repository.",
+      {
+        code: "DIRECTORY_ENTRY_RESOLVES_FILE",
+        details: [`Repository path: ${entry.repoPath}`],
+        hint: "Run 'devsync push' or fix the repository so this path is stored as a directory.",
+      },
     );
   }
 

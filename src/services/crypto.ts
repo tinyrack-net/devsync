@@ -10,6 +10,7 @@ import {
 } from "age-encryption";
 
 import { ensureTrailingNewline } from "#app/lib/string.ts";
+import { DevsyncError, wrapUnknownError } from "#app/services/error.ts";
 
 export const readAgeIdentityLines = async (identityFile: string) => {
   const contents = await readFile(identityFile, "utf8");
@@ -21,7 +22,14 @@ export const readAgeIdentityLines = async (identityFile: string) => {
     });
 
   if (identities.length === 0) {
-    throw new Error(`No age identities found in ${identityFile}`);
+    throw new DevsyncError(
+      "No age identities were found in the configured identity file.",
+      {
+        code: "AGE_IDENTITY_EMPTY",
+        details: [`Identity file: ${identityFile}`],
+        hint: "Add at least one age private key to the identity file, or run 'devsync init' to generate one.",
+      },
+    );
   }
 
   return identities;
@@ -31,11 +39,25 @@ export const readAgeRecipientsFromIdentityFile = async (
   identityFile: string,
 ) => {
   const identities = await readAgeIdentityLines(identityFile);
-  const recipients = await Promise.all(
-    identities.map(async (identity) => {
-      return await identityToRecipient(identity);
-    }),
-  );
+  let recipients: string[];
+
+  try {
+    recipients = await Promise.all(
+      identities.map(async (identity) => {
+        return await identityToRecipient(identity);
+      }),
+    );
+  } catch (error: unknown) {
+    throw wrapUnknownError(
+      "Failed to read age recipients from the configured identity file.",
+      error,
+      {
+        code: "AGE_RECIPIENT_READ_FAILED",
+        details: [`Identity file: ${identityFile}`],
+        hint: "Check that the identity file contains valid age private keys.",
+      },
+    );
+  }
 
   return [...new Set(recipients)];
 };
@@ -79,5 +101,13 @@ export const decryptSecretFile = async (
     decrypter.addIdentity(identity);
   }
 
-  return await decrypter.decrypt(armor.decode(armoredCiphertext));
+  try {
+    return await decrypter.decrypt(armor.decode(armoredCiphertext));
+  } catch (error: unknown) {
+    throw wrapUnknownError("Failed to decrypt a secret artifact.", error, {
+      code: "AGE_DECRYPT_FAILED",
+      details: [`Identity file: ${identityFile}`],
+      hint: "Check that the artifact is valid age data and that the configured identity file matches one of its recipients.",
+    });
+  }
 };

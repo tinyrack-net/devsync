@@ -58,6 +58,26 @@ describe("output primitives", () => {
       "Directory targets require --recursive\n",
     );
   });
+
+  it("formats structured error messages with details and hints", async () => {
+    const { DevsyncError } = await import("#app/services/error.ts");
+
+    expect(
+      formatErrorMessage(
+        new DevsyncError("Sync target does not exist.", {
+          details: ["Target: /tmp/home/.zshrc"],
+          hint: "Create the file first.",
+        }),
+      ),
+    ).toBe(
+      [
+        "Sync target does not exist.",
+        "Target: /tmp/home/.zshrc",
+        "Hint: Create the file first.",
+        "",
+      ].join("\n"),
+    );
+  });
 });
 
 describe("sync output formatting", () => {

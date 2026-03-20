@@ -56,7 +56,12 @@ export const buildRepoPathWithinRoot = (
 
   if (relativePath === "") {
     throw new DevsyncError(
-      `${description} must be inside ${rootPath}, not the root itself: ${absolutePath}`,
+      `${description} resolves to the root directory, which cannot be tracked directly.`,
+      {
+        code: "TARGET_ROOT_DISALLOWED",
+        details: [`Target: ${absolutePath}`, `Root: ${rootPath}`],
+        hint: `Choose a file or subdirectory inside ${rootPath}.`,
+      },
     );
   }
 
@@ -66,7 +71,12 @@ export const buildRepoPathWithinRoot = (
     relativePath === ".."
   ) {
     throw new DevsyncError(
-      `${description} must be inside ${rootPath}: ${absolutePath}`,
+      `${description} must stay inside the configured home root.`,
+      {
+        code: "TARGET_OUTSIDE_ROOT",
+        details: [`Target: ${absolutePath}`, `Allowed root: ${rootPath}`],
+        hint: `Use a path inside ${rootPath}.`,
+      },
     );
   }
 

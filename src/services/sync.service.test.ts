@@ -6,7 +6,6 @@ import { afterEach, describe, expect, it } from "vitest";
 import { syncSecretArtifactSuffix } from "#app/config/sync.ts";
 import { addSyncTarget } from "#app/services/add.ts";
 import { runSyncDoctor } from "#app/services/doctor.ts";
-import { DevsyncError } from "#app/services/error.ts";
 import { forgetSyncTarget } from "#app/services/forget.ts";
 import { initializeSync } from "#app/services/init.ts";
 import { listSyncConfig } from "#app/services/list.ts";
@@ -206,6 +205,48 @@ describe("sync service", () => {
     ]);
     expect("ignoreGlobs" in config).toBe(false);
     expect("secretGlobs" in config).toBe(false);
+  });
+
+  it("explains conflicting add targets with requested and existing paths", async () => {
+    const workspace = await createWorkspace();
+    const homeDirectory = join(workspace, "home");
+    const xdgConfigHome = join(workspace, "xdg");
+    const bundleDirectory = join(homeDirectory, "bundle");
+    const nestedFile = join(bundleDirectory, "token.txt");
+    const ageKeys = await createAgeKeyPair();
+
+    await writeIdentityFile(xdgConfigHome, ageKeys.identity);
+    await mkdir(bundleDirectory, { recursive: true });
+    await writeFile(nestedFile, "secret\n");
+
+    const context = createSyncContext({
+      environment: createSyncEnvironment(homeDirectory, xdgConfigHome),
+    });
+
+    await initializeSync(
+      {
+        identityFile: "$XDG_CONFIG_HOME/devsync/age/keys.txt",
+        recipients: [ageKeys.recipient],
+      },
+      context,
+    );
+    await addSyncTarget(
+      {
+        secret: false,
+        target: bundleDirectory,
+      },
+      context,
+    );
+
+    await expect(
+      addSyncTarget(
+        {
+          secret: false,
+          target: nestedFile,
+        },
+        context,
+      ),
+    ).rejects.toThrowError(/conflicts with an existing tracked entry/u);
   });
 
   it("sets exact rules, subtree rules, and removes redundant normal overrides", async () => {
@@ -682,7 +723,7 @@ describe("sync service", () => {
         },
         context,
       ),
-    ).rejects.toThrowError(DevsyncError);
+    ).rejects.toThrowError(/Directory targets require --recursive/u);
     await expect(
       setSyncTargetMode(
         {
@@ -692,7 +733,7 @@ describe("sync service", () => {
         },
         context,
       ),
-    ).rejects.toThrowError(DevsyncError);
+    ).rejects.toThrowError(/cannot be updated with 'devsync set'/u);
   });
 
   it("supports repo-path sync set for missing descendants and reports update transitions", async () => {
@@ -1023,7 +1064,7 @@ describe("sync service", () => {
         },
         context,
       ),
-    ).rejects.toThrowError();
+    ).rejects.toThrowError(/Failed to decrypt a secret repository artifact/u);
   });
 
   it("lists tracked entries with overrides", async () => {

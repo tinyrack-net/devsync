@@ -16,7 +16,7 @@ import {
   createAgeIdentityFile,
   readAgeRecipientsFromIdentityFile,
 } from "./crypto.ts";
-import { DevsyncError } from "./error.ts";
+import { DevsyncError, wrapUnknownError } from "./error.ts";
 import { pathExists } from "./filesystem.ts";
 import { ensureRepository, initializeRepository } from "./git.ts";
 import { ensureSyncRepository, type SyncContext } from "./runtime.ts";
@@ -112,7 +112,15 @@ const assertInitRequestMatchesConfig = (
       JSON.stringify(normalizeRecipients(config.age.recipients))
   ) {
     throw new DevsyncError(
-      "Sync configuration already exists with different recipients.",
+      "Sync configuration already exists with different age recipients.",
+      {
+        code: "INIT_RECIPIENT_MISMATCH",
+        details: [
+          `Requested recipients: ${recipients.join(", ") || "(none)"}`,
+          `Configured recipients: ${normalizeRecipients(config.age.recipients).join(", ")}`,
+        ],
+        hint: "Use the existing recipients, or update config.json manually if you intend to rotate recipients.",
+      },
     );
   }
 
@@ -130,7 +138,15 @@ const assertInitRequestMatchesConfig = (
 
   if (resolvedIdentity !== config.age.identityFile) {
     throw new DevsyncError(
-      "Sync configuration already exists with a different identity file.",
+      "Sync configuration already exists with a different age identity file.",
+      {
+        code: "INIT_IDENTITY_MISMATCH",
+        details: [
+          `Requested identity file: ${resolvedIdentity}`,
+          `Configured identity file: ${config.age.identityFile}`,
+        ],
+        hint: "Reuse the configured identity file, or update config.json before re-running init.",
+      },
     );
   }
 };
@@ -179,15 +195,45 @@ export const initializeSync = async (
 
       if (entries.length > 0) {
         throw new DevsyncError(
-          `Sync directory already exists and is not empty: ${syncDirectory}`,
+          "Sync directory already exists and is not empty.",
+          {
+            code: "SYNC_DIR_NOT_EMPTY",
+            details: [`Sync directory: ${syncDirectory}`],
+            hint: "Empty the directory, remove it, or point init at a different repository source.",
+          },
         );
       }
     }
 
-    const gitResult = await initializeRepository(
-      syncDirectory,
-      request.repository?.trim() || undefined,
-    );
+    const gitSourceInput = request.repository?.trim() || undefined;
+    let gitResult: Awaited<ReturnType<typeof initializeRepository>>;
+
+    try {
+      gitResult = await initializeRepository(syncDirectory, gitSourceInput);
+    } catch (error: unknown) {
+      throw wrapUnknownError(
+        gitSourceInput === undefined
+          ? "Failed to initialize the sync repository."
+          : "Failed to clone the sync repository.",
+        error,
+        {
+          code:
+            gitSourceInput === undefined
+              ? "SYNC_INIT_GIT_FAILED"
+              : "SYNC_CLONE_FAILED",
+          details: [
+            `Sync directory: ${syncDirectory}`,
+            ...(gitSourceInput === undefined
+              ? []
+              : [`Repository source: ${gitSourceInput}`]),
+          ],
+          hint:
+            gitSourceInput === undefined
+              ? "Check that git is installed and the sync directory is writable."
+              : "Check that the repository source is reachable and you have access to it.",
+        },
+      );
+    }
 
     gitAction = gitResult.action;
     gitSource = gitResult.source;

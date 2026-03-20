@@ -200,7 +200,7 @@ describe("parseSyncConfig", () => {
           HOME: testHomeDirectory,
         },
       );
-    }).toThrowError(DevsyncError);
+    }).toThrowError(/must stay inside HOME/u);
   });
 
   it("rejects XDG tokens for sync entry local paths", () => {
@@ -227,7 +227,7 @@ describe("parseSyncConfig", () => {
           XDG_CONFIG_HOME: testXdgConfigHome,
         },
       );
-    }).toThrowError(DevsyncError);
+    }).toThrowError(/must be absolute or start with ~/u);
   });
 
   it("rejects unsupported glob fields", () => {

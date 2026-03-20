@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 
-import { DevsyncError } from "#app/services/error.ts";
 import {
   buildConfiguredHomeLocalPath,
   buildDirectoryKey,
@@ -59,10 +58,10 @@ describe("path helpers", () => {
   it("rejects root and out-of-root repository paths", () => {
     expect(() => {
       buildRepoPathWithinRoot("/tmp/home", "/tmp/home", "Sync target");
-    }).toThrowError(DevsyncError);
+    }).toThrowError(/root directory/u);
     expect(() => {
       buildRepoPathWithinRoot("/tmp/elsewhere", "/tmp/home", "Sync target");
-    }).toThrowError(DevsyncError);
+    }).toThrowError(/must stay inside the configured home root/u);
   });
 
   it("returns undefined from tolerant helpers for invalid inputs", () => {

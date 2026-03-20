@@ -60,7 +60,7 @@ describe("sync crypto helpers", () => {
     await writeFile(identityFile, "\n# comment only\n\n", "utf8");
 
     await expect(readAgeIdentityLines(identityFile)).rejects.toThrowError(
-      /No age identities found/u,
+      /No age identities were found/u,
     );
   });
 

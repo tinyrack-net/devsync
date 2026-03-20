@@ -5,6 +5,7 @@ import {
   writeStderr,
   writeStdout,
 } from "#app/lib/output.ts";
+import { formatDevsyncError } from "#app/services/error.ts";
 
 type CommandError = Error & {
   exitCode?: number;
@@ -22,13 +23,13 @@ export abstract class BaseCommand extends Command {
     writeStdout(output);
   }
 
-  protected printError(message: string) {
+  protected printError(message: Error | string) {
     writeStderr(formatErrorMessage(message));
   }
 
   public override async catch(error: CommandError): Promise<unknown> {
     if (error instanceof Error) {
-      this.printError(error.message);
+      this.printError(formatDevsyncError(error));
       this.exit(resolveExitCode(error));
 
       return;

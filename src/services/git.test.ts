@@ -78,6 +78,6 @@ describe("git helpers", () => {
     ).rejects.toThrowError(DevsyncError);
     await expect(
       ensureGitRepository(missingRepositoryPath),
-    ).rejects.toThrowError(/Sync directory is not a git repository/u);
+    ).rejects.toThrowError(/Sync repository is not initialized/u);
   });
 });

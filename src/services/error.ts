@@ -1,6 +1,54 @@
+export type DevsyncErrorOptions = Readonly<{
+  code?: string;
+  details?: readonly string[];
+  hint?: string;
+}>;
+
+const compactLines = (lines: readonly (string | undefined)[]) => {
+  return lines.filter((line): line is string => {
+    return typeof line === "string" && line.trim().length > 0;
+  });
+};
+
 export class DevsyncError extends Error {
-  public constructor(message: string) {
+  public readonly code?: string;
+  public readonly details: readonly string[];
+  public readonly hint?: string;
+
+  public constructor(message: string, options: DevsyncErrorOptions = {}) {
     super(message);
     this.name = "DevsyncError";
+    this.code = options.code;
+    this.details = options.details ?? [];
+    this.hint = options.hint;
   }
 }
+
+export const formatDevsyncError = (error: DevsyncError | Error | string) => {
+  if (typeof error === "string") {
+    return error;
+  }
+
+  if (!(error instanceof DevsyncError)) {
+    return error.message;
+  }
+
+  return compactLines([
+    error.message,
+    ...error.details,
+    error.hint === undefined ? undefined : `Hint: ${error.hint}`,
+  ]).join("\n");
+};
+
+export const wrapUnknownError = (
+  message: string,
+  error: unknown,
+  options: DevsyncErrorOptions = {},
+) => {
+  const detail = error instanceof Error ? error.message.trim() : String(error);
+
+  return new DevsyncError(message, {
+    ...options,
+    details: compactLines([...(options.details ?? []), detail]),
+  });
+};
