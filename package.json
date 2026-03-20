@@ -7,11 +7,11 @@
   "author": "winetree94",
   "repository": {
     "type": "git",
-    "url": "https://git.winetree94.com/winetree94/devsync.git"
+    "url": "git+https://github.com/tinyrack-net/devsync.git"
   },
-  "homepage": "https://git.winetree94.com/winetree94/devsync",
+  "homepage": "https://github.com/tinyrack-net/devsync#readme",
   "bugs": {
-    "url": "https://git.winetree94.com/winetree94/devsync/issues"
+    "url": "https://github.com/tinyrack-net/devsync/issues"
   },
   "publishConfig": {
     "access": "public"

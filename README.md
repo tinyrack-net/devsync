@@ -53,6 +53,19 @@ If you want the `devsync` command available from this checkout during developmen
 npm link
 ```
 
+## Release
+
+- CI runs on every push and pull request with `npm run check` on Node.js 24.
+- npm publishing runs automatically when a Git tag matching `v*.*.*` is pushed.
+- The release workflow uses npm Trusted Publishing, so npm access is granted through GitHub Actions OIDC instead of an `NPM_TOKEN` secret.
+
+Typical release flow:
+
+```bash
+npm version patch
+git push --follow-tags
+```
+
 ## Storage Layout
 
 - Sync repo: `~/.config/devsync/sync`
