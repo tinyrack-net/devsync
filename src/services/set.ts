@@ -5,6 +5,7 @@ import {
   type ResolvedSyncConfigEntry,
   type ResolvedSyncOverride,
   readSyncConfig,
+  resolveEntryRelativeRepoPath,
   resolveRelativeSyncMode,
   type SyncMode,
 } from "#app/config/sync.ts";
@@ -15,7 +16,8 @@ import {
   sortSyncConfigEntries,
   writeValidatedSyncConfig,
 } from "./config-file.ts";
-import { SyncError } from "./error.ts";
+import { DevsyncError } from "./error.ts";
+import { getPathStats } from "./filesystem.ts";
 import {
   buildRepoPathWithinRoot,
   isExplicitLocalPath,
@@ -24,7 +26,6 @@ import {
   tryNormalizeRepoPathInput,
 } from "./paths.ts";
 import { ensureSyncRepository, type SyncContext } from "./runtime.ts";
-import { runSyncUseCase } from "./use-case.ts";
 
 export type SyncSetRequest = Readonly<{
   recursive: boolean;
@@ -46,29 +47,10 @@ export type SyncSetResult = Readonly<{
   syncDirectory: string;
 }>;
 
-const resolveEntryRelativeRepoPath = (
-  entry: Pick<ResolvedSyncConfigEntry, "kind" | "repoPath">,
-  repoPath: string,
-) => {
-  if (entry.kind === "file") {
-    return repoPath === entry.repoPath ? "" : undefined;
-  }
-
-  if (repoPath === entry.repoPath) {
-    return "";
-  }
-
-  if (!repoPath.startsWith(`${entry.repoPath}/`)) {
-    return undefined;
-  }
-
-  return repoPath.slice(entry.repoPath.length + 1);
-};
-
 const resolveTargetPath = async (
   target: string,
   entry: ResolvedSyncConfigEntry,
-  context: Pick<SyncContext, "cwd" | "environment" | "paths" | "ports">,
+  context: Pick<SyncContext, "cwd" | "environment" | "paths">,
 ) => {
   if (isExplicitLocalPath(target)) {
     const localPath = resolveCommandTargetPath(
@@ -76,10 +58,10 @@ const resolveTargetPath = async (
       context.environment,
       context.cwd,
     );
-    const stats = await context.ports.filesystem.getPathStats(localPath);
+    const stats = await getPathStats(localPath);
 
     if (stats === undefined) {
-      throw new SyncError(`Sync set target does not exist: ${localPath}`);
+      throw new DevsyncError(`Sync set target does not exist: ${localPath}`);
     }
 
     return {
@@ -96,7 +78,7 @@ const resolveTargetPath = async (
   const repoPath = tryNormalizeRepoPathInput(target);
 
   if (repoPath === undefined) {
-    throw new SyncError(
+    throw new DevsyncError(
       `Sync set target must be a local path or repository path: ${target}`,
     );
   }
@@ -110,19 +92,19 @@ const resolveTargetPath = async (
   return {
     localPath,
     repoPath,
-    stats: await context.ports.filesystem.getPathStats(localPath),
+    stats: await getPathStats(localPath),
   };
 };
 
 const resolveSetTarget = async (
   target: string,
   config: Awaited<ReturnType<typeof readSyncConfig>>,
-  context: Pick<SyncContext, "cwd" | "environment" | "paths" | "ports">,
+  context: Pick<SyncContext, "cwd" | "environment" | "paths">,
 ) => {
   const trimmedTarget = target.trim();
 
   if (trimmedTarget.length === 0) {
-    throw new SyncError("Target path is required.");
+    throw new DevsyncError("Target path is required.");
   }
 
   const homeDirectory = context.paths.homeDirectory;
@@ -141,11 +123,12 @@ const resolveSetTarget = async (
       );
 
   if (localRepoPath !== undefined) {
-    const localStats =
-      await context.ports.filesystem.getPathStats(localTargetPath);
+    const localStats = await getPathStats(localTargetPath);
 
     if (explicitLocalPath && localStats === undefined) {
-      throw new SyncError(`Sync set target does not exist: ${localTargetPath}`);
+      throw new DevsyncError(
+        `Sync set target does not exist: ${localTargetPath}`,
+      );
     }
 
     const entry = findOwningSyncEntry(config, localRepoPath);
@@ -165,7 +148,7 @@ const resolveSetTarget = async (
     }
 
     if (explicitLocalPath) {
-      throw new SyncError(
+      throw new DevsyncError(
         `Sync set target must be inside a tracked directory entry: ${trimmedTarget}`,
       );
     }
@@ -174,7 +157,7 @@ const resolveSetTarget = async (
   const repoPath = tryNormalizeRepoPathInput(trimmedTarget);
 
   if (repoPath === undefined) {
-    throw new SyncError(
+    throw new DevsyncError(
       `Sync set target must be a local path or repository path: ${trimmedTarget}`,
     );
   }
@@ -182,7 +165,7 @@ const resolveSetTarget = async (
   const entry = findOwningSyncEntry(config, repoPath);
 
   if (entry === undefined || entry.kind !== "directory") {
-    throw new SyncError(
+    throw new DevsyncError(
       `Sync set target must be inside a tracked directory entry: ${trimmedTarget}`,
     );
   }
@@ -194,7 +177,7 @@ const resolveSetTarget = async (
   );
 
   if (relativePath === undefined) {
-    throw new SyncError(
+    throw new DevsyncError(
       `Sync set target must be inside a tracked directory entry: ${trimmedTarget}`,
     );
   }
@@ -301,80 +284,22 @@ export const setSyncTargetMode = async (
   request: SyncSetRequest,
   context: SyncContext,
 ): Promise<SyncSetResult> => {
-  return runSyncUseCase("Sync set failed.", async () => {
-    await ensureSyncRepository(context);
+  await ensureSyncRepository(context);
 
-    const config = await readSyncConfig(
-      context.paths.syncDirectory,
-      context.environment,
-    );
-    const target = await resolveSetTarget(request.target, config, context);
+  const config = await readSyncConfig(
+    context.paths.syncDirectory,
+    context.environment,
+  );
+  const target = await resolveSetTarget(request.target, config, context);
 
-    if (target.relativePath === "") {
-      if (!request.recursive) {
-        throw new SyncError(
-          "Tracked directory roots require --recursive to update the entry mode.",
-        );
-      }
-
-      const update = updateEntryMode(target.entry, request.state);
-      const nextConfig = createSyncConfigDocument(config);
-
-      nextConfig.entries = sortSyncConfigEntries(
-        nextConfig.entries.map((entry) => {
-          if (entry.repoPath !== target.entry.repoPath) {
-            return entry;
-          }
-
-          return createSyncConfigDocumentEntry(update.entry);
-        }),
-      );
-
-      if (update.action !== "unchanged") {
-        await writeValidatedSyncConfig(
-          context.paths.syncDirectory,
-          nextConfig,
-          {
-            environment: context.environment,
-            filesystem: context.ports.filesystem,
-          },
-        );
-      }
-
-      return {
-        action: update.action,
-        configPath: context.paths.configPath,
-        entryRepoPath: target.entry.repoPath,
-        localPath: target.localPath,
-        mode: request.state,
-        repoPath: target.repoPath,
-        scope: "default",
-        syncDirectory: context.paths.syncDirectory,
-      };
-    }
-
-    if (target.stats?.isDirectory() && !request.recursive) {
-      throw new SyncError(
-        "Directory targets require --recursive. Use a file path for exact overrides.",
+  if (target.relativePath === "") {
+    if (!request.recursive) {
+      throw new DevsyncError(
+        "Tracked directory roots require --recursive to update the entry mode.",
       );
     }
 
-    if (
-      request.recursive &&
-      target.stats !== undefined &&
-      !target.stats.isDirectory()
-    ) {
-      throw new SyncError(
-        "--recursive can only be used with directories or tracked directory roots.",
-      );
-    }
-
-    const scope = request.recursive ? "subtree" : "exact";
-    const update = updateChildOverride(target.entry, {
-      match: scope,
-      mode: request.state,
-      relativePath: target.relativePath,
-    });
+    const update = updateEntryMode(target.entry, request.state);
     const nextConfig = createSyncConfigDocument(config);
 
     nextConfig.entries = sortSyncConfigEntries(
@@ -390,7 +315,6 @@ export const setSyncTargetMode = async (
     if (update.action !== "unchanged") {
       await writeValidatedSyncConfig(context.paths.syncDirectory, nextConfig, {
         environment: context.environment,
-        filesystem: context.ports.filesystem,
       });
     }
 
@@ -401,8 +325,59 @@ export const setSyncTargetMode = async (
       localPath: target.localPath,
       mode: request.state,
       repoPath: target.repoPath,
-      scope,
+      scope: "default",
       syncDirectory: context.paths.syncDirectory,
     };
+  }
+
+  if (target.stats?.isDirectory() && !request.recursive) {
+    throw new DevsyncError(
+      "Directory targets require --recursive. Use a file path for exact overrides.",
+    );
+  }
+
+  if (
+    request.recursive &&
+    target.stats !== undefined &&
+    !target.stats.isDirectory()
+  ) {
+    throw new DevsyncError(
+      "--recursive can only be used with directories or tracked directory roots.",
+    );
+  }
+
+  const scope = request.recursive ? "subtree" : "exact";
+  const update = updateChildOverride(target.entry, {
+    match: scope,
+    mode: request.state,
+    relativePath: target.relativePath,
   });
+  const nextConfig = createSyncConfigDocument(config);
+
+  nextConfig.entries = sortSyncConfigEntries(
+    nextConfig.entries.map((entry) => {
+      if (entry.repoPath !== target.entry.repoPath) {
+        return entry;
+      }
+
+      return createSyncConfigDocumentEntry(update.entry);
+    }),
+  );
+
+  if (update.action !== "unchanged") {
+    await writeValidatedSyncConfig(context.paths.syncDirectory, nextConfig, {
+      environment: context.environment,
+    });
+  }
+
+  return {
+    action: update.action,
+    configPath: context.paths.configPath,
+    entryRepoPath: target.entry.repoPath,
+    localPath: target.localPath,
+    mode: request.state,
+    repoPath: target.repoPath,
+    scope,
+    syncDirectory: context.paths.syncDirectory,
+  };
 };

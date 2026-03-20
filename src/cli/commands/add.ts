@@ -1,7 +1,8 @@
 import { Args, Command, Flags } from "@oclif/core";
 
 import { formatSyncAddResult } from "#app/cli/sync-output.ts";
-import { createSyncManager } from "#app/services/sync-manager.ts";
+import { addSyncTarget } from "#app/services/add.ts";
+import { createSyncContext } from "#app/services/runtime.ts";
 
 export default class SyncAdd extends Command {
   public static override summary =
@@ -24,12 +25,14 @@ export default class SyncAdd extends Command {
 
   public override async run(): Promise<void> {
     const { args, flags } = await this.parse(SyncAdd);
-    const syncManager = createSyncManager();
     const output = formatSyncAddResult(
-      await syncManager.add({
-        secret: flags.secret,
-        target: args.target,
-      }),
+      await addSyncTarget(
+        {
+          secret: flags.secret,
+          target: args.target,
+        },
+        createSyncContext(),
+      ),
     );
 
     process.stdout.write(output);

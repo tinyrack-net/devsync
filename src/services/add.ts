@@ -12,7 +12,8 @@ import {
   sortSyncConfigEntries,
   writeValidatedSyncConfig,
 } from "./config-file.ts";
-import { SyncError } from "./error.ts";
+import { DevsyncError } from "./error.ts";
+import { getPathStats } from "./filesystem.ts";
 import {
   buildConfiguredHomeLocalPath,
   buildRepoPathWithinRoot,
@@ -20,7 +21,6 @@ import {
   resolveCommandTargetPath,
 } from "./paths.ts";
 import { ensureSyncRepository, type SyncContext } from "./runtime.ts";
-import { runSyncUseCase } from "./use-case.ts";
 
 export type SyncAddRequest = Readonly<{
   secret: boolean;
@@ -40,12 +40,12 @@ export type SyncAddResult = Readonly<{
 const buildAddEntryCandidate = async (
   targetPath: string,
   config: ResolvedSyncConfig,
-  context: Pick<SyncContext, "paths" | "ports">,
+  context: Pick<SyncContext, "paths">,
 ) => {
-  const targetStats = await context.ports.filesystem.getPathStats(targetPath);
+  const targetStats = await getPathStats(targetPath);
 
   if (targetStats === undefined) {
-    throw new SyncError(`Sync target does not exist: ${targetPath}`);
+    throw new DevsyncError(`Sync target does not exist: ${targetPath}`);
   }
 
   const kind = (() => {
@@ -57,17 +57,17 @@ const buildAddEntryCandidate = async (
       return "file" as const;
     }
 
-    throw new SyncError(`Unsupported sync target type: ${targetPath}`);
+    throw new DevsyncError(`Unsupported sync target type: ${targetPath}`);
   })();
 
   if (doPathsOverlap(targetPath, context.paths.syncDirectory)) {
-    throw new SyncError(
+    throw new DevsyncError(
       `Sync target must not overlap the sync directory: ${targetPath}`,
     );
   }
 
   if (doPathsOverlap(targetPath, config.age.identityFile)) {
-    throw new SyncError(
+    throw new DevsyncError(
       `Sync target must not contain the age identity file: ${targetPath}`,
     );
   }
@@ -93,92 +93,86 @@ export const addSyncTarget = async (
   request: SyncAddRequest,
   context: SyncContext,
 ): Promise<SyncAddResult> => {
-  return runSyncUseCase("Sync add failed.", async () => {
-    const target = request.target.trim();
+  const target = request.target.trim();
 
-    if (target.length === 0) {
-      throw new SyncError("Target path is required.");
-    }
+  if (target.length === 0) {
+    throw new DevsyncError("Target path is required.");
+  }
 
-    await ensureSyncRepository(context);
+  await ensureSyncRepository(context);
 
-    const config = await readSyncConfig(
-      context.paths.syncDirectory,
-      context.environment,
+  const config = await readSyncConfig(
+    context.paths.syncDirectory,
+    context.environment,
+  );
+  const candidate = await buildAddEntryCandidate(
+    resolveCommandTargetPath(target, context.environment, context.cwd),
+    config,
+    context,
+  );
+  const existingEntry = config.entries.find((entry) => {
+    return (
+      entry.localPath === candidate.localPath ||
+      entry.repoPath === candidate.repoPath
     );
-    const candidate = await buildAddEntryCandidate(
-      resolveCommandTargetPath(target, context.environment, context.cwd),
-      config,
-      context,
-    );
-    const existingEntry = config.entries.find((entry) => {
-      return (
-        entry.localPath === candidate.localPath ||
-        entry.repoPath === candidate.repoPath
-      );
-    });
-    let alreadyTracked = false;
-
-    if (existingEntry !== undefined) {
-      if (
-        existingEntry.localPath === candidate.localPath &&
-        existingEntry.repoPath === candidate.repoPath &&
-        existingEntry.kind === candidate.kind
-      ) {
-        alreadyTracked = true;
-      } else {
-        throw new SyncError(
-          `Sync target conflicts with an existing entry: ${existingEntry.repoPath}`,
-        );
-      }
-    }
-
-    const nextConfig = createSyncConfigDocument(config);
-    const desiredMode: SyncMode = request.secret ? "secret" : "normal";
-    let mode = existingEntry?.mode ?? (request.secret ? "secret" : "normal");
-
-    if (!alreadyTracked) {
-      nextConfig.entries = sortSyncConfigEntries([
-        ...nextConfig.entries,
-        createSyncConfigDocumentEntry({
-          ...candidate,
-          mode: desiredMode,
-        }),
-      ]);
-      mode = desiredMode;
-    } else if (request.secret && existingEntry?.mode !== "secret") {
-      nextConfig.entries = nextConfig.entries.map((entry) => {
-        if (entry.repoPath !== candidate.repoPath) {
-          return entry;
-        }
-
-        return {
-          ...entry,
-          mode: "secret",
-        };
-      });
-
-      mode = "secret";
-    }
-
-    if (
-      !alreadyTracked ||
-      (request.secret && existingEntry?.mode !== "secret")
-    ) {
-      await writeValidatedSyncConfig(context.paths.syncDirectory, nextConfig, {
-        environment: context.environment,
-        filesystem: context.ports.filesystem,
-      });
-    }
-
-    return {
-      alreadyTracked,
-      configPath: context.paths.configPath,
-      kind: candidate.kind,
-      localPath: candidate.localPath,
-      mode,
-      repoPath: candidate.repoPath,
-      syncDirectory: context.paths.syncDirectory,
-    };
   });
+  let alreadyTracked = false;
+
+  if (existingEntry !== undefined) {
+    if (
+      existingEntry.localPath === candidate.localPath &&
+      existingEntry.repoPath === candidate.repoPath &&
+      existingEntry.kind === candidate.kind
+    ) {
+      alreadyTracked = true;
+    } else {
+      throw new DevsyncError(
+        `Sync target conflicts with an existing entry: ${existingEntry.repoPath}`,
+      );
+    }
+  }
+
+  const nextConfig = createSyncConfigDocument(config);
+  const desiredMode: SyncMode = request.secret ? "secret" : "normal";
+  let mode = existingEntry?.mode ?? (request.secret ? "secret" : "normal");
+
+  if (!alreadyTracked) {
+    nextConfig.entries = sortSyncConfigEntries([
+      ...nextConfig.entries,
+      createSyncConfigDocumentEntry({
+        ...candidate,
+        mode: desiredMode,
+      }),
+    ]);
+    mode = desiredMode;
+  } else if (request.secret && existingEntry?.mode !== "secret") {
+    nextConfig.entries = nextConfig.entries.map((entry) => {
+      if (entry.repoPath !== candidate.repoPath) {
+        return entry;
+      }
+
+      return {
+        ...entry,
+        mode: "secret",
+      };
+    });
+
+    mode = "secret";
+  }
+
+  if (!alreadyTracked || (request.secret && existingEntry?.mode !== "secret")) {
+    await writeValidatedSyncConfig(context.paths.syncDirectory, nextConfig, {
+      environment: context.environment,
+    });
+  }
+
+  return {
+    alreadyTracked,
+    configPath: context.paths.configPath,
+    kind: candidate.kind,
+    localPath: candidate.localPath,
+    mode,
+    repoPath: candidate.repoPath,
+    syncDirectory: context.paths.syncDirectory,
+  };
 };

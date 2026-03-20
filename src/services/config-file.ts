@@ -9,7 +9,7 @@ import {
   type SyncConfig,
 } from "#app/config/sync.ts";
 
-import type { FilesystemPort } from "./filesystem.ts";
+import { writeTextFileAtomically } from "./filesystem.ts";
 
 type SyncConfigDocumentEntry = SyncConfig["entries"][number];
 
@@ -81,7 +81,6 @@ export const writeValidatedSyncConfig = async (
   config: SyncConfig,
   dependencies: Readonly<{
     environment: NodeJS.ProcessEnv;
-    filesystem: Pick<FilesystemPort, "writeTextFileAtomically">;
   }>,
 ) => {
   const resolvedConfig = parseSyncConfig(
@@ -93,7 +92,7 @@ export const writeValidatedSyncConfig = async (
   );
   const nextConfig = createSyncConfigDocument(resolvedConfig);
 
-  await dependencies.filesystem.writeTextFileAtomically(
+  await writeTextFileAtomically(
     resolveSyncConfigFilePath(syncDirectory),
     formatSyncConfig(nextConfig),
   );

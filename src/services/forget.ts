@@ -1,3 +1,4 @@
+import { readdir, rm } from "node:fs/promises";
 import { dirname, join, posix } from "node:path";
 
 import {
@@ -12,8 +13,12 @@ import {
   sortSyncConfigEntries,
   writeValidatedSyncConfig,
 } from "./config-file.ts";
-import { SyncError } from "./error.ts";
-import type { FilesystemPort } from "./filesystem.ts";
+import { DevsyncError } from "./error.ts";
+import {
+  getPathStats,
+  listDirectoryEntries,
+  removePathAtomically,
+} from "./filesystem.ts";
 import {
   isExplicitLocalPath,
   isPathEqualOrNested,
@@ -25,7 +30,6 @@ import {
   resolveArtifactRelativePath,
 } from "./repo-artifacts.ts";
 import { ensureSyncRepository, type SyncContext } from "./runtime.ts";
-import { runSyncUseCase } from "./use-case.ts";
 
 export type SyncForgetRequest = Readonly<{
   target: string;
@@ -77,9 +81,8 @@ const collectRepoArtifactCounts = async (
     secret: number;
   },
   relativePath: string,
-  filesystem: Pick<FilesystemPort, "getPathStats" | "listDirectoryEntries">,
 ) => {
-  const stats = await filesystem.getPathStats(targetPath);
+  const stats = await getPathStats(targetPath);
 
   if (stats === undefined) {
     return;
@@ -88,14 +91,13 @@ const collectRepoArtifactCounts = async (
   if (stats.isDirectory()) {
     counts.plain += 1;
 
-    const entries = await filesystem.listDirectoryEntries(targetPath);
+    const entries = await listDirectoryEntries(targetPath);
 
     for (const entry of entries) {
       await collectRepoArtifactCounts(
         join(targetPath, entry.name),
         counts,
         posix.join(relativePath, entry.name),
-        filesystem,
       );
     }
 
@@ -112,7 +114,6 @@ const collectRepoArtifactCounts = async (
 const collectEntryArtifactCounts = async (
   syncDirectory: string,
   entry: ResolvedSyncConfigEntry,
-  filesystem: Pick<FilesystemPort, "getPathStats" | "listDirectoryEntries">,
 ) => {
   const artifactsRoot = resolveSyncArtifactsDirectoryPath(syncDirectory);
   const counts = {
@@ -125,14 +126,12 @@ const collectEntryArtifactCounts = async (
       join(artifactsRoot, ...entry.repoPath.split("/")),
       counts,
       entry.repoPath,
-      filesystem,
     );
   } else {
     await collectRepoArtifactCounts(
       join(artifactsRoot, ...entry.repoPath.split("/")),
       counts,
       entry.repoPath,
-      filesystem,
     );
     await collectRepoArtifactCounts(
       join(
@@ -147,7 +146,6 @@ const collectEntryArtifactCounts = async (
         category: "secret",
         repoPath: entry.repoPath,
       }),
-      filesystem,
     );
   }
 
@@ -160,7 +158,6 @@ const collectEntryArtifactCounts = async (
 const pruneEmptyParentDirectories = async (
   startPath: string,
   rootPath: string,
-  filesystem: Pick<FilesystemPort, "getPathStats" | "readdir" | "rm">,
 ) => {
   let currentPath = startPath;
 
@@ -168,7 +165,7 @@ const pruneEmptyParentDirectories = async (
     isPathEqualOrNested(currentPath, rootPath) &&
     currentPath !== rootPath
   ) {
-    const stats = await filesystem.getPathStats(currentPath);
+    const stats = await getPathStats(currentPath);
 
     if (stats === undefined) {
       currentPath = dirname(currentPath);
@@ -179,13 +176,13 @@ const pruneEmptyParentDirectories = async (
       break;
     }
 
-    const entries = await filesystem.readdir(currentPath);
+    const entries = await readdir(currentPath);
 
     if (entries.length > 0) {
       break;
     }
 
-    await filesystem.rm(currentPath, { force: true, recursive: true });
+    await rm(currentPath, { force: true, recursive: true });
     currentPath = dirname(currentPath);
   }
 };
@@ -193,20 +190,12 @@ const pruneEmptyParentDirectories = async (
 const removeTrackedEntryArtifacts = async (
   syncDirectory: string,
   entry: ResolvedSyncConfigEntry,
-  filesystem: Pick<
-    FilesystemPort,
-    "getPathStats" | "readdir" | "removePathAtomically" | "rm"
-  >,
 ) => {
   const artifactsRoot = resolveSyncArtifactsDirectoryPath(syncDirectory);
   const plainPath = join(artifactsRoot, ...entry.repoPath.split("/"));
 
-  await filesystem.removePathAtomically(plainPath);
-  await pruneEmptyParentDirectories(
-    dirname(plainPath),
-    artifactsRoot,
-    filesystem,
-  );
+  await removePathAtomically(plainPath);
+  await pruneEmptyParentDirectories(dirname(plainPath), artifactsRoot);
 
   if (entry.kind === "directory") {
     return;
@@ -220,68 +209,53 @@ const removeTrackedEntryArtifacts = async (
     }).split("/"),
   );
 
-  await filesystem.removePathAtomically(secretPath);
-  await pruneEmptyParentDirectories(
-    dirname(secretPath),
-    artifactsRoot,
-    filesystem,
-  );
+  await removePathAtomically(secretPath);
+  await pruneEmptyParentDirectories(dirname(secretPath), artifactsRoot);
 };
 
 export const forgetSyncTarget = async (
   request: SyncForgetRequest,
   context: SyncContext,
 ): Promise<SyncForgetResult> => {
-  return runSyncUseCase("Sync forget failed.", async () => {
-    const target = request.target.trim();
+  const target = request.target.trim();
 
-    if (target.length === 0) {
-      throw new SyncError("Target path is required.");
-    }
+  if (target.length === 0) {
+    throw new DevsyncError("Target path is required.");
+  }
 
-    await ensureSyncRepository(context);
+  await ensureSyncRepository(context);
 
-    const config = await readSyncConfig(
-      context.paths.syncDirectory,
-      context.environment,
-    );
-    const entry = findMatchingTrackedEntry(config, target, context);
+  const config = await readSyncConfig(
+    context.paths.syncDirectory,
+    context.environment,
+  );
+  const entry = findMatchingTrackedEntry(config, target, context);
 
-    if (entry === undefined) {
-      throw new SyncError(`No tracked sync entry matches: ${target}`);
-    }
+  if (entry === undefined) {
+    throw new DevsyncError(`No tracked sync entry matches: ${target}`);
+  }
 
-    const { plainArtifactCount, secretArtifactCount } =
-      await collectEntryArtifactCounts(
-        context.paths.syncDirectory,
-        entry,
-        context.ports.filesystem,
-      );
-    const nextConfig = createSyncConfigDocument(config);
+  const { plainArtifactCount, secretArtifactCount } =
+    await collectEntryArtifactCounts(context.paths.syncDirectory, entry);
+  const nextConfig = createSyncConfigDocument(config);
 
-    nextConfig.entries = sortSyncConfigEntries(
-      nextConfig.entries.filter((configEntry) => {
-        return configEntry.repoPath !== entry.repoPath;
-      }),
-    );
+  nextConfig.entries = sortSyncConfigEntries(
+    nextConfig.entries.filter((configEntry) => {
+      return configEntry.repoPath !== entry.repoPath;
+    }),
+  );
 
-    await writeValidatedSyncConfig(context.paths.syncDirectory, nextConfig, {
-      environment: context.environment,
-      filesystem: context.ports.filesystem,
-    });
-    await removeTrackedEntryArtifacts(
-      context.paths.syncDirectory,
-      entry,
-      context.ports.filesystem,
-    );
-
-    return {
-      configPath: context.paths.configPath,
-      localPath: entry.localPath,
-      plainArtifactCount,
-      repoPath: entry.repoPath,
-      secretArtifactCount,
-      syncDirectory: context.paths.syncDirectory,
-    };
+  await writeValidatedSyncConfig(context.paths.syncDirectory, nextConfig, {
+    environment: context.environment,
   });
+  await removeTrackedEntryArtifacts(context.paths.syncDirectory, entry);
+
+  return {
+    configPath: context.paths.configPath,
+    localPath: entry.localPath,
+    plainArtifactCount,
+    repoPath: entry.repoPath,
+    secretArtifactCount,
+    syncDirectory: context.paths.syncDirectory,
+  };
 };

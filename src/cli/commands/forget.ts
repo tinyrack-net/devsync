@@ -1,7 +1,8 @@
 import { Args, Command } from "@oclif/core";
 
 import { formatSyncForgetResult } from "#app/cli/sync-output.ts";
-import { createSyncManager } from "#app/services/sync-manager.ts";
+import { forgetSyncTarget } from "#app/services/forget.ts";
+import { createSyncContext } from "#app/services/runtime.ts";
 
 export default class SyncForget extends Command {
   public static override summary =
@@ -17,11 +18,13 @@ export default class SyncForget extends Command {
 
   public override async run(): Promise<void> {
     const { args } = await this.parse(SyncForget);
-    const syncManager = createSyncManager();
     const output = formatSyncForgetResult(
-      await syncManager.forget({
-        target: args.target,
-      }),
+      await forgetSyncTarget(
+        {
+          target: args.target,
+        },
+        createSyncContext(),
+      ),
     );
 
     process.stdout.write(output);

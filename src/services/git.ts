@@ -1,21 +1,14 @@
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 
-import { SyncError } from "./error.ts";
+import { DevsyncError } from "./error.ts";
 
 const execFileAsync = promisify(execFile);
 
-export type GitRunner = (
+const runGitCommand = async (
   args: readonly string[],
-  options?: Readonly<{
-    cwd?: string;
-  }>,
-) => Promise<{
-  stderr: string;
-  stdout: string;
-}>;
-
-const defaultGitRunner: GitRunner = async (args, options) => {
+  options?: Readonly<{ cwd?: string }>,
+) => {
   try {
     const result = await execFileAsync("git", [...args], {
       cwd: options?.cwd,
@@ -44,41 +37,35 @@ const defaultGitRunner: GitRunner = async (args, options) => {
   }
 };
 
-export const createGitService = (gitRunner: GitRunner = defaultGitRunner) => {
+export const ensureRepository = async (directory: string) => {
+  await runGitCommand(["-C", directory, "rev-parse", "--is-inside-work-tree"]);
+};
+
+export const initializeRepository = async (
+  directory: string,
+  source?: string,
+) => {
+  if (source === undefined) {
+    await runGitCommand(["init", "-b", "main", directory]);
+
+    return {
+      action: "initialized" as const,
+    };
+  }
+
+  await runGitCommand(["clone", source, directory]);
+
   return {
-    ensureRepository: async (directory: string) => {
-      await gitRunner(["-C", directory, "rev-parse", "--is-inside-work-tree"]);
-    },
-    initializeRepository: async (directory: string, source?: string) => {
-      if (source === undefined) {
-        await gitRunner(["init", "-b", "main", directory]);
-
-        return {
-          action: "initialized" as const,
-        };
-      }
-
-      await gitRunner(["clone", source, directory]);
-
-      return {
-        action: "cloned" as const,
-        source,
-      };
-    },
+    action: "cloned" as const,
+    source,
   };
 };
 
-export type GitService = ReturnType<typeof createGitService>;
-export type GitPort = GitService;
-
-export const ensureGitRepository = async (
-  syncDirectory: string,
-  git: GitService,
-) => {
+export const ensureGitRepository = async (syncDirectory: string) => {
   try {
-    await git.ensureRepository(syncDirectory);
+    await ensureRepository(syncDirectory);
   } catch (error: unknown) {
-    throw new SyncError(
+    throw new DevsyncError(
       error instanceof Error
         ? `Sync directory is not a git repository: ${error.message}`
         : "Sync directory is not a git repository.",
