@@ -92,6 +92,10 @@ npm run start -- <command>
 
 Initialize the git-backed sync directory.
 
+- Creates or connects the local sync repo under `~/.config/devsync/sync`
+- Accepts an optional remote URL or local git path to clone
+- Persists the age identity path and one or more recipients for later secret decrypt/encrypt operations
+
 ```bash
 devsync init
 devsync init https://example.com/my-sync-repo.git
@@ -102,6 +106,10 @@ devsync init --identity "$XDG_CONFIG_HOME/devsync/age/keys.txt" --recipient age1
 
 Track a local file or directory under your home directory.
 
+- Accepts absolute paths, `~/...` paths, and cwd-relative paths
+- Target must resolve inside your home directory
+- Use `--secret` to make the target encrypted immediately
+
 ```bash
 devsync add ~/.gitconfig
 devsync add ./.zshrc
@@ -111,6 +119,11 @@ devsync add ~/.config/mytool --secret
 ### `set`
 
 Set mode for a tracked directory root, child file, or child subtree.
+
+- `normal`: keep plain tracked content in sync
+- `secret`: store synced artifacts encrypted with age
+- `ignore`: skip a file or directory during push and pull
+- Use `--recursive` to update a whole directory subtree or a tracked root default
 
 ```bash
 devsync set secret ~/.config/mytool/token.json
@@ -123,6 +136,9 @@ devsync set normal .config/mytool/public.json
 
 Remove a tracked local path or repository path from sync config.
 
+- Use a tracked local path to remove the main tracked entry
+- Use a nested path inside a tracked directory to remove only that override
+
 ```bash
 devsync forget ~/.gitconfig
 cd ~/mytool && devsync forget ./settings.json
@@ -133,6 +149,8 @@ devsync forget .config/mytool
 
 Show tracked entries, modes, and override rules.
 
+- Prints tracked roots, default modes, and nested overrides
+
 ```bash
 devsync list
 ```
@@ -140,6 +158,9 @@ devsync list
 ### `status`
 
 Show planned push and pull changes for the current sync config.
+
+- Compares local tracked files against sync repo artifacts
+- Helps review both directions before running `push` or `pull`
 
 ```bash
 devsync status
@@ -149,6 +170,10 @@ devsync status
 
 Check the sync repository, config, age identity, and tracked local paths.
 
+- Verifies repo and config health
+- Reports missing local targets or age setup issues
+- Exits non-zero when checks fail
+
 ```bash
 devsync doctor
 ```
@@ -156,6 +181,10 @@ devsync doctor
 ### `push`
 
 Mirror local config into the sync repository.
+
+- Writes repository artifacts from current local tracked state
+- Encrypts secret targets before writing them into the repo
+- Use `--dry-run` to preview repo changes only
 
 ```bash
 devsync push
@@ -166,6 +195,10 @@ devsync push --dry-run
 
 Apply the sync repository to local config paths.
 
+- Restores tracked artifacts from the repo back to local paths
+- Decrypts secret artifacts with the configured age identity
+- Use `--dry-run` to preview local file changes only
+
 ```bash
 devsync pull
 devsync pull --dry-run
@@ -174,6 +207,10 @@ devsync pull --dry-run
 ### `cd`
 
 Print the sync directory in non-interactive mode, or open a shell there in interactive mode.
+
+- Opens your configured shell inside the sync directory when a TTY is available
+- Falls back to printing the path in scripts and pipes
+- Use `--print` to always output the path without spawning a shell
 
 ```bash
 devsync cd

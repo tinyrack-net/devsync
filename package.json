@@ -37,6 +37,9 @@
   "oclif": {
     "bin": "devsync",
     "dirname": "devsync",
+    "helpOptions": {
+      "flagSortOrder": "none"
+    },
     "commands": {
       "strategy": "explicit",
       "target": "./src/cli/commands/index.ts",

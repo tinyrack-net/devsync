@@ -9,6 +9,15 @@ export default class SyncForget extends BaseCommand {
   public static override summary =
     "Remove a tracked local path or repository path from sync config.json";
 
+  public static override description =
+    "Remove a tracked root entry or a nested override from devsync configuration. Use a local path to forget the main tracked target, or use a repository-relative child path inside a tracked directory to remove only that override.";
+
+  public static override examples = [
+    "<%= config.bin %> <%= command.id %> ~/.gitconfig",
+    "cd ~/mytool && <%= config.bin %> <%= command.id %> ./settings.json",
+    "<%= config.bin %> <%= command.id %> .config/mytool",
+  ];
+
   public static override args = {
     target: Args.string({
       description:

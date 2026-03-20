@@ -9,9 +9,20 @@ export default class SyncSet extends BaseCommand {
   public static override summary =
     "Set sync mode for a tracked directory root, child file, or child subtree";
 
+  public static override description =
+    "Change how devsync treats an already tracked path. Use normal for plain tracked content, secret for encrypted artifacts, and ignore for files or directories that should stay out of sync. Targets can point at a tracked root or at a nested path inside a tracked directory.";
+
+  public static override examples = [
+    "<%= config.bin %> <%= command.id %> secret ~/.config/mytool/token.json",
+    "<%= config.bin %> <%= command.id %> ignore ~/.config/mytool/cache --recursive",
+    "cd ~/.ssh && <%= config.bin %> <%= command.id %> ignore known_hosts",
+    "<%= config.bin %> <%= command.id %> normal .config/mytool/public.json",
+  ];
+
   public static override args = {
     state: Args.string({
-      description: "Mode to apply: normal, secret, or ignore",
+      description:
+        "Mode to apply. normal keeps plain files in sync, secret encrypts synced artifacts, and ignore skips the target during push and pull.",
       options: ["normal", "secret", "ignore"],
       required: true,
     }),
@@ -25,8 +36,9 @@ export default class SyncSet extends BaseCommand {
   public static override flags = {
     recursive: Flags.boolean({
       default: false,
+      summary: "Apply the mode to a directory subtree",
       description:
-        "Apply the mode to a directory subtree or update a tracked directory root default",
+        "When the target is a directory, update the whole subtree. For tracked directory roots, this also changes the default mode used for descendants unless a child override exists.",
     }),
   };
 

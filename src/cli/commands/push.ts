@@ -9,10 +9,20 @@ export default class SyncPush extends BaseCommand {
   public static override summary =
     "Mirror local config into the git-backed sync repository";
 
+  public static override description =
+    "Collect the current state of tracked local files and directories, then update the sync repository artifacts to match. Secret targets are encrypted before they are written into the repository.";
+
+  public static override examples = [
+    "<%= config.bin %> <%= command.id %>",
+    "<%= config.bin %> <%= command.id %> --dry-run",
+  ];
+
   public static override flags = {
     "dry-run": Flags.boolean({
       default: false,
-      description: "Preview sync repository changes without writing files",
+      summary: "Preview repository updates only",
+      description:
+        "Show which repository files devsync would create, update, or remove without writing any changes into the sync repository.",
     }),
   };
 

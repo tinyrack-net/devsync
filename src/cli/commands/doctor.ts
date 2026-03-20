@@ -7,6 +7,11 @@ export default class SyncDoctor extends BaseCommand {
   public static override summary =
     "Check sync repository, config, age identity, and tracked local paths";
 
+  public static override description =
+    "Run health checks for the local sync setup, including repository availability, config validity, age identity configuration, and whether tracked local paths still exist where devsync expects them.";
+
+  public static override examples = ["<%= config.bin %> <%= command.id %>"];
+
   public override async run(): Promise<void> {
     const result = await runSyncDoctor(createSyncContext());
 

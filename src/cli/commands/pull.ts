@@ -9,10 +9,20 @@ export default class SyncPull extends BaseCommand {
   public static override summary =
     "Apply the git-backed sync repository to local config paths";
 
+  public static override description =
+    "Read tracked artifacts from the sync repository and materialize them back onto local paths under your home directory. Secret artifacts are decrypted with the configured age identity before they are written locally.";
+
+  public static override examples = [
+    "<%= config.bin %> <%= command.id %>",
+    "<%= config.bin %> <%= command.id %> --dry-run",
+  ];
+
   public static override flags = {
     "dry-run": Flags.boolean({
       default: false,
-      description: "Preview local config changes without writing files",
+      summary: "Preview local file updates only",
+      description:
+        "Show which local files and directories devsync would create, update, or remove without touching the working machine state.",
     }),
   };
 
