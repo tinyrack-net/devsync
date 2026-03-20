@@ -2,6 +2,7 @@ import { fileURLToPath } from "node:url";
 
 import { execa } from "execa";
 import { describe, expect, it } from "vitest";
+import packageJson from "../package.json" with { type: "json" };
 
 const cliPath = fileURLToPath(new URL("../src/index.ts", import.meta.url));
 
@@ -23,7 +24,7 @@ describe("CLI e2e", () => {
     const result = await runCli(["--version"]);
 
     expect(result.exitCode).toBe(0);
-    expect(result.stdout).toContain("devsync/1.0.0");
+    expect(result.stdout).toContain(`devsync/${packageJson.version}`);
     expect(result.stderr).toBe("");
   });
 
