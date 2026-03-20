@@ -21,8 +21,16 @@ A personal CLI tool for git-backed configuration sync.
 
 ## Installation
 
+Install globally:
+
 ```bash
-npm install
+npm install -g @tinyrack/devsync
+```
+
+Run without installing globally:
+
+```bash
+npx @tinyrack/devsync --help
 ```
 
 Run the CLI locally:
@@ -37,7 +45,9 @@ For development with file watching:
 npm run dev
 ```
 
-If you want the `devsync` command available on your machine:
+The published package name is `@tinyrack/devsync`, but the installed command is still `devsync`.
+
+If you want the `devsync` command available from this checkout during development:
 
 ```bash
 npm link
