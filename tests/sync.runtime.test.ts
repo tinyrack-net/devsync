@@ -17,8 +17,7 @@ import {
   type SyncConfig,
   syncSecretArtifactSuffix,
 } from "#app/config/sync.ts";
-import { createCryptoPort, encryptSecretFile } from "#app/services/crypto.ts";
-import { createFilesystemPort } from "#app/services/filesystem.ts";
+import { encryptSecretFile } from "#app/services/crypto.ts";
 import {
   applyEntryMaterialization,
   buildEntryMaterialization,
@@ -39,8 +38,6 @@ import {
 } from "./helpers/sync-fixture.ts";
 
 const temporaryDirectories: string[] = [];
-const crypto = createCryptoPort();
-const filesystem = createFilesystemPort();
 
 const createWorkspace = async () => {
   const directory = await createTemporaryDirectory("devsync-sync-runtime-");
@@ -120,7 +117,7 @@ describe("sync runtime helpers", () => {
       xdgConfigHome,
     });
 
-    const snapshot = await buildLocalSnapshot(config, filesystem);
+    const snapshot = await buildLocalSnapshot(config);
 
     expect(
       [...snapshot.keys()].sort((left, right) => {
@@ -158,9 +155,9 @@ describe("sync runtime helpers", () => {
         xdgConfigHome,
       });
 
-      await expect(
-        buildLocalSnapshot(symlinkConfig, filesystem),
-      ).rejects.toThrowError(/Secret sync paths must be regular files/u);
+      await expect(buildLocalSnapshot(symlinkConfig)).rejects.toThrowError(
+        /Secret sync paths must be regular files/u,
+      );
     }
 
     const mismatchConfig = createResolvedConfig({
@@ -178,9 +175,9 @@ describe("sync runtime helpers", () => {
       xdgConfigHome,
     });
 
-    await expect(
-      buildLocalSnapshot(mismatchConfig, filesystem),
-    ).rejects.toThrowError(/expects a file/u);
+    await expect(buildLocalSnapshot(mismatchConfig)).rejects.toThrowError(
+      /expects a file/u,
+    );
   });
 
   it("rejects local descendants that use the reserved secret suffix", async () => {
@@ -210,7 +207,7 @@ describe("sync runtime helpers", () => {
       xdgConfigHome,
     });
 
-    await expect(buildLocalSnapshot(config, filesystem)).rejects.toThrowError(
+    await expect(buildLocalSnapshot(config)).rejects.toThrowError(
       /reserved suffix/u,
     );
   });
@@ -248,7 +245,7 @@ describe("sync runtime helpers", () => {
       xdgConfigHome,
     });
 
-    const snapshot = await buildLocalSnapshot(config, filesystem);
+    const snapshot = await buildLocalSnapshot(config);
     const node = snapshot.get("bundle/secret.sh");
 
     expect(node).toMatchObject({
@@ -314,17 +311,14 @@ describe("sync runtime helpers", () => {
       ],
     ]);
 
-    const artifacts = await buildRepoArtifacts(snapshot, config, { crypto });
+    const artifacts = await buildRepoArtifacts(snapshot, config);
 
     await writeArtifactsToDirectory(
       resolveSyncArtifactsDirectoryPath(syncDirectory),
       artifacts,
-      filesystem,
     );
 
-    expect(
-      await collectExistingArtifactKeys(syncDirectory, config, filesystem),
-    ).toEqual(
+    expect(await collectExistingArtifactKeys(syncDirectory, config)).toEqual(
       new Set([
         "bundle/",
         "bundle/link",
@@ -384,7 +378,6 @@ describe("sync runtime helpers", () => {
             repoPath: "bundle",
           },
         ]),
-        { crypto, filesystem },
       ),
     ).rejects.toThrowError(/stored in plain text/u);
 
@@ -413,7 +406,6 @@ describe("sync runtime helpers", () => {
             repoPath: "bundle",
           },
         ]),
-        { crypto, filesystem },
       ),
     ).rejects.toThrowError(/stored in secret form/u);
 
@@ -450,7 +442,6 @@ describe("sync runtime helpers", () => {
             repoPath: "bundle",
           },
         ]),
-        { crypto, filesystem },
       ),
     ).rejects.toThrowError(/reserved suffix/u);
 
@@ -479,9 +470,8 @@ describe("sync runtime helpers", () => {
             repoPath: "bundle",
           },
         ]),
-        { crypto, filesystem },
       ),
-    ).rejects.toThrowError(/Unmanaged sync path found in repository/u);
+    ).rejects.toThrowError(/Unmanaged sync path/u);
 
     if (process.platform !== "win32") {
       await rm(syncDirectory, { force: true, recursive: true });
@@ -508,7 +498,6 @@ describe("sync runtime helpers", () => {
               repoPath: "bundle",
             },
           ]),
-          { crypto, filesystem },
         ),
       ).rejects.toThrowError(/must be regular files, not symlinks/u);
     }
@@ -532,7 +521,6 @@ describe("sync runtime helpers", () => {
             repoPath: "bundle",
           },
         ]),
-        { crypto, filesystem },
       ),
     ).rejects.toThrowError(/is not stored as a directory/u);
 
@@ -557,7 +545,6 @@ describe("sync runtime helpers", () => {
           repoPath: "bundle",
         },
       ]),
-      { crypto, filesystem },
     );
 
     expect(
@@ -594,7 +581,6 @@ describe("sync runtime helpers", () => {
             repoPath: "bundle",
           },
         ]),
-        { crypto, filesystem },
       ),
     ).rejects.toThrowError();
 
@@ -623,7 +609,6 @@ describe("sync runtime helpers", () => {
           repoPath: "bundle",
         },
       ]),
-      { crypto, filesystem },
     );
 
     expect(
@@ -709,7 +694,6 @@ describe("sync runtime helpers", () => {
         bundleEntry,
         new Set(["bundle/", "bundle/keep.txt"]),
         config,
-        filesystem,
       ),
     ).toBe(0);
 
@@ -720,7 +704,6 @@ describe("sync runtime helpers", () => {
         type: "absent",
       },
       config,
-      filesystem,
     );
 
     expect(await readFile(join(homeDirectory, ".ignored-file"), "utf8")).toBe(

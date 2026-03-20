@@ -4,8 +4,14 @@ import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 
 import { syncSecretArtifactSuffix } from "#app/config/sync.ts";
-import { SyncError } from "#app/services/error.ts";
-import { createSyncManager } from "#app/services/sync-manager.ts";
+import { addSyncTarget } from "#app/services/add.ts";
+import { DevsyncError } from "#app/services/error.ts";
+import { forgetSyncTarget } from "#app/services/forget.ts";
+import { initializeSync } from "#app/services/init.ts";
+import { pullSync } from "#app/services/pull.ts";
+import { pushSync } from "#app/services/push.ts";
+import { createSyncContext } from "#app/services/runtime.ts";
+import { setSyncTargetMode } from "#app/services/set.ts";
 import {
   createAgeKeyPair,
   createTemporaryDirectory,
@@ -43,18 +49,21 @@ afterEach(async () => {
   }
 });
 
-describe("createSyncManager", () => {
+describe("sync service", () => {
   it("generates a default local age identity when init flags are omitted", async () => {
     const workspace = await createWorkspace();
     const homeDirectory = join(workspace, "home");
     const xdgConfigHome = join(workspace, "xdg");
-    const manager = createSyncManager({
+    const context = createSyncContext({
       environment: createSyncEnvironment(homeDirectory, xdgConfigHome),
     });
 
-    const result = await manager.init({
-      recipients: [],
-    });
+    const result = await initializeSync(
+      {
+        recipients: [],
+      },
+      context,
+    );
     const config = JSON.parse(
       await readFile(join(result.syncDirectory, "config.json"), "utf8"),
     ) as {
@@ -85,13 +94,16 @@ describe("createSyncManager", () => {
 
     await writeIdentityFile(xdgConfigHome, ageKeys.identity);
 
-    const manager = createSyncManager({
+    const context = createSyncContext({
       environment: createSyncEnvironment(homeDirectory, xdgConfigHome),
     });
-    const result = await manager.init({
-      identityFile: "$XDG_CONFIG_HOME/devsync/age/keys.txt",
-      recipients: [ageKeys.recipient],
-    });
+    const result = await initializeSync(
+      {
+        identityFile: "$XDG_CONFIG_HOME/devsync/age/keys.txt",
+        recipients: [ageKeys.recipient],
+      },
+      context,
+    );
 
     expect(result.syncDirectory).toBe(join(xdgConfigHome, "devsync", "sync"));
     expect(result.gitAction).toBe("initialized");
@@ -120,26 +132,38 @@ describe("createSyncManager", () => {
     await writeFile(settingsFile, "{}\n");
     await writeFile(join(secretsDirectory, "token.txt"), "secret\n");
 
-    const manager = createSyncManager({
+    const context = createSyncContext({
       environment: createSyncEnvironment(homeDirectory, xdgConfigHome),
     });
-    const initResult = await manager.init({
-      identityFile: "$XDG_CONFIG_HOME/devsync/age/keys.txt",
-      recipients: [ageKeys.recipient],
-    });
+    const initResult = await initializeSync(
+      {
+        identityFile: "$XDG_CONFIG_HOME/devsync/age/keys.txt",
+        recipients: [ageKeys.recipient],
+      },
+      context,
+    );
 
-    const fileAddResult = await manager.add({
-      secret: false,
-      target: settingsFile,
-    });
-    const repeatFileAddResult = await manager.add({
-      secret: true,
-      target: settingsFile,
-    });
-    const directoryAddResult = await manager.add({
-      secret: true,
-      target: secretsDirectory,
-    });
+    const fileAddResult = await addSyncTarget(
+      {
+        secret: false,
+        target: settingsFile,
+      },
+      context,
+    );
+    const repeatFileAddResult = await addSyncTarget(
+      {
+        secret: true,
+        target: settingsFile,
+      },
+      context,
+    );
+    const directoryAddResult = await addSyncTarget(
+      {
+        secret: true,
+        target: secretsDirectory,
+      },
+      context,
+    );
     const config = JSON.parse(
       await readFile(join(initResult.syncDirectory, "config.json"), "utf8"),
     ) as {
@@ -196,39 +220,57 @@ describe("createSyncManager", () => {
     await writeFile(publicFile, "{}\n");
     await writeFile(join(cacheDirectory, "state.txt"), "cache\n");
 
-    const manager = createSyncManager({
+    const context = createSyncContext({
       environment: createSyncEnvironment(homeDirectory, xdgConfigHome),
     });
 
-    await manager.init({
-      identityFile: "$XDG_CONFIG_HOME/devsync/age/keys.txt",
-      recipients: [ageKeys.recipient],
-    });
-    await manager.add({
-      secret: true,
-      target: bundleDirectory,
-    });
+    await initializeSync(
+      {
+        identityFile: "$XDG_CONFIG_HOME/devsync/age/keys.txt",
+        recipients: [ageKeys.recipient],
+      },
+      context,
+    );
+    await addSyncTarget(
+      {
+        secret: true,
+        target: bundleDirectory,
+      },
+      context,
+    );
 
-    const exactAdd = await manager.set({
-      recursive: false,
-      state: "normal",
-      target: publicFile,
-    });
-    const subtreeAdd = await manager.set({
-      recursive: true,
-      state: "ignore",
-      target: cacheDirectory,
-    });
-    const rootUpdate = await manager.set({
-      recursive: true,
-      state: "normal",
-      target: bundleDirectory,
-    });
-    const exactRemove = await manager.set({
-      recursive: false,
-      state: "normal",
-      target: publicFile,
-    });
+    const exactAdd = await setSyncTargetMode(
+      {
+        recursive: false,
+        state: "normal",
+        target: publicFile,
+      },
+      context,
+    );
+    const subtreeAdd = await setSyncTargetMode(
+      {
+        recursive: true,
+        state: "ignore",
+        target: cacheDirectory,
+      },
+      context,
+    );
+    const rootUpdate = await setSyncTargetMode(
+      {
+        recursive: true,
+        state: "normal",
+        target: bundleDirectory,
+      },
+      context,
+    );
+    const exactRemove = await setSyncTargetMode(
+      {
+        recursive: false,
+        state: "normal",
+        target: publicFile,
+      },
+      context,
+    );
     const config = JSON.parse(
       await readFile(
         join(xdgConfigHome, "devsync", "sync", "config.json"),
@@ -273,25 +315,34 @@ describe("createSyncManager", () => {
     await mkdir(sshDirectory, { recursive: true });
     await writeFile(knownHostsFile, "github.com ssh-ed25519 AAAA...\n");
 
-    const manager = createSyncManager({
+    const context = createSyncContext({
       cwd: sshDirectory,
       environment: createSyncEnvironment(homeDirectory, xdgConfigHome),
     });
 
-    await manager.init({
-      identityFile: "$XDG_CONFIG_HOME/devsync/age/keys.txt",
-      recipients: [ageKeys.recipient],
-    });
-    await manager.add({
-      secret: true,
-      target: sshDirectory,
-    });
+    await initializeSync(
+      {
+        identityFile: "$XDG_CONFIG_HOME/devsync/age/keys.txt",
+        recipients: [ageKeys.recipient],
+      },
+      context,
+    );
+    await addSyncTarget(
+      {
+        secret: true,
+        target: sshDirectory,
+      },
+      context,
+    );
 
-    const result = await manager.set({
-      recursive: false,
-      state: "ignore",
-      target: "known_hosts",
-    });
+    const result = await setSyncTargetMode(
+      {
+        recursive: false,
+        state: "ignore",
+        target: "known_hosts",
+      },
+      context,
+    );
     const config = JSON.parse(
       await readFile(
         join(xdgConfigHome, "devsync", "sync", "config.json"),
@@ -330,18 +381,24 @@ describe("createSyncManager", () => {
     await mkdir(settingsDirectory, { recursive: true });
     await writeFile(settingsFile, "{}\n");
 
-    const manager = createSyncManager({
+    const context = createSyncContext({
       environment: createSyncEnvironment(homeDirectory, xdgConfigHome),
     });
-    const initResult = await manager.init({
-      identityFile: "$XDG_CONFIG_HOME/devsync/age/keys.txt",
-      recipients: [ageKeys.recipient],
-    });
+    const initResult = await initializeSync(
+      {
+        identityFile: "$XDG_CONFIG_HOME/devsync/age/keys.txt",
+        recipients: [ageKeys.recipient],
+      },
+      context,
+    );
 
-    await manager.add({
-      secret: true,
-      target: settingsFile,
-    });
+    await addSyncTarget(
+      {
+        secret: true,
+        target: settingsFile,
+      },
+      context,
+    );
     await mkdir(join(initResult.syncDirectory, "files", "mytool"), {
       recursive: true,
     });
@@ -359,9 +416,12 @@ describe("createSyncManager", () => {
       "stale encrypted copy\n",
     );
 
-    const forgetResult = await manager.forget({
-      target: "mytool/settings.json",
-    });
+    const forgetResult = await forgetSyncTarget(
+      {
+        target: "mytool/settings.json",
+      },
+      context,
+    );
     const config = JSON.parse(
       await readFile(join(initResult.syncDirectory, "config.json"), "utf8"),
     ) as {
@@ -408,23 +468,32 @@ describe("createSyncManager", () => {
     await mkdir(settingsDirectory, { recursive: true });
     await writeFile(settingsFile, "{}\n");
 
-    const manager = createSyncManager({
+    const context = createSyncContext({
       cwd: settingsDirectory,
       environment: createSyncEnvironment(homeDirectory, xdgConfigHome),
     });
 
-    await manager.init({
-      identityFile: "$XDG_CONFIG_HOME/devsync/age/keys.txt",
-      recipients: [ageKeys.recipient],
-    });
-    await manager.add({
-      secret: false,
-      target: settingsFile,
-    });
+    await initializeSync(
+      {
+        identityFile: "$XDG_CONFIG_HOME/devsync/age/keys.txt",
+        recipients: [ageKeys.recipient],
+      },
+      context,
+    );
+    await addSyncTarget(
+      {
+        secret: false,
+        target: settingsFile,
+      },
+      context,
+    );
 
-    const forgetResult = await manager.forget({
-      target: "./settings.json",
-    });
+    const forgetResult = await forgetSyncTarget(
+      {
+        target: "./settings.json",
+      },
+      context,
+    );
     const config = JSON.parse(
       await readFile(
         join(xdgConfigHome, "devsync", "sync", "config.json"),
@@ -456,32 +525,47 @@ describe("createSyncManager", () => {
     await writeFile(secretFile, JSON.stringify({ token: "secret" }, null, 2));
     await writeFile(ignoredFile, "keep local\n");
 
-    const manager = createSyncManager({
+    const context = createSyncContext({
       environment: createSyncEnvironment(homeDirectory, xdgConfigHome),
     });
 
-    await manager.init({
-      identityFile: "$XDG_CONFIG_HOME/devsync/age/keys.txt",
-      recipients: [ageKeys.recipient],
-    });
-    await manager.add({
-      secret: false,
-      target: bundleDirectory,
-    });
-    await manager.set({
-      recursive: false,
-      state: "secret",
-      target: secretFile,
-    });
-    await manager.set({
-      recursive: false,
-      state: "ignore",
-      target: ignoredFile,
-    });
+    await initializeSync(
+      {
+        identityFile: "$XDG_CONFIG_HOME/devsync/age/keys.txt",
+        recipients: [ageKeys.recipient],
+      },
+      context,
+    );
+    await addSyncTarget(
+      {
+        secret: false,
+        target: bundleDirectory,
+      },
+      context,
+    );
+    await setSyncTargetMode(
+      {
+        recursive: false,
+        state: "secret",
+        target: secretFile,
+      },
+      context,
+    );
+    await setSyncTargetMode(
+      {
+        recursive: false,
+        state: "ignore",
+        target: ignoredFile,
+      },
+      context,
+    );
 
-    const pushResult = await manager.push({
-      dryRun: false,
-    });
+    const pushResult = await pushSync(
+      {
+        dryRun: false,
+      },
+      context,
+    );
 
     expect(pushResult.plainFileCount).toBe(1);
     expect(pushResult.encryptedFileCount).toBe(1);
@@ -528,9 +612,12 @@ describe("createSyncManager", () => {
     await writeFile(ignoredFile, "preserve this\n");
     await writeFile(extraFile, "delete me\n");
 
-    const pullResult = await manager.pull({
-      dryRun: false,
-    });
+    const pullResult = await pullSync(
+      {
+        dryRun: false,
+      },
+      context,
+    );
 
     expect(pullResult.deletedLocalCount).toBeGreaterThanOrEqual(1);
     expect(await readFile(plainFile, "utf8")).toBe("plain value\n");
@@ -557,37 +644,52 @@ describe("createSyncManager", () => {
     await writeFile(join(cacheDirectory, "state.txt"), "cache\n");
     await writeFile(trackedFile, "export TEST=1\n");
 
-    const manager = createSyncManager({
+    const context = createSyncContext({
       environment: createSyncEnvironment(homeDirectory, xdgConfigHome),
     });
 
-    await manager.init({
-      identityFile: "$XDG_CONFIG_HOME/devsync/age/keys.txt",
-      recipients: [ageKeys.recipient],
-    });
-    await manager.add({
-      secret: false,
-      target: bundleDirectory,
-    });
-    await manager.add({
-      secret: false,
-      target: trackedFile,
-    });
+    await initializeSync(
+      {
+        identityFile: "$XDG_CONFIG_HOME/devsync/age/keys.txt",
+        recipients: [ageKeys.recipient],
+      },
+      context,
+    );
+    await addSyncTarget(
+      {
+        secret: false,
+        target: bundleDirectory,
+      },
+      context,
+    );
+    await addSyncTarget(
+      {
+        secret: false,
+        target: trackedFile,
+      },
+      context,
+    );
 
     await expect(
-      manager.set({
-        recursive: false,
-        state: "ignore",
-        target: cacheDirectory,
-      }),
-    ).rejects.toThrowError(SyncError);
+      setSyncTargetMode(
+        {
+          recursive: false,
+          state: "ignore",
+          target: cacheDirectory,
+        },
+        context,
+      ),
+    ).rejects.toThrowError(DevsyncError);
     await expect(
-      manager.set({
-        recursive: false,
-        state: "secret",
-        target: trackedFile,
-      }),
-    ).rejects.toThrowError(SyncError);
+      setSyncTargetMode(
+        {
+          recursive: false,
+          state: "secret",
+          target: trackedFile,
+        },
+        context,
+      ),
+    ).rejects.toThrowError(DevsyncError);
   });
 
   it("supports repo-path sync set for missing descendants and reports update transitions", async () => {
@@ -603,49 +705,73 @@ describe("createSyncManager", () => {
     await mkdir(cacheDirectory, { recursive: true });
     await writeFile(join(cacheDirectory, "state.txt"), "cache\n");
 
-    const manager = createSyncManager({
+    const context = createSyncContext({
       environment: createSyncEnvironment(homeDirectory, xdgConfigHome),
     });
 
-    await manager.init({
-      identityFile: "$XDG_CONFIG_HOME/devsync/age/keys.txt",
-      recipients: [ageKeys.recipient],
-    });
-    await manager.add({
-      secret: false,
-      target: bundleDirectory,
-    });
+    await initializeSync(
+      {
+        identityFile: "$XDG_CONFIG_HOME/devsync/age/keys.txt",
+        recipients: [ageKeys.recipient],
+      },
+      context,
+    );
+    await addSyncTarget(
+      {
+        secret: false,
+        target: bundleDirectory,
+      },
+      context,
+    );
 
-    const exactAdded = await manager.set({
-      recursive: false,
-      state: "secret",
-      target: "bundle/future.txt",
-    });
-    const exactUpdated = await manager.set({
-      recursive: false,
-      state: "ignore",
-      target: "bundle/future.txt",
-    });
-    const exactUnchanged = await manager.set({
-      recursive: false,
-      state: "ignore",
-      target: "bundle/future.txt",
-    });
-    const subtreeAdded = await manager.set({
-      recursive: true,
-      state: "ignore",
-      target: cacheDirectory,
-    });
-    const subtreeUpdated = await manager.set({
-      recursive: true,
-      state: "secret",
-      target: "bundle/cache",
-    });
-    const subtreeUnchanged = await manager.set({
-      recursive: true,
-      state: "secret",
-      target: "bundle/cache",
-    });
+    const exactAdded = await setSyncTargetMode(
+      {
+        recursive: false,
+        state: "secret",
+        target: "bundle/future.txt",
+      },
+      context,
+    );
+    const exactUpdated = await setSyncTargetMode(
+      {
+        recursive: false,
+        state: "ignore",
+        target: "bundle/future.txt",
+      },
+      context,
+    );
+    const exactUnchanged = await setSyncTargetMode(
+      {
+        recursive: false,
+        state: "ignore",
+        target: "bundle/future.txt",
+      },
+      context,
+    );
+    const subtreeAdded = await setSyncTargetMode(
+      {
+        recursive: true,
+        state: "ignore",
+        target: cacheDirectory,
+      },
+      context,
+    );
+    const subtreeUpdated = await setSyncTargetMode(
+      {
+        recursive: true,
+        state: "secret",
+        target: "bundle/cache",
+      },
+      context,
+    );
+    const subtreeUnchanged = await setSyncTargetMode(
+      {
+        recursive: true,
+        state: "secret",
+        target: "bundle/cache",
+      },
+      context,
+    );
     const config = JSON.parse(
       await readFile(
         join(xdgConfigHome, "devsync", "sync", "config.json"),
@@ -669,25 +795,34 @@ describe("createSyncManager", () => {
     });
 
     await expect(
-      manager.set({
-        recursive: false,
-        state: "secret",
-        target: missingLocalPath,
-      }),
+      setSyncTargetMode(
+        {
+          recursive: false,
+          state: "secret",
+          target: missingLocalPath,
+        },
+        context,
+      ),
     ).rejects.toThrowError(/does not exist/u);
     await expect(
-      manager.set({
-        recursive: false,
-        state: "secret",
-        target: bundleDirectory,
-      }),
+      setSyncTargetMode(
+        {
+          recursive: false,
+          state: "secret",
+          target: bundleDirectory,
+        },
+        context,
+      ),
     ).rejects.toThrowError(/require --recursive/u);
     await expect(
-      manager.set({
-        recursive: true,
-        state: "secret",
-        target: join(cacheDirectory, "state.txt"),
-      }),
+      setSyncTargetMode(
+        {
+          recursive: true,
+          state: "secret",
+          target: join(cacheDirectory, "state.txt"),
+        },
+        context,
+      ),
     ).rejects.toThrowError(/can only be used with directories/u);
   });
 
@@ -704,22 +839,31 @@ describe("createSyncManager", () => {
     await mkdir(bundleDirectory, { recursive: true });
     await writeFile(tokenFile, "token-v1\n");
 
-    const manager = createSyncManager({
+    const context = createSyncContext({
       environment: createSyncEnvironment(homeDirectory, xdgConfigHome),
     });
 
-    await manager.init({
-      identityFile: "$XDG_CONFIG_HOME/devsync/age/keys.txt",
-      recipients: [ageKeys.recipient],
-    });
-    await manager.add({
-      secret: false,
-      target: bundleDirectory,
-    });
+    await initializeSync(
+      {
+        identityFile: "$XDG_CONFIG_HOME/devsync/age/keys.txt",
+        recipients: [ageKeys.recipient],
+      },
+      context,
+    );
+    await addSyncTarget(
+      {
+        secret: false,
+        target: bundleDirectory,
+      },
+      context,
+    );
 
-    const normalPush = await manager.push({
-      dryRun: false,
-    });
+    const normalPush = await pushSync(
+      {
+        dryRun: false,
+      },
+      context,
+    );
 
     expect(normalPush.plainFileCount).toBe(1);
     expect(
@@ -742,15 +886,21 @@ describe("createSyncManager", () => {
       code: "ENOENT",
     });
 
-    await manager.set({
-      recursive: false,
-      state: "secret",
-      target: tokenFile,
-    });
+    await setSyncTargetMode(
+      {
+        recursive: false,
+        state: "secret",
+        target: tokenFile,
+      },
+      context,
+    );
 
-    const secretPush = await manager.push({
-      dryRun: false,
-    });
+    const secretPush = await pushSync(
+      {
+        dryRun: false,
+      },
+      context,
+    );
 
     expect(secretPush.encryptedFileCount).toBe(1);
     await expect(
@@ -770,15 +920,21 @@ describe("createSyncManager", () => {
       ),
     ).toContain("BEGIN AGE ENCRYPTED FILE");
 
-    await manager.set({
-      recursive: false,
-      state: "ignore",
-      target: tokenFile,
-    });
+    await setSyncTargetMode(
+      {
+        recursive: false,
+        state: "ignore",
+        target: tokenFile,
+      },
+      context,
+    );
 
-    const ignorePush = await manager.push({
-      dryRun: false,
-    });
+    const ignorePush = await pushSync(
+      {
+        dryRun: false,
+      },
+      context,
+    );
 
     expect(ignorePush.deletedArtifactCount).toBeGreaterThanOrEqual(1);
     await expect(
@@ -814,26 +970,38 @@ describe("createSyncManager", () => {
     await mkdir(bundleDirectory, { recursive: true });
     await writeFile(tokenFile, "token-v1\n");
 
-    const manager = createSyncManager({
+    const context = createSyncContext({
       environment: createSyncEnvironment(homeDirectory, xdgConfigHome),
     });
 
-    await manager.init({
-      identityFile: "$XDG_CONFIG_HOME/devsync/age/keys.txt",
-      recipients: [ageKeys.recipient],
-    });
-    await manager.add({
-      secret: false,
-      target: bundleDirectory,
-    });
-    await manager.set({
-      recursive: false,
-      state: "secret",
-      target: tokenFile,
-    });
-    await manager.push({
-      dryRun: false,
-    });
+    await initializeSync(
+      {
+        identityFile: "$XDG_CONFIG_HOME/devsync/age/keys.txt",
+        recipients: [ageKeys.recipient],
+      },
+      context,
+    );
+    await addSyncTarget(
+      {
+        secret: false,
+        target: bundleDirectory,
+      },
+      context,
+    );
+    await setSyncTargetMode(
+      {
+        recursive: false,
+        state: "secret",
+        target: tokenFile,
+      },
+      context,
+    );
+    await pushSync(
+      {
+        dryRun: false,
+      },
+      context,
+    );
     await writeFile(
       join(
         syncDirectory,
@@ -846,9 +1014,12 @@ describe("createSyncManager", () => {
     );
 
     await expect(
-      manager.pull({
-        dryRun: false,
-      }),
+      pullSync(
+        {
+          dryRun: false,
+        },
+        context,
+      ),
     ).rejects.toThrowError();
   });
 });

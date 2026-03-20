@@ -10,7 +10,6 @@ import {
   parseSyncConfig,
   readSyncConfig,
   resolveSyncMode,
-  SyncConfigError,
   syncSecretArtifactSuffix,
 } from "#app/config/sync.ts";
 import {
@@ -19,6 +18,7 @@ import {
   resolveHomeDirectory,
   resolveXdgConfigHome,
 } from "#app/config/xdg.ts";
+import { DevsyncError } from "#app/services/error.ts";
 import { createTemporaryDirectory } from "./helpers/sync-fixture.ts";
 
 const testHomeDirectory = "/tmp/devsync-home";
@@ -200,7 +200,7 @@ describe("parseSyncConfig", () => {
           HOME: testHomeDirectory,
         },
       );
-    }).toThrowError(SyncConfigError);
+    }).toThrowError(DevsyncError);
   });
 
   it("rejects XDG tokens for sync entry local paths", () => {
@@ -227,7 +227,7 @@ describe("parseSyncConfig", () => {
           XDG_CONFIG_HOME: testXdgConfigHome,
         },
       );
-    }).toThrowError(SyncConfigError);
+    }).toThrowError(DevsyncError);
   });
 
   it("rejects unsupported glob fields", () => {
@@ -254,7 +254,7 @@ describe("parseSyncConfig", () => {
           HOME: testHomeDirectory,
         },
       );
-    }).toThrowError(SyncConfigError);
+    }).toThrowError(DevsyncError);
   });
 
   it("rejects repository paths and overrides that use the reserved secret suffix", () => {
@@ -280,7 +280,7 @@ describe("parseSyncConfig", () => {
           HOME: testHomeDirectory,
         },
       );
-    }).toThrowError(SyncConfigError);
+    }).toThrowError(DevsyncError);
 
     expect(() => {
       parseSyncConfig(
@@ -307,7 +307,7 @@ describe("parseSyncConfig", () => {
           HOME: testHomeDirectory,
         },
       );
-    }).toThrowError(SyncConfigError);
+    }).toThrowError(DevsyncError);
   });
 
   it("rejects overrides on file entries", () => {
@@ -336,7 +336,7 @@ describe("parseSyncConfig", () => {
           HOME: testHomeDirectory,
         },
       );
-    }).toThrowError(SyncConfigError);
+    }).toThrowError(DevsyncError);
   });
 
   it("rejects duplicate overrides after normalization", () => {
@@ -366,7 +366,7 @@ describe("parseSyncConfig", () => {
           HOME: testHomeDirectory,
         },
       );
-    }).toThrowError(SyncConfigError);
+    }).toThrowError(DevsyncError);
   });
 
   it("rejects duplicate entry names and overlapping entry paths", () => {
@@ -399,7 +399,7 @@ describe("parseSyncConfig", () => {
           HOME: testHomeDirectory,
         },
       );
-    }).toThrowError(SyncConfigError);
+    }).toThrowError(DevsyncError);
 
     expect(() => {
       parseSyncConfig(
@@ -430,7 +430,7 @@ describe("parseSyncConfig", () => {
           HOME: testHomeDirectory,
         },
       );
-    }).toThrowError(SyncConfigError);
+    }).toThrowError(DevsyncError);
   });
 
   it("rejects the home directory itself and escaping rule paths", () => {
@@ -456,7 +456,7 @@ describe("parseSyncConfig", () => {
           HOME: testHomeDirectory,
         },
       );
-    }).toThrowError(SyncConfigError);
+    }).toThrowError(DevsyncError);
 
     expect(() => {
       parseSyncConfig(
@@ -483,7 +483,7 @@ describe("parseSyncConfig", () => {
           HOME: testHomeDirectory,
         },
       );
-    }).toThrowError(SyncConfigError);
+    }).toThrowError(DevsyncError);
   });
 
   it("resolves modes with exact rules overriding subtree rules and defaults", () => {
@@ -604,6 +604,6 @@ describe("parseSyncConfig", () => {
       readSyncConfig(syncDirectory, {
         HOME: testHomeDirectory,
       }),
-    ).rejects.toThrowError(SyncConfigError);
+    ).rejects.toThrowError(DevsyncError);
   });
 });
