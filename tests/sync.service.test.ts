@@ -4,7 +4,8 @@ import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 
 import { syncSecretArtifactSuffix } from "#app/config/sync.ts";
-import { createSyncManager, SyncError } from "#app/services/sync/index.ts";
+import { SyncError } from "#app/services/error.ts";
+import { createSyncManager } from "#app/services/sync-manager.ts";
 import {
   createAgeKeyPair,
   createTemporaryDirectory,
@@ -142,37 +143,36 @@ describe("createSyncManager", () => {
     const config = JSON.parse(
       await readFile(join(initResult.syncDirectory, "config.json"), "utf8"),
     ) as {
-      defaultMode?: string;
       entries: Array<{
-        defaultMode?: string;
         kind: string;
         localPath: string;
+        mode: string;
         name: string;
+        overrides?: Record<string, string>;
         repoPath: string;
-        rules?: unknown[];
       }>;
     };
 
     expect(fileAddResult.alreadyTracked).toBe(false);
-    expect(fileAddResult.defaultMode).toBe("normal");
+    expect(fileAddResult.mode).toBe("normal");
     expect(fileAddResult.repoPath).toBe(".config/mytool/settings.json");
     expect(fileAddResult.localPath).toBe(settingsFile);
     expect(repeatFileAddResult.alreadyTracked).toBe(true);
-    expect(repeatFileAddResult.defaultMode).toBe("secret");
+    expect(repeatFileAddResult.mode).toBe("secret");
     expect(directoryAddResult.repoPath).toBe(".config/mytool/secrets");
-    expect(directoryAddResult.defaultMode).toBe("secret");
+    expect(directoryAddResult.mode).toBe("secret");
     expect(config.entries).toEqual([
       {
-        defaultMode: "secret",
         kind: "directory",
         localPath: "~/.config/mytool/secrets",
+        mode: "secret",
         name: ".config/mytool/secrets",
         repoPath: ".config/mytool/secrets",
       },
       {
-        defaultMode: "secret",
         kind: "file",
         localPath: "~/.config/mytool/settings.json",
+        mode: "secret",
         name: ".config/mytool/settings.json",
         repoPath: ".config/mytool/settings.json",
       },
@@ -236,12 +236,7 @@ describe("createSyncManager", () => {
       ),
     ) as {
       entries: Array<{
-        defaultMode?: string;
-        rules?: Array<{
-          match: string;
-          mode: string;
-          path: string;
-        }>;
+        overrides?: Record<string, string>;
       }>;
     };
 
@@ -258,14 +253,10 @@ describe("createSyncManager", () => {
         kind: "directory",
         localPath: "~/bundle",
         name: "bundle",
+        overrides: {
+          "cache/": "ignore",
+        },
         repoPath: "bundle",
-        rules: [
-          {
-            match: "subtree",
-            mode: "ignore",
-            path: "cache",
-          },
-        ],
       },
     ]);
   });
@@ -309,11 +300,7 @@ describe("createSyncManager", () => {
     ) as {
       entries: Array<{
         repoPath: string;
-        rules?: Array<{
-          match: string;
-          mode: string;
-          path: string;
-        }>;
+        overrides?: Record<string, string>;
       }>;
     };
 
@@ -324,13 +311,9 @@ describe("createSyncManager", () => {
     expect(config.entries).toMatchObject([
       {
         repoPath: ".ssh",
-        rules: [
-          {
-            match: "exact",
-            mode: "ignore",
-            path: "known_hosts",
-          },
-        ],
+        overrides: {
+          known_hosts: "ignore",
+        },
       },
     ]);
   });
@@ -670,11 +653,7 @@ describe("createSyncManager", () => {
       ),
     ) as {
       entries: Array<{
-        rules?: Array<{
-          match: string;
-          mode: string;
-          path: string;
-        }>;
+        overrides?: Record<string, string>;
       }>;
     };
 
@@ -684,18 +663,10 @@ describe("createSyncManager", () => {
     expect(subtreeAdded.action).toBe("added");
     expect(subtreeUpdated.action).toBe("updated");
     expect(subtreeUnchanged.action).toBe("unchanged");
-    expect(config.entries[0]?.rules).toEqual([
-      {
-        match: "subtree",
-        mode: "secret",
-        path: "cache",
-      },
-      {
-        match: "exact",
-        mode: "ignore",
-        path: "future.txt",
-      },
-    ]);
+    expect(config.entries[0]?.overrides).toEqual({
+      "cache/": "secret",
+      "future.txt": "ignore",
+    });
 
     await expect(
       manager.set({

@@ -95,7 +95,7 @@ describe("configured path resolution", () => {
 });
 
 describe("parseSyncConfig", () => {
-  it("resolves home-scoped entry paths and normalizes rules", () => {
+  it("resolves home-scoped entry paths and normalizes overrides", () => {
     const config = parseSyncConfig(
       {
         version: 1,
@@ -105,23 +105,15 @@ describe("parseSyncConfig", () => {
         },
         entries: [
           {
-            defaultMode: "secret",
             kind: "directory",
             localPath: "~/.config/mytool",
+            mode: "secret",
             name: ".config/mytool",
+            overrides: {
+              "cache\\tmp/": "ignore",
+              "cache\\tmp\\keep.json": "normal",
+            },
             repoPath: ".config\\mytool",
-            rules: [
-              {
-                match: "subtree",
-                mode: "ignore",
-                path: "cache\\tmp",
-              },
-              {
-                match: "exact",
-                mode: "normal",
-                path: "cache\\tmp\\keep.json",
-              },
-            ],
           },
         ],
       },
@@ -137,12 +129,11 @@ describe("parseSyncConfig", () => {
     expect(config.entries).toEqual([
       {
         configuredLocalPath: "~/.config/mytool",
-        defaultMode: "secret",
         kind: "directory",
         localPath: join(testHomeDirectory, ".config", "mytool"),
+        mode: "secret",
         name: ".config/mytool",
-        repoPath: ".config/mytool",
-        rules: [
+        overrides: [
           {
             match: "subtree",
             mode: "ignore",
@@ -154,6 +145,7 @@ describe("parseSyncConfig", () => {
             path: "cache/tmp/keep.json",
           },
         ],
+        repoPath: ".config/mytool",
       },
     ]);
   });
@@ -170,6 +162,7 @@ describe("parseSyncConfig", () => {
           {
             kind: "directory",
             localPath: "/tmp/devsync-home/bundle",
+            mode: "normal",
             name: "bundle",
             repoPath: "bundle",
           },
@@ -181,7 +174,7 @@ describe("parseSyncConfig", () => {
     );
 
     expect(config.entries[0]?.localPath).toBe("/tmp/devsync-home/bundle");
-    expect(config.entries[0]?.defaultMode).toBe("normal");
+    expect(config.entries[0]?.mode).toBe("normal");
   });
 
   it("rejects sync entry local paths outside HOME", () => {
@@ -197,6 +190,7 @@ describe("parseSyncConfig", () => {
             {
               kind: "directory",
               localPath: "/tmp/outside-home/bundle",
+              mode: "normal",
               name: "bundle",
               repoPath: "bundle",
             },
@@ -222,6 +216,7 @@ describe("parseSyncConfig", () => {
             {
               kind: "directory",
               localPath: "$XDG_CONFIG_HOME/bundle",
+              mode: "normal",
               name: "bundle",
               repoPath: "bundle",
             },
@@ -248,6 +243,7 @@ describe("parseSyncConfig", () => {
             {
               kind: "directory",
               localPath: "~/bundle",
+              mode: "normal",
               name: "bundle",
               repoPath: "bundle",
               secretGlobs: ["**"],
@@ -261,7 +257,7 @@ describe("parseSyncConfig", () => {
     }).toThrowError(SyncConfigError);
   });
 
-  it("rejects repository paths and rules that use the reserved secret suffix", () => {
+  it("rejects repository paths and overrides that use the reserved secret suffix", () => {
     expect(() => {
       parseSyncConfig(
         {
@@ -274,6 +270,7 @@ describe("parseSyncConfig", () => {
             {
               kind: "file",
               localPath: "~/bundle/token.txt",
+              mode: "normal",
               name: "bundle/token.txt",
               repoPath: `bundle/token.txt${syncSecretArtifactSuffix}`,
             },
@@ -297,15 +294,12 @@ describe("parseSyncConfig", () => {
             {
               kind: "directory",
               localPath: "~/bundle",
+              mode: "normal",
               name: "bundle",
+              overrides: {
+                [`token.txt${syncSecretArtifactSuffix}`]: "secret",
+              },
               repoPath: "bundle",
-              rules: [
-                {
-                  match: "exact",
-                  mode: "secret",
-                  path: `token.txt${syncSecretArtifactSuffix}`,
-                },
-              ],
             },
           ],
         },
@@ -316,7 +310,7 @@ describe("parseSyncConfig", () => {
     }).toThrowError(SyncConfigError);
   });
 
-  it("rejects child rules on file entries", () => {
+  it("rejects overrides on file entries", () => {
     expect(() => {
       parseSyncConfig(
         {
@@ -329,15 +323,12 @@ describe("parseSyncConfig", () => {
             {
               kind: "file",
               localPath: "~/bundle.json",
+              mode: "normal",
               name: "bundle.json",
+              overrides: {
+                "nested.json": "secret",
+              },
               repoPath: "bundle.json",
-              rules: [
-                {
-                  match: "exact",
-                  mode: "secret",
-                  path: "nested.json",
-                },
-              ],
             },
           ],
         },
@@ -348,7 +339,7 @@ describe("parseSyncConfig", () => {
     }).toThrowError(SyncConfigError);
   });
 
-  it("rejects duplicate rules for the same path and scope", () => {
+  it("rejects duplicate overrides after normalization", () => {
     expect(() => {
       parseSyncConfig(
         {
@@ -361,20 +352,13 @@ describe("parseSyncConfig", () => {
             {
               kind: "directory",
               localPath: "~/bundle",
+              mode: "normal",
               name: "bundle",
+              overrides: {
+                "cache/": "ignore",
+                "cache//": "secret",
+              },
               repoPath: "bundle",
-              rules: [
-                {
-                  match: "subtree",
-                  mode: "ignore",
-                  path: "cache",
-                },
-                {
-                  match: "subtree",
-                  mode: "secret",
-                  path: "cache",
-                },
-              ],
             },
           ],
         },
@@ -398,12 +382,14 @@ describe("parseSyncConfig", () => {
             {
               kind: "file",
               localPath: "~/bundle/one.json",
+              mode: "normal",
               name: "bundle",
               repoPath: "bundle/one.json",
             },
             {
               kind: "file",
               localPath: "~/bundle/two.json",
+              mode: "normal",
               name: "bundle",
               repoPath: "bundle/two.json",
             },
@@ -427,12 +413,14 @@ describe("parseSyncConfig", () => {
             {
               kind: "directory",
               localPath: "~/bundle",
+              mode: "normal",
               name: "bundle",
               repoPath: "bundle",
             },
             {
               kind: "file",
               localPath: "~/bundle/file.txt",
+              mode: "normal",
               name: "bundle/file.txt",
               repoPath: "bundle/file.txt",
             },
@@ -458,6 +446,7 @@ describe("parseSyncConfig", () => {
             {
               kind: "directory",
               localPath: "~",
+              mode: "normal",
               name: "bundle",
               repoPath: "bundle",
             },
@@ -481,15 +470,12 @@ describe("parseSyncConfig", () => {
             {
               kind: "directory",
               localPath: "~/bundle",
+              mode: "normal",
               name: "bundle",
+              overrides: {
+                "../token.txt": "secret",
+              },
               repoPath: "bundle",
-              rules: [
-                {
-                  match: "exact",
-                  mode: "secret",
-                  path: "../token.txt",
-                },
-              ],
             },
           ],
         },
@@ -510,23 +496,15 @@ describe("parseSyncConfig", () => {
         },
         entries: [
           {
-            defaultMode: "secret",
             kind: "directory",
             localPath: "~/bundle",
+            mode: "secret",
             name: "bundle",
+            overrides: {
+              "private/": "ignore",
+              "private/public.json": "normal",
+            },
             repoPath: "bundle",
-            rules: [
-              {
-                match: "subtree",
-                mode: "ignore",
-                path: "private",
-              },
-              {
-                match: "exact",
-                mode: "normal",
-                path: "private/public.json",
-              },
-            ],
           },
         ],
       },
@@ -552,33 +530,17 @@ describe("parseSyncConfig", () => {
         },
         entries: [
           {
-            defaultMode: "normal",
             kind: "directory",
             localPath: "~/bundle",
+            mode: "normal",
             name: "bundle",
+            overrides: {
+              "private/": "secret",
+              "private/public/": "ignore",
+              "private/public/file.txt": "normal",
+              "private/public/file.txt/": "secret",
+            },
             repoPath: "bundle",
-            rules: [
-              {
-                match: "subtree",
-                mode: "secret",
-                path: "private",
-              },
-              {
-                match: "subtree",
-                mode: "ignore",
-                path: "private/public",
-              },
-              {
-                match: "exact",
-                mode: "normal",
-                path: "private/public/file.txt",
-              },
-              {
-                match: "subtree",
-                mode: "secret",
-                path: "private/public/file.txt",
-              },
-            ],
           },
         ],
       },
@@ -606,18 +568,14 @@ describe("parseSyncConfig", () => {
         },
         entries: [
           {
-            defaultMode: "secret",
             kind: "directory",
             localPath: "~/bundle",
+            mode: "secret",
             name: "bundle",
+            overrides: {
+              "ignored.txt": "ignore",
+            },
             repoPath: "bundle",
-            rules: [
-              {
-                match: "exact",
-                mode: "ignore",
-                path: "ignored.txt",
-              },
-            ],
           },
         ],
       },

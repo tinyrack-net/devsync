@@ -1,4 +1,3 @@
-import { lstat, readFile, readlink } from "node:fs/promises";
 import { join } from "node:path";
 
 import {
@@ -8,14 +7,9 @@ import {
   resolveSyncMode,
 } from "#app/config/sync.ts";
 
-import { decryptSecretFile } from "./crypto.ts";
+import type { CryptoPort } from "./crypto.ts";
 import { SyncError } from "./error.ts";
-import {
-  getPathStats,
-  isExecutableMode,
-  listDirectoryEntries,
-  pathExists,
-} from "./filesystem.ts";
+import type { FilesystemPort } from "./filesystem.ts";
 import { addSnapshotNode, type SnapshotNode } from "./local-snapshot.ts";
 import {
   assertStorageSafeRepoPath,
@@ -41,6 +35,10 @@ const readPlainSnapshotNode = async (
   repoPath: string,
   config: ResolvedSyncConfig,
   snapshot: Map<string, SnapshotNode>,
+  filesystem: Pick<
+    FilesystemPort,
+    "isExecutableMode" | "lstat" | "readFile" | "readlink"
+  >,
 ) => {
   assertStorageSafeRepoPath(repoPath);
   const mode = resolveManagedSyncMode(config, repoPath);
@@ -61,11 +59,11 @@ const readPlainSnapshotNode = async (
     );
   }
 
-  const stats = await lstat(absolutePath);
+  const stats = await filesystem.lstat(absolutePath);
 
   if (stats.isSymbolicLink()) {
     addSnapshotNode(snapshot, repoPath, {
-      linkTarget: await readlink(absolutePath),
+      linkTarget: await filesystem.readlink(absolutePath),
       type: "symlink",
     });
 
@@ -77,8 +75,8 @@ const readPlainSnapshotNode = async (
   }
 
   addSnapshotNode(snapshot, repoPath, {
-    contents: await readFile(absolutePath),
-    executable: isExecutableMode(stats.mode),
+    contents: await filesystem.readFile(absolutePath),
+    executable: filesystem.isExecutableMode(stats.mode),
     secret: false,
     type: "file",
   });
@@ -88,23 +86,42 @@ const readRepositoryTree = async (
   rootDirectory: string,
   config: ResolvedSyncConfig,
   snapshot: Map<string, SnapshotNode>,
+  dependencies: Readonly<{
+    crypto: Pick<CryptoPort, "decryptSecretFile">;
+    filesystem: Pick<
+      FilesystemPort,
+      | "isExecutableMode"
+      | "listDirectoryEntries"
+      | "lstat"
+      | "pathExists"
+      | "readFile"
+      | "readlink"
+    >;
+  }>,
   prefix?: string,
 ) => {
-  if (!(await pathExists(rootDirectory))) {
+  if (!(await dependencies.filesystem.pathExists(rootDirectory))) {
     return;
   }
 
-  const entries = await listDirectoryEntries(rootDirectory);
+  const entries =
+    await dependencies.filesystem.listDirectoryEntries(rootDirectory);
 
   for (const entry of entries) {
     const absolutePath = join(rootDirectory, entry.name);
     const relativePath =
       prefix === undefined ? entry.name : `${prefix}/${entry.name}`;
-    const stats = await lstat(absolutePath);
+    const stats = await dependencies.filesystem.lstat(absolutePath);
 
     if (stats.isDirectory()) {
       assertStorageSafeRepoPath(relativePath);
-      await readRepositoryTree(absolutePath, config, snapshot, relativePath);
+      await readRepositoryTree(
+        absolutePath,
+        config,
+        snapshot,
+        dependencies,
+        relativePath,
+      );
       continue;
     }
 
@@ -115,7 +132,13 @@ const readRepositoryTree = async (
         );
       }
 
-      await readPlainSnapshotNode(absolutePath, relativePath, config, snapshot);
+      await readPlainSnapshotNode(
+        absolutePath,
+        relativePath,
+        config,
+        snapshot,
+        dependencies.filesystem,
+      );
       continue;
     }
 
@@ -148,11 +171,11 @@ const readRepositoryTree = async (
       }
 
       addSnapshotNode(snapshot, repoPath, {
-        contents: await decryptSecretFile(
-          await readFile(absolutePath, "utf8"),
+        contents: await dependencies.crypto.decryptSecretFile(
+          await dependencies.filesystem.readFile(absolutePath, "utf8"),
           config.age.identityFile,
         ),
-        executable: isExecutableMode(stats.mode),
+        executable: dependencies.filesystem.isExecutableMode(stats.mode),
         secret: true,
         type: "file",
       });
@@ -165,18 +188,37 @@ const readRepositoryTree = async (
       );
     }
 
-    await readPlainSnapshotNode(absolutePath, relativePath, config, snapshot);
+    await readPlainSnapshotNode(
+      absolutePath,
+      relativePath,
+      config,
+      snapshot,
+      dependencies.filesystem,
+    );
   }
 };
 
 export const buildRepositorySnapshot = async (
   syncDirectory: string,
   config: ResolvedSyncConfig,
+  dependencies: Readonly<{
+    crypto: Pick<CryptoPort, "decryptSecretFile">;
+    filesystem: Pick<
+      FilesystemPort,
+      | "getPathStats"
+      | "isExecutableMode"
+      | "listDirectoryEntries"
+      | "lstat"
+      | "pathExists"
+      | "readFile"
+      | "readlink"
+    >;
+  }>,
 ) => {
   const snapshot = new Map<string, SnapshotNode>();
   const artifactsDirectory = resolveSyncArtifactsDirectoryPath(syncDirectory);
 
-  await readRepositoryTree(artifactsDirectory, config, snapshot);
+  await readRepositoryTree(artifactsDirectory, config, snapshot, dependencies);
 
   for (const entry of config.entries) {
     if (entry.kind !== "directory") {
@@ -184,7 +226,7 @@ export const buildRepositorySnapshot = async (
     }
 
     const artifactPath = join(artifactsDirectory, ...entry.repoPath.split("/"));
-    const stats = await getPathStats(artifactPath);
+    const stats = await dependencies.filesystem.getPathStats(artifactPath);
 
     if (stats !== undefined && !stats.isDirectory()) {
       throw new SyncError(

@@ -181,3 +181,33 @@ export const writeTextFileAtomically = async (
     await rm(stagingDirectory, { force: true, recursive: true });
   }
 };
+
+export const createFilesystemPort = () => {
+  return {
+    access,
+    buildExecutableMode,
+    chmod,
+    copyFilesystemNode,
+    getPathStats,
+    isExecutableMode,
+    listDirectoryEntries,
+    lstat,
+    mkdir,
+    mkdtemp,
+    pathExists,
+    readFile,
+    readdir,
+    readlink,
+    removePathAtomically,
+    rename,
+    replacePathAtomically,
+    rm,
+    symlink,
+    writeFile,
+    writeFileNode,
+    writeSymlinkNode,
+    writeTextFileAtomically,
+  };
+};
+
+export type FilesystemPort = ReturnType<typeof createFilesystemPort>;

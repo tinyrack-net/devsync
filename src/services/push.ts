@@ -1,16 +1,10 @@
-import { mkdtemp, rm } from "node:fs/promises";
 import { join } from "node:path";
 
 import {
   readSyncConfig,
   resolveSyncArtifactsDirectoryPath,
-  resolveSyncConfigFilePath,
 } from "#app/config/sync.ts";
-import { resolveDevsyncSyncDirectory } from "#app/config/xdg.ts";
 
-import { SyncError } from "./error.ts";
-import { replacePathAtomically } from "./filesystem.ts";
-import { ensureGitRepository, type GitService } from "./git.ts";
 import { buildLocalSnapshot, type SnapshotNode } from "./local-snapshot.ts";
 import {
   buildArtifactKey,
@@ -18,12 +12,14 @@ import {
   collectExistingArtifactKeys,
   writeArtifactsToDirectory,
 } from "./repo-artifacts.ts";
+import { ensureSyncRepository, type SyncContext } from "./runtime.ts";
+import { runSyncUseCase } from "./use-case.ts";
 
-type SyncRunRequest = Readonly<{
+export type SyncPushRequest = Readonly<{
   dryRun: boolean;
 }>;
 
-type SyncPushResult = Readonly<{
+export type SyncPushResult = Readonly<{
   configPath: string;
   deletedArtifactCount: number;
   directoryCount: number;
@@ -67,70 +63,67 @@ const buildPushCounts = (snapshot: ReadonlyMap<string, SnapshotNode>) => {
 };
 
 export const pushSync = async (
-  request: SyncRunRequest,
-  dependencies: Readonly<{
-    environment: NodeJS.ProcessEnv;
-    git: GitService;
-  }>,
+  request: SyncPushRequest,
+  context: SyncContext,
 ): Promise<SyncPushResult> => {
-  try {
-    const syncDirectory = resolveDevsyncSyncDirectory(dependencies.environment);
-
-    await ensureGitRepository(syncDirectory, dependencies.git);
+  return runSyncUseCase("Sync push failed.", async () => {
+    await ensureSyncRepository(context);
 
     const config = await readSyncConfig(
-      syncDirectory,
-      dependencies.environment,
+      context.paths.syncDirectory,
+      context.environment,
     );
-    const snapshot = await buildLocalSnapshot(config);
-    const artifacts = await buildRepoArtifacts(snapshot, config);
+    const snapshot = await buildLocalSnapshot(config, context.ports.filesystem);
+    const artifacts = await buildRepoArtifacts(snapshot, config, {
+      crypto: context.ports.crypto,
+    });
     const desiredArtifactKeys = new Set(
       artifacts.map((artifact) => {
         return buildArtifactKey(artifact);
       }),
     );
     const existingArtifactKeys = await collectExistingArtifactKeys(
-      syncDirectory,
+      context.paths.syncDirectory,
       config,
+      context.ports.filesystem,
     );
     const deletedArtifactCount = [...existingArtifactKeys].filter((key) => {
       return !desiredArtifactKeys.has(key);
     }).length;
 
     if (!request.dryRun) {
-      const stagingRoot = await mkdtemp(
-        join(syncDirectory, ".devsync-sync-push-"),
+      const stagingRoot = await context.ports.filesystem.mkdtemp(
+        join(context.paths.syncDirectory, ".devsync-sync-push-"),
       );
       const nextArtifactsDirectory = join(stagingRoot, "files");
 
       try {
-        await writeArtifactsToDirectory(nextArtifactsDirectory, artifacts);
+        await writeArtifactsToDirectory(
+          nextArtifactsDirectory,
+          artifacts,
+          context.ports.filesystem,
+        );
 
-        await replacePathAtomically(
-          resolveSyncArtifactsDirectoryPath(syncDirectory),
+        await context.ports.filesystem.replacePathAtomically(
+          resolveSyncArtifactsDirectoryPath(context.paths.syncDirectory),
           nextArtifactsDirectory,
         );
       } finally {
-        await rm(stagingRoot, { force: true, recursive: true });
+        await context.ports.filesystem.rm(stagingRoot, {
+          force: true,
+          recursive: true,
+        });
       }
     }
 
     const counts = buildPushCounts(snapshot);
 
     return {
-      configPath: resolveSyncConfigFilePath(syncDirectory),
+      configPath: context.paths.configPath,
       deletedArtifactCount,
       dryRun: request.dryRun,
-      syncDirectory,
+      syncDirectory: context.paths.syncDirectory,
       ...counts,
     };
-  } catch (error: unknown) {
-    if (error instanceof SyncError) {
-      throw error;
-    }
-
-    throw new SyncError(
-      error instanceof Error ? error.message : "Sync push failed.",
-    );
-  }
+  });
 };

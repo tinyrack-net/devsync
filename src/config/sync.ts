@@ -17,29 +17,22 @@ export const syncSecretArtifactSuffix = ".devsync.secret";
 
 const syncEntryKinds = ["file", "directory"] as const;
 export const syncModes = ["normal", "secret", "ignore"] as const;
-const syncRuleMatches = ["exact", "subtree"] as const;
 
 const requiredTrimmedStringSchema = z
   .string()
   .trim()
   .min(1, "Value must not be empty.");
 
-const syncConfigRuleSchema = z
-  .object({
-    match: z.enum(syncRuleMatches),
-    mode: z.enum(syncModes),
-    path: requiredTrimmedStringSchema,
-  })
-  .strict();
-
 const syncConfigEntrySchema = z
   .object({
-    defaultMode: z.enum(syncModes).optional(),
     kind: z.enum(syncEntryKinds),
     localPath: requiredTrimmedStringSchema,
+    mode: z.enum(syncModes),
     name: requiredTrimmedStringSchema,
+    overrides: z
+      .record(requiredTrimmedStringSchema, z.enum(syncModes))
+      .optional(),
     repoPath: requiredTrimmedStringSchema,
-    rules: z.array(syncConfigRuleSchema).optional(),
   })
   .strict();
 
@@ -60,24 +53,23 @@ const syncConfigSchema = z
 
 export type SyncConfigEntryKind = (typeof syncEntryKinds)[number];
 export type SyncMode = (typeof syncModes)[number];
-export type SyncRuleMatch = (typeof syncRuleMatches)[number];
 export type SyncConfig = z.infer<typeof syncConfigSchema>;
-export type SyncConfigRule = z.infer<typeof syncConfigRuleSchema>;
+export type SyncOverrideMatch = "exact" | "subtree";
 
-export type ResolvedSyncConfigRule = Readonly<{
-  match: SyncRuleMatch;
+export type ResolvedSyncOverride = Readonly<{
+  match: SyncOverrideMatch;
   mode: SyncMode;
   path: string;
 }>;
 
 export type ResolvedSyncConfigEntry = Readonly<{
   configuredLocalPath: string;
-  defaultMode: SyncMode;
   kind: SyncConfigEntryKind;
   localPath: string;
+  mode: SyncMode;
   name: string;
+  overrides: readonly ResolvedSyncOverride[];
   repoPath: string;
-  rules: readonly ResolvedSyncConfigRule[];
 }>;
 
 export type ResolvedSyncConfig = Readonly<{
@@ -121,9 +113,9 @@ export const normalizeSyncRepoPath = (value: string) => {
   return normalizedValue;
 };
 
-export const normalizeSyncRulePath = (
+export const normalizeSyncOverridePath = (
   value: string,
-  description = "Rule path",
+  description = "Override path",
 ) => {
   const posixValue = value.replaceAll("\\", "/");
 
@@ -171,6 +163,28 @@ export const hasReservedSyncArtifactSuffixSegment = (value: string) => {
     .some((segment) => segment.endsWith(syncSecretArtifactSuffix));
 };
 
+export const normalizeSyncOverrideSelector = (
+  value: string,
+  description = "Override selector",
+): ResolvedSyncOverride => {
+  const posixValue = value.replaceAll("\\", "/");
+  const match = posixValue.endsWith("/") ? "subtree" : "exact";
+  const trimmedValue =
+    match === "subtree" ? posixValue.replace(/\/+$/u, "") : posixValue;
+
+  return {
+    match,
+    mode: "normal",
+    path: normalizeSyncOverridePath(trimmedValue, description),
+  };
+};
+
+export const formatSyncOverrideSelector = (
+  override: Pick<ResolvedSyncOverride, "match" | "path">,
+) => {
+  return override.match === "subtree" ? `${override.path}/` : override.path;
+};
+
 export const findOwningSyncEntry = (
   config: Pick<ResolvedSyncConfig, "entries">,
   repoPath: string,
@@ -206,9 +220,9 @@ const getRulePathDepth = (path: string) => {
   return path.split("/").length;
 };
 
-const compareRuleSpecificity = (
-  left: Pick<ResolvedSyncConfigRule, "match" | "path">,
-  right: Pick<ResolvedSyncConfigRule, "match" | "path">,
+const compareOverrideSpecificity = (
+  left: Pick<ResolvedSyncOverride, "match" | "path">,
+  right: Pick<ResolvedSyncOverride, "match" | "path">,
 ) => {
   const depthComparison =
     getRulePathDepth(right.path) - getRulePathDepth(left.path);
@@ -224,37 +238,40 @@ const compareRuleSpecificity = (
   return left.match === "exact" ? -1 : 1;
 };
 
-const matchesRule = (
-  rule: Pick<ResolvedSyncConfigRule, "match" | "path">,
+const matchesOverride = (
+  override: Pick<ResolvedSyncOverride, "match" | "path">,
   relativePath: string,
 ) => {
   if (relativePath === "") {
     return false;
   }
 
-  if (rule.match === "exact") {
-    return rule.path === relativePath;
+  if (override.match === "exact") {
+    return override.path === relativePath;
   }
 
-  return rule.path === relativePath || relativePath.startsWith(`${rule.path}/`);
+  return (
+    override.path === relativePath ||
+    relativePath.startsWith(`${override.path}/`)
+  );
 };
 
 export const resolveRelativeSyncMode = (
-  defaultMode: SyncMode,
-  rules: readonly Pick<ResolvedSyncConfigRule, "match" | "mode" | "path">[],
+  mode: SyncMode,
+  overrides: readonly Pick<ResolvedSyncOverride, "match" | "mode" | "path">[],
   relativePath: string,
 ) => {
   if (relativePath === "") {
-    return defaultMode;
+    return mode;
   }
 
-  const matchingRule = [...rules]
-    .filter((rule) => {
-      return matchesRule(rule, relativePath);
+  const matchingOverride = [...overrides]
+    .filter((override) => {
+      return matchesOverride(override, relativePath);
     })
-    .sort(compareRuleSpecificity)[0];
+    .sort(compareOverrideSpecificity)[0];
 
-  return matchingRule?.mode ?? defaultMode;
+  return matchingOverride?.mode ?? mode;
 };
 
 const isPathEqualOrNested = (left: string, right: string) => {
@@ -381,25 +398,25 @@ const validatePathOverlaps = (
   }
 };
 
-const validateRules = (entry: ResolvedSyncConfigEntry) => {
-  if (entry.kind === "file" && entry.rules.length > 0) {
+const validateOverrides = (entry: ResolvedSyncConfigEntry) => {
+  if (entry.kind === "file" && entry.overrides.length > 0) {
     throw new SyncConfigError(
-      `File sync entries must not define child rules: ${entry.name}`,
+      `File sync entries must not define overrides: ${entry.name}`,
     );
   }
 
-  const seenRules = new Set<string>();
+  const seenOverrides = new Set<string>();
 
-  for (const rule of entry.rules) {
-    const key = `${rule.match}:${rule.path}`;
+  for (const override of entry.overrides) {
+    const key = formatSyncOverrideSelector(override);
 
-    if (seenRules.has(key)) {
+    if (seenOverrides.has(key)) {
       throw new SyncConfigError(
-        `Duplicate sync rule for ${entry.name}: ${rule.match} ${rule.path}`,
+        `Duplicate sync override for ${entry.name}: ${key}`,
       );
     }
 
-    seenRules.add(key);
+    seenOverrides.add(key);
   }
 };
 
@@ -416,21 +433,27 @@ export const parseSyncConfig = (
   const entries = result.data.entries.map((entry) => {
     const resolvedEntry = {
       configuredLocalPath: entry.localPath,
-      defaultMode: entry.defaultMode ?? "normal",
       kind: entry.kind,
       localPath: resolveSyncEntryLocalPath(entry.localPath, environment),
+      mode: entry.mode,
       name: entry.name,
+      overrides: Object.entries(entry.overrides ?? {}).map(
+        ([selector, overrideMode]) => {
+          const normalizedSelector = normalizeSyncOverrideSelector(
+            selector,
+            "Entry override selector",
+          );
+
+          return {
+            ...normalizedSelector,
+            mode: overrideMode,
+          } satisfies ResolvedSyncOverride;
+        },
+      ),
       repoPath: normalizeSyncRepoPath(entry.repoPath),
-      rules: (entry.rules ?? []).map((rule) => {
-        return {
-          match: rule.match,
-          mode: rule.mode,
-          path: normalizeSyncRulePath(rule.path, "Entry rule path"),
-        } satisfies ResolvedSyncConfigRule;
-      }),
     } satisfies ResolvedSyncConfigEntry;
 
-    validateRules(resolvedEntry);
+    validateOverrides(resolvedEntry);
 
     return resolvedEntry;
   });
@@ -538,7 +561,7 @@ export const resolveSyncMode = (
     return undefined;
   }
 
-  return resolveRelativeSyncMode(entry.defaultMode, entry.rules, relativePath);
+  return resolveRelativeSyncMode(entry.mode, entry.overrides, relativePath);
 };
 
 export const isIgnoredSyncPath = (

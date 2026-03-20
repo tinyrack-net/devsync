@@ -144,43 +144,31 @@ describe("sync CLI integration", () => {
       await readFile(join(syncDirectory, "config.json"), "utf8"),
     ) as {
       entries: Array<{
-        defaultMode?: string;
         kind: string;
         localPath: string;
+        mode: string;
         name: string;
+        overrides?: Record<string, string>;
         repoPath: string;
-        rules?: Array<{
-          match: string;
-          mode: string;
-          path: string;
-        }>;
       }>;
     };
 
     expect(addResult.stdout).toContain("Added sync target.");
-    expect(addResult.stdout).toContain("Default mode: secret");
+    expect(addResult.stdout).toContain("Mode: secret");
     expect(setExactResult.stdout).toContain("Scope: exact rule");
     expect(setExactResult.stdout).toContain("Action: added");
     expect(setSubtreeResult.stdout).toContain("Scope: subtree rule");
     expect(configAfterSet.entries).toEqual([
       {
-        defaultMode: "secret",
         kind: "directory",
         localPath: "~/.config/mytool",
+        mode: "secret",
         name: ".config/mytool",
+        overrides: {
+          "cache/": "ignore",
+          "public.json": "normal",
+        },
         repoPath: ".config/mytool",
-        rules: [
-          {
-            match: "subtree",
-            mode: "ignore",
-            path: "cache",
-          },
-          {
-            match: "exact",
-            mode: "normal",
-            path: "public.json",
-          },
-        ],
       },
     ]);
     expect("ignoreGlobs" in configAfterSet).toBe(false);
@@ -236,11 +224,7 @@ describe("sync CLI integration", () => {
     ) as {
       entries: Array<{
         repoPath: string;
-        rules?: Array<{
-          match: string;
-          mode: string;
-          path: string;
-        }>;
+        overrides?: Record<string, string>;
       }>;
     };
 
@@ -251,13 +235,9 @@ describe("sync CLI integration", () => {
     expect(config.entries).toMatchObject([
       {
         repoPath: ".ssh",
-        rules: [
-          {
-            match: "exact",
-            mode: "ignore",
-            path: "known_hosts",
-          },
-        ],
+        overrides: {
+          known_hosts: "ignore",
+        },
       },
     ]);
   });

@@ -1,10 +1,10 @@
-import SyncAdd from "#app/cli/commands/sync/add.ts";
-import SyncCd from "#app/cli/commands/sync/cd.ts";
-import SyncForget from "#app/cli/commands/sync/forget.ts";
-import SyncInit from "#app/cli/commands/sync/init.ts";
-import SyncPull from "#app/cli/commands/sync/pull.ts";
-import SyncPush from "#app/cli/commands/sync/push.ts";
-import SyncSet from "#app/cli/commands/sync/set.ts";
+import SyncAdd from "#app/cli/commands/add.ts";
+import SyncCd from "#app/cli/commands/cd.ts";
+import SyncForget from "#app/cli/commands/forget.ts";
+import SyncInit from "#app/cli/commands/init.ts";
+import SyncPull from "#app/cli/commands/pull.ts";
+import SyncPush from "#app/cli/commands/push.ts";
+import SyncSet from "#app/cli/commands/set.ts";
 
 export const COMMANDS = {
   add: SyncAdd,

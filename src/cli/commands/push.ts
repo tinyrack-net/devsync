@@ -1,9 +1,7 @@
 import { Command, Flags } from "@oclif/core";
 
 import { formatSyncPushResult } from "#app/cli/sync-output.ts";
-import { createSyncManager } from "#app/services/sync/index.ts";
-
-const syncManager = createSyncManager();
+import { createSyncManager } from "#app/services/sync-manager.ts";
 
 export default class SyncPush extends Command {
   public static override summary =
@@ -18,6 +16,7 @@ export default class SyncPush extends Command {
 
   public override async run(): Promise<void> {
     const { flags } = await this.parse(SyncPush);
+    const syncManager = createSyncManager();
     const output = formatSyncPushResult(
       await syncManager.push({
         dryRun: flags["dry-run"],

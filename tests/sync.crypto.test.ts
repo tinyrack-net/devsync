@@ -9,7 +9,7 @@ import {
   encryptSecretFile,
   readAgeIdentityLines,
   readAgeRecipientsFromIdentityFile,
-} from "#app/services/sync/crypto.ts";
+} from "#app/services/crypto.ts";
 import {
   createAgeKeyPair,
   createTemporaryDirectory,

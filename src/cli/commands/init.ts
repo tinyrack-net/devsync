@@ -1,9 +1,7 @@
 import { Args, Command, Flags } from "@oclif/core";
 
 import { formatSyncInitResult } from "#app/cli/sync-output.ts";
-import { createSyncManager } from "#app/services/sync/index.ts";
-
-const syncManager = createSyncManager();
+import { createSyncManager } from "#app/services/sync-manager.ts";
 
 export default class SyncInit extends Command {
   public static override summary = "Initialize the git-backed sync directory";
@@ -28,6 +26,7 @@ export default class SyncInit extends Command {
 
   public override async run(): Promise<void> {
     const { args, flags } = await this.parse(SyncInit);
+    const syncManager = createSyncManager();
     const output = formatSyncInitResult(
       await syncManager.init({
         identityFile: flags.identity,

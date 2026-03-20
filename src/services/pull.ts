@@ -1,8 +1,5 @@
-import { readSyncConfig, resolveSyncConfigFilePath } from "#app/config/sync.ts";
-import { resolveDevsyncSyncDirectory } from "#app/config/xdg.ts";
+import { readSyncConfig } from "#app/config/sync.ts";
 
-import { SyncError } from "./error.ts";
-import { ensureGitRepository, type GitService } from "./git.ts";
 import {
   applyEntryMaterialization,
   buildEntryMaterialization,
@@ -10,12 +7,14 @@ import {
   countDeletedLocalNodes,
 } from "./local-materialization.ts";
 import { buildRepositorySnapshot } from "./repo-snapshot.ts";
+import { ensureSyncRepository, type SyncContext } from "./runtime.ts";
+import { runSyncUseCase } from "./use-case.ts";
 
-type SyncRunRequest = Readonly<{
+export type SyncPullRequest = Readonly<{
   dryRun: boolean;
 }>;
 
-type SyncPullResult = Readonly<{
+export type SyncPullResult = Readonly<{
   configPath: string;
   decryptedFileCount: number;
   deletedLocalCount: number;
@@ -27,22 +26,24 @@ type SyncPullResult = Readonly<{
 }>;
 
 export const pullSync = async (
-  request: SyncRunRequest,
-  dependencies: Readonly<{
-    environment: NodeJS.ProcessEnv;
-    git: GitService;
-  }>,
+  request: SyncPullRequest,
+  context: SyncContext,
 ): Promise<SyncPullResult> => {
-  try {
-    const syncDirectory = resolveDevsyncSyncDirectory(dependencies.environment);
-
-    await ensureGitRepository(syncDirectory, dependencies.git);
+  return runSyncUseCase("Sync pull failed.", async () => {
+    await ensureSyncRepository(context);
 
     const config = await readSyncConfig(
-      syncDirectory,
-      dependencies.environment,
+      context.paths.syncDirectory,
+      context.environment,
     );
-    const snapshot = await buildRepositorySnapshot(syncDirectory, config);
+    const snapshot = await buildRepositorySnapshot(
+      context.paths.syncDirectory,
+      config,
+      {
+        crypto: context.ports.crypto,
+        filesystem: context.ports.filesystem,
+      },
+    );
     const materializations = config.entries.map((entry) => {
       return buildEntryMaterialization(entry, snapshot);
     });
@@ -61,29 +62,27 @@ export const pullSync = async (
         entry,
         materialization.desiredKeys,
         config,
+        context.ports.filesystem,
       );
 
       if (!request.dryRun) {
-        await applyEntryMaterialization(entry, materialization, config);
+        await applyEntryMaterialization(
+          entry,
+          materialization,
+          config,
+          context.ports.filesystem,
+        );
       }
     }
 
     const counts = buildPullCounts(materializations);
 
     return {
-      configPath: resolveSyncConfigFilePath(syncDirectory),
+      configPath: context.paths.configPath,
       deletedLocalCount,
       dryRun: request.dryRun,
-      syncDirectory,
+      syncDirectory: context.paths.syncDirectory,
       ...counts,
     };
-  } catch (error: unknown) {
-    if (error instanceof SyncError) {
-      throw error;
-    }
-
-    throw new SyncError(
-      error instanceof Error ? error.message : "Sync pull failed.",
-    );
-  }
+  });
 };

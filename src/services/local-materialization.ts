@@ -1,4 +1,3 @@
-import { lstat, mkdir, mkdtemp, rm, symlink } from "node:fs/promises";
 import { basename, dirname, join, posix } from "node:path";
 
 import {
@@ -7,15 +6,7 @@ import {
   resolveSyncMode,
 } from "#app/config/sync.ts";
 import { SyncError } from "./error.ts";
-import {
-  copyFilesystemNode,
-  getPathStats,
-  listDirectoryEntries,
-  removePathAtomically,
-  replacePathAtomically,
-  writeFileNode,
-  writeSymlinkNode,
-} from "./filesystem.ts";
+import type { FilesystemPort } from "./filesystem.ts";
 import type { FileLikeSnapshotNode, SnapshotNode } from "./local-snapshot.ts";
 import { buildDirectoryKey } from "./paths.ts";
 
@@ -53,19 +44,27 @@ const copyIgnoredLocalNodesToDirectory = async (
   targetDirectory: string,
   config: ResolvedSyncConfig,
   repoPathPrefix: string,
+  filesystem: Pick<
+    FilesystemPort,
+    | "copyFilesystemNode"
+    | "getPathStats"
+    | "listDirectoryEntries"
+    | "lstat"
+    | "mkdir"
+  >,
 ): Promise<number> => {
-  const stats = await getPathStats(sourceDirectory);
+  const stats = await filesystem.getPathStats(sourceDirectory);
 
   if (stats === undefined || !stats.isDirectory()) {
     return 0;
   }
 
   let copiedNodeCount = 0;
-  const entries = await listDirectoryEntries(sourceDirectory);
+  const entries = await filesystem.listDirectoryEntries(sourceDirectory);
   const directoryMode = resolveManagedSyncMode(config, repoPathPrefix);
 
   if (directoryMode === "ignore") {
-    await mkdir(targetDirectory, { recursive: true });
+    await filesystem.mkdir(targetDirectory, { recursive: true });
     copiedNodeCount += 1;
   }
 
@@ -73,7 +72,7 @@ const copyIgnoredLocalNodesToDirectory = async (
     const sourcePath = join(sourceDirectory, entry.name);
     const targetPath = join(targetDirectory, entry.name);
     const repoPath = posix.join(repoPathPrefix, entry.name);
-    const entryStats = await lstat(sourcePath);
+    const entryStats = await filesystem.lstat(sourcePath);
 
     if (entryStats.isDirectory()) {
       copiedNodeCount += await copyIgnoredLocalNodesToDirectory(
@@ -81,6 +80,7 @@ const copyIgnoredLocalNodesToDirectory = async (
         targetPath,
         config,
         repoPath,
+        filesystem,
       );
       continue;
     }
@@ -89,8 +89,8 @@ const copyIgnoredLocalNodesToDirectory = async (
       continue;
     }
 
-    await mkdir(dirname(targetPath), { recursive: true });
-    await copyFilesystemNode(sourcePath, targetPath, entryStats);
+    await filesystem.mkdir(dirname(targetPath), { recursive: true });
+    await filesystem.copyFilesystemNode(sourcePath, targetPath, entryStats);
     copiedNodeCount += 1;
   }
 
@@ -100,23 +100,32 @@ const copyIgnoredLocalNodesToDirectory = async (
 const stageAndReplaceFilePath = async (
   targetPath: string,
   node: FileLikeSnapshotNode,
+  filesystem: Pick<
+    FilesystemPort,
+    | "mkdir"
+    | "mkdtemp"
+    | "replacePathAtomically"
+    | "rm"
+    | "symlink"
+    | "writeFileNode"
+  >,
 ) => {
-  await mkdir(dirname(targetPath), { recursive: true });
-  const stagingDirectory = await mkdtemp(
+  await filesystem.mkdir(dirname(targetPath), { recursive: true });
+  const stagingDirectory = await filesystem.mkdtemp(
     join(dirname(targetPath), `.${basename(targetPath)}.devsync-sync-`),
   );
   const stagedPath = join(stagingDirectory, basename(targetPath));
 
   try {
     if (node.type === "symlink") {
-      await symlink(node.linkTarget, stagedPath);
+      await filesystem.symlink(node.linkTarget, stagedPath);
     } else {
-      await writeFileNode(stagedPath, node);
+      await filesystem.writeFileNode(stagedPath, node);
     }
 
-    await replacePathAtomically(targetPath, stagedPath);
+    await filesystem.replacePathAtomically(targetPath, stagedPath);
   } finally {
-    await rm(stagingDirectory, { force: true, recursive: true });
+    await filesystem.rm(stagingDirectory, { force: true, recursive: true });
   }
 };
 
@@ -124,9 +133,23 @@ const stageAndReplaceMergedDirectoryPath = async (
   entry: ResolvedSyncConfigEntry,
   config: ResolvedSyncConfig,
   desiredNodes: ReadonlyMap<string, FileLikeSnapshotNode>,
+  filesystem: Pick<
+    FilesystemPort,
+    | "copyFilesystemNode"
+    | "getPathStats"
+    | "listDirectoryEntries"
+    | "lstat"
+    | "mkdir"
+    | "mkdtemp"
+    | "removePathAtomically"
+    | "replacePathAtomically"
+    | "rm"
+    | "writeFileNode"
+    | "writeSymlinkNode"
+  >,
 ) => {
-  await mkdir(dirname(entry.localPath), { recursive: true });
-  const stagingDirectory = await mkdtemp(
+  await filesystem.mkdir(dirname(entry.localPath), { recursive: true });
+  const stagingDirectory = await filesystem.mkdtemp(
     join(
       dirname(entry.localPath),
       `.${basename(entry.localPath)}.devsync-sync-`,
@@ -139,6 +162,7 @@ const stageAndReplaceMergedDirectoryPath = async (
       stagingDirectory,
       config,
       entry.repoPath,
+      filesystem,
     );
 
     for (const relativePath of [...desiredNodes.keys()].sort((left, right) => {
@@ -153,21 +177,21 @@ const stageAndReplaceMergedDirectoryPath = async (
       const targetNodePath = join(stagingDirectory, ...relativePath.split("/"));
 
       if (node.type === "symlink") {
-        await writeSymlinkNode(targetNodePath, node.linkTarget);
+        await filesystem.writeSymlinkNode(targetNodePath, node.linkTarget);
       } else {
-        await writeFileNode(targetNodePath, node);
+        await filesystem.writeFileNode(targetNodePath, node);
       }
     }
 
     if (preservedIgnoredNodeCount === 0 && desiredNodes.size === 0) {
-      await removePathAtomically(entry.localPath);
+      await filesystem.removePathAtomically(entry.localPath);
 
       return;
     }
 
-    await replacePathAtomically(entry.localPath, stagingDirectory);
+    await filesystem.replacePathAtomically(entry.localPath, stagingDirectory);
   } finally {
-    await rm(stagingDirectory, { force: true, recursive: true });
+    await filesystem.rm(stagingDirectory, { force: true, recursive: true });
   }
 };
 
@@ -244,9 +268,13 @@ const collectLocalLeafKeys = async (
   targetPath: string,
   repoPathPrefix: string,
   keys: Set<string>,
+  filesystem: Pick<
+    FilesystemPort,
+    "getPathStats" | "listDirectoryEntries" | "lstat"
+  >,
   prefix?: string,
 ) => {
-  const stats = await getPathStats(targetPath);
+  const stats = await filesystem.getPathStats(targetPath);
 
   if (stats === undefined) {
     return;
@@ -260,19 +288,20 @@ const collectLocalLeafKeys = async (
 
   keys.add(buildDirectoryKey(repoPathPrefix));
 
-  const entries = await listDirectoryEntries(targetPath);
+  const entries = await filesystem.listDirectoryEntries(targetPath);
 
   for (const entry of entries) {
     const absolutePath = join(targetPath, entry.name);
     const relativePath =
       prefix === undefined ? entry.name : `${prefix}/${entry.name}`;
-    const childStats = await lstat(absolutePath);
+    const childStats = await filesystem.lstat(absolutePath);
 
     if (childStats?.isDirectory()) {
       await collectLocalLeafKeys(
         absolutePath,
         repoPathPrefix,
         keys,
+        filesystem,
         relativePath,
       );
       continue;
@@ -287,8 +316,9 @@ const collectIgnoredLocalKeys = async (
   repoPath: string,
   config: ResolvedSyncConfig,
   keys: Set<string>,
+  filesystem: Pick<FilesystemPort, "getPathStats" | "listDirectoryEntries">,
 ): Promise<boolean> => {
-  const stats = await getPathStats(targetPath);
+  const stats = await filesystem.getPathStats(targetPath);
 
   if (stats === undefined) {
     return false;
@@ -307,15 +337,20 @@ const collectIgnoredLocalKeys = async (
   }
 
   let preservedIgnoredChildren = mode === "ignore";
-  const entries = await listDirectoryEntries(targetPath);
+  const entries = await filesystem.listDirectoryEntries(targetPath);
 
   for (const entry of entries) {
     const childPath = join(targetPath, entry.name);
     const childRepoPath = posix.join(repoPath, entry.name);
 
     preservedIgnoredChildren =
-      (await collectIgnoredLocalKeys(childPath, childRepoPath, config, keys)) ||
-      preservedIgnoredChildren;
+      (await collectIgnoredLocalKeys(
+        childPath,
+        childRepoPath,
+        config,
+        keys,
+        filesystem,
+      )) || preservedIgnoredChildren;
   }
 
   if (mode === "ignore" || preservedIgnoredChildren) {
@@ -329,16 +364,26 @@ export const countDeletedLocalNodes = async (
   entry: ResolvedSyncConfigEntry,
   desiredKeys: ReadonlySet<string>,
   config: ResolvedSyncConfig,
+  filesystem: Pick<
+    FilesystemPort,
+    "getPathStats" | "listDirectoryEntries" | "lstat"
+  >,
 ) => {
   const existingKeys = new Set<string>();
   const preservedIgnoredKeys = new Set<string>();
 
-  await collectLocalLeafKeys(entry.localPath, entry.repoPath, existingKeys);
+  await collectLocalLeafKeys(
+    entry.localPath,
+    entry.repoPath,
+    existingKeys,
+    filesystem,
+  );
   await collectIgnoredLocalKeys(
     entry.localPath,
     entry.repoPath,
     config,
     preservedIgnoredKeys,
+    filesystem,
   );
 
   return [...existingKeys].filter((key) => {
@@ -350,6 +395,21 @@ export const applyEntryMaterialization = async (
   entry: ResolvedSyncConfigEntry,
   materialization: EntryMaterialization,
   config: ResolvedSyncConfig,
+  filesystem: Pick<
+    FilesystemPort,
+    | "copyFilesystemNode"
+    | "getPathStats"
+    | "listDirectoryEntries"
+    | "lstat"
+    | "mkdir"
+    | "mkdtemp"
+    | "removePathAtomically"
+    | "replacePathAtomically"
+    | "rm"
+    | "symlink"
+    | "writeFileNode"
+    | "writeSymlinkNode"
+  >,
 ) => {
   if (
     entry.kind === "file" &&
@@ -360,18 +420,27 @@ export const applyEntryMaterialization = async (
 
   if (materialization.type === "absent") {
     if (entry.kind === "directory") {
-      await stageAndReplaceMergedDirectoryPath(entry, config, new Map());
+      await stageAndReplaceMergedDirectoryPath(
+        entry,
+        config,
+        new Map(),
+        filesystem,
+      );
 
       return;
     }
 
-    await removePathAtomically(entry.localPath);
+    await filesystem.removePathAtomically(entry.localPath);
 
     return;
   }
 
   if (materialization.type === "file") {
-    await stageAndReplaceFilePath(entry.localPath, materialization.node);
+    await stageAndReplaceFilePath(
+      entry.localPath,
+      materialization.node,
+      filesystem,
+    );
 
     return;
   }
@@ -380,6 +449,7 @@ export const applyEntryMaterialization = async (
     entry,
     config,
     materialization.nodes,
+    filesystem,
   );
 };
 

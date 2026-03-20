@@ -17,20 +17,21 @@ import {
   type SyncConfig,
   syncSecretArtifactSuffix,
 } from "#app/config/sync.ts";
-import { encryptSecretFile } from "#app/services/sync/crypto.ts";
+import { createCryptoPort, encryptSecretFile } from "#app/services/crypto.ts";
+import { createFilesystemPort } from "#app/services/filesystem.ts";
 import {
   applyEntryMaterialization,
   buildEntryMaterialization,
   buildPullCounts,
   countDeletedLocalNodes,
-} from "#app/services/sync/local-materialization.ts";
-import { buildLocalSnapshot } from "#app/services/sync/local-snapshot.ts";
+} from "#app/services/local-materialization.ts";
+import { buildLocalSnapshot } from "#app/services/local-snapshot.ts";
 import {
   buildRepoArtifacts,
   collectExistingArtifactKeys,
   writeArtifactsToDirectory,
-} from "#app/services/sync/repo-artifacts.ts";
-import { buildRepositorySnapshot } from "#app/services/sync/repo-snapshot.ts";
+} from "#app/services/repo-artifacts.ts";
+import { buildRepositorySnapshot } from "#app/services/repo-snapshot.ts";
 import {
   createAgeKeyPair,
   createTemporaryDirectory,
@@ -38,6 +39,8 @@ import {
 } from "./helpers/sync-fixture.ts";
 
 const temporaryDirectories: string[] = [];
+const crypto = createCryptoPort();
+const filesystem = createFilesystemPort();
 
 const createWorkspace = async () => {
   const directory = await createTemporaryDirectory("devsync-sync-runtime-");
@@ -102,18 +105,14 @@ describe("sync runtime helpers", () => {
     const config = createResolvedConfig({
       entries: [
         {
-          defaultMode: "ignore",
           kind: "directory",
           localPath: "~/bundle",
+          mode: "ignore",
           name: "bundle",
+          overrides: {
+            "keep.txt": "normal",
+          },
           repoPath: "bundle",
-          rules: [
-            {
-              match: "exact",
-              mode: "normal",
-              path: "keep.txt",
-            },
-          ],
         },
       ],
       homeDirectory,
@@ -121,7 +120,7 @@ describe("sync runtime helpers", () => {
       xdgConfigHome,
     });
 
-    const snapshot = await buildLocalSnapshot(config);
+    const snapshot = await buildLocalSnapshot(config, filesystem);
 
     expect(
       [...snapshot.keys()].sort((left, right) => {
@@ -146,15 +145,12 @@ describe("sync runtime helpers", () => {
           {
             kind: "directory",
             localPath: "~/bundle",
+            mode: "normal",
             name: "bundle",
+            overrides: {
+              "token-link": "secret",
+            },
             repoPath: "bundle",
-            rules: [
-              {
-                match: "exact",
-                mode: "secret",
-                path: "token-link",
-              },
-            ],
           },
         ],
         homeDirectory,
@@ -162,9 +158,9 @@ describe("sync runtime helpers", () => {
         xdgConfigHome,
       });
 
-      await expect(buildLocalSnapshot(symlinkConfig)).rejects.toThrowError(
-        /Secret sync paths must be regular files/u,
-      );
+      await expect(
+        buildLocalSnapshot(symlinkConfig, filesystem),
+      ).rejects.toThrowError(/Secret sync paths must be regular files/u);
     }
 
     const mismatchConfig = createResolvedConfig({
@@ -172,6 +168,7 @@ describe("sync runtime helpers", () => {
         {
           kind: "file",
           localPath: "~/bundle",
+          mode: "normal",
           name: "bundle",
           repoPath: "bundle",
         },
@@ -181,9 +178,9 @@ describe("sync runtime helpers", () => {
       xdgConfigHome,
     });
 
-    await expect(buildLocalSnapshot(mismatchConfig)).rejects.toThrowError(
-      /expects a file/u,
-    );
+    await expect(
+      buildLocalSnapshot(mismatchConfig, filesystem),
+    ).rejects.toThrowError(/expects a file/u);
   });
 
   it("rejects local descendants that use the reserved secret suffix", async () => {
@@ -203,6 +200,7 @@ describe("sync runtime helpers", () => {
         {
           kind: "directory",
           localPath: "~/bundle",
+          mode: "normal",
           name: "bundle",
           repoPath: "bundle",
         },
@@ -212,7 +210,7 @@ describe("sync runtime helpers", () => {
       xdgConfigHome,
     });
 
-    await expect(buildLocalSnapshot(config)).rejects.toThrowError(
+    await expect(buildLocalSnapshot(config, filesystem)).rejects.toThrowError(
       /reserved suffix/u,
     );
   });
@@ -237,15 +235,12 @@ describe("sync runtime helpers", () => {
         {
           kind: "directory",
           localPath: "~/bundle",
+          mode: "normal",
           name: "bundle",
+          overrides: {
+            "secret.sh": "secret",
+          },
           repoPath: "bundle",
-          rules: [
-            {
-              match: "exact",
-              mode: "secret",
-              path: "secret.sh",
-            },
-          ],
         },
       ],
       homeDirectory,
@@ -253,7 +248,7 @@ describe("sync runtime helpers", () => {
       xdgConfigHome,
     });
 
-    const snapshot = await buildLocalSnapshot(config);
+    const snapshot = await buildLocalSnapshot(config, filesystem);
     const node = snapshot.get("bundle/secret.sh");
 
     expect(node).toMatchObject({
@@ -277,15 +272,12 @@ describe("sync runtime helpers", () => {
         {
           kind: "directory",
           localPath: "~/bundle",
+          mode: "normal",
           name: "bundle",
+          overrides: {
+            "secret.txt": "secret",
+          },
           repoPath: "bundle",
-          rules: [
-            {
-              match: "exact",
-              mode: "secret",
-              path: "secret.txt",
-            },
-          ],
         },
       ],
       homeDirectory,
@@ -322,14 +314,17 @@ describe("sync runtime helpers", () => {
       ],
     ]);
 
-    const artifacts = await buildRepoArtifacts(snapshot, config);
+    const artifacts = await buildRepoArtifacts(snapshot, config, { crypto });
 
     await writeArtifactsToDirectory(
       resolveSyncArtifactsDirectoryPath(syncDirectory),
       artifacts,
+      filesystem,
     );
 
-    expect(await collectExistingArtifactKeys(syncDirectory, config)).toEqual(
+    expect(
+      await collectExistingArtifactKeys(syncDirectory, config, filesystem),
+    ).toEqual(
       new Set([
         "bundle/",
         "bundle/link",
@@ -381,17 +376,15 @@ describe("sync runtime helpers", () => {
           {
             kind: "directory",
             localPath: "~/bundle",
+            mode: "normal",
             name: "bundle",
+            overrides: {
+              "secret.txt": "secret",
+            },
             repoPath: "bundle",
-            rules: [
-              {
-                match: "exact",
-                mode: "secret",
-                path: "secret.txt",
-              },
-            ],
           },
         ]),
+        { crypto, filesystem },
       ),
     ).rejects.toThrowError(/stored in plain text/u);
 
@@ -415,10 +408,12 @@ describe("sync runtime helpers", () => {
           {
             kind: "directory",
             localPath: "~/bundle",
+            mode: "normal",
             name: "bundle",
             repoPath: "bundle",
           },
         ]),
+        { crypto, filesystem },
       ),
     ).rejects.toThrowError(/stored in secret form/u);
 
@@ -450,10 +445,12 @@ describe("sync runtime helpers", () => {
           {
             kind: "directory",
             localPath: "~/bundle",
+            mode: "normal",
             name: "bundle",
             repoPath: "bundle",
           },
         ]),
+        { crypto, filesystem },
       ),
     ).rejects.toThrowError(/reserved suffix/u);
 
@@ -477,10 +474,12 @@ describe("sync runtime helpers", () => {
           {
             kind: "directory",
             localPath: "~/bundle",
+            mode: "normal",
             name: "bundle",
             repoPath: "bundle",
           },
         ]),
+        { crypto, filesystem },
       ),
     ).rejects.toThrowError(/Unmanaged sync path found in repository/u);
 
@@ -502,13 +501,14 @@ describe("sync runtime helpers", () => {
           syncDirectory,
           createConfig([
             {
-              defaultMode: "secret",
               kind: "directory",
               localPath: "~/bundle",
+              mode: "secret",
               name: "bundle",
               repoPath: "bundle",
             },
           ]),
+          { crypto, filesystem },
         ),
       ).rejects.toThrowError(/must be regular files, not symlinks/u);
     }
@@ -527,10 +527,12 @@ describe("sync runtime helpers", () => {
           {
             kind: "directory",
             localPath: "~/bundle",
+            mode: "normal",
             name: "bundle",
             repoPath: "bundle",
           },
         ]),
+        { crypto, filesystem },
       ),
     ).rejects.toThrowError(/is not stored as a directory/u);
 
@@ -545,20 +547,17 @@ describe("sync runtime helpers", () => {
       syncDirectory,
       createConfig([
         {
-          defaultMode: "ignore",
           kind: "directory",
           localPath: "~/bundle",
+          mode: "ignore",
           name: "bundle",
+          overrides: {
+            "keep.txt": "normal",
+          },
           repoPath: "bundle",
-          rules: [
-            {
-              match: "exact",
-              mode: "normal",
-              path: "keep.txt",
-            },
-          ],
         },
       ]),
+      { crypto, filesystem },
     );
 
     expect(
@@ -587,17 +586,15 @@ describe("sync runtime helpers", () => {
           {
             kind: "directory",
             localPath: "~/bundle",
+            mode: "normal",
             name: "bundle",
+            overrides: {
+              "keep.txt": "secret",
+            },
             repoPath: "bundle",
-            rules: [
-              {
-                match: "exact",
-                mode: "secret",
-                path: "keep.txt",
-              },
-            ],
           },
         ]),
+        { crypto, filesystem },
       ),
     ).rejects.toThrowError();
 
@@ -618,17 +615,15 @@ describe("sync runtime helpers", () => {
         {
           kind: "directory",
           localPath: "~/bundle",
+          mode: "normal",
           name: "bundle",
+          overrides: {
+            "keep.txt": "secret",
+          },
           repoPath: "bundle",
-          rules: [
-            {
-              match: "exact",
-              mode: "secret",
-              path: "keep.txt",
-            },
-          ],
         },
       ]),
+      { crypto, filesystem },
     );
 
     expect(
@@ -651,23 +646,19 @@ describe("sync runtime helpers", () => {
     const config = createResolvedConfig({
       entries: [
         {
-          defaultMode: "ignore",
           kind: "directory",
           localPath: "~/bundle",
+          mode: "ignore",
           name: "bundle",
+          overrides: {
+            "keep.txt": "normal",
+          },
           repoPath: "bundle",
-          rules: [
-            {
-              match: "exact",
-              mode: "normal",
-              path: "keep.txt",
-            },
-          ],
         },
         {
-          defaultMode: "ignore",
           kind: "file",
           localPath: "~/.ignored-file",
+          mode: "ignore",
           name: ".ignored-file",
           repoPath: ".ignored-file",
         },
@@ -718,6 +709,7 @@ describe("sync runtime helpers", () => {
         bundleEntry,
         new Set(["bundle/", "bundle/keep.txt"]),
         config,
+        filesystem,
       ),
     ).toBe(0);
 
@@ -728,6 +720,7 @@ describe("sync runtime helpers", () => {
         type: "absent",
       },
       config,
+      filesystem,
     );
 
     expect(await readFile(join(homeDirectory, ".ignored-file"), "utf8")).toBe(

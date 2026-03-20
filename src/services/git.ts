@@ -69,6 +69,7 @@ export const createGitService = (gitRunner: GitRunner = defaultGitRunner) => {
 };
 
 export type GitService = ReturnType<typeof createGitService>;
+export type GitPort = GitService;
 
 export const ensureGitRepository = async (
   syncDirectory: string,

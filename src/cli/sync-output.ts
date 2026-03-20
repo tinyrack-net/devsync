@@ -1,13 +1,10 @@
 import { ensureTrailingNewline } from "#app/lib/string.ts";
-import type { createSyncManager } from "#app/services/sync/index.ts";
-
-type SyncManager = ReturnType<typeof createSyncManager>;
-type SyncInitResult = Awaited<ReturnType<SyncManager["init"]>>;
-type SyncAddResult = Awaited<ReturnType<SyncManager["add"]>>;
-type SyncForgetResult = Awaited<ReturnType<SyncManager["forget"]>>;
-type SyncSetResult = Awaited<ReturnType<SyncManager["set"]>>;
-type SyncPushResult = Awaited<ReturnType<SyncManager["push"]>>;
-type SyncPullResult = Awaited<ReturnType<SyncManager["pull"]>>;
+import type { SyncAddResult } from "#app/services/add.ts";
+import type { SyncForgetResult } from "#app/services/forget.ts";
+import type { SyncInitResult } from "#app/services/init.ts";
+import type { SyncPullResult } from "#app/services/pull.ts";
+import type { SyncPushResult } from "#app/services/push.ts";
+import type { SyncSetResult } from "#app/services/set.ts";
 
 export const formatSyncInitResult = (result: SyncInitResult) => {
   const lines = [
@@ -46,7 +43,7 @@ export const formatSyncAddResult = (result: SyncAddResult) => {
     `Local path: ${result.localPath}`,
     `Repository path: ${result.repoPath}`,
     `Kind: ${result.kind}`,
-    `Default mode: ${result.defaultMode}`,
+    `Mode: ${result.mode}`,
   ];
 
   return ensureTrailingNewline(lines.join("\n"));

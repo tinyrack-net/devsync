@@ -1,9 +1,7 @@
 import { Args, Command, Flags } from "@oclif/core";
 
 import { formatSyncAddResult } from "#app/cli/sync-output.ts";
-import { createSyncManager } from "#app/services/sync/index.ts";
-
-const syncManager = createSyncManager();
+import { createSyncManager } from "#app/services/sync-manager.ts";
 
 export default class SyncAdd extends Command {
   public static override summary =
@@ -20,13 +18,13 @@ export default class SyncAdd extends Command {
   public static override flags = {
     secret: Flags.boolean({
       default: false,
-      description:
-        "Set the added target default mode to secret in sync config.json",
+      description: "Set the added target mode to secret in sync config.json",
     }),
   };
 
   public override async run(): Promise<void> {
     const { args, flags } = await this.parse(SyncAdd);
+    const syncManager = createSyncManager();
     const output = formatSyncAddResult(
       await syncManager.add({
         secret: flags.secret,

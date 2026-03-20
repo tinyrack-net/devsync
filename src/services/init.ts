@@ -1,4 +1,3 @@
-import { mkdir, readdir, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
 
 import {
@@ -8,29 +7,21 @@ import {
   type ResolvedSyncConfig,
   readSyncConfig,
   resolveSyncArtifactsDirectoryPath,
-  resolveSyncConfigFilePath,
 } from "#app/config/sync.ts";
-import {
-  resolveConfiguredAbsolutePath,
-  resolveDevsyncSyncDirectory,
-} from "#app/config/xdg.ts";
+import { resolveConfiguredAbsolutePath } from "#app/config/xdg.ts";
 
 import { countConfiguredRules } from "./config-file.ts";
-import {
-  createAgeIdentityFile,
-  readAgeRecipientsFromIdentityFile,
-} from "./crypto.ts";
 import { SyncError } from "./error.ts";
-import { pathExists } from "./filesystem.ts";
-import { ensureGitRepository, type GitService } from "./git.ts";
+import { ensureSyncRepository, type SyncContext } from "./runtime.ts";
+import { runSyncUseCase } from "./use-case.ts";
 
-type SyncInitRequest = Readonly<{
+export type SyncInitRequest = Readonly<{
   identityFile?: string;
   recipients: readonly string[];
   repository?: string;
 }>;
 
-type SyncInitResult = Readonly<{
+export type SyncInitResult = Readonly<{
   alreadyInitialized: boolean;
   configPath: string;
   entryCount: number;
@@ -55,28 +46,31 @@ const normalizeRecipients = (recipients: readonly string[]) => {
 
 const resolveInitAgeBootstrap = async (
   request: SyncInitRequest,
-  environment: NodeJS.ProcessEnv,
+  context: Pick<SyncContext, "environment" | "ports">,
 ) => {
   const configuredIdentityFile =
     request.identityFile?.trim() || defaultSyncIdentityFile;
   const identityFile = resolveConfiguredAbsolutePath(
     configuredIdentityFile,
-    environment,
+    context.environment,
   );
   const explicitRecipients = normalizeRecipients(request.recipients);
 
   if (explicitRecipients.length === 0) {
-    if (await pathExists(identityFile)) {
+    if (await context.ports.filesystem.pathExists(identityFile)) {
       return {
         configuredIdentityFile,
         generatedIdentity: false,
         recipients: normalizeRecipients(
-          await readAgeRecipientsFromIdentityFile(identityFile),
+          await context.ports.crypto.readAgeRecipientsFromIdentityFile(
+            identityFile,
+          ),
         ),
       };
     }
 
-    const { recipient } = await createAgeIdentityFile(identityFile);
+    const { recipient } =
+      await context.ports.crypto.createAgeIdentityFile(identityFile);
 
     return {
       configuredIdentityFile,
@@ -85,7 +79,7 @@ const resolveInitAgeBootstrap = async (
     };
   }
 
-  if (await pathExists(identityFile)) {
+  if (await context.ports.filesystem.pathExists(identityFile)) {
     return {
       configuredIdentityFile,
       generatedIdentity: false,
@@ -93,7 +87,8 @@ const resolveInitAgeBootstrap = async (
     };
   }
 
-  const { recipient } = await createAgeIdentityFile(identityFile);
+  const { recipient } =
+    await context.ports.crypto.createAgeIdentityFile(identityFile);
 
   return {
     configuredIdentityFile,
@@ -140,24 +135,18 @@ const assertInitRequestMatchesConfig = (
 
 export const initializeSync = async (
   request: SyncInitRequest,
-  dependencies: Readonly<{
-    environment: NodeJS.ProcessEnv;
-    git: GitService;
-  }>,
+  context: SyncContext,
 ): Promise<SyncInitResult> => {
-  try {
-    const syncDirectory = resolveDevsyncSyncDirectory(dependencies.environment);
-    const configPath = resolveSyncConfigFilePath(syncDirectory);
-    const configExists = await pathExists(configPath);
+  return runSyncUseCase("Sync initialization failed.", async () => {
+    const syncDirectory = context.paths.syncDirectory;
+    const configPath = context.paths.configPath;
+    const configExists = await context.ports.filesystem.pathExists(configPath);
 
     if (configExists) {
-      await ensureGitRepository(syncDirectory, dependencies.git);
+      await ensureSyncRepository(context);
 
-      const config = await readSyncConfig(
-        syncDirectory,
-        dependencies.environment,
-      );
-      assertInitRequestMatchesConfig(config, request, dependencies.environment);
+      const config = await readSyncConfig(syncDirectory, context.environment);
+      assertInitRequestMatchesConfig(config, request, context.environment);
 
       return {
         alreadyInitialized: true,
@@ -172,18 +161,21 @@ export const initializeSync = async (
       };
     }
 
-    await mkdir(dirname(syncDirectory), { recursive: true });
+    await context.ports.filesystem.mkdir(dirname(syncDirectory), {
+      recursive: true,
+    });
 
     let gitAction: SyncInitResult["gitAction"] = "existing";
     let gitSource: string | undefined;
 
     try {
-      await dependencies.git.ensureRepository(syncDirectory);
+      await context.ports.git.ensureRepository(syncDirectory);
     } catch {
-      const syncDirectoryExists = await pathExists(syncDirectory);
+      const syncDirectoryExists =
+        await context.ports.filesystem.pathExists(syncDirectory);
 
       if (syncDirectoryExists) {
-        const entries = await readdir(syncDirectory);
+        const entries = await context.ports.filesystem.readdir(syncDirectory);
 
         if (entries.length > 0) {
           throw new SyncError(
@@ -192,7 +184,7 @@ export const initializeSync = async (
         }
       }
 
-      const gitResult = await dependencies.git.initializeRepository(
+      const gitResult = await context.ports.git.initializeRepository(
         syncDirectory,
         request.repository?.trim() || undefined,
       );
@@ -201,17 +193,17 @@ export const initializeSync = async (
       gitSource = gitResult.source;
     }
 
-    await mkdir(resolveSyncArtifactsDirectoryPath(syncDirectory), {
-      recursive: true,
-    });
+    await context.ports.filesystem.mkdir(
+      resolveSyncArtifactsDirectoryPath(syncDirectory),
+      {
+        recursive: true,
+      },
+    );
 
-    if (await pathExists(configPath)) {
-      const config = await readSyncConfig(
-        syncDirectory,
-        dependencies.environment,
-      );
+    if (await context.ports.filesystem.pathExists(configPath)) {
+      const config = await readSyncConfig(syncDirectory, context.environment);
 
-      assertInitRequestMatchesConfig(config, request, dependencies.environment);
+      assertInitRequestMatchesConfig(config, request, context.environment);
 
       return {
         alreadyInitialized: true,
@@ -227,18 +219,19 @@ export const initializeSync = async (
       };
     }
 
-    const ageBootstrap = await resolveInitAgeBootstrap(
-      request,
-      dependencies.environment,
-    );
+    const ageBootstrap = await resolveInitAgeBootstrap(request, context);
 
     const initialConfig = createInitialSyncConfig({
       identityFile: ageBootstrap.configuredIdentityFile,
       recipients: ageBootstrap.recipients,
     });
 
-    parseSyncConfig(initialConfig, dependencies.environment);
-    await writeFile(configPath, formatSyncConfig(initialConfig), "utf8");
+    parseSyncConfig(initialConfig, context.environment);
+    await context.ports.filesystem.writeFile(
+      configPath,
+      formatSyncConfig(initialConfig),
+      "utf8",
+    );
 
     return {
       alreadyInitialized: false,
@@ -249,19 +242,11 @@ export const initializeSync = async (
       generatedIdentity: ageBootstrap.generatedIdentity,
       identityFile: resolveConfiguredAbsolutePath(
         ageBootstrap.configuredIdentityFile,
-        dependencies.environment,
+        context.environment,
       ),
       recipientCount: ageBootstrap.recipients.length,
       ruleCount: 0,
       syncDirectory,
     };
-  } catch (error: unknown) {
-    if (error instanceof SyncError) {
-      throw error;
-    }
-
-    throw new SyncError(
-      error instanceof Error ? error.message : "Sync initialization failed.",
-    );
-  }
+  });
 };

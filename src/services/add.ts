@@ -2,14 +2,9 @@ import {
   type ResolvedSyncConfig,
   type ResolvedSyncConfigEntry,
   readSyncConfig,
-  resolveSyncConfigFilePath,
   type SyncConfigEntryKind,
   type SyncMode,
 } from "#app/config/sync.ts";
-import {
-  resolveDevsyncSyncDirectory,
-  resolveHomeDirectory,
-} from "#app/config/xdg.ts";
 
 import {
   createSyncConfigDocument,
@@ -18,26 +13,26 @@ import {
   writeValidatedSyncConfig,
 } from "./config-file.ts";
 import { SyncError } from "./error.ts";
-import { getPathStats } from "./filesystem.ts";
-import { ensureGitRepository, type GitService } from "./git.ts";
 import {
   buildConfiguredHomeLocalPath,
   buildRepoPathWithinRoot,
   doPathsOverlap,
   resolveCommandTargetPath,
 } from "./paths.ts";
+import { ensureSyncRepository, type SyncContext } from "./runtime.ts";
+import { runSyncUseCase } from "./use-case.ts";
 
-type SyncAddRequest = Readonly<{
+export type SyncAddRequest = Readonly<{
   secret: boolean;
   target: string;
 }>;
 
-type SyncAddResult = Readonly<{
+export type SyncAddResult = Readonly<{
   alreadyTracked: boolean;
   configPath: string;
-  defaultMode: SyncMode;
   kind: SyncConfigEntryKind;
   localPath: string;
+  mode: SyncMode;
   repoPath: string;
   syncDirectory: string;
 }>;
@@ -45,9 +40,9 @@ type SyncAddResult = Readonly<{
 const buildAddEntryCandidate = async (
   targetPath: string,
   config: ResolvedSyncConfig,
-  environment: NodeJS.ProcessEnv,
+  context: Pick<SyncContext, "paths" | "ports">,
 ) => {
-  const targetStats = await getPathStats(targetPath);
+  const targetStats = await context.ports.filesystem.getPathStats(targetPath);
 
   if (targetStats === undefined) {
     throw new SyncError(`Sync target does not exist: ${targetPath}`);
@@ -65,9 +60,7 @@ const buildAddEntryCandidate = async (
     throw new SyncError(`Unsupported sync target type: ${targetPath}`);
   })();
 
-  const syncDirectory = resolveDevsyncSyncDirectory(environment);
-
-  if (doPathsOverlap(targetPath, syncDirectory)) {
+  if (doPathsOverlap(targetPath, context.paths.syncDirectory)) {
     throw new SyncError(
       `Sync target must not overlap the sync directory: ${targetPath}`,
     );
@@ -81,52 +74,42 @@ const buildAddEntryCandidate = async (
 
   const repoPath = buildRepoPathWithinRoot(
     targetPath,
-    resolveHomeDirectory(environment),
+    context.paths.homeDirectory,
     "Sync target",
   );
 
   return {
     configuredLocalPath: buildConfiguredHomeLocalPath(repoPath),
-    defaultMode: "normal",
     kind,
     localPath: targetPath,
+    mode: "normal",
     name: repoPath,
+    overrides: [],
     repoPath,
-    rules: [],
   } satisfies ResolvedSyncConfigEntry;
 };
 
 export const addSyncTarget = async (
   request: SyncAddRequest,
-  dependencies: Readonly<{
-    cwd: string;
-    environment: NodeJS.ProcessEnv;
-    git: GitService;
-  }>,
+  context: SyncContext,
 ): Promise<SyncAddResult> => {
-  try {
+  return runSyncUseCase("Sync add failed.", async () => {
     const target = request.target.trim();
 
     if (target.length === 0) {
       throw new SyncError("Target path is required.");
     }
 
-    const syncDirectory = resolveDevsyncSyncDirectory(dependencies.environment);
-
-    await ensureGitRepository(syncDirectory, dependencies.git);
+    await ensureSyncRepository(context);
 
     const config = await readSyncConfig(
-      syncDirectory,
-      dependencies.environment,
+      context.paths.syncDirectory,
+      context.environment,
     );
     const candidate = await buildAddEntryCandidate(
-      resolveCommandTargetPath(
-        target,
-        dependencies.environment,
-        dependencies.cwd,
-      ),
+      resolveCommandTargetPath(target, context.environment, context.cwd),
       config,
-      dependencies.environment,
+      context,
     );
     const existingEntry = config.entries.find((entry) => {
       return (
@@ -151,20 +134,19 @@ export const addSyncTarget = async (
     }
 
     const nextConfig = createSyncConfigDocument(config);
-    const desiredDefaultMode: SyncMode = request.secret ? "secret" : "normal";
-    let defaultMode =
-      existingEntry?.defaultMode ?? (request.secret ? "secret" : "normal");
+    const desiredMode: SyncMode = request.secret ? "secret" : "normal";
+    let mode = existingEntry?.mode ?? (request.secret ? "secret" : "normal");
 
     if (!alreadyTracked) {
       nextConfig.entries = sortSyncConfigEntries([
         ...nextConfig.entries,
         createSyncConfigDocumentEntry({
           ...candidate,
-          defaultMode: desiredDefaultMode,
+          mode: desiredMode,
         }),
       ]);
-      defaultMode = desiredDefaultMode;
-    } else if (request.secret && existingEntry?.defaultMode !== "secret") {
+      mode = desiredMode;
+    } else if (request.secret && existingEntry?.mode !== "secret") {
       nextConfig.entries = nextConfig.entries.map((entry) => {
         if (entry.repoPath !== candidate.repoPath) {
           return entry;
@@ -172,40 +154,31 @@ export const addSyncTarget = async (
 
         return {
           ...entry,
-          defaultMode: "secret",
+          mode: "secret",
         };
       });
 
-      defaultMode = "secret";
+      mode = "secret";
     }
 
     if (
       !alreadyTracked ||
-      (request.secret && existingEntry?.defaultMode !== "secret")
+      (request.secret && existingEntry?.mode !== "secret")
     ) {
-      await writeValidatedSyncConfig(
-        syncDirectory,
-        nextConfig,
-        dependencies.environment,
-      );
+      await writeValidatedSyncConfig(context.paths.syncDirectory, nextConfig, {
+        environment: context.environment,
+        filesystem: context.ports.filesystem,
+      });
     }
 
     return {
       alreadyTracked,
-      configPath: resolveSyncConfigFilePath(syncDirectory),
-      defaultMode,
+      configPath: context.paths.configPath,
       kind: candidate.kind,
       localPath: candidate.localPath,
+      mode,
       repoPath: candidate.repoPath,
-      syncDirectory,
+      syncDirectory: context.paths.syncDirectory,
     };
-  } catch (error: unknown) {
-    if (error instanceof SyncError) {
-      throw error;
-    }
-
-    throw new SyncError(
-      error instanceof Error ? error.message : "Sync add failed.",
-    );
-  }
+  });
 };

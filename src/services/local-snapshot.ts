@@ -1,13 +1,8 @@
-import { lstat, readFile, readlink } from "node:fs/promises";
 import { join, posix } from "node:path";
 
 import { type ResolvedSyncConfig, resolveSyncMode } from "#app/config/sync.ts";
 import { SyncError } from "./error.ts";
-import {
-  getPathStats,
-  isExecutableMode,
-  listDirectoryEntries,
-} from "./filesystem.ts";
+import type { FilesystemPort } from "./filesystem.ts";
 import { assertStorageSafeRepoPath } from "./repo-artifacts.ts";
 
 export type SnapshotNode =
@@ -65,7 +60,11 @@ const addLocalNode = async (
   config: ResolvedSyncConfig,
   repoPath: string,
   path: string,
-  stats: Awaited<ReturnType<typeof lstat>>,
+  stats: Awaited<ReturnType<FilesystemPort["lstat"]>>,
+  filesystem: Pick<
+    FilesystemPort,
+    "isExecutableMode" | "readFile" | "readlink"
+  >,
 ) => {
   assertStorageSafeRepoPath(repoPath);
   const mode = resolveManagedSyncMode(config, repoPath);
@@ -88,7 +87,7 @@ const addLocalNode = async (
     }
 
     addSnapshotNode(snapshot, repoPath, {
-      linkTarget: await readlink(path),
+      linkTarget: await filesystem.readlink(path),
       type: "symlink",
     });
 
@@ -100,8 +99,8 @@ const addLocalNode = async (
   }
 
   addSnapshotNode(snapshot, repoPath, {
-    contents: await readFile(path),
-    executable: isExecutableMode(stats.mode),
+    contents: await filesystem.readFile(path),
+    executable: filesystem.isExecutableMode(stats.mode),
     secret: mode === "secret",
     type: "file",
   });
@@ -112,29 +111,61 @@ const walkLocalDirectory = async (
   config: ResolvedSyncConfig,
   localDirectory: string,
   repoPathPrefix: string,
+  filesystem: Pick<
+    FilesystemPort,
+    | "isExecutableMode"
+    | "listDirectoryEntries"
+    | "lstat"
+    | "readFile"
+    | "readlink"
+  >,
 ) => {
-  const entries = await listDirectoryEntries(localDirectory);
+  const entries = await filesystem.listDirectoryEntries(localDirectory);
 
   for (const entry of entries) {
     const localPath = join(localDirectory, entry.name);
     const repoPath = posix.join(repoPathPrefix, entry.name);
-    const stats = await lstat(localPath);
+    const stats = await filesystem.lstat(localPath);
 
     if (stats.isDirectory()) {
       assertStorageSafeRepoPath(repoPath);
-      await walkLocalDirectory(snapshot, config, localPath, repoPath);
+      await walkLocalDirectory(
+        snapshot,
+        config,
+        localPath,
+        repoPath,
+        filesystem,
+      );
       continue;
     }
 
-    await addLocalNode(snapshot, config, repoPath, localPath, stats);
+    await addLocalNode(
+      snapshot,
+      config,
+      repoPath,
+      localPath,
+      stats,
+      filesystem,
+    );
   }
 };
 
-export const buildLocalSnapshot = async (config: ResolvedSyncConfig) => {
+export const buildLocalSnapshot = async (
+  config: ResolvedSyncConfig,
+  filesystem: Pick<
+    FilesystemPort,
+    | "getPathStats"
+    | "isExecutableMode"
+    | "listDirectoryEntries"
+    | "lstat"
+    | "readFile"
+    | "readlink"
+  >,
+) => {
   const snapshot = new Map<string, SnapshotNode>();
 
   for (const entry of config.entries) {
-    const stats = await getPathStats(entry.localPath);
+    const stats = await filesystem.getPathStats(entry.localPath);
 
     if (stats === undefined) {
       continue;
@@ -159,6 +190,7 @@ export const buildLocalSnapshot = async (config: ResolvedSyncConfig) => {
         entry.repoPath,
         entry.localPath,
         stats,
+        filesystem,
       );
       continue;
     }
@@ -170,7 +202,13 @@ export const buildLocalSnapshot = async (config: ResolvedSyncConfig) => {
     }
 
     const snapshotSizeBeforeWalk = snapshot.size;
-    await walkLocalDirectory(snapshot, config, entry.localPath, entry.repoPath);
+    await walkLocalDirectory(
+      snapshot,
+      config,
+      entry.localPath,
+      entry.repoPath,
+      filesystem,
+    );
 
     if (entryMode !== "ignore" || snapshot.size > snapshotSizeBeforeWalk) {
       addSnapshotNode(snapshot, entry.repoPath, {

@@ -1,9 +1,7 @@
 import { Args, Command, Flags } from "@oclif/core";
 
 import { formatSyncSetResult } from "#app/cli/sync-output.ts";
-import { createSyncManager } from "#app/services/sync/index.ts";
-
-const syncManager = createSyncManager();
+import { createSyncManager } from "#app/services/sync-manager.ts";
 
 export default class SyncSet extends Command {
   public static override summary =
@@ -32,6 +30,7 @@ export default class SyncSet extends Command {
 
   public override async run(): Promise<void> {
     const { args, flags } = await this.parse(SyncSet);
+    const syncManager = createSyncManager();
     const output = formatSyncSetResult(
       await syncManager.set({
         recursive: flags.recursive,

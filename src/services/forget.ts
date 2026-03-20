@@ -1,4 +1,3 @@
-import { readdir, rm } from "node:fs/promises";
 import { dirname, join, posix } from "node:path";
 
 import {
@@ -6,9 +5,7 @@ import {
   type ResolvedSyncConfigEntry,
   readSyncConfig,
   resolveSyncArtifactsDirectoryPath,
-  resolveSyncConfigFilePath,
 } from "#app/config/sync.ts";
-import { resolveDevsyncSyncDirectory } from "#app/config/xdg.ts";
 
 import {
   createSyncConfigDocument,
@@ -16,12 +13,7 @@ import {
   writeValidatedSyncConfig,
 } from "./config-file.ts";
 import { SyncError } from "./error.ts";
-import {
-  getPathStats,
-  listDirectoryEntries,
-  removePathAtomically,
-} from "./filesystem.ts";
-import { ensureGitRepository, type GitService } from "./git.ts";
+import type { FilesystemPort } from "./filesystem.ts";
 import {
   isExplicitLocalPath,
   isPathEqualOrNested,
@@ -32,12 +24,14 @@ import {
   isSecretArtifactPath,
   resolveArtifactRelativePath,
 } from "./repo-artifacts.ts";
+import { ensureSyncRepository, type SyncContext } from "./runtime.ts";
+import { runSyncUseCase } from "./use-case.ts";
 
-type SyncForgetRequest = Readonly<{
+export type SyncForgetRequest = Readonly<{
   target: string;
 }>;
 
-type SyncForgetResult = Readonly<{
+export type SyncForgetResult = Readonly<{
   configPath: string;
   localPath: string;
   plainArtifactCount: number;
@@ -49,14 +43,13 @@ type SyncForgetResult = Readonly<{
 const findMatchingTrackedEntry = (
   config: ResolvedSyncConfig,
   target: string,
-  environment: NodeJS.ProcessEnv,
-  cwd: string,
+  context: Pick<SyncContext, "cwd" | "environment">,
 ) => {
   const trimmedTarget = target.trim();
   const resolvedTargetPath = resolveCommandTargetPath(
     trimmedTarget,
-    environment,
-    cwd,
+    context.environment,
+    context.cwd,
   );
   const byLocalPath = config.entries.find((entry) => {
     return entry.localPath === resolvedTargetPath;
@@ -84,8 +77,9 @@ const collectRepoArtifactCounts = async (
     secret: number;
   },
   relativePath: string,
+  filesystem: Pick<FilesystemPort, "getPathStats" | "listDirectoryEntries">,
 ) => {
-  const stats = await getPathStats(targetPath);
+  const stats = await filesystem.getPathStats(targetPath);
 
   if (stats === undefined) {
     return;
@@ -94,13 +88,14 @@ const collectRepoArtifactCounts = async (
   if (stats.isDirectory()) {
     counts.plain += 1;
 
-    const entries = await listDirectoryEntries(targetPath);
+    const entries = await filesystem.listDirectoryEntries(targetPath);
 
     for (const entry of entries) {
       await collectRepoArtifactCounts(
         join(targetPath, entry.name),
         counts,
         posix.join(relativePath, entry.name),
+        filesystem,
       );
     }
 
@@ -117,6 +112,7 @@ const collectRepoArtifactCounts = async (
 const collectEntryArtifactCounts = async (
   syncDirectory: string,
   entry: ResolvedSyncConfigEntry,
+  filesystem: Pick<FilesystemPort, "getPathStats" | "listDirectoryEntries">,
 ) => {
   const artifactsRoot = resolveSyncArtifactsDirectoryPath(syncDirectory);
   const counts = {
@@ -129,12 +125,14 @@ const collectEntryArtifactCounts = async (
       join(artifactsRoot, ...entry.repoPath.split("/")),
       counts,
       entry.repoPath,
+      filesystem,
     );
   } else {
     await collectRepoArtifactCounts(
       join(artifactsRoot, ...entry.repoPath.split("/")),
       counts,
       entry.repoPath,
+      filesystem,
     );
     await collectRepoArtifactCounts(
       join(
@@ -149,6 +147,7 @@ const collectEntryArtifactCounts = async (
         category: "secret",
         repoPath: entry.repoPath,
       }),
+      filesystem,
     );
   }
 
@@ -161,6 +160,7 @@ const collectEntryArtifactCounts = async (
 const pruneEmptyParentDirectories = async (
   startPath: string,
   rootPath: string,
+  filesystem: Pick<FilesystemPort, "getPathStats" | "readdir" | "rm">,
 ) => {
   let currentPath = startPath;
 
@@ -168,7 +168,7 @@ const pruneEmptyParentDirectories = async (
     isPathEqualOrNested(currentPath, rootPath) &&
     currentPath !== rootPath
   ) {
-    const stats = await getPathStats(currentPath);
+    const stats = await filesystem.getPathStats(currentPath);
 
     if (stats === undefined) {
       currentPath = dirname(currentPath);
@@ -179,13 +179,13 @@ const pruneEmptyParentDirectories = async (
       break;
     }
 
-    const entries = await readdir(currentPath);
+    const entries = await filesystem.readdir(currentPath);
 
     if (entries.length > 0) {
       break;
     }
 
-    await rm(currentPath, { force: true, recursive: true });
+    await filesystem.rm(currentPath, { force: true, recursive: true });
     currentPath = dirname(currentPath);
   }
 };
@@ -193,12 +193,20 @@ const pruneEmptyParentDirectories = async (
 const removeTrackedEntryArtifacts = async (
   syncDirectory: string,
   entry: ResolvedSyncConfigEntry,
+  filesystem: Pick<
+    FilesystemPort,
+    "getPathStats" | "readdir" | "removePathAtomically" | "rm"
+  >,
 ) => {
   const artifactsRoot = resolveSyncArtifactsDirectoryPath(syncDirectory);
   const plainPath = join(artifactsRoot, ...entry.repoPath.split("/"));
 
-  await removePathAtomically(plainPath);
-  await pruneEmptyParentDirectories(dirname(plainPath), artifactsRoot);
+  await filesystem.removePathAtomically(plainPath);
+  await pruneEmptyParentDirectories(
+    dirname(plainPath),
+    artifactsRoot,
+    filesystem,
+  );
 
   if (entry.kind === "directory") {
     return;
@@ -212,46 +220,43 @@ const removeTrackedEntryArtifacts = async (
     }).split("/"),
   );
 
-  await removePathAtomically(secretPath);
-  await pruneEmptyParentDirectories(dirname(secretPath), artifactsRoot);
+  await filesystem.removePathAtomically(secretPath);
+  await pruneEmptyParentDirectories(
+    dirname(secretPath),
+    artifactsRoot,
+    filesystem,
+  );
 };
 
 export const forgetSyncTarget = async (
   request: SyncForgetRequest,
-  dependencies: Readonly<{
-    cwd: string;
-    environment: NodeJS.ProcessEnv;
-    git: GitService;
-  }>,
+  context: SyncContext,
 ): Promise<SyncForgetResult> => {
-  try {
+  return runSyncUseCase("Sync forget failed.", async () => {
     const target = request.target.trim();
 
     if (target.length === 0) {
       throw new SyncError("Target path is required.");
     }
 
-    const syncDirectory = resolveDevsyncSyncDirectory(dependencies.environment);
-
-    await ensureGitRepository(syncDirectory, dependencies.git);
+    await ensureSyncRepository(context);
 
     const config = await readSyncConfig(
-      syncDirectory,
-      dependencies.environment,
+      context.paths.syncDirectory,
+      context.environment,
     );
-    const entry = findMatchingTrackedEntry(
-      config,
-      target,
-      dependencies.environment,
-      dependencies.cwd,
-    );
+    const entry = findMatchingTrackedEntry(config, target, context);
 
     if (entry === undefined) {
       throw new SyncError(`No tracked sync entry matches: ${target}`);
     }
 
     const { plainArtifactCount, secretArtifactCount } =
-      await collectEntryArtifactCounts(syncDirectory, entry);
+      await collectEntryArtifactCounts(
+        context.paths.syncDirectory,
+        entry,
+        context.ports.filesystem,
+      );
     const nextConfig = createSyncConfigDocument(config);
 
     nextConfig.entries = sortSyncConfigEntries(
@@ -260,28 +265,23 @@ export const forgetSyncTarget = async (
       }),
     );
 
-    await writeValidatedSyncConfig(
-      syncDirectory,
-      nextConfig,
-      dependencies.environment,
+    await writeValidatedSyncConfig(context.paths.syncDirectory, nextConfig, {
+      environment: context.environment,
+      filesystem: context.ports.filesystem,
+    });
+    await removeTrackedEntryArtifacts(
+      context.paths.syncDirectory,
+      entry,
+      context.ports.filesystem,
     );
-    await removeTrackedEntryArtifacts(syncDirectory, entry);
 
     return {
-      configPath: resolveSyncConfigFilePath(syncDirectory),
+      configPath: context.paths.configPath,
       localPath: entry.localPath,
       plainArtifactCount,
       repoPath: entry.repoPath,
       secretArtifactCount,
-      syncDirectory,
+      syncDirectory: context.paths.syncDirectory,
     };
-  } catch (error: unknown) {
-    if (error instanceof SyncError) {
-      throw error;
-    }
-
-    throw new SyncError(
-      error instanceof Error ? error.message : "Sync forget failed.",
-    );
-  }
+  });
 };
