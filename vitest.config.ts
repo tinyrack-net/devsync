@@ -3,6 +3,23 @@ import { defineConfig } from "vitest/config";
 export default defineConfig({
   test: {
     environment: "node",
-    include: ["tests/**/*.test.ts"],
+    include: ["src/**/*.test.ts", "tests/**/*.e2e.test.ts"],
+    coverage: {
+      exclude: [
+        "src/**/*.test.ts",
+        "src/test/**",
+        "src/index.ts",
+        "src/cli/commands/**",
+      ],
+      include: ["src/**/*.ts"],
+      provider: "v8",
+      reporter: ["text", "lcov"],
+      thresholds: {
+        branches: 74,
+        functions: 95,
+        lines: 84,
+        statements: 84,
+      },
+    },
   },
 });
