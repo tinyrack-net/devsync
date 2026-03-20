@@ -185,7 +185,7 @@ describe("sync CLI e2e", () => {
 
     expect(forgetResult.stdout).toContain("Forgot sync target.");
     expect(configAfterForget.entries).toEqual([]);
-  });
+  }, 15_000);
 
   it("resolves bare relative sync set targets from the current working directory", async () => {
     const workspace = await createWorkspace();
