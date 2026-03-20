@@ -15,7 +15,7 @@ import {
 } from "node:fs/promises";
 import { basename, dirname, join } from "node:path";
 
-import { SyncError } from "./error.ts";
+import { DevsyncError } from "./error.ts";
 
 export const pathExists = async (path: string) => {
   try {
@@ -106,7 +106,7 @@ export const copyFilesystemNode = async (
   }
 
   if (!sourceStats.isFile()) {
-    throw new SyncError(`Unsupported filesystem entry: ${sourcePath}`);
+    throw new DevsyncError(`Unsupported filesystem entry: ${sourcePath}`);
   }
 
   await writeFileNode(targetPath, {
@@ -181,33 +181,3 @@ export const writeTextFileAtomically = async (
     await rm(stagingDirectory, { force: true, recursive: true });
   }
 };
-
-export const createFilesystemPort = () => {
-  return {
-    access,
-    buildExecutableMode,
-    chmod,
-    copyFilesystemNode,
-    getPathStats,
-    isExecutableMode,
-    listDirectoryEntries,
-    lstat,
-    mkdir,
-    mkdtemp,
-    pathExists,
-    readFile,
-    readdir,
-    readlink,
-    removePathAtomically,
-    rename,
-    replacePathAtomically,
-    rm,
-    symlink,
-    writeFile,
-    writeFileNode,
-    writeSymlinkNode,
-    writeTextFileAtomically,
-  };
-};
-
-export type FilesystemPort = ReturnType<typeof createFilesystemPort>;

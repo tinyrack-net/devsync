@@ -7,14 +7,7 @@ import {
   resolveHomeDirectory,
 } from "#app/config/xdg.ts";
 
-import { type CryptoPort, createCryptoPort } from "./crypto.ts";
-import { createFilesystemPort, type FilesystemPort } from "./filesystem.ts";
-import {
-  createGitService,
-  ensureGitRepository,
-  type GitPort,
-  type GitRunner,
-} from "./git.ts";
+import { ensureGitRepository } from "./git.ts";
 
 export type SyncPaths = Readonly<{
   artifactsDirectory: string;
@@ -23,24 +16,10 @@ export type SyncPaths = Readonly<{
   syncDirectory: string;
 }>;
 
-export type SyncPorts = Readonly<{
-  crypto: CryptoPort;
-  filesystem: FilesystemPort;
-  git: GitPort;
-}>;
-
 export type SyncContext = Readonly<{
   cwd: string;
   environment: NodeJS.ProcessEnv;
   paths: SyncPaths;
-  ports: SyncPorts;
-}>;
-
-export type CreateSyncContextDependencies = Readonly<{
-  cwd?: string;
-  environment?: NodeJS.ProcessEnv;
-  gitRunner?: GitRunner;
-  ports?: Partial<SyncPorts>;
 }>;
 
 export const createSyncPaths = (
@@ -57,24 +36,22 @@ export const createSyncPaths = (
 };
 
 export const createSyncContext = (
-  dependencies: CreateSyncContextDependencies = {},
+  options: Readonly<{
+    cwd?: string;
+    environment?: NodeJS.ProcessEnv;
+  }> = {},
 ): SyncContext => {
-  const environment = dependencies.environment ?? process.env;
+  const environment = options.environment ?? process.env;
 
   return {
-    cwd: dependencies.cwd ?? process.cwd(),
+    cwd: options.cwd ?? process.cwd(),
     environment,
     paths: createSyncPaths(environment),
-    ports: {
-      crypto: dependencies.ports?.crypto ?? createCryptoPort(),
-      filesystem: dependencies.ports?.filesystem ?? createFilesystemPort(),
-      git: dependencies.ports?.git ?? createGitService(dependencies.gitRunner),
-    },
   };
 };
 
 export const ensureSyncRepository = async (
-  context: Pick<SyncContext, "paths" | "ports">,
+  context: Pick<SyncContext, "paths">,
 ) => {
-  await ensureGitRepository(context.paths.syncDirectory, context.ports.git);
+  await ensureGitRepository(context.paths.syncDirectory);
 };

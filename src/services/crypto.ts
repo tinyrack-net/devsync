@@ -81,14 +81,3 @@ export const decryptSecretFile = async (
 
   return await decrypter.decrypt(armor.decode(armoredCiphertext));
 };
-
-export const createCryptoPort = () => {
-  return {
-    createAgeIdentityFile,
-    decryptSecretFile,
-    encryptSecretFile,
-    readAgeRecipientsFromIdentityFile,
-  };
-};
-
-export type CryptoPort = ReturnType<typeof createCryptoPort>;

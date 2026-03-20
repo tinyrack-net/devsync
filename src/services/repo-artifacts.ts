@@ -1,3 +1,4 @@
+import { lstat, mkdir } from "node:fs/promises";
 import { join } from "node:path";
 
 import {
@@ -7,9 +8,15 @@ import {
   syncSecretArtifactSuffix,
 } from "#app/config/sync.ts";
 
-import type { CryptoPort } from "./crypto.ts";
-import { SyncError } from "./error.ts";
-import type { FilesystemPort } from "./filesystem.ts";
+import { encryptSecretFile } from "./crypto.ts";
+import { DevsyncError } from "./error.ts";
+import {
+  getPathStats,
+  listDirectoryEntries,
+  pathExists,
+  writeFileNode,
+  writeSymlinkNode,
+} from "./filesystem.ts";
 import type { SnapshotNode } from "./local-snapshot.ts";
 import { buildDirectoryKey } from "./paths.ts";
 
@@ -65,7 +72,7 @@ export const assertStorageSafeRepoPath = (repoPath: string) => {
     return;
   }
 
-  throw new SyncError(
+  throw new DevsyncError(
     `Tracked sync paths must not use the reserved suffix ${syncSecretArtifactSuffix}: ${repoPath}`,
   );
 };
@@ -81,9 +88,6 @@ export const resolveArtifactRelativePath = (
 export const buildRepoArtifacts = async (
   snapshot: ReadonlyMap<string, SnapshotNode>,
   config: ResolvedSyncConfig,
-  dependencies: Readonly<{
-    crypto: Pick<CryptoPort, "encryptSecretFile">;
-  }>,
 ) => {
   const artifacts: RepoArtifact[] = [];
   const seenArtifactKeys = new Set<string>();
@@ -107,7 +111,7 @@ export const buildRepoArtifacts = async (
       const key = buildArtifactKey(artifact);
 
       if (seenArtifactKeys.has(key)) {
-        throw new SyncError(
+        throw new DevsyncError(
           `Duplicate repository artifact generated for ${key}`,
         );
       }
@@ -127,7 +131,7 @@ export const buildRepoArtifacts = async (
       const key = buildArtifactKey(artifact);
 
       if (seenArtifactKeys.has(key)) {
-        throw new SyncError(
+        throw new DevsyncError(
           `Duplicate repository artifact generated for ${key}`,
         );
       }
@@ -148,7 +152,7 @@ export const buildRepoArtifacts = async (
       const key = buildArtifactKey(artifact);
 
       if (seenArtifactKeys.has(key)) {
-        throw new SyncError(
+        throw new DevsyncError(
           `Duplicate repository artifact generated for ${key}`,
         );
       }
@@ -160,10 +164,7 @@ export const buildRepoArtifacts = async (
 
     const artifact = {
       category: "secret",
-      contents: await dependencies.crypto.encryptSecretFile(
-        node.contents,
-        config.age.recipients,
-      ),
+      contents: await encryptSecretFile(node.contents, config.age.recipients),
       executable: node.executable,
       kind: "file",
       repoPath,
@@ -171,7 +172,9 @@ export const buildRepoArtifacts = async (
     const key = buildArtifactKey(artifact);
 
     if (seenArtifactKeys.has(key)) {
-      throw new SyncError(`Duplicate repository artifact generated for ${key}`);
+      throw new DevsyncError(
+        `Duplicate repository artifact generated for ${key}`,
+      );
     }
 
     seenArtifactKeys.add(key);
@@ -184,31 +187,22 @@ export const buildRepoArtifacts = async (
 const collectArtifactLeafKeys = async (
   rootDirectory: string,
   keys: Set<string>,
-  filesystem: Pick<
-    FilesystemPort,
-    "lstat" | "listDirectoryEntries" | "pathExists"
-  >,
   prefix?: string,
 ) => {
-  if (!(await filesystem.pathExists(rootDirectory))) {
+  if (!(await pathExists(rootDirectory))) {
     return;
   }
 
-  const entries = await filesystem.listDirectoryEntries(rootDirectory);
+  const entries = await listDirectoryEntries(rootDirectory);
 
   for (const entry of entries) {
     const absolutePath = join(rootDirectory, entry.name);
     const relativePath =
       prefix === undefined ? entry.name : `${prefix}/${entry.name}`;
-    const stats = await filesystem.lstat(absolutePath);
+    const stats = await lstat(absolutePath);
 
     if (stats?.isDirectory()) {
-      await collectArtifactLeafKeys(
-        absolutePath,
-        keys,
-        filesystem,
-        relativePath,
-      );
+      await collectArtifactLeafKeys(absolutePath, keys, relativePath);
       continue;
     }
 
@@ -219,15 +213,11 @@ const collectArtifactLeafKeys = async (
 export const collectExistingArtifactKeys = async (
   syncDirectory: string,
   config: ResolvedSyncConfig,
-  filesystem: Pick<
-    FilesystemPort,
-    "getPathStats" | "listDirectoryEntries" | "lstat" | "pathExists"
-  >,
 ) => {
   const keys = new Set<string>();
   const artifactsDirectory = resolveSyncArtifactsDirectoryPath(syncDirectory);
 
-  await collectArtifactLeafKeys(artifactsDirectory, keys, filesystem);
+  await collectArtifactLeafKeys(artifactsDirectory, keys);
 
   for (const entry of config.entries) {
     if (entry.kind !== "directory") {
@@ -235,7 +225,7 @@ export const collectExistingArtifactKeys = async (
     }
 
     const path = join(artifactsDirectory, ...entry.repoPath.split("/"));
-    const stats = await filesystem.getPathStats(path);
+    const stats = await getPathStats(path);
 
     if (stats?.isDirectory()) {
       keys.add(buildDirectoryKey(entry.repoPath));
@@ -248,12 +238,8 @@ export const collectExistingArtifactKeys = async (
 export const writeArtifactsToDirectory = async (
   rootDirectory: string,
   artifacts: readonly RepoArtifact[],
-  filesystem: Pick<
-    FilesystemPort,
-    "mkdir" | "writeFileNode" | "writeSymlinkNode"
-  >,
 ) => {
-  await filesystem.mkdir(rootDirectory, { recursive: true });
+  await mkdir(rootDirectory, { recursive: true });
 
   for (const artifact of artifacts) {
     const artifactPath = join(
@@ -262,15 +248,15 @@ export const writeArtifactsToDirectory = async (
     );
 
     if (artifact.kind === "directory") {
-      await filesystem.mkdir(artifactPath, { recursive: true });
+      await mkdir(artifactPath, { recursive: true });
       continue;
     }
 
     if (artifact.kind === "symlink") {
-      await filesystem.writeSymlinkNode(artifactPath, artifact.linkTarget);
+      await writeSymlinkNode(artifactPath, artifact.linkTarget);
       continue;
     }
 
-    await filesystem.writeFileNode(artifactPath, artifact);
+    await writeFileNode(artifactPath, artifact);
   }
 };

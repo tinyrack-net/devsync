@@ -1,12 +1,4 @@
-import { z } from "zod";
-
-export const trimmedOptionalStringSchema = z
-  .string()
-  .trim()
-  .optional()
-  .transform((value) => {
-    return value === undefined || value === "" ? undefined : value;
-  });
+import type { z } from "zod";
 
 export const formatInputIssues = (issues: z.ZodIssue[]): string => {
   return issues

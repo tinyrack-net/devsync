@@ -3,7 +3,7 @@ import { isAbsolute, relative, resolve } from "node:path";
 import { normalizeSyncRepoPath } from "#app/config/sync.ts";
 import { expandHomePath } from "#app/config/xdg.ts";
 
-import { SyncError } from "./error.ts";
+import { DevsyncError } from "./error.ts";
 
 export const buildDirectoryKey = (repoPath: string) => {
   return `${repoPath}/`;
@@ -55,7 +55,7 @@ export const buildRepoPathWithinRoot = (
   const relativePath = relative(rootPath, absolutePath);
 
   if (relativePath === "") {
-    throw new SyncError(
+    throw new DevsyncError(
       `${description} must be inside ${rootPath}, not the root itself: ${absolutePath}`,
     );
   }
@@ -65,7 +65,7 @@ export const buildRepoPathWithinRoot = (
     relativePath.startsWith("..") ||
     relativePath === ".."
   ) {
-    throw new SyncError(
+    throw new DevsyncError(
       `${description} must be inside ${rootPath}: ${absolutePath}`,
     );
   }

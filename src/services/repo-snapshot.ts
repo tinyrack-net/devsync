@@ -1,15 +1,21 @@
+import { lstat, readFile, readlink } from "node:fs/promises";
 import { join } from "node:path";
 
 import {
   findOwningSyncEntry,
   type ResolvedSyncConfig,
+  resolveManagedSyncMode,
   resolveSyncArtifactsDirectoryPath,
-  resolveSyncMode,
 } from "#app/config/sync.ts";
 
-import type { CryptoPort } from "./crypto.ts";
-import { SyncError } from "./error.ts";
-import type { FilesystemPort } from "./filesystem.ts";
+import { decryptSecretFile } from "./crypto.ts";
+import { DevsyncError } from "./error.ts";
+import {
+  getPathStats,
+  isExecutableMode,
+  listDirectoryEntries,
+  pathExists,
+} from "./filesystem.ts";
 import { addSnapshotNode, type SnapshotNode } from "./local-snapshot.ts";
 import {
   assertStorageSafeRepoPath,
@@ -17,28 +23,11 @@ import {
   stripSecretArtifactSuffix,
 } from "./repo-artifacts.ts";
 
-const resolveManagedSyncMode = (
-  config: ResolvedSyncConfig,
-  repoPath: string,
-) => {
-  const mode = resolveSyncMode(config, repoPath);
-
-  if (mode === undefined) {
-    throw new SyncError(`Unmanaged sync path found in repository: ${repoPath}`);
-  }
-
-  return mode;
-};
-
 const readPlainSnapshotNode = async (
   absolutePath: string,
   repoPath: string,
   config: ResolvedSyncConfig,
   snapshot: Map<string, SnapshotNode>,
-  filesystem: Pick<
-    FilesystemPort,
-    "isExecutableMode" | "lstat" | "readFile" | "readlink"
-  >,
 ) => {
   assertStorageSafeRepoPath(repoPath);
   const mode = resolveManagedSyncMode(config, repoPath);
@@ -48,22 +37,22 @@ const readPlainSnapshotNode = async (
   }
 
   if (findOwningSyncEntry(config, repoPath) === undefined) {
-    throw new SyncError(
+    throw new DevsyncError(
       `Unmanaged plain sync path found in repository: ${repoPath}`,
     );
   }
 
   if (mode === "secret") {
-    throw new SyncError(
+    throw new DevsyncError(
       `Secret sync path is stored in plain text in the repository: ${repoPath}`,
     );
   }
 
-  const stats = await filesystem.lstat(absolutePath);
+  const stats = await lstat(absolutePath);
 
   if (stats.isSymbolicLink()) {
     addSnapshotNode(snapshot, repoPath, {
-      linkTarget: await filesystem.readlink(absolutePath),
+      linkTarget: await readlink(absolutePath),
       type: "symlink",
     });
 
@@ -71,12 +60,14 @@ const readPlainSnapshotNode = async (
   }
 
   if (!stats.isFile()) {
-    throw new SyncError(`Unsupported plain repository entry: ${absolutePath}`);
+    throw new DevsyncError(
+      `Unsupported plain repository entry: ${absolutePath}`,
+    );
   }
 
   addSnapshotNode(snapshot, repoPath, {
-    contents: await filesystem.readFile(absolutePath),
-    executable: filesystem.isExecutableMode(stats.mode),
+    contents: await readFile(absolutePath),
+    executable: isExecutableMode(stats.mode),
     secret: false,
     type: "file",
   });
@@ -86,59 +77,34 @@ const readRepositoryTree = async (
   rootDirectory: string,
   config: ResolvedSyncConfig,
   snapshot: Map<string, SnapshotNode>,
-  dependencies: Readonly<{
-    crypto: Pick<CryptoPort, "decryptSecretFile">;
-    filesystem: Pick<
-      FilesystemPort,
-      | "isExecutableMode"
-      | "listDirectoryEntries"
-      | "lstat"
-      | "pathExists"
-      | "readFile"
-      | "readlink"
-    >;
-  }>,
   prefix?: string,
 ) => {
-  if (!(await dependencies.filesystem.pathExists(rootDirectory))) {
+  if (!(await pathExists(rootDirectory))) {
     return;
   }
 
-  const entries =
-    await dependencies.filesystem.listDirectoryEntries(rootDirectory);
+  const entries = await listDirectoryEntries(rootDirectory);
 
   for (const entry of entries) {
     const absolutePath = join(rootDirectory, entry.name);
     const relativePath =
       prefix === undefined ? entry.name : `${prefix}/${entry.name}`;
-    const stats = await dependencies.filesystem.lstat(absolutePath);
+    const stats = await lstat(absolutePath);
 
     if (stats.isDirectory()) {
       assertStorageSafeRepoPath(relativePath);
-      await readRepositoryTree(
-        absolutePath,
-        config,
-        snapshot,
-        dependencies,
-        relativePath,
-      );
+      await readRepositoryTree(absolutePath, config, snapshot, relativePath);
       continue;
     }
 
     if (stats.isSymbolicLink()) {
       if (isSecretArtifactPath(relativePath)) {
-        throw new SyncError(
+        throw new DevsyncError(
           `Secret repository entries must be regular files, not symlinks: ${relativePath}`,
         );
       }
 
-      await readPlainSnapshotNode(
-        absolutePath,
-        relativePath,
-        config,
-        snapshot,
-        dependencies.filesystem,
-      );
+      await readPlainSnapshotNode(absolutePath, relativePath, config, snapshot);
       continue;
     }
 
@@ -146,7 +112,7 @@ const readRepositoryTree = async (
       const repoPath = stripSecretArtifactSuffix(relativePath);
 
       if (repoPath === undefined || repoPath.length === 0) {
-        throw new SyncError(
+        throw new DevsyncError(
           `Secret repository files must include a path before ${relativePath}`,
         );
       }
@@ -155,7 +121,7 @@ const readRepositoryTree = async (
       const mode = resolveManagedSyncMode(config, repoPath);
 
       if (findOwningSyncEntry(config, repoPath) === undefined) {
-        throw new SyncError(
+        throw new DevsyncError(
           `Unmanaged secret sync path found in repository: ${repoPath}`,
         );
       }
@@ -165,17 +131,17 @@ const readRepositoryTree = async (
       }
 
       if (mode !== "secret") {
-        throw new SyncError(
+        throw new DevsyncError(
           `Plain sync path is stored in secret form in the repository: ${repoPath}`,
         );
       }
 
       addSnapshotNode(snapshot, repoPath, {
-        contents: await dependencies.crypto.decryptSecretFile(
-          await dependencies.filesystem.readFile(absolutePath, "utf8"),
+        contents: await decryptSecretFile(
+          await readFile(absolutePath, "utf8"),
           config.age.identityFile,
         ),
-        executable: dependencies.filesystem.isExecutableMode(stats.mode),
+        executable: isExecutableMode(stats.mode),
         secret: true,
         type: "file",
       });
@@ -183,42 +149,23 @@ const readRepositoryTree = async (
     }
 
     if (!stats.isFile()) {
-      throw new SyncError(
+      throw new DevsyncError(
         `Unsupported plain repository entry: ${absolutePath}`,
       );
     }
 
-    await readPlainSnapshotNode(
-      absolutePath,
-      relativePath,
-      config,
-      snapshot,
-      dependencies.filesystem,
-    );
+    await readPlainSnapshotNode(absolutePath, relativePath, config, snapshot);
   }
 };
 
 export const buildRepositorySnapshot = async (
   syncDirectory: string,
   config: ResolvedSyncConfig,
-  dependencies: Readonly<{
-    crypto: Pick<CryptoPort, "decryptSecretFile">;
-    filesystem: Pick<
-      FilesystemPort,
-      | "getPathStats"
-      | "isExecutableMode"
-      | "listDirectoryEntries"
-      | "lstat"
-      | "pathExists"
-      | "readFile"
-      | "readlink"
-    >;
-  }>,
 ) => {
   const snapshot = new Map<string, SnapshotNode>();
   const artifactsDirectory = resolveSyncArtifactsDirectoryPath(syncDirectory);
 
-  await readRepositoryTree(artifactsDirectory, config, snapshot, dependencies);
+  await readRepositoryTree(artifactsDirectory, config, snapshot);
 
   for (const entry of config.entries) {
     if (entry.kind !== "directory") {
@@ -226,10 +173,10 @@ export const buildRepositorySnapshot = async (
     }
 
     const artifactPath = join(artifactsDirectory, ...entry.repoPath.split("/"));
-    const stats = await dependencies.filesystem.getPathStats(artifactPath);
+    const stats = await getPathStats(artifactPath);
 
     if (stats !== undefined && !stats.isDirectory()) {
-      throw new SyncError(
+      throw new DevsyncError(
         `Directory sync entry is not stored as a directory in the repository: ${entry.repoPath}`,
       );
     }

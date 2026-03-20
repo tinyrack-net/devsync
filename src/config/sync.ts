@@ -10,6 +10,8 @@ import {
 } from "#app/config/xdg.ts";
 import { ensureTrailingNewline } from "#app/lib/string.ts";
 import { formatInputIssues } from "#app/lib/validation.ts";
+import { DevsyncError } from "#app/services/error.ts";
+import { doPathsOverlap } from "#app/services/paths.ts";
 
 export const syncConfigFileName = "config.json";
 export const syncArtifactsDirectoryName = "files";
@@ -82,13 +84,6 @@ export type ResolvedSyncConfig = Readonly<{
   version: 1;
 }>;
 
-export class SyncConfigError extends Error {
-  public constructor(message: string) {
-    super(message);
-    this.name = "SyncConfigError";
-  }
-}
-
 export const normalizeSyncRepoPath = (value: string) => {
   const normalizedValue = posix.normalize(value.replaceAll("\\", "/"));
 
@@ -99,13 +94,13 @@ export const normalizeSyncRepoPath = (value: string) => {
     normalizedValue.includes("/../") ||
     normalizedValue.startsWith("/")
   ) {
-    throw new SyncConfigError(
+    throw new DevsyncError(
       `Repository path must be a relative POSIX path without '..': ${value}`,
     );
   }
 
   if (hasReservedSyncArtifactSuffixSegment(normalizedValue)) {
-    throw new SyncConfigError(
+    throw new DevsyncError(
       `Repository path must not use the reserved suffix ${syncSecretArtifactSuffix}: ${value}`,
     );
   }
@@ -127,7 +122,7 @@ export const normalizeSyncOverridePath = (
     posixValue.includes("/../") ||
     posixValue.startsWith("/")
   ) {
-    throw new SyncConfigError(
+    throw new DevsyncError(
       `${description} must be a relative POSIX path without '..': ${value}`,
     );
   }
@@ -142,13 +137,13 @@ export const normalizeSyncOverridePath = (
     normalizedValue.includes("/../") ||
     normalizedValue.startsWith("/")
   ) {
-    throw new SyncConfigError(
+    throw new DevsyncError(
       `${description} must be a relative POSIX path without '..': ${value}`,
     );
   }
 
   if (hasReservedSyncArtifactSuffixSegment(normalizedValue)) {
-    throw new SyncConfigError(
+    throw new DevsyncError(
       `${description} must not use the reserved suffix ${syncSecretArtifactSuffix}: ${value}`,
     );
   }
@@ -197,7 +192,7 @@ export const findOwningSyncEntry = (
   });
 };
 
-const resolveEntryRelativeRepoPath = (
+export const resolveEntryRelativeRepoPath = (
   entry: Pick<ResolvedSyncConfigEntry, "kind" | "repoPath">,
   repoPath: string,
 ) => {
@@ -274,24 +269,6 @@ export const resolveRelativeSyncMode = (
   return matchingOverride?.mode ?? mode;
 };
 
-const isPathEqualOrNested = (left: string, right: string) => {
-  const leftToRight = relative(left, right);
-  const rightToLeft = relative(right, left);
-
-  const leftContainsRight =
-    leftToRight === "" ||
-    (!isAbsolute(leftToRight) &&
-      !leftToRight.startsWith("..") &&
-      leftToRight !== "..");
-  const rightContainsLeft =
-    rightToLeft === "" ||
-    (!isAbsolute(rightToLeft) &&
-      !rightToLeft.startsWith("..") &&
-      rightToLeft !== "..");
-
-  return leftContainsRight || rightContainsLeft;
-};
-
 const resolveSyncEntryLocalPath = (
   value: string,
   environment: NodeJS.ProcessEnv,
@@ -302,7 +279,7 @@ const resolveSyncEntryLocalPath = (
   try {
     resolvedLocalPath = resolveHomeConfiguredAbsolutePath(value, environment);
   } catch (error: unknown) {
-    throw new SyncConfigError(
+    throw new DevsyncError(
       error instanceof Error
         ? error.message
         : `Invalid sync entry local path: ${value}`,
@@ -312,7 +289,7 @@ const resolveSyncEntryLocalPath = (
   const relativePath = relative(homeDirectory, resolvedLocalPath);
 
   if (relativePath === "") {
-    throw new SyncConfigError(
+    throw new DevsyncError(
       `Sync entry local path must be inside ${homeDirectory}, not the home directory itself: ${value}`,
     );
   }
@@ -322,7 +299,7 @@ const resolveSyncEntryLocalPath = (
     relativePath.startsWith("..") ||
     relativePath === ".."
   ) {
-    throw new SyncConfigError(
+    throw new DevsyncError(
       `Sync entry local path must be inside ${homeDirectory}: ${value}`,
     );
   }
@@ -337,7 +314,7 @@ const resolveConfiguredIdentityFile = (
   try {
     return resolveConfiguredAbsolutePath(value, environment);
   } catch (error: unknown) {
-    throw new SyncConfigError(
+    throw new DevsyncError(
       error instanceof Error
         ? error.message
         : `Invalid sync age identity file path: ${value}`,
@@ -350,7 +327,7 @@ const validateUniqueNames = (entries: readonly ResolvedSyncConfigEntry[]) => {
 
   for (const entry of entries) {
     if (seenNames.has(entry.name)) {
-      throw new SyncConfigError(`Duplicate sync entry name: ${entry.name}`);
+      throw new DevsyncError(`Duplicate sync entry name: ${entry.name}`);
     }
 
     seenNames.add(entry.name);
@@ -387,10 +364,10 @@ const validatePathOverlaps = (
           ? currentValue === otherValue ||
             currentValue.startsWith(`${otherValue}/`) ||
             otherValue.startsWith(`${currentValue}/`)
-          : isPathEqualOrNested(currentValue, otherValue);
+          : doPathsOverlap(currentValue, otherValue);
 
       if (overlaps) {
-        throw new SyncConfigError(
+        throw new DevsyncError(
           `${description} paths must not overlap: ${currentEntry.name} (${currentValue}) and ${otherEntry.name} (${otherValue})`,
         );
       }
@@ -400,7 +377,7 @@ const validatePathOverlaps = (
 
 const validateOverrides = (entry: ResolvedSyncConfigEntry) => {
   if (entry.kind === "file" && entry.overrides.length > 0) {
-    throw new SyncConfigError(
+    throw new DevsyncError(
       `File sync entries must not define overrides: ${entry.name}`,
     );
   }
@@ -411,7 +388,7 @@ const validateOverrides = (entry: ResolvedSyncConfigEntry) => {
     const key = formatSyncOverrideSelector(override);
 
     if (seenOverrides.has(key)) {
-      throw new SyncConfigError(
+      throw new DevsyncError(
         `Duplicate sync override for ${entry.name}: ${key}`,
       );
     }
@@ -427,7 +404,7 @@ export const parseSyncConfig = (
   const result = syncConfigSchema.safeParse(input);
 
   if (!result.success) {
-    throw new SyncConfigError(formatInputIssues(result.error.issues));
+    throw new DevsyncError(formatInputIssues(result.error.issues));
   }
 
   const entries = result.data.entries.map((entry) => {
@@ -527,17 +504,17 @@ export const readSyncConfig = async (
 
     return parseSyncConfig(JSON.parse(contents) as unknown, environment);
   } catch (error: unknown) {
-    if (error instanceof SyncConfigError) {
+    if (error instanceof DevsyncError) {
       throw error;
     }
 
     if (error instanceof SyntaxError) {
-      throw new SyncConfigError(
+      throw new DevsyncError(
         `Sync configuration is not valid JSON: ${error.message}`,
       );
     }
 
-    throw new SyncConfigError(
+    throw new DevsyncError(
       error instanceof Error
         ? error.message
         : "Failed to read sync configuration.",
@@ -576,4 +553,20 @@ export const isSecretSyncPath = (
   repoPath: string,
 ) => {
   return resolveSyncMode(config, repoPath) === "secret";
+};
+
+export const resolveManagedSyncMode = (
+  config: ResolvedSyncConfig,
+  repoPath: string,
+  context?: string,
+) => {
+  const mode = resolveSyncMode(config, repoPath);
+
+  if (mode === undefined) {
+    throw new DevsyncError(
+      `Unmanaged sync path${context ? ` found ${context}` : ""}: ${repoPath}`,
+    );
+  }
+
+  return mode;
 };
