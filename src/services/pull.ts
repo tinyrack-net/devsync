@@ -1,4 +1,4 @@
-import { readSyncConfig } from "#app/config/sync.ts";
+import { type ResolvedSyncConfig, readSyncConfig } from "#app/config/sync.ts";
 
 import {
   applyEntryMaterialization,
@@ -24,16 +24,32 @@ export type SyncPullResult = Readonly<{
   syncDirectory: string;
 }>;
 
-export const pullSync = async (
-  request: SyncPullRequest,
-  context: SyncContext,
-): Promise<SyncPullResult> => {
-  await ensureSyncRepository(context);
+export type PullPlan = Readonly<{
+  counts: ReturnType<typeof buildPullCounts>;
+  deletedLocalCount: number;
+  desiredKeys: ReadonlySet<string>;
+  existingKeys: ReadonlySet<string>;
+  materializations: readonly ReturnType<typeof buildEntryMaterialization>[];
+}>;
 
-  const config = await readSyncConfig(
-    context.paths.syncDirectory,
-    context.environment,
-  );
+const collectDesiredKeys = (
+  materializations: readonly ReturnType<typeof buildEntryMaterialization>[],
+) => {
+  const keys = new Set<string>();
+
+  for (const materialization of materializations) {
+    for (const key of materialization.desiredKeys) {
+      keys.add(key);
+    }
+  }
+
+  return keys;
+};
+
+export const buildPullPlan = async (
+  config: ResolvedSyncConfig,
+  context: SyncContext,
+): Promise<PullPlan> => {
   const snapshot = await buildRepositorySnapshot(
     context.paths.syncDirectory,
     config,
@@ -43,6 +59,7 @@ export const pullSync = async (
   });
 
   let deletedLocalCount = 0;
+  const existingKeys = new Set<string>();
 
   for (let index = 0; index < config.entries.length; index += 1) {
     const entry = config.entries[index];
@@ -56,20 +73,72 @@ export const pullSync = async (
       entry,
       materialization.desiredKeys,
       config,
+      existingKeys,
     );
+  }
+
+  return {
+    counts: buildPullCounts(materializations),
+    deletedLocalCount,
+    desiredKeys: collectDesiredKeys(materializations),
+    existingKeys,
+    materializations,
+  };
+};
+
+export const buildPullPlanPreview = (plan: PullPlan) => {
+  const desired = [...plan.desiredKeys].sort((left, right) => {
+    return left.localeCompare(right);
+  });
+  const deleted = [...plan.existingKeys]
+    .filter((key) => {
+      return !plan.desiredKeys.has(key);
+    })
+    .sort((left, right) => {
+      return left.localeCompare(right);
+    });
+
+  return [...desired.slice(0, 4), ...deleted.slice(0, 4)].slice(0, 6);
+};
+
+export const buildPullResultFromPlan = (
+  plan: PullPlan,
+  context: SyncContext,
+  dryRun: boolean,
+): SyncPullResult => {
+  return {
+    configPath: context.paths.configPath,
+    deletedLocalCount: plan.deletedLocalCount,
+    dryRun,
+    syncDirectory: context.paths.syncDirectory,
+    ...plan.counts,
+  };
+};
+
+export const pullSync = async (
+  request: SyncPullRequest,
+  context: SyncContext,
+): Promise<SyncPullResult> => {
+  await ensureSyncRepository(context);
+
+  const config = await readSyncConfig(
+    context.paths.syncDirectory,
+    context.environment,
+  );
+  const plan = await buildPullPlan(config, context);
+
+  for (let index = 0; index < config.entries.length; index += 1) {
+    const entry = config.entries[index];
+    const materialization = plan.materializations[index];
+
+    if (entry === undefined || materialization === undefined) {
+      continue;
+    }
 
     if (!request.dryRun) {
       await applyEntryMaterialization(entry, materialization, config);
     }
   }
 
-  const counts = buildPullCounts(materializations);
-
-  return {
-    configPath: context.paths.configPath,
-    deletedLocalCount,
-    dryRun: request.dryRun,
-    syncDirectory: context.paths.syncDirectory,
-    ...counts,
-  };
+  return buildPullResultFromPlan(plan, context, request.dryRun);
 };

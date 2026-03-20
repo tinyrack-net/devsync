@@ -2,6 +2,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { join } from "node:path";
 
 import {
+  type ResolvedSyncConfig,
   readSyncConfig,
   resolveSyncArtifactsDirectoryPath,
 } from "#app/config/sync.ts";
@@ -29,6 +30,14 @@ export type SyncPushResult = Readonly<{
   plainFileCount: number;
   symlinkCount: number;
   syncDirectory: string;
+}>;
+
+export type PushPlan = Readonly<{
+  counts: ReturnType<typeof buildPushCounts>;
+  deletedArtifactCount: number;
+  desiredArtifactKeys: ReadonlySet<string>;
+  existingArtifactKeys: ReadonlySet<string>;
+  snapshot: ReadonlyMap<string, SnapshotNode>;
 }>;
 
 const buildPushCounts = (snapshot: ReadonlyMap<string, SnapshotNode>) => {
@@ -63,16 +72,10 @@ const buildPushCounts = (snapshot: ReadonlyMap<string, SnapshotNode>) => {
   };
 };
 
-export const pushSync = async (
-  request: SyncPushRequest,
+export const buildPushPlan = async (
+  config: ResolvedSyncConfig,
   context: SyncContext,
-): Promise<SyncPushResult> => {
-  await ensureSyncRepository(context);
-
-  const config = await readSyncConfig(
-    context.paths.syncDirectory,
-    context.environment,
-  );
+): Promise<PushPlan> => {
   const snapshot = await buildLocalSnapshot(config);
   const artifacts = await buildRepoArtifacts(snapshot, config);
   const desiredArtifactKeys = new Set(
@@ -88,6 +91,56 @@ export const pushSync = async (
     return !desiredArtifactKeys.has(key);
   }).length;
 
+  return {
+    counts: buildPushCounts(snapshot),
+    deletedArtifactCount,
+    desiredArtifactKeys,
+    existingArtifactKeys,
+    snapshot,
+  };
+};
+
+export const buildPushPlanPreview = (plan: PushPlan) => {
+  const createdOrUpdated = [...plan.snapshot.keys()].sort((left, right) => {
+    return left.localeCompare(right);
+  });
+  const deleted = [...plan.existingArtifactKeys]
+    .filter((key) => {
+      return !plan.desiredArtifactKeys.has(key);
+    })
+    .sort((left, right) => {
+      return left.localeCompare(right);
+    });
+
+  return [...createdOrUpdated.slice(0, 4), ...deleted.slice(0, 4)].slice(0, 6);
+};
+
+export const buildPushResultFromPlan = (
+  plan: PushPlan,
+  context: SyncContext,
+  dryRun: boolean,
+): SyncPushResult => {
+  return {
+    configPath: context.paths.configPath,
+    deletedArtifactCount: plan.deletedArtifactCount,
+    dryRun,
+    syncDirectory: context.paths.syncDirectory,
+    ...plan.counts,
+  };
+};
+
+export const pushSync = async (
+  request: SyncPushRequest,
+  context: SyncContext,
+): Promise<SyncPushResult> => {
+  await ensureSyncRepository(context);
+
+  const config = await readSyncConfig(
+    context.paths.syncDirectory,
+    context.environment,
+  );
+  const plan = await buildPushPlan(config, context);
+
   if (!request.dryRun) {
     const stagingRoot = await mkdtemp(
       join(context.paths.syncDirectory, ".devsync-sync-push-"),
@@ -95,6 +148,8 @@ export const pushSync = async (
     const nextArtifactsDirectory = join(stagingRoot, "files");
 
     try {
+      const artifacts = await buildRepoArtifacts(plan.snapshot, config);
+
       await writeArtifactsToDirectory(nextArtifactsDirectory, artifacts);
 
       await replacePathAtomically(
@@ -109,13 +164,5 @@ export const pushSync = async (
     }
   }
 
-  const counts = buildPushCounts(snapshot);
-
-  return {
-    configPath: context.paths.configPath,
-    deletedArtifactCount,
-    dryRun: request.dryRun,
-    syncDirectory: context.paths.syncDirectory,
-    ...counts,
-  };
+  return buildPushResultFromPlan(plan, context, request.dryRun);
 };

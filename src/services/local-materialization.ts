@@ -316,8 +316,8 @@ export const countDeletedLocalNodes = async (
   entry: ResolvedSyncConfigEntry,
   desiredKeys: ReadonlySet<string>,
   config: ResolvedSyncConfig,
+  existingKeys: Set<string> = new Set<string>(),
 ) => {
-  const existingKeys = new Set<string>();
   const preservedIgnoredKeys = new Set<string>();
 
   await collectLocalLeafKeys(entry.localPath, entry.repoPath, existingKeys);
