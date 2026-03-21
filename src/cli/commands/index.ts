@@ -3,8 +3,10 @@ import SyncDoctor from "#app/cli/commands/doctor.ts";
 import SyncEntryMode from "#app/cli/commands/entry/mode.ts";
 import SyncInit from "#app/cli/commands/init.ts";
 import SyncList from "#app/cli/commands/list.ts";
+import SyncMachineAssign from "#app/cli/commands/machine/assign.ts";
 import SyncMachineClear from "#app/cli/commands/machine/clear.ts";
 import SyncMachineList from "#app/cli/commands/machine/list.ts";
+import SyncMachineUnassign from "#app/cli/commands/machine/unassign.ts";
 import SyncMachineUse from "#app/cli/commands/machine/use.ts";
 import SyncPull from "#app/cli/commands/pull.ts";
 import SyncPush from "#app/cli/commands/push.ts";
@@ -20,8 +22,10 @@ export const COMMANDS = {
   "entry:mode": SyncEntryMode,
   init: SyncInit,
   list: SyncList,
+  "machine:assign": SyncMachineAssign,
   "machine:clear": SyncMachineClear,
   "machine:list": SyncMachineList,
+  "machine:unassign": SyncMachineUnassign,
   "machine:use": SyncMachineUse,
   pull: SyncPull,
   push: SyncPush,
