@@ -119,15 +119,15 @@ Notes:
 ### How tracking works
 
 - You add files or directories that live under your home directory.
-- `devsync` mirrors them into `~/.config/devsync/sync/files/default/<repoPath>` for the default profile, or `~/.config/devsync/sync/files/<profile>/<repoPath>` for a named profile.
+- `devsync` mirrors them into `~/.config/devsync/sync/default/<repoPath>` for the default profile, or `~/.config/devsync/sync/<profile>/<repoPath>` for a named profile.
 - Plain artifacts are stored as-is.
 - Secret artifacts are stored with the `.devsync.secret` suffix.
 
 Storage layout:
 
 - Sync repo: `~/.config/devsync/sync`
-- Default profile artifacts: `~/.config/devsync/sync/files/default/<repoPath>`
-- Named profile artifacts: `~/.config/devsync/sync/files/<profile>/<repoPath>`
+- Default profile artifacts: `~/.config/devsync/sync/default/<repoPath>`
+- Named profile artifacts: `~/.config/devsync/sync/<profile>/<repoPath>`
 - Default age identity: `$XDG_CONFIG_HOME/devsync/age/keys.txt`
 
 ### Sync modes
@@ -156,7 +156,7 @@ devsync set secret ~/.config/mytool/token.json --profile work
 - Track the root once without `--profile`.
 - Use `devsync set --profile <name>` only for child paths inside tracked directories.
 - Profile-specific rules inherit the parent root mode and only override nested paths.
-- Named profile artifacts are stored under `files/<profile>/<repoPath>`.
+- Named profile artifacts are stored under `<profile>/<repoPath>`.
 - `default` is reserved for the base layout and cannot be used as a named profile.
 - Standalone profiled roots and profiled file entries are not supported.
 
