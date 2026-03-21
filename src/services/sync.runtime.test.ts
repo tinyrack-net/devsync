@@ -396,11 +396,11 @@ describe("sync runtime helpers", () => {
       });
     };
 
-    await mkdir(join(syncDirectory, "files", "default", "bundle"), {
+    await mkdir(join(syncDirectory, "default", "bundle"), {
       recursive: true,
     });
     await writeFile(
-      join(syncDirectory, "files", "default", "bundle", "secret.txt"),
+      join(syncDirectory, "default", "bundle", "secret.txt"),
       "plain\n",
     );
 
@@ -422,13 +422,12 @@ describe("sync runtime helpers", () => {
     ).rejects.toThrowError(/stored as a plain artifact/u);
 
     await rm(syncDirectory, { force: true, recursive: true });
-    await mkdir(join(syncDirectory, "files", "default", "bundle"), {
+    await mkdir(join(syncDirectory, "default", "bundle"), {
       recursive: true,
     });
     await writeFile(
       join(
         syncDirectory,
-        "files",
         "default",
         "bundle",
         `plain.txt${syncSecretArtifactSuffix}`,
@@ -455,7 +454,6 @@ describe("sync runtime helpers", () => {
     await mkdir(
       join(
         syncDirectory,
-        "files",
         "default",
         "bundle",
         `broken${syncSecretArtifactSuffix}`,
@@ -465,7 +463,6 @@ describe("sync runtime helpers", () => {
     await writeFile(
       join(
         syncDirectory,
-        "files",
         "default",
         "bundle",
         `broken${syncSecretArtifactSuffix}`,
@@ -489,13 +486,12 @@ describe("sync runtime helpers", () => {
     ).rejects.toThrowError(/reserved suffix/u);
 
     await rm(syncDirectory, { force: true, recursive: true });
-    await mkdir(join(syncDirectory, "files", "default", "other"), {
+    await mkdir(join(syncDirectory, "default", "other"), {
       recursive: true,
     });
     await writeFile(
       join(
         syncDirectory,
-        "files",
         "default",
         "other",
         `token.txt${syncSecretArtifactSuffix}`,
@@ -520,14 +516,13 @@ describe("sync runtime helpers", () => {
 
     if (process.platform !== "win32") {
       await rm(syncDirectory, { force: true, recursive: true });
-      await mkdir(join(syncDirectory, "files", "default", "bundle"), {
+      await mkdir(join(syncDirectory, "default", "bundle"), {
         recursive: true,
       });
       await symlink(
         join(workspace, "target.secret"),
         join(
           syncDirectory,
-          "files",
           "default",
           "bundle",
           `token.txt${syncSecretArtifactSuffix}`,
@@ -550,9 +545,9 @@ describe("sync runtime helpers", () => {
     }
 
     await rm(syncDirectory, { force: true, recursive: true });
-    await mkdir(join(syncDirectory, "files", "default"), { recursive: true });
+    await mkdir(join(syncDirectory, "default"), { recursive: true });
     await writeFile(
-      join(syncDirectory, "files", "default", "bundle"),
+      join(syncDirectory, "default", "bundle"),
       "not a directory\n",
     );
 
@@ -571,11 +566,11 @@ describe("sync runtime helpers", () => {
     ).rejects.toThrowError(/is not stored as a directory/u);
 
     await rm(syncDirectory, { force: true, recursive: true });
-    await mkdir(join(syncDirectory, "files", "default", "bundle"), {
+    await mkdir(join(syncDirectory, "default", "bundle"), {
       recursive: true,
     });
     await writeFile(
-      join(syncDirectory, "files", "default", "bundle", "keep.txt"),
+      join(syncDirectory, "default", "bundle", "keep.txt"),
       "keep\n",
     );
 
@@ -601,13 +596,12 @@ describe("sync runtime helpers", () => {
     ).toEqual(["bundle", "bundle/keep.txt"]);
 
     await rm(syncDirectory, { force: true, recursive: true });
-    await mkdir(join(syncDirectory, "files", "default", "bundle"), {
+    await mkdir(join(syncDirectory, "default", "bundle"), {
       recursive: true,
     });
     await writeFile(
       join(
         syncDirectory,
-        "files",
         "default",
         "bundle",
         `keep.txt${syncSecretArtifactSuffix}`,
@@ -634,13 +628,12 @@ describe("sync runtime helpers", () => {
     ).rejects.toThrowError();
 
     await rm(syncDirectory, { force: true, recursive: true });
-    await mkdir(join(syncDirectory, "files", "default", "bundle"), {
+    await mkdir(join(syncDirectory, "default", "bundle"), {
       recursive: true,
     });
     await writeSecretFile(
       join(
         syncDirectory,
-        "files",
         "default",
         "bundle",
         `keep.txt${syncSecretArtifactSuffix}`,

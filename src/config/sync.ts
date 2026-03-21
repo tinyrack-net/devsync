@@ -14,7 +14,6 @@ import { DevsyncError } from "#app/services/error.ts";
 import { doPathsOverlap } from "#app/services/paths.ts";
 
 export const syncConfigFileName = "config.json";
-export const syncArtifactsDirectoryName = "files";
 export const syncSecretArtifactSuffix = ".devsync.secret";
 
 const syncEntryKinds = ["file", "directory"] as const;
@@ -856,7 +855,7 @@ export const resolveSyncConfigFilePath = (
 };
 
 export const resolveSyncArtifactsDirectoryPath = (syncDirectory: string) => {
-  return join(syncDirectory, syncArtifactsDirectoryName);
+  return syncDirectory;
 };
 
 export const readSyncConfig = async (

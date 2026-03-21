@@ -442,23 +442,16 @@ describe("sync service", () => {
       },
       context,
     );
-    await mkdir(join(initResult.syncDirectory, "files", "default", "mytool"), {
+    await mkdir(join(initResult.syncDirectory, "default", "mytool"), {
       recursive: true,
     });
     await writeFile(
-      join(
-        initResult.syncDirectory,
-        "files",
-        "default",
-        "mytool",
-        "settings.json",
-      ),
+      join(initResult.syncDirectory, "default", "mytool", "settings.json"),
       "stale plain copy\n",
     );
     await writeFile(
       join(
         initResult.syncDirectory,
-        "files",
         "default",
         "mytool",
         `settings.json${syncSecretArtifactSuffix}`,
@@ -485,13 +478,7 @@ describe("sync service", () => {
     expect(config.entries).toEqual([]);
     await expect(
       readFile(
-        join(
-          initResult.syncDirectory,
-          "files",
-          "default",
-          "mytool",
-          "settings.json",
-        ),
+        join(initResult.syncDirectory, "default", "mytool", "settings.json"),
         "utf8",
       ),
     ).rejects.toMatchObject({
@@ -501,7 +488,6 @@ describe("sync service", () => {
       readFile(
         join(
           initResult.syncDirectory,
-          "files",
           "default",
           "mytool",
           `settings.json${syncSecretArtifactSuffix}`,
@@ -632,7 +618,6 @@ describe("sync service", () => {
           xdgConfigHome,
           "devsync",
           "sync",
-          "files",
           "default",
           "bundle",
           "plain.txt",
@@ -646,7 +631,6 @@ describe("sync service", () => {
           xdgConfigHome,
           "devsync",
           "sync",
-          "files",
           "default",
           "bundle",
           "ignored.txt",
@@ -662,7 +646,6 @@ describe("sync service", () => {
           xdgConfigHome,
           "devsync",
           "sync",
-          "files",
           "default",
           "bundle",
           `secret.json${syncSecretArtifactSuffix}`,
@@ -1061,7 +1044,7 @@ describe("sync service", () => {
     expect(normalPush.plainFileCount).toBe(1);
     expect(
       await readFile(
-        join(syncDirectory, "files", "default", "bundle", "token.txt"),
+        join(syncDirectory, "default", "bundle", "token.txt"),
         "utf8",
       ),
     ).toBe("token-v1\n");
@@ -1069,7 +1052,6 @@ describe("sync service", () => {
       readFile(
         join(
           syncDirectory,
-          "files",
           "default",
           "bundle",
           `token.txt${syncSecretArtifactSuffix}`,
@@ -1098,10 +1080,7 @@ describe("sync service", () => {
 
     expect(secretPush.encryptedFileCount).toBe(1);
     await expect(
-      readFile(
-        join(syncDirectory, "files", "default", "bundle", "token.txt"),
-        "utf8",
-      ),
+      readFile(join(syncDirectory, "default", "bundle", "token.txt"), "utf8"),
     ).rejects.toMatchObject({
       code: "ENOENT",
     });
@@ -1109,7 +1088,6 @@ describe("sync service", () => {
       await readFile(
         join(
           syncDirectory,
-          "files",
           "default",
           "bundle",
           `token.txt${syncSecretArtifactSuffix}`,
@@ -1136,10 +1114,7 @@ describe("sync service", () => {
 
     expect(ignorePush.deletedArtifactCount).toBeGreaterThanOrEqual(1);
     await expect(
-      readFile(
-        join(syncDirectory, "files", "default", "bundle", "token.txt"),
-        "utf8",
-      ),
+      readFile(join(syncDirectory, "default", "bundle", "token.txt"), "utf8"),
     ).rejects.toMatchObject({
       code: "ENOENT",
     });
@@ -1147,7 +1122,6 @@ describe("sync service", () => {
       readFile(
         join(
           syncDirectory,
-          "files",
           "default",
           "bundle",
           `token.txt${syncSecretArtifactSuffix}`,
@@ -1207,7 +1181,6 @@ describe("sync service", () => {
     await writeFile(
       join(
         syncDirectory,
-        "files",
         "default",
         "bundle",
         `token.txt${syncSecretArtifactSuffix}`,
@@ -1334,7 +1307,7 @@ describe("sync service", () => {
     const devFile = join(appDirectory, "dev.json");
     const ageKeys = await createAgeKeyPair();
     const globalConfigPath = join(xdgConfigHome, "devsync", "config.json");
-    const syncFilesDirectory = join(xdgConfigHome, "devsync", "sync", "files");
+    const syncFilesDirectory = join(xdgConfigHome, "devsync", "sync");
 
     await writeIdentityFile(xdgConfigHome, ageKeys.identity);
     await mkdir(appDirectory, { recursive: true });
@@ -1672,7 +1645,6 @@ describe("sync service", () => {
           xdgConfigHome,
           "devsync",
           "sync",
-          "files",
           "work",
           ".config",
           "app",

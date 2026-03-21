@@ -19,6 +19,7 @@ import {
 import { addSnapshotNode, type SnapshotNode } from "./local-snapshot.ts";
 import {
   assertStorageSafeRepoPath,
+  collectArtifactNamespaces,
   syncDefaultArtifactNamespace,
 } from "./repo-artifacts.ts";
 
@@ -235,11 +236,18 @@ export const buildRepositorySnapshot = async (
 ) => {
   const snapshot = new Map<string, SnapshotNode>();
   const artifactsDirectory = resolveSyncArtifactsDirectoryPath(syncDirectory);
-  const artifactsStats = await getPathStats(artifactsDirectory);
+  const namespaces = collectArtifactNamespaces(config.entries);
 
-  if (artifactsStats?.isDirectory()) {
-    await walkArtifactTree(artifactsDirectory, config, snapshot);
-  }
+  await Promise.all(
+    [...namespaces].map(async (namespace) => {
+      const namespaceDirectory = join(artifactsDirectory, namespace);
+      const namespaceStats = await getPathStats(namespaceDirectory);
+
+      if (namespaceStats?.isDirectory()) {
+        await walkArtifactTree(namespaceDirectory, config, snapshot, namespace);
+      }
+    }),
+  );
 
   for (const entry of config.entries) {
     if (entry.kind !== "directory") {

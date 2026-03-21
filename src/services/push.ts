@@ -1,14 +1,8 @@
-import { mkdtemp, rm } from "node:fs/promises";
 import { join } from "node:path";
 
 import { resolveSyncArtifactsDirectoryPath } from "#app/config/sync.ts";
 
-import {
-  copyFilesystemNode,
-  getPathStats,
-  removePathAtomically,
-  replacePathAtomically,
-} from "./filesystem.ts";
+import { removePathAtomically } from "./filesystem.ts";
 import { buildLocalSnapshot, type SnapshotNode } from "./local-snapshot.ts";
 import {
   buildArtifactKey,
@@ -145,52 +139,24 @@ export const pushSync = async (
   const plan = await buildPushPlan(config, context);
 
   if (!request.dryRun) {
-    const stagingRoot = await mkdtemp(
-      join(context.paths.syncDirectory, ".devsync-sync-push-"),
+    const artifactsDirectory = resolveSyncArtifactsDirectoryPath(
+      context.paths.syncDirectory,
     );
-    const nextArtifactsDirectory = join(stagingRoot, "files");
+    const artifacts = await buildRepoArtifacts(plan.snapshot, config);
 
-    try {
-      const existingArtifactsDirectory = resolveSyncArtifactsDirectoryPath(
-        context.paths.syncDirectory,
+    for (const staleKey of [...plan.existingArtifactKeys].filter((key) => {
+      return !plan.desiredArtifactKeys.has(key);
+    })) {
+      const relativePath = staleKey.endsWith("/")
+        ? staleKey.slice(0, -1)
+        : staleKey;
+
+      await removePathAtomically(
+        join(artifactsDirectory, ...relativePath.split("/")),
       );
-      const existingArtifactsStats = await getPathStats(
-        existingArtifactsDirectory,
-      );
-
-      if (existingArtifactsStats !== undefined) {
-        await copyFilesystemNode(
-          existingArtifactsDirectory,
-          nextArtifactsDirectory,
-        );
-      }
-
-      const artifacts = await buildRepoArtifacts(plan.snapshot, config);
-
-      for (const staleKey of [...plan.existingArtifactKeys].filter((key) => {
-        return !plan.desiredArtifactKeys.has(key);
-      })) {
-        const relativePath = staleKey.endsWith("/")
-          ? staleKey.slice(0, -1)
-          : staleKey;
-
-        await removePathAtomically(
-          join(nextArtifactsDirectory, ...relativePath.split("/")),
-        );
-      }
-
-      await writeArtifactsToDirectory(nextArtifactsDirectory, artifacts);
-
-      await replacePathAtomically(
-        resolveSyncArtifactsDirectoryPath(context.paths.syncDirectory),
-        nextArtifactsDirectory,
-      );
-    } finally {
-      await rm(stagingRoot, {
-        force: true,
-        recursive: true,
-      });
     }
+
+    await writeArtifactsToDirectory(artifactsDirectory, artifacts);
   }
 
   return buildPushResultFromPlan(plan, context, request.dryRun);

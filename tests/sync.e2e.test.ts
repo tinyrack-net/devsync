@@ -407,15 +407,12 @@ describe("sync CLI e2e", () => {
     expect(pushResult.stdout).toContain("Synchronized local config");
     expect(
       await readFile(
-        join(syncDirectory, "files", "default", "bundle", "plain.txt"),
+        join(syncDirectory, "default", "bundle", "plain.txt"),
         "utf8",
       ),
     ).toBe("plain value\n");
     await expect(
-      readFile(
-        join(syncDirectory, "files", "default", "bundle", "ignored.txt"),
-        "utf8",
-      ),
+      readFile(join(syncDirectory, "default", "bundle", "ignored.txt"), "utf8"),
     ).rejects.toMatchObject({
       code: "ENOENT",
     });
@@ -423,7 +420,6 @@ describe("sync CLI e2e", () => {
       await readFile(
         join(
           syncDirectory,
-          "files",
           "default",
           "bundle",
           `secret.json${syncSecretArtifactSuffix}`,
@@ -520,7 +516,6 @@ describe("sync CLI e2e", () => {
     await writeFile(
       join(
         syncDirectory,
-        "files",
         "default",
         "bundle",
         `secret.txt${syncSecretArtifactSuffix}`,

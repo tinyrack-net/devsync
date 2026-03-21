@@ -29,6 +29,20 @@ type ArtifactConfig = ResolvedSyncConfig &
 
 export const syncDefaultArtifactNamespace = "default";
 
+export const buildArtifactNamespace = (profile?: string) => {
+  return profile ?? syncDefaultArtifactNamespace;
+};
+
+export const collectArtifactNamespaces = (
+  entries: readonly Pick<ResolvedSyncConfigEntry, "profile">[],
+) => {
+  return new Set(
+    entries.map((entry) => {
+      return buildArtifactNamespace(entry.profile);
+    }),
+  );
+};
+
 export type RepoArtifact =
   | Readonly<{
       category: "plain";
@@ -98,7 +112,7 @@ export const assertStorageSafeRepoPath = (repoPath: string) => {
 export const resolveArtifactRelativePath = (
   artifact: Pick<RepoArtifact, "category" | "profile" | "repoPath">,
 ) => {
-  const namespace = artifact.profile ?? syncDefaultArtifactNamespace;
+  const namespace = buildArtifactNamespace(artifact.profile);
   const profileRelativePath = `${namespace}/${artifact.repoPath}`;
 
   return artifact.category === "secret"
@@ -306,8 +320,17 @@ export const collectExistingArtifactKeys = async (
 ) => {
   const keys = new Set<string>();
   const artifactsDirectory = resolveSyncArtifactsDirectoryPath(syncDirectory);
+  const namespaces = collectArtifactNamespaces(config.entries);
 
-  await collectArtifactLeafKeys(artifactsDirectory, keys);
+  await Promise.all(
+    [...namespaces].map(async (namespace) => {
+      await collectArtifactLeafKeys(
+        join(artifactsDirectory, namespace),
+        keys,
+        namespace,
+      );
+    }),
+  );
 
   for (const key of [...keys]) {
     if (key.startsWith("__dir__:")) {
