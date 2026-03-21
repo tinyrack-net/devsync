@@ -15,7 +15,7 @@ import { assertStorageSafeRepoPath } from "./repo-artifacts.ts";
 
 type SnapshotConfig = ResolvedSyncConfig &
   Readonly<{
-    activeProfile?: string;
+    activeMachine?: string;
   }>;
 
 export type SnapshotNode =
@@ -63,7 +63,7 @@ const addLocalNode = async (
   stats: Awaited<ReturnType<typeof lstat>>,
 ) => {
   assertStorageSafeRepoPath(repoPath);
-  const mode = resolveManagedSyncMode(config, repoPath, config.activeProfile);
+  const mode = resolveManagedSyncMode(config, repoPath, config.activeMachine);
 
   if (mode === "ignore") {
     return;
@@ -138,7 +138,7 @@ export const buildLocalSnapshot = async (config: SnapshotConfig) => {
     const entryMode = resolveManagedSyncMode(
       config,
       entry.repoPath,
-      config.activeProfile,
+      config.activeMachine,
     );
 
     if (entry.kind === "file") {

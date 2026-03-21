@@ -14,6 +14,7 @@ import {
 
 export type SyncPullRequest = Readonly<{
   dryRun: boolean;
+  machine?: string;
 }>;
 
 export type SyncPullResult = Readonly<{
@@ -124,7 +125,9 @@ export const pullSync = async (
 ): Promise<SyncPullResult> => {
   await ensureSyncRepository(context);
 
-  const { effectiveConfig: config } = await loadSyncConfig(context);
+  const { effectiveConfig: config } = await loadSyncConfig(context, {
+    ...(request.machine === undefined ? {} : { machine: request.machine }),
+  });
   const plan = await buildPullPlan(config, context);
 
   for (let index = 0; index < config.entries.length; index += 1) {

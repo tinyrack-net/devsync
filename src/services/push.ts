@@ -19,6 +19,7 @@ import {
 
 export type SyncPushRequest = Readonly<{
   dryRun: boolean;
+  machine?: string;
 }>;
 
 export type SyncPushResult = Readonly<{
@@ -135,7 +136,9 @@ export const pushSync = async (
 ): Promise<SyncPushResult> => {
   await ensureSyncRepository(context);
 
-  const { effectiveConfig: config } = await loadSyncConfig(context);
+  const { effectiveConfig: config } = await loadSyncConfig(context, {
+    ...(request.machine === undefined ? {} : { machine: request.machine }),
+  });
   const plan = await buildPushPlan(config, context);
 
   if (!request.dryRun) {

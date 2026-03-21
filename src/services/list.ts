@@ -19,14 +19,14 @@ export type SyncListEntry = Readonly<{
   mode: SyncMode;
   name: string;
   overrides: readonly SyncListOverride[];
-  profile?: string;
+  machine?: string;
   repoPath: string;
 }>;
 
 export type SyncListResult = Readonly<{
   activeEntryCount: number;
-  activeProfile?: string;
-  activeProfilesMode: "none" | "single";
+  activeMachine?: string;
+  activeMachinesMode: "none" | "single";
   configPath: string;
   entries: readonly SyncListEntry[];
   recipientCount: number;
@@ -36,27 +36,33 @@ export type SyncListResult = Readonly<{
 
 export const listSyncConfig = async (
   context: SyncContext,
+  options: Readonly<{
+    machine?: string;
+  }> = {},
 ): Promise<SyncListResult> => {
   await ensureSyncRepository(context);
 
-  const { effectiveConfig, fullConfig } = await loadSyncConfig(context);
+  const { effectiveConfig, fullConfig } = await loadSyncConfig(
+    context,
+    options,
+  );
   const activeEntryKeys = new Set(
     effectiveConfig.entries.map((entry) => {
-      return `${entry.profile ?? ""}\u0000${entry.repoPath}`;
+      return `${entry.machine ?? ""}\u0000${entry.repoPath}`;
     }),
   );
 
   return {
     activeEntryCount: effectiveConfig.entries.length,
-    ...(effectiveConfig.activeProfile === undefined
+    ...(effectiveConfig.activeMachine === undefined
       ? {}
-      : { activeProfile: effectiveConfig.activeProfile }),
-    activeProfilesMode: effectiveConfig.activeProfilesMode,
+      : { activeMachine: effectiveConfig.activeMachine }),
+    activeMachinesMode: effectiveConfig.activeMachinesMode,
     configPath: context.paths.configPath,
     entries: fullConfig.entries.map((entry) => {
       return {
         active: activeEntryKeys.has(
-          `${entry.profile ?? ""}\u0000${entry.repoPath}`,
+          `${entry.machine ?? ""}\u0000${entry.repoPath}`,
         ),
         kind: entry.kind,
         localPath: entry.localPath,
@@ -68,7 +74,7 @@ export const listSyncConfig = async (
             selector: formatSyncOverrideSelector(override),
           };
         }),
-        ...(entry.profile === undefined ? {} : { profile: entry.profile }),
+        ...(entry.machine === undefined ? {} : { machine: entry.machine }),
         repoPath: entry.repoPath,
       };
     }),

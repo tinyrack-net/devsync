@@ -1,9 +1,9 @@
 import {
-  type ActiveProfileSelection,
+  type ActiveMachineSelection,
   type GlobalDevsyncConfig,
-  isProfileActive,
+  isMachineActive,
   readGlobalDevsyncConfig,
-  resolveActiveProfileSelection,
+  resolveActiveMachineSelection,
 } from "#app/config/global-config.ts";
 import {
   type ResolvedSyncConfig,
@@ -19,7 +19,6 @@ import {
 } from "#app/config/xdg.ts";
 
 import { DevsyncError } from "./error.ts";
-
 import { ensureGitRepository } from "./git.ts";
 
 export type SyncPaths = Readonly<{
@@ -38,8 +37,8 @@ export type SyncContext = Readonly<{
 
 export type EffectiveSyncConfig = ResolvedSyncConfig &
   Readonly<{
-    activeProfile?: string;
-    activeProfilesMode: ActiveProfileSelection["mode"];
+    activeMachine?: string;
+    activeMachinesMode: ActiveMachineSelection["mode"];
   }>;
 
 export type LoadedSyncConfig = Readonly<{
@@ -85,87 +84,73 @@ export const ensureSyncRepository = async (
 
 export const buildEffectiveSyncConfig = (
   fullConfig: ResolvedSyncConfig,
-  selection: ActiveProfileSelection,
+  selection: ActiveMachineSelection,
 ): EffectiveSyncConfig => {
   const groupedEntries = new Map<
     string,
     {
       baseEntry?: ResolvedSyncConfig["entries"][number];
-      profileEntry?: ResolvedSyncConfig["entries"][number];
+      machineEntry?: ResolvedSyncConfig["entries"][number];
     }
   >();
 
   for (const entry of fullConfig.entries) {
-    if (!isProfileActive(selection, entry.profile)) {
+    if (!isMachineActive(selection, entry.machine)) {
       continue;
     }
 
     const key = `${entry.kind}\u0000${entry.localPath}\u0000${entry.repoPath}`;
     const group = groupedEntries.get(key) ?? {};
 
-    if (entry.profile === undefined) {
+    if (entry.machine === undefined) {
       group.baseEntry = entry;
     } else if (
       selection.mode === "single" &&
-      entry.profile === selection.profile
+      entry.machine === selection.machine
     ) {
-      group.profileEntry = entry;
+      group.machineEntry = entry;
     }
 
     groupedEntries.set(key, group);
   }
 
   const entries = [...groupedEntries.values()].flatMap((group) => {
-    if (group.profileEntry === undefined) {
+    if (group.machineEntry === undefined) {
       return group.baseEntry === undefined ? [] : [group.baseEntry];
     }
 
     if (group.baseEntry === undefined) {
-      return [group.profileEntry];
+      return [group.machineEntry];
     }
 
     return [
       {
         ...group.baseEntry,
-        name: group.profileEntry.name,
-        overrides: (() => {
-          const mergedOverrides = new Map<
-            string,
-            (typeof group.baseEntry.overrides)[number]
-          >();
-
-          for (const override of group.baseEntry.overrides) {
-            const selector =
-              override.match === "subtree"
-                ? `${override.path}/`
-                : override.path;
-            mergedOverrides.set(selector, override);
-          }
-
-          for (const override of group.profileEntry.overrides) {
-            const selector =
-              override.match === "subtree"
-                ? `${override.path}/`
-                : override.path;
-            mergedOverrides.set(selector, override);
-          }
-
-          return [...mergedOverrides.values()];
-        })(),
-        profile: group.profileEntry.profile,
+        ...(group.machineEntry.modeExplicit
+          ? {
+              machine: group.machineEntry.machine,
+              mode: group.machineEntry.mode,
+              modeExplicit: true,
+              name: group.machineEntry.name,
+            }
+          : {}),
+        machineLayer: group.machineEntry.machine,
+        machineMode: group.machineEntry.mode,
+        machineModeExplicit: group.machineEntry.modeExplicit,
+        machineOverrides: group.machineEntry.overrides,
       },
     ];
   });
 
   validateResolvedSyncConfigEntries(entries, {
-    allowProfileDisjointOverlaps: false,
+    allowMachineDisjointOverlaps: false,
   });
 
   return {
     ...fullConfig,
-    activeProfilesMode: selection.mode,
+    activeMachinesMode: selection.mode,
     ...(selection.mode === "single"
-      ? { activeProfile: selection.profile }
+      ? { activeMachine: selection.machine }
       : {}),
     entries,
   };
@@ -173,13 +158,22 @@ export const buildEffectiveSyncConfig = (
 
 export const loadSyncConfig = async (
   context: SyncContext,
+  options: Readonly<{
+    machine?: string;
+  }> = {},
 ): Promise<LoadedSyncConfig> => {
   const fullConfig = await readSyncConfig(
     context.paths.syncDirectory,
     context.environment,
   );
   const globalConfig = await readGlobalDevsyncConfig(context.environment);
-  const selection = resolveActiveProfileSelection(globalConfig);
+  const selection =
+    options.machine === undefined
+      ? resolveActiveMachineSelection(globalConfig)
+      : {
+          machine: options.machine,
+          mode: "single" as const,
+        };
 
   try {
     return {
@@ -190,14 +184,14 @@ export const loadSyncConfig = async (
   } catch (error: unknown) {
     if (error instanceof DevsyncError) {
       throw new DevsyncError(
-        "Active sync profiles resolve to an invalid configuration.",
+        "Active sync machines resolve to an invalid configuration.",
         {
-          code: "ACTIVE_PROFILE_CONFLICT",
+          code: "ACTIVE_MACHINE_CONFLICT",
           details: [
             `Global config: ${context.paths.globalConfigPath}`,
             error.message,
           ],
-          hint: "Adjust activeProfile or the profile assignments so the active entries no longer overlap.",
+          hint: "Adjust activeMachine or the machine assignments so the active entries no longer overlap.",
         },
       );
     }

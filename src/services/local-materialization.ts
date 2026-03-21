@@ -21,7 +21,7 @@ import { buildDirectoryKey } from "./paths.ts";
 
 type MaterializationConfig = ResolvedSyncConfig &
   Readonly<{
-    activeProfile?: string;
+    activeMachine?: string;
   }>;
 
 type EntryMaterialization =
@@ -57,7 +57,7 @@ const copyIgnoredLocalNodesToDirectory = async (
   const directoryMode = resolveManagedSyncMode(
     config,
     repoPathPrefix,
-    config.activeProfile,
+    config.activeMachine,
   );
 
   if (directoryMode === "ignore") {
@@ -82,7 +82,7 @@ const copyIgnoredLocalNodesToDirectory = async (
     }
 
     if (
-      resolveManagedSyncMode(config, repoPath, config.activeProfile) !==
+      resolveManagedSyncMode(config, repoPath, config.activeMachine) !==
       "ignore"
     ) {
       continue;
@@ -303,7 +303,7 @@ const collectIgnoredLocalKeys = async (
     return false;
   }
 
-  const mode = resolveManagedSyncMode(config, repoPath, config.activeProfile);
+  const mode = resolveManagedSyncMode(config, repoPath, config.activeMachine);
 
   if (!stats.isDirectory()) {
     if (mode !== "ignore") {
@@ -362,7 +362,7 @@ export const applyEntryMaterialization = async (
 ) => {
   if (
     entry.kind === "file" &&
-    resolveManagedSyncMode(config, entry.repoPath, config.activeProfile) ===
+    resolveManagedSyncMode(config, entry.repoPath, config.activeMachine) ===
       "ignore"
   ) {
     return;

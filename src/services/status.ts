@@ -17,8 +17,8 @@ import {
 
 export type SyncStatusResult = Readonly<{
   activeEntryCount: number;
-  activeProfile?: string;
-  activeProfilesMode: "none" | "single";
+  activeMachine?: string;
+  activeMachinesMode: "none" | "single";
   configPath: string;
   entryCount: number;
   pull: ReturnType<typeof buildPullResultFromPlan> & {
@@ -34,19 +34,25 @@ export type SyncStatusResult = Readonly<{
 
 export const getSyncStatus = async (
   context: SyncContext,
+  options: Readonly<{
+    machine?: string;
+  }> = {},
 ): Promise<SyncStatusResult> => {
   await ensureSyncRepository(context);
 
-  const { effectiveConfig, fullConfig } = await loadSyncConfig(context);
+  const { effectiveConfig, fullConfig } = await loadSyncConfig(
+    context,
+    options,
+  );
   const pushPlan = await buildPushPlan(effectiveConfig, context);
   const pullPlan = await buildPullPlan(effectiveConfig, context);
 
   return {
     activeEntryCount: effectiveConfig.entries.length,
-    ...(effectiveConfig.activeProfile === undefined
+    ...(effectiveConfig.activeMachine === undefined
       ? {}
-      : { activeProfile: effectiveConfig.activeProfile }),
-    activeProfilesMode: effectiveConfig.activeProfilesMode,
+      : { activeMachine: effectiveConfig.activeMachine }),
+    activeMachinesMode: effectiveConfig.activeMachinesMode,
     configPath: context.paths.configPath,
     entryCount: fullConfig.entries.length,
     pull: {

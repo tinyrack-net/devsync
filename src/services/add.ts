@@ -1,4 +1,5 @@
 import {
+  normalizeSyncMachineName,
   type ResolvedSyncConfig,
   type ResolvedSyncConfigEntry,
   readSyncConfig,
@@ -21,7 +22,8 @@ import {
 import { ensureSyncRepository, type SyncContext } from "./runtime.ts";
 
 export type SyncAddRequest = Readonly<{
-  secret: boolean;
+  machine?: string;
+  mode: Extract<SyncMode, "normal" | "secret">;
   target: string;
 }>;
 
@@ -30,7 +32,8 @@ export type SyncAddResult = Readonly<{
   configPath: string;
   kind: SyncConfigEntryKind;
   localPath: string;
-  mode: SyncMode;
+  machine?: string;
+  mode: Extract<SyncMode, "normal" | "secret">;
   repoPath: string;
   syncDirectory: string;
 }>;
@@ -39,6 +42,10 @@ const buildAddEntryCandidate = async (
   targetPath: string,
   config: ResolvedSyncConfig,
   context: Pick<SyncContext, "paths">,
+  input: Readonly<{
+    machine?: string;
+    mode: Extract<SyncMode, "normal" | "secret">;
+  }>,
 ) => {
   const targetStats = await getPathStats(targetPath);
 
@@ -46,7 +53,7 @@ const buildAddEntryCandidate = async (
     throw new DevsyncError("Sync target does not exist.", {
       code: "TARGET_NOT_FOUND",
       details: [`Target: ${targetPath}`],
-      hint: "Create the file or directory first, then run devsync add again.",
+      hint: "Create the file or directory first, then run the command again.",
     });
   }
 
@@ -101,23 +108,46 @@ const buildAddEntryCandidate = async (
     configuredLocalPath: buildConfiguredHomeLocalPath(repoPath),
     kind,
     localPath: targetPath,
-    mode: "normal",
-    name: repoPath,
+    mode: input.mode,
+    modeExplicit: true,
+    name:
+      input.machine === undefined ? repoPath : `${repoPath}#${input.machine}`,
     overrides: [],
+    ...(input.machine === undefined ? {} : { machine: input.machine }),
     repoPath,
   } satisfies ResolvedSyncConfigEntry;
 };
 
 export const addSyncTarget = async (
+  request: Readonly<{
+    secret: boolean;
+    target: string;
+  }>,
+  context: SyncContext,
+) => {
+  return trackSyncTarget(
+    {
+      mode: request.secret ? "secret" : "normal",
+      target: request.target,
+    },
+    context,
+  );
+};
+
+export const trackSyncTarget = async (
   request: SyncAddRequest,
   context: SyncContext,
 ): Promise<SyncAddResult> => {
   const target = request.target.trim();
+  const machine =
+    request.machine === undefined
+      ? undefined
+      : normalizeSyncMachineName(request.machine);
 
   if (target.length === 0) {
     throw new DevsyncError("Target path is required.", {
       code: "TARGET_REQUIRED",
-      hint: "Pass a file or directory path, for example 'devsync add ~/.gitconfig'.",
+      hint: "Pass a file or directory path, for example 'devsync track ~/.gitconfig'.",
     });
   }
 
@@ -131,48 +161,22 @@ export const addSyncTarget = async (
     resolveCommandTargetPath(target, context.environment, context.cwd),
     config,
     context,
+    {
+      ...(machine === undefined ? {} : { machine }),
+      mode: request.mode,
+    },
   );
-
   const existingEntry = config.entries.find((entry) => {
     return (
-      entry.profile === undefined &&
-      (entry.localPath === candidate.localPath ||
-        entry.repoPath === candidate.repoPath)
+      entry.machine === machine &&
+      entry.localPath === candidate.localPath &&
+      entry.repoPath === candidate.repoPath
     );
   });
-  const overlappingEntry = config.entries.find((entry) => {
-    return (
-      entry.profile === undefined &&
-      entry.localPath !== candidate.localPath &&
-      doPathsOverlap(entry.localPath, candidate.localPath)
-    );
-  });
-  let alreadyTracked = false;
+  const alreadyTracked =
+    existingEntry !== undefined && existingEntry.kind === candidate.kind;
 
-  if (existingEntry !== undefined) {
-    if (
-      existingEntry.localPath === candidate.localPath &&
-      existingEntry.repoPath === candidate.repoPath &&
-      existingEntry.kind === candidate.kind
-    ) {
-      alreadyTracked = true;
-    } else {
-      throw new DevsyncError(
-        "Sync target conflicts with an existing tracked entry.",
-        {
-          code: "TARGET_CONFLICT",
-          details: [
-            `Requested local path: ${candidate.localPath}`,
-            `Requested repo path: ${candidate.repoPath}`,
-            `Existing entry: ${existingEntry.localPath} -> ${existingEntry.repoPath}`,
-          ],
-          hint: "Forget or rename the existing entry before adding an overlapping target.",
-        },
-      );
-    }
-  }
-
-  if (overlappingEntry !== undefined) {
+  if (existingEntry !== undefined && existingEntry.kind !== candidate.kind) {
     throw new DevsyncError(
       "Sync target conflicts with an existing tracked entry.",
       {
@@ -180,30 +184,23 @@ export const addSyncTarget = async (
         details: [
           `Requested local path: ${candidate.localPath}`,
           `Requested repo path: ${candidate.repoPath}`,
-          `Existing entry: ${overlappingEntry.localPath} -> ${overlappingEntry.repoPath}`,
+          `Existing entry: ${existingEntry.localPath} -> ${existingEntry.repoPath}`,
         ],
-        hint: "Forget or rename the existing entry before adding an overlapping target.",
+        hint: "Untrack or rename the existing entry before adding this root.",
       },
     );
   }
 
-  const desiredMode: SyncMode = request.secret ? "secret" : "normal";
-  let mode = existingEntry?.mode ?? (request.secret ? "secret" : "normal");
   let nextConfig = createSyncConfigDocument(config);
+  let mode: Extract<SyncMode, "normal" | "secret"> = request.mode;
 
   if (!alreadyTracked) {
     nextConfig = createSyncConfigDocument({
       ...config,
-      entries: [
-        ...config.entries,
-        {
-          ...candidate,
-          mode: desiredMode,
-        },
-      ],
+      entries: [...config.entries, candidate],
     });
-    mode = desiredMode;
-  } else if (request.secret && existingEntry?.mode !== "secret") {
+    mode = candidate.mode;
+  } else if (existingEntry?.mode !== request.mode) {
     nextConfig = createSyncConfigDocument({
       ...config,
       entries: config.entries.map((entry) => {
@@ -211,21 +208,20 @@ export const addSyncTarget = async (
           return entry;
         }
 
-        if (entry.profile !== undefined) {
+        if (entry.machine !== machine) {
           return entry;
         }
 
         return {
           ...entry,
-          mode: "secret",
+          mode: request.mode,
         };
       }),
     });
-
-    mode = "secret";
+    mode = request.mode;
   }
 
-  if (!alreadyTracked || (request.secret && existingEntry?.mode !== "secret")) {
+  if (!alreadyTracked || existingEntry?.mode !== request.mode) {
     await writeValidatedSyncConfig(context.paths.syncDirectory, nextConfig, {
       environment: context.environment,
     });
@@ -236,6 +232,7 @@ export const addSyncTarget = async (
     configPath: context.paths.configPath,
     kind: candidate.kind,
     localPath: candidate.localPath,
+    ...(machine === undefined ? {} : { machine }),
     mode,
     repoPath: candidate.repoPath,
     syncDirectory: context.paths.syncDirectory,
