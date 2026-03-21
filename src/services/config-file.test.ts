@@ -11,7 +11,6 @@ import {
   createSyncConfigDocument,
   createSyncConfigDocumentEntry,
   sortSyncConfigEntries,
-  sortSyncOverrides,
 } from "#app/services/config-file.ts";
 
 const baseOverride = (
@@ -30,27 +29,15 @@ const baseEntry = (
     | "name"
     | "overrides"
     | "repoPath"
-  >,
+  > & {
+    profile?: string;
+  },
 ): ResolvedSyncConfigEntry => {
   return value;
 };
 
 describe("config file helpers", () => {
-  it("sorts overrides by their formatted selector", () => {
-    const overrides = sortSyncOverrides([
-      baseOverride({ match: "exact", mode: "secret", path: "z.txt" }),
-      baseOverride({ match: "subtree", mode: "ignore", path: "cache" }),
-      baseOverride({ match: "exact", mode: "normal", path: "a.txt" }),
-    ]);
-
-    expect(overrides).toEqual([
-      { match: "exact", mode: "normal", path: "a.txt" },
-      { match: "subtree", mode: "ignore", path: "cache" },
-      { match: "exact", mode: "secret", path: "z.txt" },
-    ]);
-  });
-
-  it("creates config document entries without empty overrides", () => {
+  it("creates default config document entries without empty overrides", () => {
     expect(
       createSyncConfigDocumentEntry(
         baseEntry({
@@ -67,12 +54,11 @@ describe("config file helpers", () => {
       kind: "file",
       localPath: "~/.zshrc",
       mode: "normal",
-      name: ".zshrc",
       repoPath: ".zshrc",
     });
   });
 
-  it("creates sorted override maps for config document entries", () => {
+  it("creates sorted override maps for default entries", () => {
     expect(
       createSyncConfigDocumentEntry(
         baseEntry({
@@ -93,7 +79,6 @@ describe("config file helpers", () => {
       kind: "directory",
       localPath: "~/bundle",
       mode: "normal",
-      name: "bundle",
       overrides: {
         "a.txt": "normal",
         "cache/": "ignore",
@@ -103,7 +88,38 @@ describe("config file helpers", () => {
     });
   });
 
-  it("creates and sorts config documents from resolved config", () => {
+  it("creates profile-only config document entries", () => {
+    expect(
+      createSyncConfigDocumentEntry(
+        baseEntry({
+          configuredLocalPath: "~/bundle",
+          kind: "directory",
+          localPath: "/tmp/home/bundle",
+          mode: "secret",
+          name: "bundle#work",
+          overrides: [
+            baseOverride({ match: "exact", mode: "ignore", path: "cache.txt" }),
+          ],
+          profile: "work",
+          repoPath: "bundle",
+        }),
+      ),
+    ).toEqual({
+      kind: "directory",
+      localPath: "~/bundle",
+      mode: "secret",
+      profiles: {
+        work: {
+          overrides: {
+            "cache.txt": "ignore",
+          },
+        },
+      },
+      repoPath: "bundle",
+    });
+  });
+
+  it("creates and sorts grouped config documents from resolved config", () => {
     const config: ResolvedSyncConfig = {
       version: 1,
       age: {
@@ -121,6 +137,18 @@ describe("config file helpers", () => {
           overrides: [
             baseOverride({ match: "subtree", mode: "ignore", path: "cache" }),
           ],
+          repoPath: "bundle",
+        }),
+        baseEntry({
+          configuredLocalPath: "~/bundle",
+          kind: "directory",
+          localPath: "/tmp/home/bundle",
+          mode: "normal",
+          name: "bundle#work",
+          overrides: [
+            baseOverride({ match: "exact", mode: "secret", path: "token.txt" }),
+          ],
+          profile: "work",
           repoPath: "bundle",
         }),
         baseEntry({
@@ -142,20 +170,21 @@ describe("config file helpers", () => {
         kind: "file",
         localPath: "~/.zshrc",
         mode: "normal",
-        name: ".zshrc",
         repoPath: ".zshrc",
       },
       {
         kind: "directory",
         localPath: "~/bundle",
         mode: "secret",
-        name: "bundle",
-        overrides: {
-          "cache/": "ignore",
+        overrides: { "cache/": "ignore" },
+        profiles: {
+          work: {
+            overrides: { "token.txt": "secret" },
+          },
         },
         repoPath: "bundle",
       },
     ] satisfies SyncConfig["entries"]);
-    expect(countConfiguredRules(config)).toBe(1);
+    expect(countConfiguredRules(config)).toBe(2);
   });
 });

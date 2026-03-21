@@ -2,9 +2,12 @@ import { lstat, mkdir } from "node:fs/promises";
 import { join } from "node:path";
 
 import {
+  findOwningSyncEntry,
   hasReservedSyncArtifactSuffixSegment,
   type ResolvedSyncConfig,
+  type ResolvedSyncConfigEntry,
   resolveSyncArtifactsDirectoryPath,
+  resolveSyncRule,
   syncSecretArtifactSuffix,
 } from "#app/config/sync.ts";
 
@@ -13,35 +16,45 @@ import { DevsyncError } from "./error.ts";
 import {
   getPathStats,
   listDirectoryEntries,
-  pathExists,
   writeFileNode,
   writeSymlinkNode,
 } from "./filesystem.ts";
 import type { SnapshotNode } from "./local-snapshot.ts";
 import { buildDirectoryKey } from "./paths.ts";
 
+type ArtifactConfig = ResolvedSyncConfig &
+  Readonly<{
+    activeProfile?: string;
+  }>;
+
+export const syncDefaultArtifactNamespace = "default";
+
 export type RepoArtifact =
   | Readonly<{
       category: "plain";
       kind: "directory";
+      profile?: string;
       repoPath: string;
     }>
   | Readonly<{
       category: "plain";
       kind: "file";
       repoPath: string;
+      profile?: string;
       contents: Uint8Array;
       executable: boolean;
     }>
   | Readonly<{
       category: "plain";
       kind: "symlink";
+      profile?: string;
       repoPath: string;
       linkTarget: string;
     }>
   | Readonly<{
       category: "secret";
       kind: "file";
+      profile?: string;
       repoPath: string;
       contents: string;
       executable: boolean;
@@ -83,16 +96,60 @@ export const assertStorageSafeRepoPath = (repoPath: string) => {
 };
 
 export const resolveArtifactRelativePath = (
-  artifact: Pick<RepoArtifact, "category" | "repoPath">,
+  artifact: Pick<RepoArtifact, "category" | "profile" | "repoPath">,
 ) => {
+  const namespace = artifact.profile ?? syncDefaultArtifactNamespace;
+  const profileRelativePath = `${namespace}/${artifact.repoPath}`;
+
   return artifact.category === "secret"
-    ? `${artifact.repoPath}${syncSecretArtifactSuffix}`
-    : artifact.repoPath;
+    ? `${profileRelativePath}${syncSecretArtifactSuffix}`
+    : profileRelativePath;
+};
+
+export const parseArtifactRelativePath = (relativePath: string) => {
+  const secret = relativePath.endsWith(syncSecretArtifactSuffix);
+  const logicalPath = secret
+    ? relativePath.slice(0, -syncSecretArtifactSuffix.length)
+    : relativePath;
+  const [namespace, ...segments] = logicalPath.split("/");
+
+  if (namespace === undefined || segments.length === 0) {
+    throw new DevsyncError("Repository artifact path is invalid.", {
+      code: "INVALID_REPO_ENTRY",
+      details: [`Repository path: ${relativePath}`],
+    });
+  }
+
+  return {
+    profile: namespace === syncDefaultArtifactNamespace ? undefined : namespace,
+    repoPath: segments.join("/"),
+    secret,
+  };
+};
+
+export const resolveEntryArtifactRelativePath = (
+  entry: Pick<ResolvedSyncConfigEntry, "profile" | "repoPath">,
+) => {
+  return resolveArtifactRelativePath({
+    category: "plain",
+    profile: entry.profile,
+    repoPath: entry.repoPath,
+  });
+};
+
+export const resolveEntryArtifactPath = (
+  artifactsDirectory: string,
+  entry: Pick<ResolvedSyncConfigEntry, "profile" | "repoPath">,
+) => {
+  return join(
+    artifactsDirectory,
+    ...resolveEntryArtifactRelativePath(entry).split("/"),
+  );
 };
 
 export const buildRepoArtifacts = async (
   snapshot: ReadonlyMap<string, SnapshotNode>,
-  config: ResolvedSyncConfig,
+  config: ArtifactConfig,
 ) => {
   const artifacts: RepoArtifact[] = [];
   const seenArtifactKeys = new Set<string>();
@@ -102,8 +159,18 @@ export const buildRepoArtifacts = async (
   })) {
     assertStorageSafeRepoPath(repoPath);
     const node = snapshot.get(repoPath);
+    const owningEntry = findOwningSyncEntry(config, repoPath);
+    const resolvedRule = resolveSyncRule(
+      config,
+      repoPath,
+      config.activeProfile,
+    );
 
-    if (node === undefined) {
+    if (
+      node === undefined ||
+      owningEntry === undefined ||
+      resolvedRule === undefined
+    ) {
       continue;
     }
 
@@ -111,6 +178,7 @@ export const buildRepoArtifacts = async (
       const artifact = {
         category: "plain",
         kind: "directory",
+        profile: resolvedRule.profile,
         repoPath,
       } satisfies RepoArtifact;
       const key = buildArtifactKey(artifact);
@@ -132,6 +200,7 @@ export const buildRepoArtifacts = async (
         category: "plain",
         kind: "symlink",
         linkTarget: node.linkTarget,
+        profile: resolvedRule.profile,
         repoPath,
       } satisfies RepoArtifact;
       const key = buildArtifactKey(artifact);
@@ -154,6 +223,7 @@ export const buildRepoArtifacts = async (
         contents: node.contents,
         executable: node.executable,
         kind: "file",
+        profile: resolvedRule.profile,
         repoPath,
       } satisfies RepoArtifact;
       const key = buildArtifactKey(artifact);
@@ -175,6 +245,7 @@ export const buildRepoArtifacts = async (
       contents: await encryptSecretFile(node.contents, config.age.recipients),
       executable: node.executable,
       kind: "file",
+      profile: resolvedRule.profile,
       repoPath,
     } satisfies RepoArtifact;
     const key = buildArtifactKey(artifact);
@@ -198,7 +269,17 @@ const collectArtifactLeafKeys = async (
   keys: Set<string>,
   prefix?: string,
 ) => {
-  if (!(await pathExists(rootDirectory))) {
+  const rootStats = await getPathStats(rootDirectory);
+
+  if (rootStats === undefined) {
+    return;
+  }
+
+  if (!rootStats.isDirectory()) {
+    if (prefix !== undefined) {
+      keys.add(prefix);
+    }
+
     return;
   }
 
@@ -221,23 +302,50 @@ const collectArtifactLeafKeys = async (
 
 export const collectExistingArtifactKeys = async (
   syncDirectory: string,
-  config: ResolvedSyncConfig,
+  config: ArtifactConfig,
 ) => {
   const keys = new Set<string>();
   const artifactsDirectory = resolveSyncArtifactsDirectoryPath(syncDirectory);
 
   await collectArtifactLeafKeys(artifactsDirectory, keys);
 
+  for (const key of [...keys]) {
+    if (key.startsWith("__dir__:")) {
+      continue;
+    }
+
+    const artifact = parseArtifactRelativePath(key);
+    const rule = resolveSyncRule(
+      config,
+      artifact.repoPath,
+      config.activeProfile,
+    );
+
+    if (rule === undefined || rule.profile !== artifact.profile) {
+      keys.delete(key);
+    }
+  }
+
   for (const entry of config.entries) {
     if (entry.kind !== "directory") {
       continue;
     }
 
-    const path = join(artifactsDirectory, ...entry.repoPath.split("/"));
-    const stats = await getPathStats(path);
+    const rule = resolveSyncRule(config, entry.repoPath, config.activeProfile);
 
-    if (stats?.isDirectory()) {
-      keys.add(buildDirectoryKey(entry.repoPath));
+    if (rule === undefined) {
+      continue;
+    }
+
+    const relativePath = resolveArtifactRelativePath({
+      category: "plain",
+      profile: rule.profile,
+      repoPath: entry.repoPath,
+    });
+    const path = join(artifactsDirectory, ...relativePath.split("/"));
+
+    if ((await getPathStats(path))?.isDirectory()) {
+      keys.add(buildDirectoryKey(relativePath));
     }
   }
 

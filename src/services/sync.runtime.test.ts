@@ -11,6 +11,10 @@ import { dirname, join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 
 import {
+  parseGlobalDevsyncConfig,
+  resolveActiveProfileSelection,
+} from "#app/config/global-config.ts";
+import {
   parseSyncConfig,
   type ResolvedSyncConfig,
   resolveSyncArtifactsDirectoryPath,
@@ -31,6 +35,7 @@ import {
   writeArtifactsToDirectory,
 } from "#app/services/repo-artifacts.ts";
 import { buildRepositorySnapshot } from "#app/services/repo-snapshot.ts";
+import { buildEffectiveSyncConfig } from "#app/services/runtime.ts";
 import {
   createAgeKeyPair,
   createTemporaryDirectory,
@@ -105,7 +110,6 @@ describe("sync runtime helpers", () => {
           kind: "directory",
           localPath: "~/bundle",
           mode: "ignore",
-          name: "bundle",
           overrides: {
             "keep.txt": "normal",
           },
@@ -126,6 +130,46 @@ describe("sync runtime helpers", () => {
     ).toEqual(["bundle", "bundle/keep.txt"]);
   });
 
+  it("filters profiled entries into an effective config", () => {
+    const config = createResolvedConfig({
+      entries: [
+        {
+          kind: "file",
+          localPath: "~/.gitconfig",
+          mode: "normal",
+          repoPath: ".gitconfig",
+        },
+        {
+          kind: "directory",
+          localPath: "~/.config/app",
+          mode: "normal",
+          profiles: {
+            personal: {},
+            work: {},
+          },
+          repoPath: ".config/app",
+        },
+      ],
+      homeDirectory: "/tmp/home",
+      recipients: ["age1example"],
+      xdgConfigHome: "/tmp/xdg",
+    });
+
+    expect(
+      buildEffectiveSyncConfig(
+        config,
+        resolveActiveProfileSelection(
+          parseGlobalDevsyncConfig({
+            activeProfile: "work",
+            version: 1,
+          }),
+        ),
+      ).entries.map((entry) => {
+        return `${entry.profile ?? "default"}:${entry.repoPath}`;
+      }),
+    ).toEqual(["default:.gitconfig", "work:.config/app"]);
+  });
+
   it("rejects secret symlinks and file-entry kind mismatches in the local snapshot", async () => {
     const workspace = await createWorkspace();
     const homeDirectory = join(workspace, "home");
@@ -143,7 +187,6 @@ describe("sync runtime helpers", () => {
             kind: "directory",
             localPath: "~/bundle",
             mode: "normal",
-            name: "bundle",
             overrides: {
               "token-link": "secret",
             },
@@ -166,7 +209,6 @@ describe("sync runtime helpers", () => {
           kind: "file",
           localPath: "~/bundle",
           mode: "normal",
-          name: "bundle",
           repoPath: "bundle",
         },
       ],
@@ -198,7 +240,6 @@ describe("sync runtime helpers", () => {
           kind: "directory",
           localPath: "~/bundle",
           mode: "normal",
-          name: "bundle",
           repoPath: "bundle",
         },
       ],
@@ -233,7 +274,6 @@ describe("sync runtime helpers", () => {
           kind: "directory",
           localPath: "~/bundle",
           mode: "normal",
-          name: "bundle",
           overrides: {
             "secret.sh": "secret",
           },
@@ -270,7 +310,6 @@ describe("sync runtime helpers", () => {
           kind: "directory",
           localPath: "~/bundle",
           mode: "normal",
-          name: "bundle",
           overrides: {
             "secret.txt": "secret",
           },
@@ -320,10 +359,10 @@ describe("sync runtime helpers", () => {
 
     expect(await collectExistingArtifactKeys(syncDirectory, config)).toEqual(
       new Set([
-        "bundle/",
-        "bundle/link",
-        "bundle/plain.txt",
-        `bundle/secret.txt${syncSecretArtifactSuffix}`,
+        "default/bundle/",
+        "default/bundle/link",
+        "default/bundle/plain.txt",
+        `default/bundle/secret.txt${syncSecretArtifactSuffix}`,
       ]),
     );
   });
@@ -357,9 +396,11 @@ describe("sync runtime helpers", () => {
       });
     };
 
-    await mkdir(join(syncDirectory, "files", "bundle"), { recursive: true });
+    await mkdir(join(syncDirectory, "files", "default", "bundle"), {
+      recursive: true,
+    });
     await writeFile(
-      join(syncDirectory, "files", "bundle", "secret.txt"),
+      join(syncDirectory, "files", "default", "bundle", "secret.txt"),
       "plain\n",
     );
 
@@ -371,7 +412,6 @@ describe("sync runtime helpers", () => {
             kind: "directory",
             localPath: "~/bundle",
             mode: "normal",
-            name: "bundle",
             overrides: {
               "secret.txt": "secret",
             },
@@ -382,11 +422,14 @@ describe("sync runtime helpers", () => {
     ).rejects.toThrowError(/stored as a plain artifact/u);
 
     await rm(syncDirectory, { force: true, recursive: true });
-    await mkdir(join(syncDirectory, "files", "bundle"), { recursive: true });
+    await mkdir(join(syncDirectory, "files", "default", "bundle"), {
+      recursive: true,
+    });
     await writeFile(
       join(
         syncDirectory,
         "files",
+        "default",
         "bundle",
         `plain.txt${syncSecretArtifactSuffix}`,
       ),
@@ -402,7 +445,6 @@ describe("sync runtime helpers", () => {
             kind: "directory",
             localPath: "~/bundle",
             mode: "normal",
-            name: "bundle",
             repoPath: "bundle",
           },
         ]),
@@ -414,6 +456,7 @@ describe("sync runtime helpers", () => {
       join(
         syncDirectory,
         "files",
+        "default",
         "bundle",
         `broken${syncSecretArtifactSuffix}`,
       ),
@@ -423,6 +466,7 @@ describe("sync runtime helpers", () => {
       join(
         syncDirectory,
         "files",
+        "default",
         "bundle",
         `broken${syncSecretArtifactSuffix}`,
         "value.txt",
@@ -438,7 +482,6 @@ describe("sync runtime helpers", () => {
             kind: "directory",
             localPath: "~/bundle",
             mode: "normal",
-            name: "bundle",
             repoPath: "bundle",
           },
         ]),
@@ -446,11 +489,14 @@ describe("sync runtime helpers", () => {
     ).rejects.toThrowError(/reserved suffix/u);
 
     await rm(syncDirectory, { force: true, recursive: true });
-    await mkdir(join(syncDirectory, "files", "other"), { recursive: true });
+    await mkdir(join(syncDirectory, "files", "default", "other"), {
+      recursive: true,
+    });
     await writeFile(
       join(
         syncDirectory,
         "files",
+        "default",
         "other",
         `token.txt${syncSecretArtifactSuffix}`,
       ),
@@ -466,7 +512,6 @@ describe("sync runtime helpers", () => {
             kind: "directory",
             localPath: "~/bundle",
             mode: "normal",
-            name: "bundle",
             repoPath: "bundle",
           },
         ]),
@@ -475,12 +520,15 @@ describe("sync runtime helpers", () => {
 
     if (process.platform !== "win32") {
       await rm(syncDirectory, { force: true, recursive: true });
-      await mkdir(join(syncDirectory, "files", "bundle"), { recursive: true });
+      await mkdir(join(syncDirectory, "files", "default", "bundle"), {
+        recursive: true,
+      });
       await symlink(
         join(workspace, "target.secret"),
         join(
           syncDirectory,
           "files",
+          "default",
           "bundle",
           `token.txt${syncSecretArtifactSuffix}`,
         ),
@@ -494,7 +542,6 @@ describe("sync runtime helpers", () => {
               kind: "directory",
               localPath: "~/bundle",
               mode: "secret",
-              name: "bundle",
               repoPath: "bundle",
             },
           ]),
@@ -503,9 +550,9 @@ describe("sync runtime helpers", () => {
     }
 
     await rm(syncDirectory, { force: true, recursive: true });
-    await mkdir(join(syncDirectory, "files"), { recursive: true });
+    await mkdir(join(syncDirectory, "files", "default"), { recursive: true });
     await writeFile(
-      join(syncDirectory, "files", "bundle"),
+      join(syncDirectory, "files", "default", "bundle"),
       "not a directory\n",
     );
 
@@ -517,7 +564,6 @@ describe("sync runtime helpers", () => {
             kind: "directory",
             localPath: "~/bundle",
             mode: "normal",
-            name: "bundle",
             repoPath: "bundle",
           },
         ]),
@@ -525,9 +571,11 @@ describe("sync runtime helpers", () => {
     ).rejects.toThrowError(/is not stored as a directory/u);
 
     await rm(syncDirectory, { force: true, recursive: true });
-    await mkdir(join(syncDirectory, "files", "bundle"), { recursive: true });
+    await mkdir(join(syncDirectory, "files", "default", "bundle"), {
+      recursive: true,
+    });
     await writeFile(
-      join(syncDirectory, "files", "bundle", "keep.txt"),
+      join(syncDirectory, "files", "default", "bundle", "keep.txt"),
       "keep\n",
     );
 
@@ -538,7 +586,6 @@ describe("sync runtime helpers", () => {
           kind: "directory",
           localPath: "~/bundle",
           mode: "ignore",
-          name: "bundle",
           overrides: {
             "keep.txt": "normal",
           },
@@ -554,11 +601,14 @@ describe("sync runtime helpers", () => {
     ).toEqual(["bundle", "bundle/keep.txt"]);
 
     await rm(syncDirectory, { force: true, recursive: true });
-    await mkdir(join(syncDirectory, "files", "bundle"), { recursive: true });
+    await mkdir(join(syncDirectory, "files", "default", "bundle"), {
+      recursive: true,
+    });
     await writeFile(
       join(
         syncDirectory,
         "files",
+        "default",
         "bundle",
         `keep.txt${syncSecretArtifactSuffix}`,
       ),
@@ -574,7 +624,6 @@ describe("sync runtime helpers", () => {
             kind: "directory",
             localPath: "~/bundle",
             mode: "normal",
-            name: "bundle",
             overrides: {
               "keep.txt": "secret",
             },
@@ -585,11 +634,14 @@ describe("sync runtime helpers", () => {
     ).rejects.toThrowError();
 
     await rm(syncDirectory, { force: true, recursive: true });
-    await mkdir(join(syncDirectory, "files", "bundle"), { recursive: true });
+    await mkdir(join(syncDirectory, "files", "default", "bundle"), {
+      recursive: true,
+    });
     await writeSecretFile(
       join(
         syncDirectory,
         "files",
+        "default",
         "bundle",
         `keep.txt${syncSecretArtifactSuffix}`,
       ),
@@ -602,7 +654,6 @@ describe("sync runtime helpers", () => {
           kind: "directory",
           localPath: "~/bundle",
           mode: "normal",
-          name: "bundle",
           overrides: {
             "keep.txt": "secret",
           },
@@ -634,7 +685,6 @@ describe("sync runtime helpers", () => {
           kind: "directory",
           localPath: "~/bundle",
           mode: "ignore",
-          name: "bundle",
           overrides: {
             "keep.txt": "normal",
           },
@@ -644,7 +694,6 @@ describe("sync runtime helpers", () => {
           kind: "file",
           localPath: "~/.ignored-file",
           mode: "ignore",
-          name: ".ignored-file",
           repoPath: ".ignored-file",
         },
       ],

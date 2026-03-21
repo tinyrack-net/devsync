@@ -7,6 +7,10 @@ import { formatDevsyncError } from "#app/services/error.ts";
 import type { SyncForgetResult } from "#app/services/forget.ts";
 import type { SyncInitResult } from "#app/services/init.ts";
 import type { SyncListResult } from "#app/services/list.ts";
+import type {
+  SyncProfileListResult,
+  SyncProfileUpdateResult,
+} from "#app/services/profile.ts";
 import type { SyncPullResult } from "#app/services/pull.ts";
 import type { SyncPushResult } from "#app/services/push.ts";
 import type { SyncSetResult } from "#app/services/set.ts";
@@ -117,6 +121,47 @@ const formatSetScope = (scope: SyncSetResult["scope"]) => {
   }
 };
 
+const formatSetReason = (result: SyncSetResult) => {
+  switch (result.reason) {
+    case "already-inherited":
+      return `No override created because this target already inherits ${result.mode} mode.`;
+    case "already-set":
+      return `This target already has a ${result.mode} ${formatSetScope(result.scope)}.`;
+    case "already-set-on-entry":
+      return `This tracked entry already uses ${result.mode} mode.`;
+    case "reverted-to-inherited":
+      return `Removed the redundant override; this target now inherits ${result.mode} mode.`;
+    default:
+      return undefined;
+  }
+};
+
+const formatProfileStoragePath = (input: {
+  profile?: string;
+  repoPath?: string;
+}) => {
+  if (input.repoPath === undefined) {
+    return input.profile === undefined
+      ? "default/<repoPath>"
+      : `${input.profile}/<repoPath>`;
+  }
+
+  return input.profile === undefined
+    ? `default/${input.repoPath}`
+    : `${input.profile}/${input.repoPath}`;
+};
+
+const formatActiveNamespaces = (
+  activeProfilesMode: "none" | "single",
+  activeProfile: string | undefined,
+) => {
+  if (activeProfilesMode === "none") {
+    return "default only";
+  }
+
+  return `default/<repoPath>, ${activeProfile}/<repoPath>`;
+};
+
 const formatPushSummary = (result: SyncPushResult) => {
   return summary(
     `${result.plainFileCount} plain files`,
@@ -143,7 +188,8 @@ const formatPullSummary = (result: SyncPullResult) => {
 
 const formatTrackedEntry = (entry: SyncListResult["entries"][number]) => {
   const lines = [
-    `${style.bullet("-")} ${style.value(entry.repoPath)} ${style.detail(`[${entry.kind}, ${entry.mode}] -> ${entry.localPath}`)}`,
+    `${style.bullet("-")} ${style.value(entry.repoPath)} ${style.detail(`[${entry.kind}, ${entry.mode}${entry.profile === undefined ? "" : `, profile=${entry.profile}`}, ${entry.active ? "active" : "inactive"}] -> ${entry.localPath}`)}`,
+    `${OUTPUT_INDENT}${style.detail("storage")} ${style.value(formatProfileStoragePath({ profile: entry.profile, repoPath: entry.repoPath }))}`,
     ...entry.overrides.map((override) => {
       return `${OUTPUT_INDENT}${style.detail("override")} ${style.value(override.selector)}: ${style.value(override.mode)}`;
     }),
@@ -240,6 +286,12 @@ export const formatSyncAddResult = (result: SyncAddResult) => {
     line("Config file", result.configPath),
     line("Local path", result.localPath),
     line("Repository path", result.repoPath),
+    line(
+      "Repository storage",
+      formatProfileStoragePath({
+        repoPath: result.repoPath,
+      }),
+    ),
     line("Kind", result.kind),
     line("Mode", result.mode),
   );
@@ -252,6 +304,7 @@ export const formatSyncForgetResult = (result: SyncForgetResult) => {
     line("Config file", result.configPath),
     line("Local path", result.localPath),
     line("Repository path", result.repoPath),
+    result.profile !== undefined && line("Profile", result.profile),
     line(
       "Removed repo artifacts",
       `${result.plainArtifactCount} plain, ${result.secretArtifactCount} secret.`,
@@ -272,8 +325,10 @@ export const formatSyncSetResult = (result: SyncSetResult) => {
     line("Owning entry", result.entryRepoPath),
     line("Target repository path", result.repoPath),
     line("Mode", result.mode),
+    result.profile !== undefined && line("Profile", result.profile),
     line("Scope", formatSetScope(result.scope)),
     line("Action", result.action),
+    formatSetReason(result),
   );
 };
 
@@ -312,9 +367,15 @@ export const formatSyncListResult = (result: SyncListResult) => {
     formatHeadline("Tracked sync configuration."),
     line("Sync directory", result.syncDirectory),
     line("Config file", result.configPath),
+    line("Active profiles", result.activeProfile ?? "none"),
+    line(
+      "Active namespaces",
+      formatActiveNamespaces(result.activeProfilesMode, result.activeProfile),
+    ),
     summary(
       `${result.recipientCount} recipients`,
       `${result.entries.length} entries`,
+      `${result.activeEntryCount} active`,
       `${result.ruleCount} rules`,
     ),
     ...(result.entries.length === 0
@@ -328,9 +389,15 @@ export const formatSyncStatusResult = (result: SyncStatusResult) => {
     formatHeadline("Sync status overview."),
     line("Sync directory", result.syncDirectory),
     line("Config file", result.configPath),
+    line("Active profiles", result.activeProfile ?? "none"),
+    line(
+      "Active namespaces",
+      formatActiveNamespaces(result.activeProfilesMode, result.activeProfile),
+    ),
     summary(
       `${result.recipientCount} recipients`,
       `${result.entryCount} entries`,
+      `${result.activeEntryCount} active`,
       `${result.ruleCount} rules`,
     ),
     ...formatPushPlan(result.push),
@@ -348,5 +415,44 @@ export const formatSyncDoctorResult = (result: SyncDoctorResult) => {
     line("Config file", result.configPath),
     formatDoctorCounts(result),
     ...result.checks.map(formatDoctorCheck),
+  );
+};
+
+export const formatSyncProfileListResult = (result: SyncProfileListResult) => {
+  return output(
+    formatHeadline("Sync profiles overview."),
+    line("Sync directory", result.syncDirectory),
+    line("Global config", result.globalConfigPath),
+    line("Active profiles", result.activeProfile ?? "none"),
+    summary(
+      `${result.availableProfiles.length} available profiles`,
+      result.globalConfigExists
+        ? "global config present"
+        : "using implicit defaults",
+    ),
+    ...(result.availableProfiles.length === 0
+      ? [line("Profiles", "none")]
+      : preview("Profiles", result.availableProfiles, "none")),
+  );
+};
+
+export const formatSyncProfileUpdateResult = (
+  result: SyncProfileUpdateResult,
+) => {
+  return output(
+    formatHeadline(
+      result.mode === "use"
+        ? "Updated active sync profile."
+        : result.mode === "activate"
+          ? "Activated sync profile."
+          : result.mode === "deactivate"
+            ? "Deactivated sync profile."
+            : "Cleared active sync profiles.",
+      "success",
+    ),
+    line("Sync directory", result.syncDirectory),
+    line("Global config", result.globalConfigPath),
+    result.profile !== undefined && line("Profile", result.profile),
+    line("Active profiles", result.activeProfile ?? "none"),
   );
 };

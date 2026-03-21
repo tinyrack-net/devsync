@@ -1,13 +1,14 @@
 import { mkdtemp, rm } from "node:fs/promises";
 import { join } from "node:path";
 
-import {
-  type ResolvedSyncConfig,
-  readSyncConfig,
-  resolveSyncArtifactsDirectoryPath,
-} from "#app/config/sync.ts";
+import { resolveSyncArtifactsDirectoryPath } from "#app/config/sync.ts";
 
-import { replacePathAtomically } from "./filesystem.ts";
+import {
+  copyFilesystemNode,
+  getPathStats,
+  removePathAtomically,
+  replacePathAtomically,
+} from "./filesystem.ts";
 import { buildLocalSnapshot, type SnapshotNode } from "./local-snapshot.ts";
 import {
   buildArtifactKey,
@@ -15,7 +16,12 @@ import {
   collectExistingArtifactKeys,
   writeArtifactsToDirectory,
 } from "./repo-artifacts.ts";
-import { ensureSyncRepository, type SyncContext } from "./runtime.ts";
+import {
+  type EffectiveSyncConfig,
+  ensureSyncRepository,
+  loadSyncConfig,
+  type SyncContext,
+} from "./runtime.ts";
 
 export type SyncPushRequest = Readonly<{
   dryRun: boolean;
@@ -73,7 +79,7 @@ const buildPushCounts = (snapshot: ReadonlyMap<string, SnapshotNode>) => {
 };
 
 export const buildPushPlan = async (
-  config: ResolvedSyncConfig,
+  config: EffectiveSyncConfig,
   context: SyncContext,
 ): Promise<PushPlan> => {
   const snapshot = await buildLocalSnapshot(config);
@@ -135,10 +141,7 @@ export const pushSync = async (
 ): Promise<SyncPushResult> => {
   await ensureSyncRepository(context);
 
-  const config = await readSyncConfig(
-    context.paths.syncDirectory,
-    context.environment,
-  );
+  const { effectiveConfig: config } = await loadSyncConfig(context);
   const plan = await buildPushPlan(config, context);
 
   if (!request.dryRun) {
@@ -148,7 +151,33 @@ export const pushSync = async (
     const nextArtifactsDirectory = join(stagingRoot, "files");
 
     try {
+      const existingArtifactsDirectory = resolveSyncArtifactsDirectoryPath(
+        context.paths.syncDirectory,
+      );
+      const existingArtifactsStats = await getPathStats(
+        existingArtifactsDirectory,
+      );
+
+      if (existingArtifactsStats !== undefined) {
+        await copyFilesystemNode(
+          existingArtifactsDirectory,
+          nextArtifactsDirectory,
+        );
+      }
+
       const artifacts = await buildRepoArtifacts(plan.snapshot, config);
+
+      for (const staleKey of [...plan.existingArtifactKeys].filter((key) => {
+        return !plan.desiredArtifactKeys.has(key);
+      })) {
+        const relativePath = staleKey.endsWith("/")
+          ? staleKey.slice(0, -1)
+          : staleKey;
+
+        await removePathAtomically(
+          join(nextArtifactsDirectory, ...relativePath.split("/")),
+        );
+      }
 
       await writeArtifactsToDirectory(nextArtifactsDirectory, artifacts);
 

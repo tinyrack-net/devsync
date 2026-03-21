@@ -8,8 +8,6 @@ import {
 
 import {
   createSyncConfigDocument,
-  createSyncConfigDocumentEntry,
-  sortSyncConfigEntries,
   writeValidatedSyncConfig,
 } from "./config-file.ts";
 import { DevsyncError } from "./error.ts";
@@ -134,14 +132,17 @@ export const addSyncTarget = async (
     config,
     context,
   );
+
   const existingEntry = config.entries.find((entry) => {
     return (
-      entry.localPath === candidate.localPath ||
-      entry.repoPath === candidate.repoPath
+      entry.profile === undefined &&
+      (entry.localPath === candidate.localPath ||
+        entry.repoPath === candidate.repoPath)
     );
   });
   const overlappingEntry = config.entries.find((entry) => {
     return (
+      entry.profile === undefined &&
       entry.localPath !== candidate.localPath &&
       doPathsOverlap(entry.localPath, candidate.localPath)
     );
@@ -186,29 +187,39 @@ export const addSyncTarget = async (
     );
   }
 
-  const nextConfig = createSyncConfigDocument(config);
   const desiredMode: SyncMode = request.secret ? "secret" : "normal";
   let mode = existingEntry?.mode ?? (request.secret ? "secret" : "normal");
+  let nextConfig = createSyncConfigDocument(config);
 
   if (!alreadyTracked) {
-    nextConfig.entries = sortSyncConfigEntries([
-      ...nextConfig.entries,
-      createSyncConfigDocumentEntry({
-        ...candidate,
-        mode: desiredMode,
-      }),
-    ]);
+    nextConfig = createSyncConfigDocument({
+      ...config,
+      entries: [
+        ...config.entries,
+        {
+          ...candidate,
+          mode: desiredMode,
+        },
+      ],
+    });
     mode = desiredMode;
   } else if (request.secret && existingEntry?.mode !== "secret") {
-    nextConfig.entries = nextConfig.entries.map((entry) => {
-      if (entry.repoPath !== candidate.repoPath) {
-        return entry;
-      }
+    nextConfig = createSyncConfigDocument({
+      ...config,
+      entries: config.entries.map((entry) => {
+        if (entry.repoPath !== candidate.repoPath) {
+          return entry;
+        }
 
-      return {
-        ...entry,
-        mode: "secret",
-      };
+        if (entry.profile !== undefined) {
+          return entry;
+        }
+
+        return {
+          ...entry,
+          mode: "secret",
+        };
+      }),
     });
 
     mode = "secret";

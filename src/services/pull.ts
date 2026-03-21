@@ -1,5 +1,3 @@
-import { type ResolvedSyncConfig, readSyncConfig } from "#app/config/sync.ts";
-
 import {
   applyEntryMaterialization,
   buildEntryMaterialization,
@@ -7,7 +5,12 @@ import {
   countDeletedLocalNodes,
 } from "./local-materialization.ts";
 import { buildRepositorySnapshot } from "./repo-snapshot.ts";
-import { ensureSyncRepository, type SyncContext } from "./runtime.ts";
+import {
+  type EffectiveSyncConfig,
+  ensureSyncRepository,
+  loadSyncConfig,
+  type SyncContext,
+} from "./runtime.ts";
 
 export type SyncPullRequest = Readonly<{
   dryRun: boolean;
@@ -47,7 +50,7 @@ const collectDesiredKeys = (
 };
 
 export const buildPullPlan = async (
-  config: ResolvedSyncConfig,
+  config: EffectiveSyncConfig,
   context: SyncContext,
 ): Promise<PullPlan> => {
   const snapshot = await buildRepositorySnapshot(
@@ -121,10 +124,7 @@ export const pullSync = async (
 ): Promise<SyncPullResult> => {
   await ensureSyncRepository(context);
 
-  const config = await readSyncConfig(
-    context.paths.syncDirectory,
-    context.environment,
-  );
+  const { effectiveConfig: config } = await loadSyncConfig(context);
   const plan = await buildPullPlan(config, context);
 
   for (let index = 0; index < config.entries.length; index += 1) {

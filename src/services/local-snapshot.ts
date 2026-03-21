@@ -13,6 +13,11 @@ import {
 } from "./filesystem.ts";
 import { assertStorageSafeRepoPath } from "./repo-artifacts.ts";
 
+type SnapshotConfig = ResolvedSyncConfig &
+  Readonly<{
+    activeProfile?: string;
+  }>;
+
 export type SnapshotNode =
   | Readonly<{
       type: "directory";
@@ -52,13 +57,13 @@ export const addSnapshotNode = (
 
 const addLocalNode = async (
   snapshot: Map<string, SnapshotNode>,
-  config: ResolvedSyncConfig,
+  config: SnapshotConfig,
   repoPath: string,
   path: string,
   stats: Awaited<ReturnType<typeof lstat>>,
 ) => {
   assertStorageSafeRepoPath(repoPath);
-  const mode = resolveManagedSyncMode(config, repoPath);
+  const mode = resolveManagedSyncMode(config, repoPath, config.activeProfile);
 
   if (mode === "ignore") {
     return;
@@ -99,7 +104,7 @@ const addLocalNode = async (
 
 const walkLocalDirectory = async (
   snapshot: Map<string, SnapshotNode>,
-  config: ResolvedSyncConfig,
+  config: SnapshotConfig,
   localDirectory: string,
   repoPathPrefix: string,
 ) => {
@@ -120,7 +125,7 @@ const walkLocalDirectory = async (
   }
 };
 
-export const buildLocalSnapshot = async (config: ResolvedSyncConfig) => {
+export const buildLocalSnapshot = async (config: SnapshotConfig) => {
   const snapshot = new Map<string, SnapshotNode>();
 
   for (const entry of config.entries) {
@@ -130,7 +135,11 @@ export const buildLocalSnapshot = async (config: ResolvedSyncConfig) => {
       continue;
     }
 
-    const entryMode = resolveManagedSyncMode(config, entry.repoPath);
+    const entryMode = resolveManagedSyncMode(
+      config,
+      entry.repoPath,
+      config.activeProfile,
+    );
 
     if (entry.kind === "file") {
       if (entryMode === "ignore") {

@@ -2,6 +2,7 @@ import { readdir, rm } from "node:fs/promises";
 import { dirname, join, posix } from "node:path";
 
 import {
+  normalizeSyncProfileName,
   type ResolvedSyncConfig,
   type ResolvedSyncConfigEntry,
   readSyncConfig,
@@ -10,7 +11,6 @@ import {
 
 import {
   createSyncConfigDocument,
-  sortSyncConfigEntries,
   writeValidatedSyncConfig,
 } from "./config-file.ts";
 import { DevsyncError } from "./error.ts";
@@ -28,10 +28,12 @@ import {
 import {
   isSecretArtifactPath,
   resolveArtifactRelativePath,
+  resolveEntryArtifactPath,
 } from "./repo-artifacts.ts";
 import { ensureSyncRepository, type SyncContext } from "./runtime.ts";
 
 export type SyncForgetRequest = Readonly<{
+  profile?: string;
   target: string;
 }>;
 
@@ -39,12 +41,44 @@ export type SyncForgetResult = Readonly<{
   configPath: string;
   localPath: string;
   plainArtifactCount: number;
+  profile?: string;
   repoPath: string;
   secretArtifactCount: number;
   syncDirectory: string;
 }>;
 
-const findMatchingTrackedEntry = (
+const findMatchingTrackedEntries = (
+  config: ResolvedSyncConfig,
+  target: string,
+  profile: string | undefined,
+  context: Pick<SyncContext, "cwd" | "environment">,
+) => {
+  const trimmedTarget = target.trim();
+  const resolvedTargetPath = resolveCommandTargetPath(
+    trimmedTarget,
+    context.environment,
+    context.cwd,
+  );
+  const byLocalPath = config.entries.filter((entry) => {
+    return entry.localPath === resolvedTargetPath && entry.profile === profile;
+  });
+
+  if (byLocalPath.length > 0 || isExplicitLocalPath(trimmedTarget)) {
+    return byLocalPath;
+  }
+
+  const normalizedRepoPath = tryNormalizeRepoPathInput(trimmedTarget);
+
+  if (normalizedRepoPath === undefined) {
+    return [];
+  }
+
+  return config.entries.filter((entry) => {
+    return entry.repoPath === normalizedRepoPath && entry.profile === profile;
+  });
+};
+
+const findMatchingTrackedEntriesAcrossProfiles = (
   config: ResolvedSyncConfig,
   target: string,
   context: Pick<SyncContext, "cwd" | "environment">,
@@ -55,22 +89,26 @@ const findMatchingTrackedEntry = (
     context.environment,
     context.cwd,
   );
-  const byLocalPath = config.entries.find((entry) => {
-    return entry.localPath === resolvedTargetPath;
-  });
 
-  if (byLocalPath !== undefined || isExplicitLocalPath(trimmedTarget)) {
-    return byLocalPath;
+  if (isExplicitLocalPath(trimmedTarget)) {
+    return config.entries.filter((entry) => {
+      return entry.localPath === resolvedTargetPath;
+    });
   }
 
   const normalizedRepoPath = tryNormalizeRepoPathInput(trimmedTarget);
 
   if (normalizedRepoPath === undefined) {
-    return undefined;
+    return config.entries.filter((entry) => {
+      return entry.localPath === resolvedTargetPath;
+    });
   }
 
-  return config.entries.find((entry) => {
-    return entry.repoPath === normalizedRepoPath;
+  return config.entries.filter((entry) => {
+    return (
+      entry.localPath === resolvedTargetPath ||
+      entry.repoPath === normalizedRepoPath
+    );
   });
 };
 
@@ -123,27 +161,37 @@ const collectEntryArtifactCounts = async (
 
   if (entry.kind === "directory") {
     await collectRepoArtifactCounts(
-      join(artifactsRoot, ...entry.repoPath.split("/")),
+      resolveEntryArtifactPath(artifactsRoot, entry),
       counts,
-      entry.repoPath,
+      resolveArtifactRelativePath({
+        category: "plain",
+        profile: entry.profile,
+        repoPath: entry.repoPath,
+      }),
     );
   } else {
     await collectRepoArtifactCounts(
-      join(artifactsRoot, ...entry.repoPath.split("/")),
+      resolveEntryArtifactPath(artifactsRoot, entry),
       counts,
-      entry.repoPath,
+      resolveArtifactRelativePath({
+        category: "plain",
+        profile: entry.profile,
+        repoPath: entry.repoPath,
+      }),
     );
     await collectRepoArtifactCounts(
       join(
         artifactsRoot,
         ...resolveArtifactRelativePath({
           category: "secret",
+          profile: entry.profile,
           repoPath: entry.repoPath,
         }).split("/"),
       ),
       counts,
       resolveArtifactRelativePath({
         category: "secret",
+        profile: entry.profile,
         repoPath: entry.repoPath,
       }),
     );
@@ -192,7 +240,7 @@ const removeTrackedEntryArtifacts = async (
   entry: ResolvedSyncConfigEntry,
 ) => {
   const artifactsRoot = resolveSyncArtifactsDirectoryPath(syncDirectory);
-  const plainPath = join(artifactsRoot, ...entry.repoPath.split("/"));
+  const plainPath = resolveEntryArtifactPath(artifactsRoot, entry);
 
   await removePathAtomically(plainPath);
   await pruneEmptyParentDirectories(dirname(plainPath), artifactsRoot);
@@ -205,6 +253,7 @@ const removeTrackedEntryArtifacts = async (
     artifactsRoot,
     ...resolveArtifactRelativePath({
       category: "secret",
+      profile: entry.profile,
       repoPath: entry.repoPath,
     }).split("/"),
   );
@@ -218,6 +267,10 @@ export const forgetSyncTarget = async (
   context: SyncContext,
 ): Promise<SyncForgetResult> => {
   const target = request.target.trim();
+  const profile =
+    request.profile === undefined
+      ? undefined
+      : normalizeSyncProfileName(request.profile);
 
   if (target.length === 0) {
     throw new DevsyncError("Target path is required.");
@@ -229,7 +282,27 @@ export const forgetSyncTarget = async (
     context.paths.syncDirectory,
     context.environment,
   );
-  const entry = findMatchingTrackedEntry(config, target, context);
+  const matches = findMatchingTrackedEntries(config, target, profile, context);
+
+  if (
+    profile === undefined &&
+    matches.length === 0 &&
+    findMatchingTrackedEntriesAcrossProfiles(config, target, context).length > 1
+  ) {
+    throw new DevsyncError(`Multiple profiled sync entries match: ${target}`, {
+      code: "TARGET_CONFLICT",
+      hint: "Pass --profile to choose which profiled entry to forget.",
+    });
+  }
+
+  if (matches.length > 1) {
+    throw new DevsyncError(`Multiple tracked sync entries match: ${target}`, {
+      code: "TARGET_CONFLICT",
+      hint: "Use an explicit local path or remove the duplicate profile-specific entries manually from config.json.",
+    });
+  }
+
+  const entry = matches[0];
 
   if (entry === undefined) {
     throw new DevsyncError(`No tracked sync entry matches: ${target}`);
@@ -237,13 +310,15 @@ export const forgetSyncTarget = async (
 
   const { plainArtifactCount, secretArtifactCount } =
     await collectEntryArtifactCounts(context.paths.syncDirectory, entry);
-  const nextConfig = createSyncConfigDocument(config);
-
-  nextConfig.entries = sortSyncConfigEntries(
-    nextConfig.entries.filter((configEntry) => {
-      return configEntry.repoPath !== entry.repoPath;
+  const nextConfig = createSyncConfigDocument({
+    ...config,
+    entries: config.entries.filter((configEntry) => {
+      return !(
+        configEntry.repoPath === entry.repoPath &&
+        configEntry.profile === entry.profile
+      );
     }),
-  );
+  });
 
   await writeValidatedSyncConfig(context.paths.syncDirectory, nextConfig, {
     environment: context.environment,
@@ -254,6 +329,7 @@ export const forgetSyncTarget = async (
     configPath: context.paths.configPath,
     localPath: entry.localPath,
     plainArtifactCount,
+    ...(entry.profile === undefined ? {} : { profile: entry.profile }),
     repoPath: entry.repoPath,
     secretArtifactCount,
     syncDirectory: context.paths.syncDirectory,

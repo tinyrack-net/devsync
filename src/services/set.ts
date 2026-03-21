@@ -2,18 +2,17 @@ import { join } from "node:path";
 
 import {
   findOwningSyncEntry,
+  normalizeSyncProfileName,
   type ResolvedSyncConfigEntry,
   type ResolvedSyncOverride,
   readSyncConfig,
   resolveEntryRelativeRepoPath,
-  resolveRelativeSyncMode,
+  resolveRelativeSyncRule,
   type SyncMode,
 } from "#app/config/sync.ts";
 
 import {
   createSyncConfigDocument,
-  createSyncConfigDocumentEntry,
-  sortSyncConfigEntries,
   writeValidatedSyncConfig,
 } from "./config-file.ts";
 import { DevsyncError } from "./error.ts";
@@ -28,6 +27,7 @@ import {
 import { ensureSyncRepository, type SyncContext } from "./runtime.ts";
 
 export type SyncSetRequest = Readonly<{
+  profile?: string;
   recursive: boolean;
   state: SyncMode;
   target: string;
@@ -35,6 +35,11 @@ export type SyncSetRequest = Readonly<{
 
 type SyncSetScope = "default" | "exact" | "subtree";
 type SyncSetAction = "added" | "removed" | "unchanged" | "updated";
+type SyncSetReason =
+  | "already-inherited"
+  | "already-set"
+  | "already-set-on-entry"
+  | "reverted-to-inherited";
 
 export type SyncSetResult = Readonly<{
   action: SyncSetAction;
@@ -42,7 +47,9 @@ export type SyncSetResult = Readonly<{
   entryRepoPath: string;
   localPath: string;
   mode: SyncMode;
+  profile?: string;
   repoPath: string;
+  reason?: SyncSetReason;
   scope: SyncSetScope;
   syncDirectory: string;
 }>;
@@ -107,9 +114,31 @@ const resolveTargetPath = async (
 
 const resolveSetTarget = async (
   target: string,
+  profile: string | undefined,
   config: Awaited<ReturnType<typeof readSyncConfig>>,
   context: Pick<SyncContext, "cwd" | "environment" | "paths">,
 ) => {
+  const matchingEntries = config.entries
+    .filter((entry) => {
+      return profile === undefined
+        ? true
+        : entry.profile === profile || entry.profile === undefined;
+    })
+    .sort((left, right) => {
+      if (profile === undefined || left.profile === right.profile) {
+        return 0;
+      }
+
+      if (left.profile === profile) {
+        return -1;
+      }
+
+      if (right.profile === profile) {
+        return 1;
+      }
+
+      return 0;
+    });
   const trimmedTarget = target.trim();
 
   if (trimmedTarget.length === 0) {
@@ -145,7 +174,19 @@ const resolveSetTarget = async (
       });
     }
 
-    const entry = findOwningSyncEntry(config, localRepoPath);
+    const entry = findOwningSyncEntry(
+      { entries: matchingEntries },
+      localRepoPath,
+    );
+    const ambiguousEntries =
+      profile === undefined
+        ? config.entries.filter((candidate) => {
+            return (
+              resolveEntryRelativeRepoPath(candidate, localRepoPath) !==
+              undefined
+            );
+          })
+        : [];
 
     if (
       explicitLocalPath &&
@@ -153,14 +194,35 @@ const resolveSetTarget = async (
       entry.kind === "file" &&
       entry.localPath === localTargetPath
     ) {
-      throw new DevsyncError(
-        "Tracked file entries cannot be updated with 'devsync set'.",
-        {
-          code: "FILE_ENTRY_SET_UNSUPPORTED",
-          details: [`Target: ${trimmedTarget}`],
-          hint: "Use 'devsync add --secret' when first tracking a file, or forget and re-add it with the desired mode.",
-        },
-      );
+      if (profile !== undefined) {
+        throw new DevsyncError(
+          "Profile-specific root updates are not supported for file entries.",
+          {
+            code: "FILE_ENTRY_SET_UNSUPPORTED",
+            details: [`Target: ${trimmedTarget}`, `Profile: ${profile}`],
+            hint: "Track the file once without a profile, or move it under a tracked directory and use profile-specific child overrides instead.",
+          },
+        );
+      }
+
+      if (entry.profile !== undefined) {
+        throw new DevsyncError(
+          "Tracked file entries cannot be updated with 'devsync set'.",
+          {
+            code: "FILE_ENTRY_SET_UNSUPPORTED",
+            details: [`Target: ${trimmedTarget}`],
+            hint: "Use 'devsync add --secret' when first tracking a file, or forget and re-add it with the desired mode.",
+          },
+        );
+      }
+
+      return {
+        entry,
+        localPath: localTargetPath,
+        relativePath: "",
+        repoPath: localRepoPath,
+        stats: localStats,
+      };
     }
 
     if (entry?.kind === "directory") {
@@ -175,6 +237,21 @@ const resolveSetTarget = async (
           stats: localStats,
         };
       }
+    }
+
+    if (
+      profile === undefined &&
+      entry === undefined &&
+      ambiguousEntries.length > 1
+    ) {
+      throw new DevsyncError(
+        "Sync set target matches multiple profiled entries.",
+        {
+          code: "TARGET_CONFLICT",
+          details: [`Target: ${trimmedTarget}`],
+          hint: "Pass --profile to choose which tracked profile entry to update.",
+        },
+      );
     }
 
     if (explicitLocalPath) {
@@ -202,7 +279,30 @@ const resolveSetTarget = async (
     );
   }
 
-  const entry = findOwningSyncEntry(config, repoPath);
+  const entry = findOwningSyncEntry({ entries: matchingEntries }, repoPath);
+  const ambiguousEntries =
+    profile === undefined
+      ? config.entries.filter((candidate) => {
+          return (
+            resolveEntryRelativeRepoPath(candidate, repoPath) !== undefined
+          );
+        })
+      : [];
+
+  if (
+    profile === undefined &&
+    entry === undefined &&
+    ambiguousEntries.length > 1
+  ) {
+    throw new DevsyncError(
+      "Sync set target matches multiple profiled entries.",
+      {
+        code: "TARGET_CONFLICT",
+        details: [`Target: ${trimmedTarget}`],
+        hint: "Pass --profile to choose which tracked profile entry to update.",
+      },
+    );
+  }
 
   if (entry === undefined || entry.kind !== "directory") {
     throw new DevsyncError(
@@ -247,11 +347,13 @@ const updateEntryMode = (
 ): {
   action: SyncSetAction;
   entry: ResolvedSyncConfigEntry;
+  reason?: SyncSetReason;
 } => {
   if (entry.mode === mode) {
     return {
       action: "unchanged",
       entry,
+      reason: "already-set-on-entry",
     };
   }
 
@@ -266,6 +368,7 @@ const updateEntryMode = (
 
 const updateChildOverride = (
   entry: ResolvedSyncConfigEntry,
+  baseEntry: ResolvedSyncConfigEntry | undefined,
   input: Readonly<{
     match: Extract<SyncSetScope, "exact" | "subtree">;
     mode: SyncMode;
@@ -274,6 +377,7 @@ const updateChildOverride = (
 ): {
   action: SyncSetAction;
   entry: ResolvedSyncConfigEntry;
+  reason?: SyncSetReason;
 } => {
   const existingOverride = entry.overrides.find((override) => {
     return (
@@ -285,17 +389,38 @@ const updateChildOverride = (
       override.match === input.match && override.path === input.relativePath
     );
   });
-  const inheritedMode = resolveRelativeSyncMode(
-    entry.mode,
-    remainingOverrides,
-    input.relativePath,
-  );
+  const inheritedEntry =
+    baseEntry === undefined
+      ? {
+          mode: entry.mode,
+          overrides: remainingOverrides,
+          profile: entry.profile,
+        }
+      : {
+          mode: entry.mode,
+          overrides: [
+            ...baseEntry.overrides.filter((override) => {
+              return !remainingOverrides.some((candidate) => {
+                return (
+                  candidate.match === override.match &&
+                  candidate.path === override.path
+                );
+              });
+            }),
+            ...remainingOverrides,
+          ],
+          profile: entry.profile,
+        };
+  const inheritedMode =
+    resolveRelativeSyncRule(inheritedEntry, input.relativePath, entry.profile)
+      ?.mode ?? entry.mode;
 
   if (input.mode === inheritedMode) {
     if (existingOverride === undefined) {
       return {
         action: "unchanged",
         entry,
+        reason: "already-inherited",
       };
     }
 
@@ -305,6 +430,7 @@ const updateChildOverride = (
         ...entry,
         overrides: remainingOverrides,
       },
+      reason: "reverted-to-inherited",
     };
   }
 
@@ -312,6 +438,7 @@ const updateChildOverride = (
     return {
       action: "unchanged",
       entry,
+      reason: "already-set",
     };
   }
 
@@ -336,13 +463,87 @@ export const setSyncTargetMode = async (
 ): Promise<SyncSetResult> => {
   await ensureSyncRepository(context);
 
+  const profile =
+    request.profile === undefined
+      ? undefined
+      : normalizeSyncProfileName(request.profile);
   const config = await readSyncConfig(
     context.paths.syncDirectory,
     context.environment,
   );
-  const target = await resolveSetTarget(request.target, config, context);
+  const target = await resolveSetTarget(
+    request.target,
+    profile,
+    config,
+    context,
+  );
 
   if (target.relativePath === "") {
+    if (target.entry.kind === "file") {
+      if (profile !== undefined) {
+        throw new DevsyncError(
+          "Profile-specific root updates are not supported for file entries.",
+          {
+            code: "FILE_ENTRY_SET_UNSUPPORTED",
+            details: [`Target: ${target.repoPath}`, `Profile: ${profile}`],
+            hint: "Track the file once without a profile, or move it under a tracked directory and use profile-specific child overrides instead.",
+          },
+        );
+      }
+
+      const update = updateEntryMode(target.entry, request.state);
+      const nextConfig = createSyncConfigDocument({
+        ...config,
+        entries: config.entries.map((entry) => {
+          if (entry.repoPath !== target.entry.repoPath) {
+            return entry;
+          }
+
+          if (entry.profile !== target.entry.profile) {
+            return entry;
+          }
+
+          return update.entry;
+        }),
+      });
+
+      if (update.action !== "unchanged") {
+        await writeValidatedSyncConfig(
+          context.paths.syncDirectory,
+          nextConfig,
+          {
+            environment: context.environment,
+          },
+        );
+      }
+
+      return {
+        action: update.action,
+        configPath: context.paths.configPath,
+        entryRepoPath: target.entry.repoPath,
+        localPath: target.localPath,
+        mode: request.state,
+        ...(target.entry.profile === undefined
+          ? {}
+          : { profile: target.entry.profile }),
+        repoPath: target.repoPath,
+        ...(update.reason === undefined ? {} : { reason: update.reason }),
+        scope: "default",
+        syncDirectory: context.paths.syncDirectory,
+      };
+    }
+
+    if (profile !== undefined && target.entry.profile !== profile) {
+      throw new DevsyncError(
+        "Profile-specific root updates are not supported.",
+        {
+          code: "TARGET_NOT_TRACKED",
+          details: [`Target: ${target.repoPath}`, `Profile: ${profile}`],
+          hint: "Use a child path inside the tracked directory to create a profile-specific override.",
+        },
+      );
+    }
+
     if (!request.recursive) {
       throw new DevsyncError("Tracked directory roots require --recursive.", {
         code: "RECURSIVE_REQUIRED",
@@ -352,17 +553,20 @@ export const setSyncTargetMode = async (
     }
 
     const update = updateEntryMode(target.entry, request.state);
-    const nextConfig = createSyncConfigDocument(config);
-
-    nextConfig.entries = sortSyncConfigEntries(
-      nextConfig.entries.map((entry) => {
+    const nextConfig = createSyncConfigDocument({
+      ...config,
+      entries: config.entries.map((entry) => {
         if (entry.repoPath !== target.entry.repoPath) {
           return entry;
         }
 
-        return createSyncConfigDocumentEntry(update.entry);
+        if (entry.profile !== target.entry.profile) {
+          return entry;
+        }
+
+        return update.entry;
       }),
-    );
+    });
 
     if (update.action !== "unchanged") {
       await writeValidatedSyncConfig(context.paths.syncDirectory, nextConfig, {
@@ -376,6 +580,7 @@ export const setSyncTargetMode = async (
       entryRepoPath: target.entry.repoPath,
       localPath: target.localPath,
       mode: request.state,
+      ...(update.reason === undefined ? {} : { reason: update.reason }),
       repoPath: target.repoPath,
       scope: "default",
       syncDirectory: context.paths.syncDirectory,
@@ -406,22 +611,54 @@ export const setSyncTargetMode = async (
   }
 
   const scope = request.recursive ? "subtree" : "exact";
-  const update = updateChildOverride(target.entry, {
+  const profiledEntry =
+    profile === undefined || target.entry.profile === profile
+      ? target.entry
+      : (config.entries.find((entry) => {
+          return (
+            entry.repoPath === target.entry.repoPath &&
+            entry.profile === profile
+          );
+        }) ?? {
+          ...target.entry,
+          mode: target.entry.mode,
+          name: `${target.entry.repoPath}#${profile}`,
+          overrides: [],
+          profile,
+        });
+  const workingConfig =
+    profile === undefined || target.entry.profile === profile
+      ? config
+      : {
+          ...config,
+          entries: [...config.entries, profiledEntry],
+        };
+  const baseEntry = config.entries.find((entry) => {
+    return (
+      profiledEntry.profile !== undefined &&
+      entry.repoPath === profiledEntry.repoPath &&
+      entry.profile === undefined
+    );
+  });
+  const update = updateChildOverride(profiledEntry, baseEntry, {
     match: scope,
     mode: request.state,
     relativePath: target.relativePath,
   });
-  const nextConfig = createSyncConfigDocument(config);
-
-  nextConfig.entries = sortSyncConfigEntries(
-    nextConfig.entries.map((entry) => {
-      if (entry.repoPath !== target.entry.repoPath) {
+  const nextConfig = createSyncConfigDocument({
+    ...workingConfig,
+    entries: workingConfig.entries.map((entry) => {
+      if (entry.repoPath !== profiledEntry.repoPath) {
         return entry;
       }
 
-      return createSyncConfigDocumentEntry(update.entry);
+      if (entry.profile !== profiledEntry.profile) {
+        return entry;
+      }
+
+      return update.entry;
     }),
-  );
+  });
 
   if (update.action !== "unchanged") {
     await writeValidatedSyncConfig(context.paths.syncDirectory, nextConfig, {
@@ -435,7 +672,13 @@ export const setSyncTargetMode = async (
     entryRepoPath: target.entry.repoPath,
     localPath: target.localPath,
     mode: request.state,
+    ...(profile === undefined
+      ? target.entry.profile === undefined
+        ? {}
+        : { profile: target.entry.profile }
+      : { profile }),
     repoPath: target.repoPath,
+    ...(update.reason === undefined ? {} : { reason: update.reason }),
     scope,
     syncDirectory: context.paths.syncDirectory,
   };

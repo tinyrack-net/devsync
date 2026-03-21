@@ -31,8 +31,6 @@ export abstract class BaseCommand extends Command {
     if (error instanceof Error) {
       this.printError(formatDevsyncError(error));
       this.exit(resolveExitCode(error));
-
-      return;
     }
 
     return super.catch(error);

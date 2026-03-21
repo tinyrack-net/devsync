@@ -8,6 +8,8 @@ import {
   formatSyncForgetResult,
   formatSyncInitResult,
   formatSyncListResult,
+  formatSyncProfileListResult,
+  formatSyncProfileUpdateResult,
   formatSyncPullResult,
   formatSyncPushResult,
   formatSyncSetResult,
@@ -151,17 +153,18 @@ describe("sync output formatting", () => {
         repoPath: ".zshrc",
         syncDirectory: "/tmp/sync",
       }),
-    ).toContain("Sync target already tracked.\n");
+    ).toContain("Repository storage: default/.zshrc\n");
     expect(
       formatSyncForgetResult({
         configPath: "/tmp/sync/config.json",
         localPath: "/tmp/home/.zshrc",
         plainArtifactCount: 1,
+        profile: "work",
         repoPath: ".zshrc",
         secretArtifactCount: 2,
         syncDirectory: "/tmp/sync",
       }),
-    ).toContain("Removed repo artifacts: 1 plain, 2 secret.\n");
+    ).toContain("Profile: work\nRemoved repo artifacts: 1 plain, 2 secret.\n");
     expect(
       formatSyncSetResult({
         action: "updated",
@@ -169,11 +172,73 @@ describe("sync output formatting", () => {
         entryRepoPath: "bundle",
         localPath: "/tmp/home/bundle/private.json",
         mode: "ignore",
+        profile: "work",
         repoPath: "bundle/private.json",
         scope: "subtree",
         syncDirectory: "/tmp/sync",
       }),
-    ).toContain("Scope: subtree rule\nAction: updated\n");
+    ).toContain("Profile: work\nScope: subtree rule\nAction: updated\n");
+    expect(
+      formatSyncSetResult({
+        action: "unchanged",
+        configPath: "/tmp/sync/config.json",
+        entryRepoPath: ".config/zsh",
+        localPath: "/tmp/home/.config/zsh/secrets.zsh",
+        mode: "secret",
+        profile: "vivident",
+        reason: "already-inherited",
+        repoPath: ".config/zsh/secrets.zsh",
+        scope: "exact",
+        syncDirectory: "/tmp/sync",
+      }),
+    ).toContain(
+      "Action: unchanged\nNo override created because this target already inherits secret mode.\n",
+    );
+    expect(
+      formatSyncSetResult({
+        action: "removed",
+        configPath: "/tmp/sync/config.json",
+        entryRepoPath: ".config/zsh",
+        localPath: "/tmp/home/.config/zsh/secrets.zsh",
+        mode: "secret",
+        profile: "vivident",
+        reason: "reverted-to-inherited",
+        repoPath: ".config/zsh/secrets.zsh",
+        scope: "exact",
+        syncDirectory: "/tmp/sync",
+      }),
+    ).toContain(
+      "Action: removed\nRemoved the redundant override; this target now inherits secret mode.\n",
+    );
+  });
+
+  it("formats profile list and update results", () => {
+    expect(
+      formatSyncProfileListResult({
+        activeProfile: "work",
+        activeProfilesMode: "single",
+        availableProfiles: ["personal", "work"],
+        globalConfigExists: true,
+        globalConfigPath: "/tmp/xdg/devsync/config.json",
+        syncDirectory: "/tmp/sync",
+      }),
+    ).toContain("Profiles: 2 paths\n  - personal\n  - work\n");
+    expect(
+      formatSyncProfileUpdateResult({
+        globalConfigPath: "/tmp/xdg/devsync/config.json",
+        mode: "clear",
+        syncDirectory: "/tmp/sync",
+      }),
+    ).toContain("Cleared active sync profiles.\n");
+    expect(
+      formatSyncProfileUpdateResult({
+        activeProfile: "work",
+        globalConfigPath: "/tmp/xdg/devsync/config.json",
+        mode: "activate",
+        profile: "work",
+        syncDirectory: "/tmp/sync",
+      }),
+    ).toContain("Activated sync profile.\n");
   });
 
   it("formats push and pull dry-run summaries", () => {
@@ -208,9 +273,12 @@ describe("sync output formatting", () => {
   it("formats list results with overrides", () => {
     expect(
       formatSyncListResult({
+        activeEntryCount: 1,
+        activeProfilesMode: "none",
         configPath: "/tmp/sync/config.json",
         entries: [
           {
+            active: true,
             kind: "directory",
             localPath: "/tmp/home/.config/tool",
             mode: "normal",
@@ -223,12 +291,16 @@ describe("sync output formatting", () => {
         ruleCount: 1,
         syncDirectory: "/tmp/sync",
       }),
-    ).toContain("  override token.json: secret\n");
+    ).toContain(
+      "  storage default/.config/tool\n  override token.json: secret\n",
+    );
   });
 
   it("formats list results with no entries", () => {
     expect(
       formatSyncListResult({
+        activeEntryCount: 0,
+        activeProfilesMode: "none",
         configPath: "/tmp/sync/config.json",
         entries: [],
         recipientCount: 1,
@@ -241,6 +313,8 @@ describe("sync output formatting", () => {
   it("formats status previews as bullet lists", () => {
     expect(
       formatSyncStatusResult({
+        activeEntryCount: 1,
+        activeProfilesMode: "none",
         configPath: "/tmp/sync/config.json",
         entryCount: 1,
         pull: {
@@ -269,12 +343,14 @@ describe("sync output formatting", () => {
         ruleCount: 0,
         syncDirectory: "/tmp/sync",
       }),
-    ).toContain("Push preview: 2 paths\n  - bundle\n  - bundle/token.txt\n");
+    ).toContain("Active namespaces: default only\n");
   });
 
   it("formats empty status previews", () => {
     expect(
       formatSyncStatusResult({
+        activeEntryCount: 0,
+        activeProfilesMode: "none",
         configPath: "/tmp/sync/config.json",
         entryCount: 0,
         pull: {

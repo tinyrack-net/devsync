@@ -100,7 +100,15 @@ describe("sync dry runs", () => {
     expect(result.encryptedFileCount).toBe(1);
     await expect(
       readFile(
-        join(xdgConfigHome, "devsync", "sync", "files", "bundle", "plain.txt"),
+        join(
+          xdgConfigHome,
+          "devsync",
+          "sync",
+          "files",
+          "default",
+          "bundle",
+          "plain.txt",
+        ),
         "utf8",
       ),
     ).rejects.toMatchObject({
@@ -113,6 +121,7 @@ describe("sync dry runs", () => {
           "devsync",
           "sync",
           "files",
+          "default",
           "bundle",
           `token.txt${syncSecretArtifactSuffix}`,
         ),

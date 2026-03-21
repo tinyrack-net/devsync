@@ -7,6 +7,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import {
   isIgnoredSyncPath,
   isSecretSyncPath,
+  normalizeSyncProfileName,
   parseSyncConfig,
   readSyncConfig,
   resolveSyncMode,
@@ -94,6 +95,14 @@ describe("configured path resolution", () => {
   });
 });
 
+describe("normalizeSyncProfileName", () => {
+  it("rejects the reserved default profile name", () => {
+    expect(() => normalizeSyncProfileName("default")).toThrowError(
+      /reserved name/u,
+    );
+  });
+});
+
 describe("parseSyncConfig", () => {
   it("resolves home-scoped entry paths and normalizes overrides", () => {
     const config = parseSyncConfig(
@@ -108,7 +117,6 @@ describe("parseSyncConfig", () => {
             kind: "directory",
             localPath: "~/.config/mytool",
             mode: "secret",
-            name: ".config/mytool",
             overrides: {
               "cache\\tmp/": "ignore",
               "cache\\tmp\\keep.json": "normal",
@@ -163,7 +171,6 @@ describe("parseSyncConfig", () => {
             kind: "directory",
             localPath: "/tmp/devsync-home/bundle",
             mode: "normal",
-            name: "bundle",
             repoPath: "bundle",
           },
         ],
@@ -191,7 +198,6 @@ describe("parseSyncConfig", () => {
               kind: "directory",
               localPath: "/tmp/outside-home/bundle",
               mode: "normal",
-              name: "bundle",
               repoPath: "bundle",
             },
           ],
@@ -217,7 +223,6 @@ describe("parseSyncConfig", () => {
               kind: "directory",
               localPath: "$XDG_CONFIG_HOME/bundle",
               mode: "normal",
-              name: "bundle",
               repoPath: "bundle",
             },
           ],
@@ -244,7 +249,6 @@ describe("parseSyncConfig", () => {
               kind: "directory",
               localPath: "~/bundle",
               mode: "normal",
-              name: "bundle",
               repoPath: "bundle",
               secretGlobs: ["**"],
             },
@@ -271,7 +275,6 @@ describe("parseSyncConfig", () => {
               kind: "file",
               localPath: "~/bundle/token.txt",
               mode: "normal",
-              name: "bundle/token.txt",
               repoPath: `bundle/token.txt${syncSecretArtifactSuffix}`,
             },
           ],
@@ -295,7 +298,6 @@ describe("parseSyncConfig", () => {
               kind: "directory",
               localPath: "~/bundle",
               mode: "normal",
-              name: "bundle",
               overrides: {
                 [`token.txt${syncSecretArtifactSuffix}`]: "secret",
               },
@@ -324,7 +326,6 @@ describe("parseSyncConfig", () => {
               kind: "file",
               localPath: "~/bundle.json",
               mode: "normal",
-              name: "bundle.json",
               overrides: {
                 "nested.json": "secret",
               },
@@ -353,7 +354,6 @@ describe("parseSyncConfig", () => {
               kind: "directory",
               localPath: "~/bundle",
               mode: "normal",
-              name: "bundle",
               overrides: {
                 "cache/": "ignore",
                 "cache//": "secret",
@@ -369,38 +369,7 @@ describe("parseSyncConfig", () => {
     }).toThrowError(DevsyncError);
   });
 
-  it("rejects duplicate entry names and overlapping entry paths", () => {
-    expect(() => {
-      parseSyncConfig(
-        {
-          version: 1,
-          age: {
-            identityFile: "/tmp/identity.txt",
-            recipients: ["age1example"],
-          },
-          entries: [
-            {
-              kind: "file",
-              localPath: "~/bundle/one.json",
-              mode: "normal",
-              name: "bundle",
-              repoPath: "bundle/one.json",
-            },
-            {
-              kind: "file",
-              localPath: "~/bundle/two.json",
-              mode: "normal",
-              name: "bundle",
-              repoPath: "bundle/two.json",
-            },
-          ],
-        },
-        {
-          HOME: testHomeDirectory,
-        },
-      );
-    }).toThrowError(DevsyncError);
-
+  it("rejects overlapping entry paths", () => {
     expect(() => {
       parseSyncConfig(
         {
@@ -414,14 +383,12 @@ describe("parseSyncConfig", () => {
               kind: "directory",
               localPath: "~/bundle",
               mode: "normal",
-              name: "bundle",
               repoPath: "bundle",
             },
             {
               kind: "file",
               localPath: "~/bundle/file.txt",
               mode: "normal",
-              name: "bundle/file.txt",
               repoPath: "bundle/file.txt",
             },
           ],
@@ -447,7 +414,6 @@ describe("parseSyncConfig", () => {
               kind: "directory",
               localPath: "~",
               mode: "normal",
-              name: "bundle",
               repoPath: "bundle",
             },
           ],
@@ -471,7 +437,6 @@ describe("parseSyncConfig", () => {
               kind: "directory",
               localPath: "~/bundle",
               mode: "normal",
-              name: "bundle",
               overrides: {
                 "../token.txt": "secret",
               },
@@ -499,7 +464,6 @@ describe("parseSyncConfig", () => {
             kind: "directory",
             localPath: "~/bundle",
             mode: "secret",
-            name: "bundle",
             overrides: {
               "private/": "ignore",
               "private/public.json": "normal",
@@ -533,7 +497,6 @@ describe("parseSyncConfig", () => {
             kind: "directory",
             localPath: "~/bundle",
             mode: "normal",
-            name: "bundle",
             overrides: {
               "private/": "secret",
               "private/public/": "ignore",
@@ -571,7 +534,6 @@ describe("parseSyncConfig", () => {
             kind: "directory",
             localPath: "~/bundle",
             mode: "secret",
-            name: "bundle",
             overrides: {
               "ignored.txt": "ignore",
             },

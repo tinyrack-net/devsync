@@ -9,6 +9,13 @@ import { runSyncDoctor } from "#app/services/doctor.ts";
 import { forgetSyncTarget } from "#app/services/forget.ts";
 import { initializeSync } from "#app/services/init.ts";
 import { listSyncConfig } from "#app/services/list.ts";
+import {
+  activateSyncProfile,
+  clearSyncProfiles,
+  deactivateSyncProfile,
+  listSyncProfiles,
+  useSyncProfile,
+} from "#app/services/profile.ts";
 import { pullSync } from "#app/services/pull.ts";
 import { pushSync } from "#app/services/push.ts";
 import { createSyncContext } from "#app/services/runtime.ts";
@@ -173,7 +180,6 @@ describe("sync service", () => {
         kind: string;
         localPath: string;
         mode: string;
-        name: string;
         overrides?: Record<string, string>;
         repoPath: string;
       }>;
@@ -192,14 +198,12 @@ describe("sync service", () => {
         kind: "directory",
         localPath: "~/.config/mytool/secrets",
         mode: "secret",
-        name: ".config/mytool/secrets",
         repoPath: ".config/mytool/secrets",
       },
       {
         kind: "file",
         localPath: "~/.config/mytool/settings.json",
         mode: "secret",
-        name: ".config/mytool/settings.json",
         repoPath: ".config/mytool/settings.json",
       },
     ]);
@@ -338,10 +342,7 @@ describe("sync service", () => {
       {
         kind: "directory",
         localPath: "~/bundle",
-        name: "bundle",
-        overrides: {
-          "cache/": "ignore",
-        },
+        overrides: { "cache/": "ignore" },
         repoPath: "bundle",
       },
     ]);
@@ -406,9 +407,7 @@ describe("sync service", () => {
     expect(config.entries).toMatchObject([
       {
         repoPath: ".ssh",
-        overrides: {
-          known_hosts: "ignore",
-        },
+        overrides: { known_hosts: "ignore" },
       },
     ]);
   });
@@ -443,17 +442,24 @@ describe("sync service", () => {
       },
       context,
     );
-    await mkdir(join(initResult.syncDirectory, "files", "mytool"), {
+    await mkdir(join(initResult.syncDirectory, "files", "default", "mytool"), {
       recursive: true,
     });
     await writeFile(
-      join(initResult.syncDirectory, "files", "mytool", "settings.json"),
+      join(
+        initResult.syncDirectory,
+        "files",
+        "default",
+        "mytool",
+        "settings.json",
+      ),
       "stale plain copy\n",
     );
     await writeFile(
       join(
         initResult.syncDirectory,
         "files",
+        "default",
         "mytool",
         `settings.json${syncSecretArtifactSuffix}`,
       ),
@@ -479,7 +485,13 @@ describe("sync service", () => {
     expect(config.entries).toEqual([]);
     await expect(
       readFile(
-        join(initResult.syncDirectory, "files", "mytool", "settings.json"),
+        join(
+          initResult.syncDirectory,
+          "files",
+          "default",
+          "mytool",
+          "settings.json",
+        ),
         "utf8",
       ),
     ).rejects.toMatchObject({
@@ -490,6 +502,7 @@ describe("sync service", () => {
         join(
           initResult.syncDirectory,
           "files",
+          "default",
           "mytool",
           `settings.json${syncSecretArtifactSuffix}`,
         ),
@@ -615,7 +628,15 @@ describe("sync service", () => {
     expect(pushResult.encryptedFileCount).toBe(1);
     expect(
       await readFile(
-        join(xdgConfigHome, "devsync", "sync", "files", "bundle", "plain.txt"),
+        join(
+          xdgConfigHome,
+          "devsync",
+          "sync",
+          "files",
+          "default",
+          "bundle",
+          "plain.txt",
+        ),
         "utf8",
       ),
     ).toBe("plain value\n");
@@ -626,6 +647,7 @@ describe("sync service", () => {
           "devsync",
           "sync",
           "files",
+          "default",
           "bundle",
           "ignored.txt",
         ),
@@ -641,6 +663,7 @@ describe("sync service", () => {
           "devsync",
           "sync",
           "files",
+          "default",
           "bundle",
           `secret.json${syncSecretArtifactSuffix}`,
         ),
@@ -674,7 +697,7 @@ describe("sync service", () => {
     });
   });
 
-  it("rejects directory targets without --recursive and tracked file entries", async () => {
+  it("rejects directory targets without --recursive and updates tracked file entries", async () => {
     const workspace = await createWorkspace();
     const homeDirectory = join(workspace, "home");
     const xdgConfigHome = join(workspace, "xdg");
@@ -733,7 +756,54 @@ describe("sync service", () => {
         },
         context,
       ),
-    ).rejects.toThrowError(/cannot be updated with 'devsync set'/u);
+    ).resolves.toMatchObject({
+      action: "updated",
+      repoPath: ".zshrc",
+      scope: "default",
+    });
+  });
+
+  it("rejects profile-specific file root updates", async () => {
+    const workspace = await createWorkspace();
+    const homeDirectory = join(workspace, "home");
+    const xdgConfigHome = join(workspace, "xdg");
+    const trackedFile = join(homeDirectory, ".gitconfig");
+    const ageKeys = await createAgeKeyPair();
+
+    await writeIdentityFile(xdgConfigHome, ageKeys.identity);
+    await mkdir(homeDirectory, { recursive: true });
+    await writeFile(trackedFile, "[user]\n  name = profile\n");
+
+    const context = createSyncContext({
+      environment: createSyncEnvironment(homeDirectory, xdgConfigHome),
+    });
+
+    await initializeSync(
+      {
+        identityFile: "$XDG_CONFIG_HOME/devsync/age/keys.txt",
+        recipients: [ageKeys.recipient],
+      },
+      context,
+    );
+    await addSyncTarget(
+      {
+        secret: false,
+        target: trackedFile,
+      },
+      context,
+    );
+
+    await expect(
+      setSyncTargetMode(
+        {
+          profile: "work",
+          recursive: false,
+          state: "secret",
+          target: trackedFile,
+        },
+        context,
+      ),
+    ).rejects.toThrowError(/not supported for file entries/u);
   });
 
   it("supports repo-path sync set for missing descendants and reports update transitions", async () => {
@@ -870,6 +940,85 @@ describe("sync service", () => {
     ).rejects.toThrowError(/can only be used with directories/u);
   });
 
+  it("removes a profile-specific override when it falls back to the inherited mode", async () => {
+    const workspace = await createWorkspace();
+    const homeDirectory = join(workspace, "home");
+    const xdgConfigHome = join(workspace, "xdg");
+    const zshDirectory = join(homeDirectory, ".config", "zsh");
+    const secretsFile = join(zshDirectory, "secrets.zsh");
+    const ageKeys = await createAgeKeyPair();
+
+    await writeIdentityFile(xdgConfigHome, ageKeys.identity);
+    await mkdir(zshDirectory, { recursive: true });
+    await writeFile(secretsFile, "export TOKEN=abc\n");
+
+    const context = createSyncContext({
+      environment: createSyncEnvironment(homeDirectory, xdgConfigHome),
+    });
+
+    await initializeSync(
+      {
+        identityFile: "$XDG_CONFIG_HOME/devsync/age/keys.txt",
+        recipients: [ageKeys.recipient],
+      },
+      context,
+    );
+    await addSyncTarget(
+      {
+        secret: false,
+        target: zshDirectory,
+      },
+      context,
+    );
+
+    const baseRule = await setSyncTargetMode(
+      {
+        recursive: false,
+        state: "secret",
+        target: secretsFile,
+      },
+      context,
+    );
+    const profiledIgnore = await setSyncTargetMode(
+      {
+        profile: "vivident",
+        recursive: false,
+        state: "ignore",
+        target: secretsFile,
+      },
+      context,
+    );
+    const profiledSecret = await setSyncTargetMode(
+      {
+        profile: "vivident",
+        recursive: false,
+        state: "secret",
+        target: secretsFile,
+      },
+      context,
+    );
+    const config = JSON.parse(
+      await readFile(
+        join(xdgConfigHome, "devsync", "sync", "config.json"),
+        "utf8",
+      ),
+    ) as {
+      entries: Array<{
+        overrides?: Record<string, string>;
+        profiles?: {
+          vivident?: { mode: string; overrides?: Record<string, string> };
+        };
+      }>;
+    };
+
+    expect(baseRule.action).toBe("added");
+    expect(profiledIgnore.action).toBe("added");
+    expect(profiledSecret.action).toBe("removed");
+    expect(profiledSecret.reason).toBe("reverted-to-inherited");
+    expect(config.entries[0]?.overrides).toEqual({ "secrets.zsh": "secret" });
+    expect(config.entries[0]?.profiles?.vivident).toBeUndefined();
+  });
+
   it("moves repository artifacts across normal, secret, and ignore mode transitions", async () => {
     const workspace = await createWorkspace();
     const homeDirectory = join(workspace, "home");
@@ -912,7 +1061,7 @@ describe("sync service", () => {
     expect(normalPush.plainFileCount).toBe(1);
     expect(
       await readFile(
-        join(syncDirectory, "files", "bundle", "token.txt"),
+        join(syncDirectory, "files", "default", "bundle", "token.txt"),
         "utf8",
       ),
     ).toBe("token-v1\n");
@@ -921,6 +1070,7 @@ describe("sync service", () => {
         join(
           syncDirectory,
           "files",
+          "default",
           "bundle",
           `token.txt${syncSecretArtifactSuffix}`,
         ),
@@ -948,7 +1098,10 @@ describe("sync service", () => {
 
     expect(secretPush.encryptedFileCount).toBe(1);
     await expect(
-      readFile(join(syncDirectory, "files", "bundle", "token.txt"), "utf8"),
+      readFile(
+        join(syncDirectory, "files", "default", "bundle", "token.txt"),
+        "utf8",
+      ),
     ).rejects.toMatchObject({
       code: "ENOENT",
     });
@@ -957,6 +1110,7 @@ describe("sync service", () => {
         join(
           syncDirectory,
           "files",
+          "default",
           "bundle",
           `token.txt${syncSecretArtifactSuffix}`,
         ),
@@ -982,7 +1136,10 @@ describe("sync service", () => {
 
     expect(ignorePush.deletedArtifactCount).toBeGreaterThanOrEqual(1);
     await expect(
-      readFile(join(syncDirectory, "files", "bundle", "token.txt"), "utf8"),
+      readFile(
+        join(syncDirectory, "files", "default", "bundle", "token.txt"),
+        "utf8",
+      ),
     ).rejects.toMatchObject({
       code: "ENOENT",
     });
@@ -991,6 +1148,7 @@ describe("sync service", () => {
         join(
           syncDirectory,
           "files",
+          "default",
           "bundle",
           `token.txt${syncSecretArtifactSuffix}`,
         ),
@@ -1050,6 +1208,7 @@ describe("sync service", () => {
       join(
         syncDirectory,
         "files",
+        "default",
         "bundle",
         `token.txt${syncSecretArtifactSuffix}`,
       ),
@@ -1110,6 +1269,7 @@ describe("sync service", () => {
 
     expect(result.entries).toEqual([
       {
+        active: true,
         kind: "directory",
         localPath: bundleDirectory,
         mode: "normal",
@@ -1164,6 +1324,420 @@ describe("sync service", () => {
     expect(status.pull.preview).toContain("bundle/plain.txt");
     expect(status.push.plainFileCount).toBe(1);
     expect(status.pull.plainFileCount).toBe(1);
+  });
+
+  it("preserves artifacts from inactive profiles during push", async () => {
+    const workspace = await createWorkspace();
+    const homeDirectory = join(workspace, "home");
+    const xdgConfigHome = join(workspace, "xdg");
+    const appDirectory = join(homeDirectory, ".config", "app");
+    const devFile = join(appDirectory, "dev.json");
+    const ageKeys = await createAgeKeyPair();
+    const globalConfigPath = join(xdgConfigHome, "devsync", "config.json");
+    const syncFilesDirectory = join(xdgConfigHome, "devsync", "sync", "files");
+
+    await writeIdentityFile(xdgConfigHome, ageKeys.identity);
+    await mkdir(appDirectory, { recursive: true });
+    await writeFile(devFile, '{"value":"work"}\n');
+
+    const context = createSyncContext({
+      environment: createSyncEnvironment(homeDirectory, xdgConfigHome),
+    });
+
+    await initializeSync(
+      {
+        identityFile: "$XDG_CONFIG_HOME/devsync/age/keys.txt",
+        recipients: [ageKeys.recipient],
+      },
+      context,
+    );
+    await addSyncTarget(
+      {
+        secret: false,
+        target: appDirectory,
+      },
+      context,
+    );
+    await setSyncTargetMode(
+      {
+        profile: "work",
+        recursive: false,
+        state: "secret",
+        target: devFile,
+      },
+      context,
+    );
+    await setSyncTargetMode(
+      {
+        profile: "personal",
+        recursive: false,
+        state: "secret",
+        target: devFile,
+      },
+      context,
+    );
+
+    await writeFile(
+      globalConfigPath,
+      JSON.stringify({ activeProfile: "work", version: 1 }, null, 2),
+      "utf8",
+    );
+
+    await pushSync(
+      {
+        dryRun: false,
+      },
+      context,
+    );
+
+    expect(
+      await readFile(
+        join(
+          syncFilesDirectory,
+          "work",
+          ".config",
+          "app",
+          `dev.json${syncSecretArtifactSuffix}`,
+        ),
+        "utf8",
+      ),
+    ).toContain("BEGIN AGE ENCRYPTED FILE");
+    await expect(
+      readFile(
+        join(
+          syncFilesDirectory,
+          "personal",
+          ".config",
+          "app",
+          `dev.json${syncSecretArtifactSuffix}`,
+        ),
+        "utf8",
+      ),
+    ).rejects.toMatchObject({
+      code: "ENOENT",
+    });
+
+    await writeFile(devFile, '{"value":"personal"}\n');
+    await writeFile(
+      globalConfigPath,
+      JSON.stringify({ activeProfile: "personal", version: 1 }, null, 2),
+      "utf8",
+    );
+
+    await pushSync(
+      {
+        dryRun: false,
+      },
+      context,
+    );
+
+    expect(
+      await readFile(
+        join(
+          syncFilesDirectory,
+          "work",
+          ".config",
+          "app",
+          `dev.json${syncSecretArtifactSuffix}`,
+        ),
+        "utf8",
+      ),
+    ).toContain("BEGIN AGE ENCRYPTED FILE");
+    expect(
+      await readFile(
+        join(
+          syncFilesDirectory,
+          "personal",
+          ".config",
+          "app",
+          `dev.json${syncSecretArtifactSuffix}`,
+        ),
+        "utf8",
+      ),
+    ).toContain("BEGIN AGE ENCRYPTED FILE");
+  });
+
+  it("manages active profiles through the global config", async () => {
+    const workspace = await createWorkspace();
+    const homeDirectory = join(workspace, "home");
+    const xdgConfigHome = join(workspace, "xdg");
+    const appDirectory = join(homeDirectory, ".config", "app");
+    const devFile = join(appDirectory, "dev.json");
+    const ageKeys = await createAgeKeyPair();
+
+    await writeIdentityFile(xdgConfigHome, ageKeys.identity);
+    await mkdir(appDirectory, { recursive: true });
+    await writeFile(devFile, '{"value":"x"}\n');
+
+    const context = createSyncContext({
+      environment: createSyncEnvironment(homeDirectory, xdgConfigHome),
+    });
+
+    await initializeSync(
+      {
+        identityFile: "$XDG_CONFIG_HOME/devsync/age/keys.txt",
+        recipients: [ageKeys.recipient],
+      },
+      context,
+    );
+    await addSyncTarget(
+      {
+        secret: false,
+        target: appDirectory,
+      },
+      context,
+    );
+    await setSyncTargetMode(
+      {
+        profile: "work",
+        recursive: false,
+        state: "secret",
+        target: devFile,
+      },
+      context,
+    );
+    await setSyncTargetMode(
+      {
+        profile: "personal",
+        recursive: false,
+        state: "ignore",
+        target: devFile,
+      },
+      context,
+    );
+
+    expect(await listSyncProfiles(context)).toMatchObject({
+      activeProfilesMode: "none",
+      availableProfiles: ["personal", "work"],
+      globalConfigExists: false,
+    });
+
+    expect(await useSyncProfile("work", context)).toMatchObject({
+      activeProfile: "work",
+      mode: "use",
+    });
+    expect(await activateSyncProfile("personal", context)).toMatchObject({
+      activeProfile: "work",
+      mode: "activate",
+      profile: "personal",
+    });
+    expect(await listSyncProfiles(context)).toMatchObject({
+      activeProfile: "work",
+      activeProfilesMode: "single",
+      globalConfigExists: true,
+    });
+    expect(await deactivateSyncProfile("work", context)).toMatchObject({
+      mode: "deactivate",
+      profile: "work",
+    });
+
+    expect(await clearSyncProfiles(context)).toMatchObject({
+      mode: "clear",
+    });
+    expect(await listSyncProfiles(context)).toMatchObject({
+      activeProfilesMode: "none",
+      globalConfigExists: true,
+    });
+  });
+
+  it("supports profile-specific set and forget operations", async () => {
+    const workspace = await createWorkspace();
+    const homeDirectory = join(workspace, "home");
+    const xdgConfigHome = join(workspace, "xdg");
+    const appDirectory = join(homeDirectory, ".config", "app");
+    const tokenFile = join(appDirectory, "token.txt");
+    const ageKeys = await createAgeKeyPair();
+
+    await writeIdentityFile(xdgConfigHome, ageKeys.identity);
+    await mkdir(appDirectory, { recursive: true });
+    await writeFile(tokenFile, "secret\n");
+
+    const context = createSyncContext({
+      environment: createSyncEnvironment(homeDirectory, xdgConfigHome),
+    });
+
+    await initializeSync(
+      {
+        identityFile: "$XDG_CONFIG_HOME/devsync/age/keys.txt",
+        recipients: [ageKeys.recipient],
+      },
+      context,
+    );
+    await addSyncTarget(
+      {
+        secret: false,
+        target: appDirectory,
+      },
+      context,
+    );
+
+    const setResult = await setSyncTargetMode(
+      {
+        profile: "work",
+        recursive: false,
+        state: "secret",
+        target: ".config/app/token.txt",
+      },
+      context,
+    );
+
+    expect(setResult.profile).toBe("work");
+
+    await setSyncTargetMode(
+      {
+        profile: "personal",
+        recursive: false,
+        state: "ignore",
+        target: ".config/app/token.txt",
+      },
+      context,
+    );
+
+    const forgetResult = await forgetSyncTarget(
+      {
+        profile: "personal",
+        target: appDirectory,
+      },
+      context,
+    );
+
+    expect(forgetResult.profile).toBe("personal");
+    expect((await listSyncConfig(context)).entries).toHaveLength(2);
+  });
+
+  it("routes child overrides into profile namespaces", async () => {
+    const workspace = await createWorkspace();
+    const homeDirectory = join(workspace, "home");
+    const xdgConfigHome = join(workspace, "xdg");
+    const appDirectory = join(homeDirectory, ".config", "app");
+    const tokenFile = join(appDirectory, "token.txt");
+    const ageKeys = await createAgeKeyPair();
+
+    await writeIdentityFile(xdgConfigHome, ageKeys.identity);
+    await mkdir(appDirectory, { recursive: true });
+    await writeFile(tokenFile, "token-work\n");
+
+    const context = createSyncContext({
+      environment: createSyncEnvironment(homeDirectory, xdgConfigHome),
+    });
+
+    await initializeSync(
+      {
+        identityFile: "$XDG_CONFIG_HOME/devsync/age/keys.txt",
+        recipients: [ageKeys.recipient],
+      },
+      context,
+    );
+    await addSyncTarget(
+      {
+        secret: false,
+        target: appDirectory,
+      },
+      context,
+    );
+    await setSyncTargetMode(
+      {
+        profile: "work",
+        recursive: false,
+        state: "secret",
+        target: tokenFile,
+      },
+      context,
+    );
+    await useSyncProfile("work", context);
+
+    await pushSync({ dryRun: false }, context);
+
+    const config = JSON.parse(
+      await readFile(
+        join(xdgConfigHome, "devsync", "sync", "config.json"),
+        "utf8",
+      ),
+    ) as {
+      entries: Array<{
+        profiles?: {
+          work?: { overrides?: Record<string, string> };
+        };
+      }>;
+    };
+
+    expect(config.entries[0]?.profiles?.work).toEqual({
+      overrides: {
+        "token.txt": "secret",
+      },
+    });
+    expect(
+      await readFile(
+        join(
+          xdgConfigHome,
+          "devsync",
+          "sync",
+          "files",
+          "work",
+          ".config",
+          "app",
+          "token.txt.devsync.secret",
+        ),
+        "utf8",
+      ),
+    ).toContain("BEGIN AGE ENCRYPTED FILE");
+  });
+
+  it("shows profile-specific list and status details", async () => {
+    const workspace = await createWorkspace();
+    const homeDirectory = join(workspace, "home");
+    const xdgConfigHome = join(workspace, "xdg");
+    const appDirectory = join(homeDirectory, ".config", "app");
+    const devFile = join(appDirectory, "dev.json");
+    const ageKeys = await createAgeKeyPair();
+
+    await writeIdentityFile(xdgConfigHome, ageKeys.identity);
+    await mkdir(appDirectory, { recursive: true });
+    await writeFile(devFile, '{"value":"x"}\n');
+
+    const context = createSyncContext({
+      environment: createSyncEnvironment(homeDirectory, xdgConfigHome),
+    });
+
+    await initializeSync(
+      {
+        identityFile: "$XDG_CONFIG_HOME/devsync/age/keys.txt",
+        recipients: [ageKeys.recipient],
+      },
+      context,
+    );
+    await addSyncTarget(
+      {
+        secret: false,
+        target: appDirectory,
+      },
+      context,
+    );
+    await setSyncTargetMode(
+      {
+        profile: "work",
+        recursive: false,
+        state: "secret",
+        target: devFile,
+      },
+      context,
+    );
+    await useSyncProfile("work", context);
+
+    const listResult = await listSyncConfig(context);
+    const statusResult = await getSyncStatus(context);
+
+    expect(
+      listResult.entries.find((entry) => {
+        return entry.profile === "work" && entry.repoPath === ".config/app";
+      }),
+    ).toMatchObject({
+      active: true,
+      profile: "work",
+      repoPath: ".config/app",
+    });
+    expect(statusResult.activeProfile).toBe("work");
+    expect(statusResult.activeProfilesMode).toBe("single");
   });
 
   it("reports doctor warnings for missing tracked local paths", async () => {

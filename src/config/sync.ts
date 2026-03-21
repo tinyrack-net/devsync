@@ -25,18 +25,41 @@ const requiredTrimmedStringSchema = z
   .trim()
   .min(1, "Value must not be empty.");
 
+const syncOverrideMapSchema = z.record(
+  requiredTrimmedStringSchema,
+  z.enum(syncModes),
+);
+
+const syncProfileEntrySchema = z
+  .object({
+    overrides: syncOverrideMapSchema.optional(),
+  })
+  .strict();
+
+const syncProfilesSchema = z.record(
+  requiredTrimmedStringSchema,
+  syncProfileEntrySchema,
+);
+
 const syncConfigEntrySchema = z
   .object({
     kind: z.enum(syncEntryKinds),
     localPath: requiredTrimmedStringSchema,
     mode: z.enum(syncModes),
-    name: requiredTrimmedStringSchema,
-    overrides: z
-      .record(requiredTrimmedStringSchema, z.enum(syncModes))
-      .optional(),
+    overrides: syncOverrideMapSchema.optional(),
+    profiles: syncProfilesSchema.optional(),
     repoPath: requiredTrimmedStringSchema,
   })
-  .strict();
+  .strict()
+  .superRefine((entry, context) => {
+    if (entry.kind === "file" && entry.profiles !== undefined) {
+      context.addIssue({
+        code: "custom",
+        message: "File sync entries cannot define profile-specific overrides.",
+        path: ["profiles"],
+      });
+    }
+  });
 
 const syncConfigSchema = z
   .object({
@@ -71,6 +94,7 @@ export type ResolvedSyncConfigEntry = Readonly<{
   mode: SyncMode;
   name: string;
   overrides: readonly ResolvedSyncOverride[];
+  profile?: string;
   repoPath: string;
 }>;
 
@@ -83,6 +107,15 @@ export type ResolvedSyncConfig = Readonly<{
   entries: readonly ResolvedSyncConfigEntry[];
   version: 1;
 }>;
+
+const createResolvedEntryName = (input: {
+  profile?: string;
+  repoPath: string;
+}) => {
+  return input.profile === undefined
+    ? input.repoPath
+    : `${input.repoPath}#${input.profile}`;
+};
 
 export const normalizeSyncRepoPath = (value: string) => {
   const normalizedValue = posix.normalize(value.replaceAll("\\", "/"));
@@ -113,6 +146,54 @@ export const normalizeSyncRepoPath = (value: string) => {
         hint: "Rename the path so no segment ends with the secret artifact suffix.",
       },
     );
+  }
+
+  return normalizedValue;
+};
+
+export const normalizeSyncProfileName = (
+  value: string,
+  description = "Profile name",
+) => {
+  const normalizedValue = value.trim();
+
+  if (normalizedValue.length === 0) {
+    throw new DevsyncError(`${description} must not be empty.`, {
+      code: "INVALID_PROFILE_NAME",
+      details: [`${description}: ${value}`],
+      hint: "Use a short profile name like 'work' or 'personal'.",
+    });
+  }
+
+  if (!/^[A-Za-z0-9][A-Za-z0-9._-]*$/u.test(normalizedValue)) {
+    throw new DevsyncError(`${description} contains unsupported characters.`, {
+      code: "INVALID_PROFILE_NAME",
+      details: [`${description}: ${value}`],
+      hint: "Use letters, numbers, dots, underscores, or hyphens, and start with a letter or number.",
+    });
+  }
+
+  if (normalizedValue.startsWith(".")) {
+    throw new DevsyncError(`${description} must not start with '.'.`, {
+      code: "INVALID_PROFILE_NAME",
+      details: [`${description}: ${value}`],
+      hint: "Use a plain name like 'work' instead of hidden-path style names.",
+    });
+  }
+
+  if (normalizedValue === "." || normalizedValue === "..") {
+    throw new DevsyncError(`${description} is invalid.`, {
+      code: "INVALID_PROFILE_NAME",
+      details: [`${description}: ${value}`],
+    });
+  }
+
+  if (normalizedValue === "default") {
+    throw new DevsyncError(`${description} uses a reserved name.`, {
+      code: "INVALID_PROFILE_NAME",
+      details: [`${description}: ${value}`],
+      hint: "Use another name like 'work' or 'personal'; 'default' is reserved for the base sync namespace.",
+    });
   }
 
   return normalizedValue;
@@ -205,16 +286,104 @@ export const formatSyncOverrideSelector = (
   return override.match === "subtree" ? `${override.path}/` : override.path;
 };
 
+const buildResolvedOverrides = (
+  overrides: Record<string, SyncMode> | undefined,
+  description: string,
+) => {
+  return Object.entries(overrides ?? {}).map(([selector, mode]) => {
+    return {
+      ...normalizeSyncOverrideSelector(selector, description),
+      mode,
+    } satisfies ResolvedSyncOverride;
+  });
+};
+
+const buildResolvedEntry = (input: {
+  configuredLocalPath: string;
+  kind: SyncConfigEntryKind;
+  localPath: string;
+  mode: SyncMode;
+  overrides: readonly ResolvedSyncOverride[];
+  profile?: string;
+  repoPath: string;
+}) => {
+  return {
+    configuredLocalPath: input.configuredLocalPath,
+    kind: input.kind,
+    localPath: input.localPath,
+    mode: input.mode,
+    name: createResolvedEntryName({
+      profile: input.profile,
+      repoPath: input.repoPath,
+    }),
+    overrides: input.overrides,
+    ...(input.profile === undefined ? {} : { profile: input.profile }),
+    repoPath: input.repoPath,
+  } satisfies ResolvedSyncConfigEntry;
+};
+
+const matchesEntryPath = (
+  entry: Pick<ResolvedSyncConfigEntry, "kind" | "repoPath">,
+  repoPath: string,
+) => {
+  return (
+    entry.repoPath === repoPath ||
+    (entry.kind === "directory" && repoPath.startsWith(`${entry.repoPath}/`))
+  );
+};
+
+const mergeResolvedOverrides = (
+  baseOverrides: readonly ResolvedSyncOverride[],
+  profileOverrides: readonly ResolvedSyncOverride[],
+) => {
+  const mergedOverrides = new Map<string, ResolvedSyncOverride>();
+
+  for (const override of baseOverrides) {
+    mergedOverrides.set(formatSyncOverrideSelector(override), override);
+  }
+
+  for (const override of profileOverrides) {
+    mergedOverrides.set(formatSyncOverrideSelector(override), override);
+  }
+
+  return [...mergedOverrides.values()];
+};
+
+const mergeResolvedEntries = (
+  baseEntry: ResolvedSyncConfigEntry | undefined,
+  profileEntry: ResolvedSyncConfigEntry | undefined,
+) => {
+  if (profileEntry === undefined) {
+    return baseEntry;
+  }
+
+  if (baseEntry === undefined) {
+    return profileEntry;
+  }
+
+  return {
+    configuredLocalPath: baseEntry.configuredLocalPath,
+    kind: baseEntry.kind,
+    localPath: baseEntry.localPath,
+    mode: baseEntry.mode,
+    name: createResolvedEntryName({
+      profile: profileEntry.profile,
+      repoPath: baseEntry.repoPath,
+    }),
+    overrides: mergeResolvedOverrides(
+      baseEntry.overrides,
+      profileEntry.overrides,
+    ),
+    profile: profileEntry.profile,
+    repoPath: baseEntry.repoPath,
+  } satisfies ResolvedSyncConfigEntry;
+};
+
 export const findOwningSyncEntry = (
   config: Pick<ResolvedSyncConfig, "entries">,
   repoPath: string,
 ): ResolvedSyncConfigEntry | undefined => {
-  return config.entries.find((entry) => {
-    return (
-      entry.repoPath === repoPath ||
-      (entry.kind === "directory" && repoPath.startsWith(`${entry.repoPath}/`))
-    );
-  });
+  return config.entries.find((entry) => matchesEntryPath(entry, repoPath));
 };
 
 export const resolveEntryRelativeRepoPath = (
@@ -294,6 +463,34 @@ export const resolveRelativeSyncMode = (
   return matchingOverride?.mode ?? mode;
 };
 
+export const resolveRelativeSyncRule = (
+  entry: Pick<ResolvedSyncConfigEntry, "mode" | "overrides" | "profile">,
+  relativePath: string,
+  activeProfile: string | undefined,
+) => {
+  if (entry.profile !== undefined && entry.profile !== activeProfile) {
+    return undefined;
+  }
+
+  if (relativePath === "") {
+    return {
+      mode: entry.mode,
+      ...(entry.profile === undefined ? {} : { profile: entry.profile }),
+    };
+  }
+
+  const matchingOverride = [...entry.overrides]
+    .filter((override) => {
+      return matchesOverride(override, relativePath);
+    })
+    .sort(compareOverrideSpecificity)[0];
+
+  return {
+    mode: matchingOverride?.mode ?? entry.mode,
+    ...(entry.profile === undefined ? {} : { profile: entry.profile }),
+  };
+};
+
 const resolveSyncEntryLocalPath = (
   value: string,
   environment: NodeJS.ProcessEnv,
@@ -360,29 +557,42 @@ const resolveConfiguredIdentityFile = (
   }
 };
 
-const validateUniqueNames = (entries: readonly ResolvedSyncConfigEntry[]) => {
-  const seenNames = new Set<string>();
+const canEntriesShareNamespace = (
+  left: Pick<ResolvedSyncConfigEntry, "profile">,
+  right: Pick<ResolvedSyncConfigEntry, "profile">,
+) => {
+  return (
+    left.profile !== undefined &&
+    right.profile !== undefined &&
+    left.profile !== right.profile
+  );
+};
 
-  for (const entry of entries) {
-    if (seenNames.has(entry.name)) {
-      throw new DevsyncError(
-        "Duplicate sync entry name found in config.json.",
-        {
-          code: "DUPLICATE_ENTRY_NAME",
-          details: [`Entry name: ${entry.name}`],
-          hint: "Give each tracked entry a unique name.",
-        },
-      );
-    }
-
-    seenNames.add(entry.name);
-  }
+const areProfileVariantsOfSameEntry = (
+  left: Pick<
+    ResolvedSyncConfigEntry,
+    "kind" | "localPath" | "profile" | "repoPath"
+  >,
+  right: Pick<
+    ResolvedSyncConfigEntry,
+    "kind" | "localPath" | "profile" | "repoPath"
+  >,
+) => {
+  return (
+    left.kind === right.kind &&
+    left.localPath === right.localPath &&
+    left.repoPath === right.repoPath &&
+    left.profile !== right.profile
+  );
 };
 
 const validatePathOverlaps = (
   entries: readonly ResolvedSyncConfigEntry[],
   property: "localPath" | "repoPath",
   description: string,
+  options: Readonly<{
+    allowProfileDisjointOverlaps: boolean;
+  }>,
 ) => {
   for (let index = 0; index < entries.length; index += 1) {
     const currentEntry = entries[index];
@@ -412,6 +622,14 @@ const validatePathOverlaps = (
           : doPathsOverlap(currentValue, otherValue);
 
       if (overlaps) {
+        if (
+          options.allowProfileDisjointOverlaps &&
+          (canEntriesShareNamespace(currentEntry, otherEntry) ||
+            areProfileVariantsOfSameEntry(currentEntry, otherEntry))
+        ) {
+          continue;
+        }
+
         throw new DevsyncError(
           `${description} paths must not overlap in config.json.`,
           {
@@ -419,6 +637,12 @@ const validatePathOverlaps = (
             details: [
               `${currentEntry.name}: ${currentValue}`,
               `${otherEntry.name}: ${otherValue}`,
+              ...(currentEntry.profile === undefined
+                ? []
+                : [`${currentEntry.name} profile: ${currentEntry.profile}`]),
+              ...(otherEntry.profile === undefined
+                ? []
+                : [`${otherEntry.name} profile: ${otherEntry.profile}`]),
             ],
             hint: "Split overlapping entries so each tracked root owns a distinct path.",
           },
@@ -426,6 +650,63 @@ const validatePathOverlaps = (
       }
     }
   }
+};
+
+const validateProfileRepoPathConflicts = (
+  entries: readonly ResolvedSyncConfigEntry[],
+) => {
+  for (let index = 0; index < entries.length; index += 1) {
+    const currentEntry = entries[index];
+
+    if (currentEntry === undefined) {
+      continue;
+    }
+
+    for (
+      let otherIndex = index + 1;
+      otherIndex < entries.length;
+      otherIndex += 1
+    ) {
+      const otherEntry = entries[otherIndex];
+
+      if (otherEntry === undefined) {
+        continue;
+      }
+
+      if (currentEntry.repoPath !== otherEntry.repoPath) {
+        continue;
+      }
+
+      if (currentEntry.profile !== otherEntry.profile) {
+        continue;
+      }
+
+      throw new DevsyncError(
+        "Repository paths must be unique within the same profile namespace.",
+        {
+          code: "OVERLAPPING_PATHS",
+          details: [
+            `${currentEntry.name}: ${currentEntry.repoPath}`,
+            `${otherEntry.name}: ${otherEntry.repoPath}`,
+          ],
+          hint: "Use distinct repository paths, or assign the entries to different non-default profiles.",
+        },
+      );
+    }
+  }
+};
+
+export const validateResolvedSyncConfigEntries = (
+  entries: readonly ResolvedSyncConfigEntry[],
+  options: Readonly<{
+    allowProfileDisjointOverlaps: boolean;
+  }> = {
+    allowProfileDisjointOverlaps: false,
+  },
+) => {
+  validateProfileRepoPathConflicts(entries);
+  validatePathOverlaps(entries, "repoPath", "Repository", options);
+  validatePathOverlaps(entries, "localPath", "Local", options);
 };
 
 const validateOverrides = (entry: ResolvedSyncConfigEntry) => {
@@ -445,8 +726,11 @@ const validateOverrides = (entry: ResolvedSyncConfigEntry) => {
     if (seenOverrides.has(key)) {
       throw new DevsyncError("Duplicate sync override found in config.json.", {
         code: "DUPLICATE_OVERRIDE",
-        details: [`Entry: ${entry.name}`, `Override: ${key}`],
-        hint: "Keep only one override selector for each path.",
+        details: [
+          `Entry: ${entry.name}`,
+          `Override: ${formatSyncOverrideSelector(override)}`,
+        ],
+        hint: "Keep only one override selector in each entry namespace.",
       });
     }
 
@@ -468,37 +752,59 @@ export const parseSyncConfig = (
     });
   }
 
-  const entries = result.data.entries.map((entry) => {
-    const resolvedEntry = {
-      configuredLocalPath: entry.localPath,
-      kind: entry.kind,
-      localPath: resolveSyncEntryLocalPath(entry.localPath, environment),
-      mode: entry.mode,
-      name: entry.name,
-      overrides: Object.entries(entry.overrides ?? {}).map(
-        ([selector, overrideMode]) => {
-          const normalizedSelector = normalizeSyncOverrideSelector(
-            selector,
+  const entries = result.data.entries.flatMap((entry) => {
+    const resolvedRepoPath = normalizeSyncRepoPath(entry.repoPath);
+    const resolvedLocalPath = resolveSyncEntryLocalPath(
+      entry.localPath,
+      environment,
+    );
+    const resolvedEntries: ResolvedSyncConfigEntry[] = [];
+
+    if (entry.mode !== undefined) {
+      resolvedEntries.push(
+        buildResolvedEntry({
+          configuredLocalPath: entry.localPath,
+          kind: entry.kind,
+          localPath: resolvedLocalPath,
+          mode: entry.mode,
+          overrides: buildResolvedOverrides(
+            entry.overrides,
             "Entry override selector",
-          );
+          ),
+          repoPath: resolvedRepoPath,
+        }),
+      );
+    }
 
-          return {
-            ...normalizedSelector,
-            mode: overrideMode,
-          } satisfies ResolvedSyncOverride;
-        },
-      ),
-      repoPath: normalizeSyncRepoPath(entry.repoPath),
-    } satisfies ResolvedSyncConfigEntry;
+    for (const [profileName, profileEntry] of Object.entries(
+      entry.profiles ?? {},
+    )) {
+      const profile = normalizeSyncProfileName(profileName);
 
-    validateOverrides(resolvedEntry);
+      resolvedEntries.push(
+        buildResolvedEntry({
+          configuredLocalPath: entry.localPath,
+          kind: entry.kind,
+          localPath: resolvedLocalPath,
+          mode: entry.mode,
+          overrides: buildResolvedOverrides(
+            profileEntry.overrides,
+            `Profile override selector (${profile})`,
+          ),
+          profile,
+          repoPath: resolvedRepoPath,
+        }),
+      );
+    }
 
-    return resolvedEntry;
+    resolvedEntries.forEach(validateOverrides);
+
+    return resolvedEntries;
   });
 
-  validateUniqueNames(entries);
-  validatePathOverlaps(entries, "repoPath", "Repository");
-  validatePathOverlaps(entries, "localPath", "Local");
+  validateResolvedSyncConfigEntries(entries, {
+    allowProfileDisjointOverlaps: true,
+  });
 
   return {
     age: {
@@ -594,8 +900,27 @@ export const readSyncConfig = async (
 export const resolveSyncMode = (
   config: ResolvedSyncConfig,
   repoPath: string,
+  activeProfile?: string,
 ): SyncMode | undefined => {
-  const entry = findOwningSyncEntry(config, repoPath);
+  return resolveSyncRule(config, repoPath, activeProfile)?.mode;
+};
+
+export const resolveSyncRule = (
+  config: ResolvedSyncConfig,
+  repoPath: string,
+  activeProfile?: string,
+) => {
+  const matchingEntries = config.entries.filter((entry) => {
+    return matchesEntryPath(entry, repoPath);
+  });
+  const baseEntry = matchingEntries.find(
+    (entry) => entry.profile === undefined,
+  );
+  const profileEntry =
+    activeProfile === undefined
+      ? undefined
+      : matchingEntries.find((entry) => entry.profile === activeProfile);
+  const entry = mergeResolvedEntries(baseEntry, profileEntry);
 
   if (entry === undefined) {
     return undefined;
@@ -607,7 +932,7 @@ export const resolveSyncMode = (
     return undefined;
   }
 
-  return resolveRelativeSyncMode(entry.mode, entry.overrides, relativePath);
+  return resolveRelativeSyncRule(entry, relativePath, activeProfile);
 };
 
 export const isIgnoredSyncPath = (
@@ -627,9 +952,12 @@ export const isSecretSyncPath = (
 export const resolveManagedSyncMode = (
   config: ResolvedSyncConfig,
   repoPath: string,
+  activeProfileOrContext?: string,
   context?: string,
 ) => {
-  const mode = resolveSyncMode(config, repoPath);
+  const activeProfile = activeProfileOrContext;
+  const resolvedContext = context;
+  const mode = resolveSyncMode(config, repoPath, activeProfile);
 
   if (mode === undefined) {
     throw new DevsyncError(
@@ -638,7 +966,9 @@ export const resolveManagedSyncMode = (
         code: "UNMANAGED_SYNC_PATH",
         details: [
           `Repository path: ${repoPath}`,
-          ...(context === undefined ? [] : [`Context: ${context}`]),
+          ...(resolvedContext === undefined
+            ? []
+            : [`Context: ${resolvedContext}`]),
         ],
         hint: "Add the parent path to devsync, or remove stray artifacts from the sync repository.",
       },

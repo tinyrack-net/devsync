@@ -1,5 +1,3 @@
-import { readSyncConfig } from "#app/config/sync.ts";
-
 import { countConfiguredRules } from "./config-file.ts";
 import {
   buildPullPlan,
@@ -11,9 +9,16 @@ import {
   buildPushPlanPreview,
   buildPushResultFromPlan,
 } from "./push.ts";
-import { ensureSyncRepository, type SyncContext } from "./runtime.ts";
+import {
+  ensureSyncRepository,
+  loadSyncConfig,
+  type SyncContext,
+} from "./runtime.ts";
 
 export type SyncStatusResult = Readonly<{
+  activeEntryCount: number;
+  activeProfile?: string;
+  activeProfilesMode: "none" | "single";
   configPath: string;
   entryCount: number;
   pull: ReturnType<typeof buildPullResultFromPlan> & {
@@ -32,16 +37,18 @@ export const getSyncStatus = async (
 ): Promise<SyncStatusResult> => {
   await ensureSyncRepository(context);
 
-  const config = await readSyncConfig(
-    context.paths.syncDirectory,
-    context.environment,
-  );
-  const pushPlan = await buildPushPlan(config, context);
-  const pullPlan = await buildPullPlan(config, context);
+  const { effectiveConfig, fullConfig } = await loadSyncConfig(context);
+  const pushPlan = await buildPushPlan(effectiveConfig, context);
+  const pullPlan = await buildPullPlan(effectiveConfig, context);
 
   return {
+    activeEntryCount: effectiveConfig.entries.length,
+    ...(effectiveConfig.activeProfile === undefined
+      ? {}
+      : { activeProfile: effectiveConfig.activeProfile }),
+    activeProfilesMode: effectiveConfig.activeProfilesMode,
     configPath: context.paths.configPath,
-    entryCount: config.entries.length,
+    entryCount: fullConfig.entries.length,
     pull: {
       ...buildPullResultFromPlan(pullPlan, context, true),
       preview: buildPullPlanPreview(pullPlan),
@@ -50,8 +57,8 @@ export const getSyncStatus = async (
       ...buildPushResultFromPlan(pushPlan, context, true),
       preview: buildPushPlanPreview(pushPlan),
     },
-    recipientCount: config.age.recipients.length,
-    ruleCount: countConfiguredRules(config),
+    recipientCount: fullConfig.age.recipients.length,
+    ruleCount: countConfiguredRules(fullConfig),
     syncDirectory: context.paths.syncDirectory,
   };
 };

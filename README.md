@@ -119,14 +119,15 @@ Notes:
 ### How tracking works
 
 - You add files or directories that live under your home directory.
-- `devsync` mirrors them into `~/.config/devsync/sync/files`.
+- `devsync` mirrors them into `~/.config/devsync/sync/files/default/<repoPath>` for the default profile, or `~/.config/devsync/sync/files/<profile>/<repoPath>` for a named profile.
 - Plain artifacts are stored as-is.
 - Secret artifacts are stored with the `.devsync.secret` suffix.
 
 Storage layout:
 
 - Sync repo: `~/.config/devsync/sync`
-- Synced artifacts: `~/.config/devsync/sync/files`
+- Default profile artifacts: `~/.config/devsync/sync/files/default/<repoPath>`
+- Named profile artifacts: `~/.config/devsync/sync/files/<profile>/<repoPath>`
 - Default age identity: `$XDG_CONFIG_HOME/devsync/age/keys.txt`
 
 ### Sync modes
@@ -139,12 +140,54 @@ Each tracked path can use one of three modes:
 
 You can apply modes to tracked roots or nested paths inside tracked directories.
 
+Profile-specific behavior inherits the tracked root mode and only changes nested paths inside tracked directories.
+
 Examples:
 
 ```bash
 devsync set secret ~/.config/mytool/token.json
 devsync set ignore ~/.config/mytool/cache --recursive
 devsync set normal ~/.config/mytool/public.json
+devsync set secret ~/.config/mytool/token.json --profile work
+```
+
+### Profile-specific overrides
+
+- Track the root once without `--profile`.
+- Use `devsync set --profile <name>` only for child paths inside tracked directories.
+- Profile-specific rules inherit the parent root mode and only override nested paths.
+- Named profile artifacts are stored under `files/<profile>/<repoPath>`.
+- `default` is reserved for the base layout and cannot be used as a named profile.
+- Standalone profiled roots and profiled file entries are not supported.
+
+Example `config.json`:
+
+```json
+{
+  "version": 1,
+  "age": {
+    "identityFile": "$XDG_CONFIG_HOME/devsync/age/keys.txt",
+    "recipients": ["age1example..."]
+  },
+  "entries": [
+    {
+      "kind": "directory",
+      "localPath": "~/.config/mytool",
+      "mode": "normal",
+      "overrides": {
+        "cache/": "ignore"
+      },
+      "profiles": {
+        "work": {
+          "overrides": {
+            "token.json": "secret"
+          }
+        }
+      },
+      "repoPath": ".config/mytool"
+    }
+  ]
+}
 ```
 
 ### Common workflow
@@ -196,6 +239,8 @@ devsync add ~/.config/mytool
 devsync add ~/.config/mytool --secret
 ```
 
+`add --profile` is not supported for tracked roots. Track the root first, then use `set --profile` for child overrides.
+
 #### `set`
 
 Change the sync mode for a tracked root, child path, or subtree.
@@ -203,7 +248,10 @@ Change the sync mode for a tracked root, child path, or subtree.
 ```bash
 devsync set secret ~/.config/mytool/token.json
 devsync set ignore ~/.config/mytool/cache --recursive
+devsync set secret ~/.config/mytool/token.json --profile work
 ```
+
+With `--profile`, the target must be a child path inside a tracked directory, and `default` cannot be used as the profile name. Profile-specific root mode changes are not supported.
 
 #### `forget`
 
@@ -212,11 +260,12 @@ Remove a tracked path or nested override from config.
 ```bash
 devsync forget ~/.gitconfig
 devsync forget ~/.config/mytool
+devsync forget .config/mytool/token.json --profile work
 ```
 
 #### `list`
 
-Show tracked entries, default modes, and overrides.
+Show tracked entries, default modes, root overrides, and profile-specific child overrides.
 
 ```bash
 devsync list

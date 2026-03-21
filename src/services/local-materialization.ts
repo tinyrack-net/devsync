@@ -19,6 +19,11 @@ import {
 import type { FileLikeSnapshotNode, SnapshotNode } from "./local-snapshot.ts";
 import { buildDirectoryKey } from "./paths.ts";
 
+type MaterializationConfig = ResolvedSyncConfig &
+  Readonly<{
+    activeProfile?: string;
+  }>;
+
 type EntryMaterialization =
   | Readonly<{
       desiredKeys: ReadonlySet<string>;
@@ -38,7 +43,7 @@ type EntryMaterialization =
 const copyIgnoredLocalNodesToDirectory = async (
   sourceDirectory: string,
   targetDirectory: string,
-  config: ResolvedSyncConfig,
+  config: MaterializationConfig,
   repoPathPrefix: string,
 ): Promise<number> => {
   const stats = await getPathStats(sourceDirectory);
@@ -49,7 +54,11 @@ const copyIgnoredLocalNodesToDirectory = async (
 
   let copiedNodeCount = 0;
   const entries = await listDirectoryEntries(sourceDirectory);
-  const directoryMode = resolveManagedSyncMode(config, repoPathPrefix);
+  const directoryMode = resolveManagedSyncMode(
+    config,
+    repoPathPrefix,
+    config.activeProfile,
+  );
 
   if (directoryMode === "ignore") {
     await mkdir(targetDirectory, { recursive: true });
@@ -72,7 +81,10 @@ const copyIgnoredLocalNodesToDirectory = async (
       continue;
     }
 
-    if (resolveManagedSyncMode(config, repoPath) !== "ignore") {
+    if (
+      resolveManagedSyncMode(config, repoPath, config.activeProfile) !==
+      "ignore"
+    ) {
       continue;
     }
 
@@ -109,7 +121,7 @@ const stageAndReplaceFilePath = async (
 
 const stageAndReplaceMergedDirectoryPath = async (
   entry: ResolvedSyncConfigEntry,
-  config: ResolvedSyncConfig,
+  config: MaterializationConfig,
   desiredNodes: ReadonlyMap<string, FileLikeSnapshotNode>,
 ) => {
   await mkdir(dirname(entry.localPath), { recursive: true });
@@ -282,7 +294,7 @@ const collectLocalLeafKeys = async (
 const collectIgnoredLocalKeys = async (
   targetPath: string,
   repoPath: string,
-  config: ResolvedSyncConfig,
+  config: MaterializationConfig,
   keys: Set<string>,
 ): Promise<boolean> => {
   const stats = await getPathStats(targetPath);
@@ -291,7 +303,7 @@ const collectIgnoredLocalKeys = async (
     return false;
   }
 
-  const mode = resolveManagedSyncMode(config, repoPath);
+  const mode = resolveManagedSyncMode(config, repoPath, config.activeProfile);
 
   if (!stats.isDirectory()) {
     if (mode !== "ignore") {
@@ -325,7 +337,7 @@ const collectIgnoredLocalKeys = async (
 export const countDeletedLocalNodes = async (
   entry: ResolvedSyncConfigEntry,
   desiredKeys: ReadonlySet<string>,
-  config: ResolvedSyncConfig,
+  config: MaterializationConfig,
   existingKeys: Set<string> = new Set<string>(),
 ) => {
   const preservedIgnoredKeys = new Set<string>();
@@ -346,11 +358,12 @@ export const countDeletedLocalNodes = async (
 export const applyEntryMaterialization = async (
   entry: ResolvedSyncConfigEntry,
   materialization: EntryMaterialization,
-  config: ResolvedSyncConfig,
+  config: MaterializationConfig,
 ) => {
   if (
     entry.kind === "file" &&
-    resolveManagedSyncMode(config, entry.repoPath) === "ignore"
+    resolveManagedSyncMode(config, entry.repoPath, config.activeProfile) ===
+      "ignore"
   ) {
     return;
   }

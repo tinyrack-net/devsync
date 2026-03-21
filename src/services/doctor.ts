@@ -1,9 +1,11 @@
-import { readSyncConfig } from "#app/config/sync.ts";
-
 import { countConfiguredRules } from "./config-file.ts";
 import { pathExists } from "./filesystem.ts";
 import { ensureRepository } from "./git.ts";
-import type { SyncContext } from "./runtime.ts";
+import {
+  type EffectiveSyncConfig,
+  loadSyncConfig,
+  type SyncContext,
+} from "./runtime.ts";
 
 export type DoctorCheckLevel = "fail" | "ok" | "warn";
 
@@ -64,17 +66,24 @@ export const runSyncDoctor = async (
     };
   }
 
-  let config: Awaited<ReturnType<typeof readSyncConfig>>;
+  let config: EffectiveSyncConfig;
 
   try {
-    config = await readSyncConfig(
-      context.paths.syncDirectory,
-      context.environment,
-    );
+    const { effectiveConfig, fullConfig } = await loadSyncConfig(context);
+
+    config = effectiveConfig;
     checks.push(
       ok(
         "config",
-        `Loaded config with ${config.entries.length} entries, ${countConfiguredRules(config)} rules, and ${config.age.recipients.length} recipients.`,
+        `Loaded config with ${fullConfig.entries.length} entries, ${countConfiguredRules(fullConfig)} rules, and ${fullConfig.age.recipients.length} recipients.`,
+      ),
+    );
+    checks.push(
+      ok(
+        "profiles",
+        effectiveConfig.activeProfilesMode === "none"
+          ? "No profiled entries are currently active."
+          : `Active profile: ${effectiveConfig.activeProfile}.`,
       ),
     );
   } catch (error: unknown) {

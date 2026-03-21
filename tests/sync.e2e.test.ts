@@ -147,7 +147,6 @@ describe("sync CLI e2e", () => {
         kind: string;
         localPath: string;
         mode: string;
-        name: string;
         overrides?: Record<string, string>;
         repoPath: string;
       }>;
@@ -163,7 +162,6 @@ describe("sync CLI e2e", () => {
         kind: "directory",
         localPath: "~/.config/mytool",
         mode: "secret",
-        name: ".config/mytool",
         overrides: {
           "cache/": "ignore",
           "public.json": "normal",
@@ -235,11 +233,136 @@ describe("sync CLI e2e", () => {
     expect(config.entries).toMatchObject([
       {
         repoPath: ".ssh",
-        overrides: {
-          known_hosts: "ignore",
-        },
+        overrides: { known_hosts: "ignore" },
       },
     ]);
+  });
+
+  it("rejects profile-specific file tracking and root updates from the CLI", async () => {
+    const workspace = await createWorkspace();
+    const homeDirectory = join(workspace, "home");
+    const xdgConfigHome = join(workspace, "xdg");
+    const trackedFile = join(homeDirectory, ".gitconfig");
+    const ageKeys = await createAgeKeyPair();
+    const env = createSyncEnvironment(homeDirectory, xdgConfigHome);
+
+    await writeIdentityFile(xdgConfigHome, ageKeys.identity);
+    await mkdir(homeDirectory, { recursive: true });
+    await writeFile(trackedFile, "[user]\n  name = profile\n");
+
+    await runCli(
+      [
+        "init",
+        "--recipient",
+        ageKeys.recipient,
+        "--identity",
+        "$XDG_CONFIG_HOME/devsync/age/keys.txt",
+      ],
+      { env },
+    );
+    const addResult = await runCli(["add", trackedFile, "--profile", "work"], {
+      env,
+      reject: false,
+    });
+
+    await runCli(["add", trackedFile], { env });
+
+    const setResult = await runCli(
+      ["set", "secret", trackedFile, "--profile", "work"],
+      { env, reject: false },
+    );
+
+    expect(addResult.stderr).toContain("Nonexistent flag: --profile");
+    expect(setResult.stderr).toContain("not supported for file entries");
+  });
+
+  it("removes a profile-specific exact override when returning to the inherited mode", async () => {
+    const workspace = await createWorkspace();
+    const homeDirectory = join(workspace, "home");
+    const xdgConfigHome = join(workspace, "xdg");
+    const zshDirectory = join(homeDirectory, ".config", "zsh");
+    const secretsFile = join(zshDirectory, "secrets.zsh");
+    const syncDirectory = join(xdgConfigHome, "devsync", "sync");
+    const ageKeys = await createAgeKeyPair();
+    const env = createSyncEnvironment(homeDirectory, xdgConfigHome);
+
+    await writeIdentityFile(xdgConfigHome, ageKeys.identity);
+    await mkdir(zshDirectory, { recursive: true });
+    await writeFile(secretsFile, "export TOKEN=abc\n");
+
+    await runCli(
+      [
+        "init",
+        "--recipient",
+        ageKeys.recipient,
+        "--identity",
+        "$XDG_CONFIG_HOME/devsync/age/keys.txt",
+      ],
+      { env },
+    );
+    await runCli(["add", zshDirectory], { env });
+    await runCli(["set", "secret", secretsFile], { env });
+    await runCli(["set", "ignore", secretsFile, "--profile", "vivident"], {
+      env,
+    });
+
+    const setResult = await runCli(
+      ["set", "secret", secretsFile, "--profile", "vivident"],
+      { env },
+    );
+    const config = JSON.parse(
+      await readFile(join(syncDirectory, "config.json"), "utf8"),
+    ) as {
+      entries: Array<{
+        overrides?: Record<string, string>;
+        profiles?: {
+          vivident?: { mode: string; overrides?: Record<string, string> };
+        };
+      }>;
+    };
+
+    expect(setResult.stdout).toContain("Updated sync mode.");
+    expect(setResult.stdout).toContain("Action: removed");
+    expect(config.entries[0]?.overrides).toEqual({ "secrets.zsh": "secret" });
+    expect(config.entries[0]?.profiles?.vivident).toBeUndefined();
+  });
+
+  it("explains when a profile already inherits the requested mode", async () => {
+    const workspace = await createWorkspace();
+    const homeDirectory = join(workspace, "home");
+    const xdgConfigHome = join(workspace, "xdg");
+    const zshDirectory = join(homeDirectory, ".config", "zsh");
+    const secretsFile = join(zshDirectory, "secrets.zsh");
+    const ageKeys = await createAgeKeyPair();
+    const env = createSyncEnvironment(homeDirectory, xdgConfigHome);
+
+    await writeIdentityFile(xdgConfigHome, ageKeys.identity);
+    await mkdir(zshDirectory, { recursive: true });
+    await writeFile(secretsFile, "export TOKEN=abc\n");
+
+    await runCli(
+      [
+        "init",
+        "--recipient",
+        ageKeys.recipient,
+        "--identity",
+        "$XDG_CONFIG_HOME/devsync/age/keys.txt",
+      ],
+      { env },
+    );
+    await runCli(["add", zshDirectory], { env });
+    await runCli(["set", "secret", secretsFile], { env });
+
+    const setResult = await runCli(
+      ["set", "secret", secretsFile, "--profile", "vivident"],
+      { env },
+    );
+
+    expect(setResult.stdout).toContain("Sync mode unchanged.");
+    expect(setResult.stdout).toContain("Action: unchanged");
+    expect(setResult.stdout).toContain(
+      "No override created because this target already inherits secret mode.",
+    );
   });
 
   it("pushes and pulls through the CLI using per-path modes", async () => {
@@ -284,12 +407,15 @@ describe("sync CLI e2e", () => {
     expect(pushResult.stdout).toContain("Synchronized local config");
     expect(
       await readFile(
-        join(syncDirectory, "files", "bundle", "plain.txt"),
+        join(syncDirectory, "files", "default", "bundle", "plain.txt"),
         "utf8",
       ),
     ).toBe("plain value\n");
     await expect(
-      readFile(join(syncDirectory, "files", "bundle", "ignored.txt"), "utf8"),
+      readFile(
+        join(syncDirectory, "files", "default", "bundle", "ignored.txt"),
+        "utf8",
+      ),
     ).rejects.toMatchObject({
       code: "ENOENT",
     });
@@ -298,6 +424,7 @@ describe("sync CLI e2e", () => {
         join(
           syncDirectory,
           "files",
+          "default",
           "bundle",
           `secret.json${syncSecretArtifactSuffix}`,
         ),
@@ -394,6 +521,7 @@ describe("sync CLI e2e", () => {
       join(
         syncDirectory,
         "files",
+        "default",
         "bundle",
         `secret.txt${syncSecretArtifactSuffix}`,
       ),
