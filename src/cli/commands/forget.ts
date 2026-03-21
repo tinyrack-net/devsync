@@ -1,4 +1,4 @@
-import { Args, Flags } from "@oclif/core";
+import { Args } from "@oclif/core";
 
 import { BaseCommand } from "#app/cli/base-command.ts";
 import { formatSyncForgetResult } from "#app/lib/output.ts";
@@ -26,20 +26,11 @@ export default class SyncForget extends BaseCommand {
     }),
   };
 
-  public static override flags = {
-    profile: Flags.string({
-      summary: "Forget a profile-specific child override",
-      description:
-        "Remove overrides from a named profile namespace for child paths inside a tracked directory.",
-    }),
-  };
-
   public override async run(): Promise<void> {
-    const { args, flags } = await this.parse(SyncForget);
+    const { args } = await this.parse(SyncForget);
     const output = formatSyncForgetResult(
       await forgetSyncTarget(
         {
-          profile: flags.profile,
           target: args.target,
         },
         createSyncContext(),

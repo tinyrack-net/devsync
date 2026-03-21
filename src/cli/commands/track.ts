@@ -10,12 +10,11 @@ export default class SyncTrack extends BaseCommand {
     "Track a local file or directory under your home directory";
 
   public static override description =
-    "Register a shared or machine-specific root so devsync can mirror it into the sync repository. Targets may be absolute, home-relative, or relative to the current working directory as long as they resolve under HOME.";
+    "Register a root so devsync can mirror it into the sync repository. Targets may be absolute, home-relative, or relative to the current working directory as long as they resolve under HOME.";
 
   public static override examples = [
     "<%= config.bin %> <%= command.id %> ~/.gitconfig",
     "<%= config.bin %> <%= command.id %> ~/.config/zsh --mode secret",
-    "<%= config.bin %> <%= command.id %> ~/.gitconfig-work --machine work",
   ];
 
   public static override args = {
@@ -27,11 +26,6 @@ export default class SyncTrack extends BaseCommand {
   };
 
   public static override flags = {
-    machine: Flags.string({
-      summary: "Track the root in a specific machine layer",
-      description:
-        "When omitted, the tracked root belongs to the shared base layer.",
-    }),
     mode: Flags.string({
       default: "normal",
       description:
@@ -46,7 +40,6 @@ export default class SyncTrack extends BaseCommand {
     const output = formatSyncAddResult(
       await trackSyncTarget(
         {
-          machine: flags.machine,
           mode: flags.mode as "normal" | "secret",
           target: args.target,
         },

@@ -2,12 +2,11 @@ import { join } from "node:path";
 
 import {
   findOwningSyncEntry,
-  normalizeSyncMachineName,
   type ResolvedSyncConfigEntry,
   type ResolvedSyncOverride,
   readSyncConfig,
   resolveEntryRelativeRepoPath,
-  resolveRelativeSyncRule,
+  resolveRelativeSyncMode,
   type SyncMode,
 } from "#app/config/sync.ts";
 
@@ -27,7 +26,6 @@ import {
 import { ensureSyncRepository, type SyncContext } from "./runtime.ts";
 
 export type SyncSetRequest = Readonly<{
-  machine?: string;
   recursive: boolean;
   state: SyncMode;
   target: string;
@@ -46,7 +44,6 @@ export type SyncSetResult = Readonly<{
   entryRepoPath: string;
   localPath: string;
   mode: SyncMode;
-  machine?: string;
   repoPath: string;
   reason?: SyncSetReason;
   scope: SyncSetScope;
@@ -113,31 +110,9 @@ const resolveTargetPath = async (
 
 export const resolveSetTarget = async (
   target: string,
-  machine: string | undefined,
   config: Awaited<ReturnType<typeof readSyncConfig>>,
   context: Pick<SyncContext, "cwd" | "environment" | "paths">,
 ) => {
-  const matchingEntries = config.entries
-    .filter((entry) => {
-      return machine === undefined
-        ? true
-        : entry.machine === machine || entry.machine === undefined;
-    })
-    .sort((left, right) => {
-      if (machine === undefined || left.machine === right.machine) {
-        return 0;
-      }
-
-      if (left.machine === machine) {
-        return -1;
-      }
-
-      if (right.machine === machine) {
-        return 1;
-      }
-
-      return 0;
-    });
   const trimmedTarget = target.trim();
 
   if (trimmedTarget.length === 0) {
@@ -173,19 +148,7 @@ export const resolveSetTarget = async (
       });
     }
 
-    const entry = findOwningSyncEntry(
-      { entries: matchingEntries },
-      localRepoPath,
-    );
-    const ambiguousEntries =
-      machine === undefined
-        ? config.entries.filter((candidate) => {
-            return (
-              resolveEntryRelativeRepoPath(candidate, localRepoPath) !==
-              undefined
-            );
-          })
-        : [];
+    const entry = findOwningSyncEntry(config, localRepoPath);
 
     if (
       explicitLocalPath &&
@@ -193,28 +156,6 @@ export const resolveSetTarget = async (
       entry.kind === "file" &&
       entry.localPath === localTargetPath
     ) {
-      if (machine !== undefined) {
-        throw new DevsyncError(
-          "Machine-specific root updates are not supported for file entries.",
-          {
-            code: "FILE_ENTRY_SET_UNSUPPORTED",
-            details: [`Target: ${trimmedTarget}`, `Machine: ${machine}`],
-            hint: "Track the file once without a machine, or move it under a tracked directory and use machine-specific child rules instead.",
-          },
-        );
-      }
-
-      if (entry.machine !== undefined) {
-        throw new DevsyncError(
-          "Tracked file entries cannot be updated with 'devsync rule set'.",
-          {
-            code: "FILE_ENTRY_SET_UNSUPPORTED",
-            details: [`Target: ${trimmedTarget}`],
-            hint: "Use 'devsync entry mode' for tracked roots, or untrack and track the file again with the desired mode.",
-          },
-        );
-      }
-
       return {
         entry,
         localPath: localTargetPath,
@@ -236,21 +177,6 @@ export const resolveSetTarget = async (
           stats: localStats,
         };
       }
-    }
-
-    if (
-      machine === undefined &&
-      entry === undefined &&
-      ambiguousEntries.length > 1
-    ) {
-      throw new DevsyncError(
-        "Sync set target matches multiple machine entries.",
-        {
-          code: "TARGET_CONFLICT",
-          details: [`Target: ${trimmedTarget}`],
-          hint: "Pass --machine to choose which tracked machine entry to update.",
-        },
-      );
     }
 
     if (explicitLocalPath) {
@@ -278,30 +204,7 @@ export const resolveSetTarget = async (
     );
   }
 
-  const entry = findOwningSyncEntry({ entries: matchingEntries }, repoPath);
-  const ambiguousEntries =
-    machine === undefined
-      ? config.entries.filter((candidate) => {
-          return (
-            resolveEntryRelativeRepoPath(candidate, repoPath) !== undefined
-          );
-        })
-      : [];
-
-  if (
-    machine === undefined &&
-    entry === undefined &&
-    ambiguousEntries.length > 1
-  ) {
-    throw new DevsyncError(
-      "Sync set target matches multiple machine entries.",
-      {
-        code: "TARGET_CONFLICT",
-        details: [`Target: ${trimmedTarget}`],
-        hint: "Pass --machine to choose which tracked machine entry to update.",
-      },
-    );
-  }
+  const entry = findOwningSyncEntry(config, repoPath);
 
   if (entry === undefined || entry.kind !== "directory") {
     throw new DevsyncError(
@@ -342,7 +245,6 @@ export const resolveSetTarget = async (
 
 const updateChildOverride = (
   entry: ResolvedSyncConfigEntry,
-  baseEntry: ResolvedSyncConfigEntry | undefined,
   input: Readonly<{
     match: Extract<SyncSetScope, "exact" | "subtree">;
     mode: SyncMode;
@@ -363,31 +265,11 @@ const updateChildOverride = (
       override.match === input.match && override.path === input.relativePath
     );
   });
-  const inheritedEntry =
-    baseEntry === undefined
-      ? {
-          mode: entry.mode,
-          overrides: remainingOverrides,
-          machine: entry.machine,
-        }
-      : {
-          mode: entry.mode,
-          overrides: [
-            ...baseEntry.overrides.filter((override) => {
-              return !remainingOverrides.some((candidate) => {
-                return (
-                  candidate.match === override.match &&
-                  candidate.path === override.path
-                );
-              });
-            }),
-            ...remainingOverrides,
-          ],
-          machine: entry.machine,
-        };
-  const inheritedMode =
-    resolveRelativeSyncRule(inheritedEntry, input.relativePath, entry.machine)
-      ?.mode ?? entry.mode;
+  const inheritedMode = resolveRelativeSyncMode(
+    entry.mode,
+    remainingOverrides,
+    input.relativePath,
+  );
 
   if (input.mode === inheritedMode) {
     if (existingOverride === undefined) {
@@ -437,20 +319,11 @@ export const setSyncTargetMode = async (
 ): Promise<SyncSetResult> => {
   await ensureSyncRepository(context);
 
-  const machine =
-    request.machine === undefined
-      ? undefined
-      : normalizeSyncMachineName(request.machine);
   const config = await readSyncConfig(
     context.paths.syncDirectory,
     context.environment,
   );
-  const target = await resolveSetTarget(
-    request.target,
-    machine,
-    config,
-    context,
-  );
+  const target = await resolveSetTarget(request.target, config, context);
 
   if (target.relativePath === "") {
     throw new DevsyncError(
@@ -487,49 +360,15 @@ export const setSyncTargetMode = async (
   }
 
   const scope = request.recursive ? "subtree" : "exact";
-  const machinedEntry =
-    machine === undefined || target.entry.machine === machine
-      ? target.entry
-      : (config.entries.find((entry) => {
-          return (
-            entry.repoPath === target.entry.repoPath &&
-            entry.machine === machine
-          );
-        }) ?? {
-          ...target.entry,
-          mode: target.entry.mode,
-          modeExplicit: false,
-          name: `${target.entry.repoPath}#${machine}`,
-          overrides: [],
-          machine,
-        });
-  const workingConfig =
-    machine === undefined || target.entry.machine === machine
-      ? config
-      : {
-          ...config,
-          entries: [...config.entries, machinedEntry],
-        };
-  const baseEntry = config.entries.find((entry) => {
-    return (
-      machinedEntry.machine !== undefined &&
-      entry.repoPath === machinedEntry.repoPath &&
-      entry.machine === undefined
-    );
-  });
-  const update = updateChildOverride(machinedEntry, baseEntry, {
+  const update = updateChildOverride(target.entry, {
     match: scope,
     mode: request.state,
     relativePath: target.relativePath,
   });
   const nextConfig = createSyncConfigDocument({
-    ...workingConfig,
-    entries: workingConfig.entries.map((entry) => {
-      if (entry.repoPath !== machinedEntry.repoPath) {
-        return entry;
-      }
-
-      if (entry.machine !== machinedEntry.machine) {
+    ...config,
+    entries: config.entries.map((entry) => {
+      if (entry.repoPath !== target.entry.repoPath) {
         return entry;
       }
 
@@ -549,11 +388,6 @@ export const setSyncTargetMode = async (
     entryRepoPath: target.entry.repoPath,
     localPath: target.localPath,
     mode: request.state,
-    ...(machine === undefined
-      ? target.entry.machine === undefined
-        ? {}
-        : { machine: target.entry.machine }
-      : { machine }),
     repoPath: target.repoPath,
     ...(update.reason === undefined ? {} : { reason: update.reason }),
     scope,

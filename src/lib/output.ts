@@ -8,7 +8,9 @@ import type { SyncForgetResult } from "#app/services/forget.ts";
 import type { SyncInitResult } from "#app/services/init.ts";
 import type { SyncListResult } from "#app/services/list.ts";
 import type {
+  SyncMachineAssignResult,
   SyncMachineListResult,
+  SyncMachineUnassignResult,
   SyncMachineUpdateResult,
 } from "#app/services/machine.ts";
 import type { SyncPullResult } from "#app/services/pull.ts";
@@ -134,30 +136,8 @@ const formatSetReason = (result: SyncSetResult) => {
   }
 };
 
-const formatMachineStoragePath = (input: {
-  machine?: string;
-  repoPath?: string;
-}) => {
-  if (input.repoPath === undefined) {
-    return input.machine === undefined
-      ? "base/<repoPath>"
-      : `machines/${input.machine}/<repoPath>`;
-  }
-
-  return input.machine === undefined
-    ? `base/${input.repoPath}`
-    : `machines/${input.machine}/${input.repoPath}`;
-};
-
-const formatActiveNamespaces = (
-  activeMachinesMode: "none" | "single",
-  activeMachine: string | undefined,
-) => {
-  if (activeMachinesMode === "none") {
-    return "base only";
-  }
-
-  return `base/<repoPath>, machines/${activeMachine}/<repoPath>`;
+const formatStoragePath = (repoPath: string) => {
+  return `default/${repoPath}`;
 };
 
 const formatPushSummary = (result: SyncPushResult) => {
@@ -186,8 +166,8 @@ const formatPullSummary = (result: SyncPullResult) => {
 
 const formatTrackedEntry = (entry: SyncListResult["entries"][number]) => {
   const lines = [
-    `${style.bullet("-")} ${style.value(entry.repoPath)} ${style.detail(`[${entry.kind}, ${entry.mode}${entry.machine === undefined ? "" : `, machine=${entry.machine}`}, ${entry.active ? "active" : "inactive"}] -> ${entry.localPath}`)}`,
-    `${OUTPUT_INDENT}${style.detail("storage")} ${style.value(formatMachineStoragePath({ machine: entry.machine, repoPath: entry.repoPath }))}`,
+    `${style.bullet("-")} ${style.value(entry.repoPath)} ${style.detail(`[${entry.kind}, ${entry.mode}] -> ${entry.localPath}`)}`,
+    `${OUTPUT_INDENT}${style.detail("storage")} ${style.value(formatStoragePath(entry.repoPath))}`,
     ...entry.overrides.map((override) => {
       return `${OUTPUT_INDENT}${style.detail("rule")} ${style.value(override.selector)}: ${style.value(override.mode)}`;
     }),
@@ -284,14 +264,7 @@ export const formatSyncAddResult = (result: SyncAddResult) => {
     line("Config file", result.configPath),
     line("Local path", result.localPath),
     line("Repository path", result.repoPath),
-    result.machine !== undefined && line("Machine", result.machine),
-    line(
-      "Repository storage",
-      formatMachineStoragePath({
-        machine: result.machine,
-        repoPath: result.repoPath,
-      }),
-    ),
+    line("Repository storage", formatStoragePath(result.repoPath)),
     line("Kind", result.kind),
     line("Mode", result.mode),
   );
@@ -304,7 +277,6 @@ export const formatSyncForgetResult = (result: SyncForgetResult) => {
     line("Config file", result.configPath),
     line("Local path", result.localPath),
     line("Repository path", result.repoPath),
-    result.machine !== undefined && line("Machine", result.machine),
     line(
       "Removed repo artifacts",
       `${result.plainArtifactCount} plain, ${result.secretArtifactCount} secret.`,
@@ -325,7 +297,6 @@ export const formatSyncSetResult = (result: SyncSetResult) => {
     line("Owning entry", result.entryRepoPath),
     line("Target repository path", result.repoPath),
     line("Mode", result.mode),
-    result.machine !== undefined && line("Machine", result.machine),
     line("Scope", formatSetScope(result.scope)),
     line("Action", result.action),
     formatSetReason(result),
@@ -367,15 +338,10 @@ export const formatSyncListResult = (result: SyncListResult) => {
     formatHeadline("Tracked sync configuration."),
     line("Sync directory", result.syncDirectory),
     line("Config file", result.configPath),
-    line("Active machines", result.activeMachine ?? "none"),
-    line(
-      "Active namespaces",
-      formatActiveNamespaces(result.activeMachinesMode, result.activeMachine),
-    ),
+    line("Active machine", result.activeMachine ?? "none"),
     summary(
       `${result.recipientCount} recipients`,
       `${result.entries.length} entries`,
-      `${result.activeEntryCount} active`,
       `${result.ruleCount} rules`,
     ),
     ...(result.entries.length === 0
@@ -389,15 +355,10 @@ export const formatSyncStatusResult = (result: SyncStatusResult) => {
     formatHeadline("Sync status overview."),
     line("Sync directory", result.syncDirectory),
     line("Config file", result.configPath),
-    line("Active machines", result.activeMachine ?? "none"),
-    line(
-      "Active namespaces",
-      formatActiveNamespaces(result.activeMachinesMode, result.activeMachine),
-    ),
+    line("Active machine", result.activeMachine ?? "none"),
     summary(
       `${result.recipientCount} recipients`,
       `${result.entryCount} entries`,
-      `${result.activeEntryCount} active`,
       `${result.ruleCount} rules`,
     ),
     ...formatPushPlan(result.push),
@@ -419,6 +380,14 @@ export const formatSyncDoctorResult = (result: SyncDoctorResult) => {
 };
 
 export const formatSyncMachineListResult = (result: SyncMachineListResult) => {
+  const assignmentLines =
+    result.assignments.length === 0
+      ? [line("Assignments", "none")]
+      : result.assignments.map(
+          (a) =>
+            `${OUTPUT_INDENT}${style.bullet("-")} ${style.value(a.path)} ${style.detail(`[${a.machines.join(", ")}]`)}`,
+        );
+
   return output(
     formatHeadline("Sync machines overview."),
     line("Sync directory", result.syncDirectory),
@@ -426,6 +395,7 @@ export const formatSyncMachineListResult = (result: SyncMachineListResult) => {
     line("Active machines", result.activeMachine ?? "none"),
     summary(
       `${result.availableMachines.length} available machines`,
+      `${result.assignments.length} assignments`,
       result.globalConfigExists
         ? "global config present"
         : "using implicit defaults",
@@ -433,6 +403,7 @@ export const formatSyncMachineListResult = (result: SyncMachineListResult) => {
     ...(result.availableMachines.length === 0
       ? [line("Machines", "none")]
       : preview("Machines", result.availableMachines, "none")),
+    ...assignmentLines,
   );
 };
 
@@ -450,5 +421,44 @@ export const formatSyncMachineUpdateResult = (
     line("Global config", result.globalConfigPath),
     result.machine !== undefined && line("Machine", result.machine),
     line("Active machines", result.activeMachine ?? "none"),
+  );
+};
+
+export const formatSyncMachineAssignResult = (
+  result: SyncMachineAssignResult,
+) => {
+  return output(
+    formatHeadline(
+      result.action === "assigned"
+        ? "Assigned machines to path."
+        : "Machine assignment unchanged.",
+      result.action === "assigned" ? "success" : "warn",
+    ),
+    line("Sync directory", result.syncDirectory),
+    line("Config file", result.configPath),
+    line("Entry", result.entryRepoPath),
+    line("Path", result.path),
+    line("Machines", result.machines.join(", ")),
+  );
+};
+
+export const formatSyncMachineUnassignResult = (
+  result: SyncMachineUnassignResult,
+) => {
+  return output(
+    formatHeadline(
+      result.action === "removed"
+        ? "Removed machines from path."
+        : "Machine assignment unchanged.",
+      result.action === "removed" ? "success" : "warn",
+    ),
+    line("Sync directory", result.syncDirectory),
+    line("Config file", result.configPath),
+    line("Entry", result.entryRepoPath),
+    line("Path", result.path),
+    line(
+      "Remaining machines",
+      result.machines.length === 0 ? "none" : result.machines.join(", "),
+    ),
   );
 };

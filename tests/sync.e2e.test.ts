@@ -85,7 +85,7 @@ describe("sync CLI e2e", () => {
         identityFile: "$XDG_CONFIG_HOME/devsync/age/keys.txt",
         recipients: [expect.stringMatching(/^age1/u)],
       },
-      version: 2,
+      version: 3,
     });
   });
 
@@ -143,11 +143,10 @@ describe("sync CLI e2e", () => {
       await readFile(join(syncDirectory, "config.json"), "utf8"),
     ) as {
       entries: Array<{
-        base?: {
-          mode: string;
-          rules?: Record<string, string>;
-        };
-        repoPath: string;
+        kind: string;
+        localPath: string;
+        mode?: string;
+        rules?: Record<string, string>;
       }>;
     };
 
@@ -157,16 +156,13 @@ describe("sync CLI e2e", () => {
     expect(subtreeRuleResult.stdout).toContain("Scope: subtree rule");
     expect(configAfterSet.entries).toMatchObject([
       {
-        base: {
-          mode: "secret",
-          rules: {
-            "cache/": "ignore",
-            "public.json": "normal",
-          },
-        },
         kind: "directory",
         localPath: "~/.config/mytool",
-        repoPath: ".config/mytool",
+        mode: "secret",
+        rules: {
+          "cache/": "ignore",
+          "public.json": "normal",
+        },
       },
     ]);
 
@@ -181,7 +177,7 @@ describe("sync CLI e2e", () => {
     expect(configAfterUntrack.entries).toEqual([]);
   }, 15_000);
 
-  it("syncs base plus the active machine layer with plain push and pull", async () => {
+  it("syncs with the default machine namespace using push and pull", async () => {
     const workspace = await createWorkspace();
     const homeDirectory = join(workspace, "home");
     const xdgConfigHome = join(workspace, "xdg");
@@ -207,11 +203,7 @@ describe("sync CLI e2e", () => {
       { env },
     );
     await runCli(["track", zshDirectory], { env });
-    await runCli(["rule", "set", "ignore", secretsFile], { env });
-    await runCli(["rule", "set", "secret", secretsFile, "--machine", "work"], {
-      env,
-    });
-    await runCli(["machine", "use", "work"], { env });
+    await runCli(["rule", "set", "secret", secretsFile], { env });
 
     await runCli(["push"], { env });
 
@@ -221,7 +213,7 @@ describe("sync CLI e2e", () => {
           xdgConfigHome,
           "devsync",
           "sync",
-          "base",
+          "default",
           ".config",
           "zsh",
           "zshrc",
@@ -235,8 +227,7 @@ describe("sync CLI e2e", () => {
           xdgConfigHome,
           "devsync",
           "sync",
-          "machines",
-          "work",
+          "default",
           ".config",
           "zsh",
           "secrets.zsh.devsync.secret",

@@ -11,8 +11,10 @@ import { trackSyncTarget } from "./add.ts";
 import { initializeSync } from "./init.ts";
 import { listSyncConfig } from "./list.ts";
 import {
+  assignSyncMachines,
   clearSyncMachines,
   listSyncMachines,
+  unassignSyncMachines,
   useSyncMachine,
 } from "./machine.ts";
 import { pullSync } from "./pull.ts";
@@ -51,7 +53,7 @@ afterEach(async () => {
 });
 
 describe("sync service", () => {
-  it("tracks shared and machine-specific roots in v2 config", async () => {
+  it("tracks entries in v3 config format", async () => {
     const workspace = await createWorkspace();
     const homeDirectory = join(workspace, "home");
     const xdgConfigHome = join(workspace, "xdg");
@@ -61,14 +63,6 @@ describe("sync service", () => {
 
     await writeIdentityFile(xdgConfigHome, ageKeys.identity);
     await mkdir(sharedDirectory, { recursive: true });
-    await writeFile(
-      join(sharedDirectory, "secrets.zsh"),
-      "export TOKEN=work\n",
-    );
-    await writeFile(
-      join(sharedDirectory, "secrets.zsh"),
-      "export TOKEN=work\n",
-    );
     await writeFile(
       join(sharedDirectory, "secrets.zsh"),
       "export TOKEN=work\n",
@@ -96,7 +90,6 @@ describe("sync service", () => {
     );
     await trackSyncTarget(
       {
-        machine: "work",
         mode: "secret",
         target: workFile,
       },
@@ -113,25 +106,16 @@ describe("sync service", () => {
       version: number;
     };
 
-    expect(config.version).toBe(2);
+    expect(config.version).toBe(3);
     expect(config.entries).toEqual([
       {
-        base: {
-          mode: "normal",
-        },
         kind: "directory",
         localPath: "~/.config/zsh",
-        repoPath: ".config/zsh",
       },
       {
         kind: "file",
         localPath: "~/.gitconfig-work",
-        machines: {
-          work: {
-            mode: "secret",
-          },
-        },
-        repoPath: ".gitconfig-work",
+        mode: "secret",
       },
     ]);
   });
@@ -170,7 +154,6 @@ describe("sync service", () => {
     );
     await setSyncRule(
       {
-        machine: "work",
         recursive: false,
         state: "secret",
         target: join(sharedDirectory, "secrets.zsh"),
@@ -178,9 +161,6 @@ describe("sync service", () => {
       context,
     );
 
-    expect((await listSyncMachines(context)).availableMachines).toEqual([
-      "work",
-    ]);
     expect(await useSyncMachine("work", context)).toMatchObject({
       activeMachine: "work",
       machine: "work",
@@ -191,7 +171,7 @@ describe("sync service", () => {
     });
   });
 
-  it("pushes and pulls base plus the active machine layer", async () => {
+  it("pushes and pulls with the active machine", async () => {
     const workspace = await createWorkspace();
     const homeDirectory = join(workspace, "home");
     const xdgConfigHome = join(workspace, "xdg");
@@ -226,21 +206,11 @@ describe("sync service", () => {
     await setSyncRule(
       {
         recursive: false,
-        state: "ignore",
-        target: secretsFile,
-      },
-      context,
-    );
-    await setSyncRule(
-      {
-        machine: "work",
-        recursive: false,
         state: "secret",
         target: secretsFile,
       },
       context,
     );
-    await useSyncMachine("work", context);
 
     await pushSync(
       {
@@ -253,24 +223,23 @@ describe("sync service", () => {
       xdgConfigHome,
       "devsync",
       "sync",
-      "base",
+      "default",
       ".config",
       "zsh",
       "zshrc",
     );
-    const machineArtifact = join(
+    const secretArtifact = join(
       xdgConfigHome,
       "devsync",
       "sync",
-      "machines",
-      "work",
+      "default",
       ".config",
       "zsh",
       "secrets.zsh.devsync.secret",
     );
 
     expect(await readFile(sharedArtifact, "utf8")).toContain("PATH");
-    expect(await readFile(machineArtifact, "utf8")).toContain(
+    expect(await readFile(secretArtifact, "utf8")).toContain(
       "BEGIN AGE ENCRYPTED FILE",
     );
 
@@ -286,7 +255,6 @@ describe("sync service", () => {
 
     await unsetSyncRule(
       {
-        machine: "work",
         recursive: false,
         target: secretsFile,
       },
@@ -295,10 +263,134 @@ describe("sync service", () => {
 
     const listResult = await listSyncConfig(context);
 
-    expect(
-      listResult.entries.find((entry) => {
-        return entry.machine === "work" && entry.repoPath === ".config/zsh";
-      }),
-    ).toBeUndefined();
+    expect(listResult.entries[0]?.overrides).toEqual([]);
+  });
+
+  it("assigns and unassigns machines to directory child paths", async () => {
+    const workspace = await createWorkspace();
+    const homeDirectory = join(workspace, "home");
+    const xdgConfigHome = join(workspace, "xdg");
+    const zshDirectory = join(homeDirectory, ".config", "zsh");
+    const ageKeys = await createAgeKeyPair();
+
+    await writeIdentityFile(xdgConfigHome, ageKeys.identity);
+    await mkdir(zshDirectory, { recursive: true });
+    await writeFile(join(zshDirectory, "secrets.zsh"), "export TOKEN=x\n");
+
+    const context = createSyncContext({
+      environment: createSyncEnvironment(homeDirectory, xdgConfigHome),
+    });
+
+    await initializeSync(
+      {
+        identityFile: "$XDG_CONFIG_HOME/devsync/age/keys.txt",
+        recipients: [ageKeys.recipient],
+      },
+      context,
+    );
+    await trackSyncTarget({ mode: "normal", target: zshDirectory }, context);
+
+    const assignResult = await assignSyncMachines(
+      {
+        target: zshDirectory,
+        path: "secrets.zsh",
+        machines: ["default", "work"],
+      },
+      context,
+    );
+
+    expect(assignResult.action).toBe("assigned");
+    expect(assignResult.machines).toEqual(["default", "work"]);
+    expect(assignResult.path).toBe(".config/zsh/secrets.zsh");
+
+    const config = JSON.parse(
+      await readFile(
+        join(xdgConfigHome, "devsync", "sync", "config.json"),
+        "utf8",
+      ),
+    ) as { entries: Array<{ machines?: Record<string, string[]> }> };
+
+    expect(config.entries[0]?.machines).toEqual({
+      "secrets.zsh": ["default", "work"],
+    });
+
+    const listResult = await listSyncMachines(context);
+
+    expect(listResult.availableMachines).toEqual(["default", "work"]);
+    expect(listResult.assignments).toEqual([
+      {
+        entryLocalPath: zshDirectory,
+        entryRepoPath: ".config/zsh",
+        machines: ["default", "work"],
+        path: ".config/zsh/secrets.zsh",
+      },
+    ]);
+
+    const unassignResult = await unassignSyncMachines(
+      { target: zshDirectory, path: "secrets.zsh", machines: ["work"] },
+      context,
+    );
+
+    expect(unassignResult.action).toBe("removed");
+    expect(unassignResult.machines).toEqual(["default"]);
+
+    const unassignAllResult = await unassignSyncMachines(
+      { target: zshDirectory, path: "secrets.zsh", machines: ["default"] },
+      context,
+    );
+
+    expect(unassignAllResult.action).toBe("removed");
+    expect(unassignAllResult.machines).toEqual([]);
+
+    const configAfter = JSON.parse(
+      await readFile(
+        join(xdgConfigHome, "devsync", "sync", "config.json"),
+        "utf8",
+      ),
+    ) as { entries: Array<{ machines?: Record<string, string[]> }> };
+
+    expect(configAfter.entries[0]?.machines).toBeUndefined();
+  });
+
+  it("assigns machines to file entries", async () => {
+    const workspace = await createWorkspace();
+    const homeDirectory = join(workspace, "home");
+    const xdgConfigHome = join(workspace, "xdg");
+    const gitconfig = join(homeDirectory, ".gitconfig");
+    const ageKeys = await createAgeKeyPair();
+
+    await writeIdentityFile(xdgConfigHome, ageKeys.identity);
+    await mkdir(homeDirectory, { recursive: true });
+    await writeFile(gitconfig, "[user]\nname=test\n");
+
+    const context = createSyncContext({
+      environment: createSyncEnvironment(homeDirectory, xdgConfigHome),
+    });
+
+    await initializeSync(
+      {
+        identityFile: "$XDG_CONFIG_HOME/devsync/age/keys.txt",
+        recipients: [ageKeys.recipient],
+      },
+      context,
+    );
+    await trackSyncTarget({ mode: "normal", target: gitconfig }, context);
+
+    const result = await assignSyncMachines(
+      { target: gitconfig, machines: ["default", "work"] },
+      context,
+    );
+
+    expect(result.action).toBe("assigned");
+    expect(result.path).toBe(".gitconfig");
+
+    const config = JSON.parse(
+      await readFile(
+        join(xdgConfigHome, "devsync", "sync", "config.json"),
+        "utf8",
+      ),
+    ) as { entries: Array<{ machines?: string[] }> };
+
+    expect(config.entries[0]?.machines).toEqual(["default", "work"]);
   });
 });

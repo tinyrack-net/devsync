@@ -80,10 +80,10 @@ export const runSyncDoctor = async (
     );
     checks.push(
       ok(
-        "profiles",
-        effectiveConfig.activeProfilesMode === "none"
-          ? "No profiled entries are currently active."
-          : `Active profile: ${effectiveConfig.activeProfile}.`,
+        "machines",
+        effectiveConfig.activeMachine === undefined
+          ? "No active machine configured."
+          : `Active machine: ${effectiveConfig.activeMachine}.`,
       ),
     );
   } catch (error: unknown) {

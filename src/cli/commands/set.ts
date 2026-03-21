@@ -40,11 +40,6 @@ export default class SyncSet extends BaseCommand {
       description:
         "When the target is a directory, update the whole subtree. For tracked directory roots, this also changes the default mode used for descendants unless a child override exists.",
     }),
-    profile: Flags.string({
-      summary: "Apply a profile-specific child override",
-      description:
-        "Apply the mode inside a named profile namespace. The target must be a child path inside a tracked directory; profile-specific root mode changes are not supported.",
-    }),
   };
 
   public override async run(): Promise<void> {
@@ -52,7 +47,6 @@ export default class SyncSet extends BaseCommand {
     const output = formatSyncSetResult(
       await setSyncTargetMode(
         {
-          profile: flags.profile,
           recursive: flags.recursive,
           state: args.state as "ignore" | "normal" | "secret",
           target: args.target,

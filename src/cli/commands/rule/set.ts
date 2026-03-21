@@ -15,7 +15,6 @@ export default class SyncRuleSet extends BaseCommand {
   public static override examples = [
     "<%= config.bin %> <%= command.id %> ignore ~/.config/zsh/cache --recursive",
     "<%= config.bin %> <%= command.id %> ignore ~/.config/zsh/secrets.zsh",
-    "<%= config.bin %> <%= command.id %> secret ~/.config/zsh/secrets.zsh --machine work",
   ];
 
   public static override args = {
@@ -39,11 +38,6 @@ export default class SyncRuleSet extends BaseCommand {
       description:
         "When the target is a directory, update the whole subtree. Omit this flag for a single file rule.",
     }),
-    machine: Flags.string({
-      summary: "Set the rule in a specific machine layer",
-      description:
-        "When omitted, the rule is written to the shared base layer.",
-    }),
   };
 
   public override async run(): Promise<void> {
@@ -51,7 +45,6 @@ export default class SyncRuleSet extends BaseCommand {
     const output = formatSyncSetResult(
       await setSyncRule(
         {
-          machine: flags.machine,
           recursive: flags.recursive,
           state: args.state as "ignore" | "normal" | "secret",
           target: args.target,

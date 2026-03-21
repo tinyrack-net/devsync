@@ -2,7 +2,6 @@ import { readdir, rm } from "node:fs/promises";
 import { dirname, join, posix } from "node:path";
 
 import {
-  normalizeSyncMachineName,
   type ResolvedSyncConfig,
   type ResolvedSyncConfigEntry,
   readSyncConfig,
@@ -26,6 +25,7 @@ import {
   tryNormalizeRepoPathInput,
 } from "./paths.ts";
 import {
+  collectArtifactNamespaces,
   isSecretArtifactPath,
   resolveArtifactRelativePath,
   resolveEntryArtifactPath,
@@ -33,7 +33,6 @@ import {
 import { ensureSyncRepository, type SyncContext } from "./runtime.ts";
 
 export type SyncForgetRequest = Readonly<{
-  machine?: string;
   target: string;
 }>;
 
@@ -41,7 +40,6 @@ export type SyncForgetResult = Readonly<{
   configPath: string;
   localPath: string;
   plainArtifactCount: number;
-  machine?: string;
   repoPath: string;
   secretArtifactCount: number;
   syncDirectory: string;
@@ -50,7 +48,6 @@ export type SyncForgetResult = Readonly<{
 const findMatchingTrackedEntries = (
   config: ResolvedSyncConfig,
   target: string,
-  machine: string | undefined,
   context: Pick<SyncContext, "cwd" | "environment">,
 ) => {
   const trimmedTarget = target.trim();
@@ -60,7 +57,7 @@ const findMatchingTrackedEntries = (
     context.cwd,
   );
   const byLocalPath = config.entries.filter((entry) => {
-    return entry.localPath === resolvedTargetPath && entry.machine === machine;
+    return entry.localPath === resolvedTargetPath;
   });
 
   if (byLocalPath.length > 0 || isExplicitLocalPath(trimmedTarget)) {
@@ -74,41 +71,7 @@ const findMatchingTrackedEntries = (
   }
 
   return config.entries.filter((entry) => {
-    return entry.repoPath === normalizedRepoPath && entry.machine === machine;
-  });
-};
-
-const findMatchingTrackedEntriesAcrossMachines = (
-  config: ResolvedSyncConfig,
-  target: string,
-  context: Pick<SyncContext, "cwd" | "environment">,
-) => {
-  const trimmedTarget = target.trim();
-  const resolvedTargetPath = resolveCommandTargetPath(
-    trimmedTarget,
-    context.environment,
-    context.cwd,
-  );
-
-  if (isExplicitLocalPath(trimmedTarget)) {
-    return config.entries.filter((entry) => {
-      return entry.localPath === resolvedTargetPath;
-    });
-  }
-
-  const normalizedRepoPath = tryNormalizeRepoPathInput(trimmedTarget);
-
-  if (normalizedRepoPath === undefined) {
-    return config.entries.filter((entry) => {
-      return entry.localPath === resolvedTargetPath;
-    });
-  }
-
-  return config.entries.filter((entry) => {
-    return (
-      entry.localPath === resolvedTargetPath ||
-      entry.repoPath === normalizedRepoPath
-    );
+    return entry.repoPath === normalizedRepoPath;
   });
 };
 
@@ -158,43 +121,48 @@ const collectEntryArtifactCounts = async (
     plain: 0,
     secret: 0,
   };
+  const namespaces = collectArtifactNamespaces([entry]);
 
-  if (entry.kind === "directory") {
-    await collectRepoArtifactCounts(
-      resolveEntryArtifactPath(artifactsRoot, entry),
-      counts,
-      resolveArtifactRelativePath({
-        category: "plain",
-        machine: entry.machine,
-        repoPath: entry.repoPath,
-      }),
-    );
-  } else {
-    await collectRepoArtifactCounts(
-      resolveEntryArtifactPath(artifactsRoot, entry),
-      counts,
-      resolveArtifactRelativePath({
-        category: "plain",
-        machine: entry.machine,
-        repoPath: entry.repoPath,
-      }),
-    );
-    await collectRepoArtifactCounts(
-      join(
-        artifactsRoot,
-        ...resolveArtifactRelativePath({
-          category: "secret",
-          machine: entry.machine,
+  for (const namespace of namespaces) {
+    const machine = namespace;
+
+    if (entry.kind === "directory") {
+      await collectRepoArtifactCounts(
+        resolveEntryArtifactPath(artifactsRoot, entry, machine),
+        counts,
+        resolveArtifactRelativePath({
+          category: "plain",
+          machine,
           repoPath: entry.repoPath,
-        }).split("/"),
-      ),
-      counts,
-      resolveArtifactRelativePath({
-        category: "secret",
-        machine: entry.machine,
-        repoPath: entry.repoPath,
-      }),
-    );
+        }),
+      );
+    } else {
+      await collectRepoArtifactCounts(
+        resolveEntryArtifactPath(artifactsRoot, entry, machine),
+        counts,
+        resolveArtifactRelativePath({
+          category: "plain",
+          machine,
+          repoPath: entry.repoPath,
+        }),
+      );
+      await collectRepoArtifactCounts(
+        join(
+          artifactsRoot,
+          ...resolveArtifactRelativePath({
+            category: "secret",
+            machine,
+            repoPath: entry.repoPath,
+          }).split("/"),
+        ),
+        counts,
+        resolveArtifactRelativePath({
+          category: "secret",
+          machine,
+          repoPath: entry.repoPath,
+        }),
+      );
+    }
   }
 
   return {
@@ -240,26 +208,29 @@ const removeTrackedEntryArtifacts = async (
   entry: ResolvedSyncConfigEntry,
 ) => {
   const artifactsRoot = resolveSyncArtifactsDirectoryPath(syncDirectory);
-  const plainPath = resolveEntryArtifactPath(artifactsRoot, entry);
+  const namespaces = collectArtifactNamespaces([entry]);
 
-  await removePathAtomically(plainPath);
-  await pruneEmptyParentDirectories(dirname(plainPath), artifactsRoot);
+  for (const namespace of namespaces) {
+    const machine = namespace;
+    const plainPath = resolveEntryArtifactPath(artifactsRoot, entry, machine);
 
-  if (entry.kind === "directory") {
-    return;
+    await removePathAtomically(plainPath);
+    await pruneEmptyParentDirectories(dirname(plainPath), artifactsRoot);
+
+    if (entry.kind !== "directory") {
+      const secretPath = join(
+        artifactsRoot,
+        ...resolveArtifactRelativePath({
+          category: "secret",
+          machine,
+          repoPath: entry.repoPath,
+        }).split("/"),
+      );
+
+      await removePathAtomically(secretPath);
+      await pruneEmptyParentDirectories(dirname(secretPath), artifactsRoot);
+    }
   }
-
-  const secretPath = join(
-    artifactsRoot,
-    ...resolveArtifactRelativePath({
-      category: "secret",
-      machine: entry.machine,
-      repoPath: entry.repoPath,
-    }).split("/"),
-  );
-
-  await removePathAtomically(secretPath);
-  await pruneEmptyParentDirectories(dirname(secretPath), artifactsRoot);
 };
 
 export const forgetSyncTarget = async (
@@ -267,10 +238,6 @@ export const forgetSyncTarget = async (
   context: SyncContext,
 ): Promise<SyncForgetResult> => {
   const target = request.target.trim();
-  const machine =
-    request.machine === undefined
-      ? undefined
-      : normalizeSyncMachineName(request.machine);
 
   if (target.length === 0) {
     throw new DevsyncError("Target path is required.");
@@ -282,23 +249,12 @@ export const forgetSyncTarget = async (
     context.paths.syncDirectory,
     context.environment,
   );
-  const matches = findMatchingTrackedEntries(config, target, machine, context);
-
-  if (
-    machine === undefined &&
-    matches.length === 0 &&
-    findMatchingTrackedEntriesAcrossMachines(config, target, context).length > 1
-  ) {
-    throw new DevsyncError(`Multiple machine sync entries match: ${target}`, {
-      code: "TARGET_CONFLICT",
-      hint: "Pass --machine to choose which machine entry to untrack.",
-    });
-  }
+  const matches = findMatchingTrackedEntries(config, target, context);
 
   if (matches.length > 1) {
     throw new DevsyncError(`Multiple tracked sync entries match: ${target}`, {
       code: "TARGET_CONFLICT",
-      hint: "Use an explicit local path or remove the duplicate machine-specific entries manually from config.json.",
+      hint: "Use an explicit local path to choose the tracked entry.",
     });
   }
 
@@ -313,10 +269,7 @@ export const forgetSyncTarget = async (
   const nextConfig = createSyncConfigDocument({
     ...config,
     entries: config.entries.filter((configEntry) => {
-      return !(
-        configEntry.repoPath === entry.repoPath &&
-        configEntry.machine === entry.machine
-      );
+      return configEntry.repoPath !== entry.repoPath;
     }),
   });
 
@@ -329,7 +282,6 @@ export const forgetSyncTarget = async (
     configPath: context.paths.configPath,
     localPath: entry.localPath,
     plainArtifactCount,
-    ...(entry.machine === undefined ? {} : { machine: entry.machine }),
     repoPath: entry.repoPath,
     secretArtifactCount,
     syncDirectory: context.paths.syncDirectory,

@@ -6,7 +6,6 @@ import {
   resolveManagedSyncMode,
   resolveSyncArtifactsDirectoryPath,
   resolveSyncRule,
-  syncSecretArtifactSuffix,
 } from "#app/config/sync.ts";
 
 import { decryptSecretFile } from "./crypto.ts";
@@ -20,8 +19,7 @@ import { addSnapshotNode, type SnapshotNode } from "./local-snapshot.ts";
 import {
   assertStorageSafeRepoPath,
   collectArtifactNamespaces,
-  syncBaseArtifactNamespace,
-  syncMachinesArtifactDirectory,
+  parseArtifactRelativePath,
 } from "./repo-artifacts.ts";
 
 type RepositorySnapshotConfig = ResolvedSyncConfig &
@@ -29,51 +27,18 @@ type RepositorySnapshotConfig = ResolvedSyncConfig &
     activeMachine?: string;
   }>;
 
-const parseArtifactStoragePath = (storagePath: string) => {
-  const secret = storagePath.endsWith(syncSecretArtifactSuffix);
-  const logicalPath = secret
-    ? storagePath.slice(0, -syncSecretArtifactSuffix.length)
-    : storagePath;
-  const segments = logicalPath.split("/");
-
-  if (segments.length < 2) {
-    throw new DevsyncError("Repository artifact path is invalid.", {
-      code: "INVALID_REPO_ENTRY",
-      details: [`Repository path: ${storagePath}`],
-    });
-  }
-
-  if (segments[0] === syncBaseArtifactNamespace) {
-    const [, ...repoPathSegments] = segments;
-
-    return {
-      machine: undefined,
-      repoPath: repoPathSegments.join("/"),
-      secret,
-    };
-  }
-
-  if (segments[0] === syncMachinesArtifactDirectory && segments.length >= 3) {
-    const [, machine, ...repoPathSegments] = segments;
-
-    return {
-      machine,
-      repoPath: repoPathSegments.join("/"),
-      secret,
-    };
-  }
-
-  throw new DevsyncError("Repository artifact path is invalid.", {
-    code: "INVALID_REPO_ENTRY",
-    details: [`Repository path: ${storagePath}`],
-  });
-};
-
 const isActiveStorageMachine = (
-  storageMachine: string | undefined,
-  activeMachine: string | undefined,
+  storageMachine: string,
+  config: RepositorySnapshotConfig,
+  repoPath: string,
 ) => {
-  return storageMachine === undefined || storageMachine === activeMachine;
+  const rule = resolveSyncRule(config, repoPath, config.activeMachine);
+
+  if (rule === undefined) {
+    return false;
+  }
+
+  return rule.machine === storageMachine;
 };
 
 const readArtifactLeaf = async (
@@ -82,9 +47,9 @@ const readArtifactLeaf = async (
   config: RepositorySnapshotConfig,
   snapshot: Map<string, SnapshotNode>,
 ) => {
-  const artifact = parseArtifactStoragePath(storagePath);
+  const artifact = parseArtifactRelativePath(storagePath);
 
-  if (!isActiveStorageMachine(artifact.machine, config.activeMachine)) {
+  if (!isActiveStorageMachine(artifact.machine, config, artifact.repoPath)) {
     return;
   }
 
@@ -112,8 +77,8 @@ const readArtifactLeaf = async (
         code: "REPO_PROFILE_MISMATCH",
         details: [
           `Repository path: ${artifact.repoPath}`,
-          `Stored machine: ${artifact.machine ?? "base"}`,
-          `Expected machine: ${rule.machine ?? "base"}`,
+          `Stored machine: ${artifact.machine}`,
+          `Expected machine: ${rule.machine}`,
         ],
       },
     );
@@ -283,19 +248,11 @@ export const buildRepositorySnapshot = async (
     const hasTrackedChildren = [...snapshot.keys()].some((repoPath) => {
       return repoPath.startsWith(`${entry.repoPath}/`);
     });
-    const expectedPath =
-      rule.machine === undefined
-        ? join(
-            artifactsDirectory,
-            syncBaseArtifactNamespace,
-            ...entry.repoPath.split("/"),
-          )
-        : join(
-            artifactsDirectory,
-            syncMachinesArtifactDirectory,
-            rule.machine,
-            ...entry.repoPath.split("/"),
-          );
+    const expectedPath = join(
+      artifactsDirectory,
+      rule.machine,
+      ...entry.repoPath.split("/"),
+    );
     const expectedStats = await getPathStats(expectedPath);
 
     if (expectedStats !== undefined && !expectedStats.isDirectory()) {

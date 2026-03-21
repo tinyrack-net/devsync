@@ -4,7 +4,7 @@ import type { ResolvedSyncConfig } from "#app/config/sync.ts";
 import { buildEffectiveSyncConfig } from "./runtime.ts";
 
 describe("sync runtime", () => {
-  it("merges base and machine entries into an effective config", () => {
+  it("attaches activeMachine from selection to the effective config", () => {
     const config = {
       age: {
         configuredIdentityFile: "$XDG_CONFIG_HOME/devsync/age/keys.txt",
@@ -16,8 +16,11 @@ describe("sync runtime", () => {
           configuredLocalPath: "~/.config/zsh",
           kind: "directory",
           localPath: "/tmp/home/.config/zsh",
+          machines: {
+            "secrets.zsh": ["default", "work"],
+          },
           mode: "normal",
-          modeExplicit: true,
+          modeExplicit: false,
           name: ".config/zsh",
           overrides: [
             {
@@ -28,25 +31,8 @@ describe("sync runtime", () => {
           ],
           repoPath: ".config/zsh",
         },
-        {
-          configuredLocalPath: "~/.config/zsh",
-          kind: "directory",
-          localPath: "/tmp/home/.config/zsh",
-          machine: "work",
-          mode: "normal",
-          modeExplicit: false,
-          name: ".config/zsh#work",
-          overrides: [
-            {
-              match: "exact",
-              mode: "secret",
-              path: "secrets.zsh",
-            },
-          ],
-          repoPath: ".config/zsh",
-        },
       ],
-      version: 2 as const,
+      version: 3 as const,
     } satisfies ResolvedSyncConfig;
 
     const effective = buildEffectiveSyncConfig(config, {
@@ -57,27 +43,15 @@ describe("sync runtime", () => {
     expect(effective.activeMachine).toBe("work");
     expect(effective.entries).toHaveLength(1);
     expect(effective.entries[0]).toMatchObject({
-      machineLayer: "work",
       mode: "normal",
       repoPath: ".config/zsh",
     });
-    expect(effective.entries[0]?.overrides).toEqual([
-      {
-        match: "exact",
-        mode: "ignore",
-        path: "secrets.zsh",
-      },
-    ]);
-    expect(effective.entries[0]?.machineOverrides).toEqual([
-      {
-        match: "exact",
-        mode: "secret",
-        path: "secrets.zsh",
-      },
-    ]);
+    expect(effective.entries[0]?.machines).toEqual({
+      "secrets.zsh": ["default", "work"],
+    });
   });
 
-  it("activates machine-only roots only for the selected machine", () => {
+  it("passes through all entries regardless of machine selection", () => {
     const config = {
       age: {
         configuredIdentityFile: "$XDG_CONFIG_HOME/devsync/age/keys.txt",
@@ -86,25 +60,27 @@ describe("sync runtime", () => {
       },
       entries: [
         {
-          configuredLocalPath: "~/.gitconfig-work",
+          configuredLocalPath: "~/.gitconfig",
           kind: "file",
-          localPath: "/tmp/home/.gitconfig-work",
-          machine: "work",
+          localPath: "/tmp/home/.gitconfig",
+          machines: {
+            "": ["default", "work"],
+          },
           mode: "secret",
           modeExplicit: true,
-          name: ".gitconfig-work#work",
+          name: ".gitconfig",
           overrides: [],
-          repoPath: ".gitconfig-work",
+          repoPath: ".gitconfig",
         },
       ],
-      version: 2 as const,
+      version: 3 as const,
     } satisfies ResolvedSyncConfig;
 
     expect(
       buildEffectiveSyncConfig(config, {
         mode: "none",
       }).entries,
-    ).toHaveLength(0);
+    ).toHaveLength(1);
 
     expect(
       buildEffectiveSyncConfig(config, {

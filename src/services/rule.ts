@@ -1,8 +1,4 @@
-import {
-  normalizeSyncMachineName,
-  readSyncConfig,
-  resolveRelativeSyncRule,
-} from "#app/config/sync.ts";
+import { readSyncConfig, resolveRelativeSyncMode } from "#app/config/sync.ts";
 import {
   createSyncConfigDocument,
   writeValidatedSyncConfig,
@@ -19,7 +15,6 @@ import {
 export type SyncRuleSetRequest = SyncSetRequest;
 
 export type SyncRuleUnsetRequest = Readonly<{
-  machine?: string;
   recursive: boolean;
   target: string;
 }>;
@@ -37,20 +32,11 @@ export const unsetSyncRule = async (
 ): Promise<SyncSetResult> => {
   await ensureSyncRepository(context);
 
-  const machine =
-    request.machine === undefined
-      ? undefined
-      : normalizeSyncMachineName(request.machine);
   const config = await readSyncConfig(
     context.paths.syncDirectory,
     context.environment,
   );
-  const target = await resolveSetTarget(
-    request.target,
-    machine,
-    config,
-    context,
-  );
+  const target = await resolveSetTarget(request.target, config, context);
 
   if (target.relativePath === "") {
     throw new DevsyncError(
@@ -87,31 +73,7 @@ export const unsetSyncRule = async (
   }
 
   const scope = request.recursive ? "subtree" : "exact";
-  const entry =
-    machine === undefined || target.entry.machine === machine
-      ? target.entry
-      : config.entries.find((candidate) => {
-          return (
-            candidate.repoPath === target.entry.repoPath &&
-            candidate.machine === machine
-          );
-        });
-
-  if (entry === undefined) {
-    return {
-      action: "unchanged",
-      configPath: context.paths.configPath,
-      entryRepoPath: target.entry.repoPath,
-      localPath: target.localPath,
-      mode: target.entry.mode,
-      ...(machine === undefined ? {} : { machine }),
-      repoPath: target.repoPath,
-      reason: "already-inherited",
-      scope,
-      syncDirectory: context.paths.syncDirectory,
-    };
-  }
-
+  const entry = target.entry;
   const nextOverrides = entry.overrides.filter((override) => {
     return !(override.match === scope && override.path === target.relativePath);
   });
@@ -123,7 +85,6 @@ export const unsetSyncRule = async (
       entryRepoPath: target.entry.repoPath,
       localPath: target.localPath,
       mode: target.entry.mode,
-      ...(entry.machine === undefined ? {} : { machine: entry.machine }),
       repoPath: target.repoPath,
       reason: "already-inherited",
       scope,
@@ -131,68 +92,23 @@ export const unsetSyncRule = async (
     };
   }
 
-  const baseEntry = config.entries.find((candidate) => {
-    return (
-      entry.machine !== undefined &&
-      candidate.repoPath === entry.repoPath &&
-      candidate.machine === undefined
-    );
-  });
-  const inheritedMode =
-    resolveRelativeSyncRule(
-      baseEntry === undefined
-        ? {
-            machine: entry.machine,
-            mode: entry.mode,
-            overrides: nextOverrides,
-          }
-        : {
-            machine: entry.machine,
-            mode: baseEntry.mode,
-            overrides: [
-              ...baseEntry.overrides.filter((override) => {
-                return !nextOverrides.some((candidate) => {
-                  return (
-                    candidate.match === override.match &&
-                    candidate.path === override.path
-                  );
-                });
-              }),
-              ...nextOverrides,
-            ],
-          },
-      target.relativePath,
-      entry.machine,
-    )?.mode ?? entry.mode;
-
-  const removeEntry =
-    entry.machine !== undefined &&
-    nextOverrides.length === 0 &&
-    baseEntry !== undefined &&
-    entry.mode === baseEntry.mode;
+  const inheritedMode = resolveRelativeSyncMode(
+    entry.mode,
+    nextOverrides,
+    target.relativePath,
+  );
   const nextConfig = createSyncConfigDocument({
     ...config,
-    entries: removeEntry
-      ? config.entries.filter((candidate) => {
-          return !(
-            candidate.repoPath === entry.repoPath &&
-            candidate.machine === entry.machine
-          );
-        })
-      : config.entries.map((candidate) => {
-          if (candidate.repoPath !== entry.repoPath) {
-            return candidate;
-          }
+    entries: config.entries.map((candidate) => {
+      if (candidate.repoPath !== entry.repoPath) {
+        return candidate;
+      }
 
-          if (candidate.machine !== entry.machine) {
-            return candidate;
-          }
-
-          return {
-            ...candidate,
-            overrides: nextOverrides,
-          };
-        }),
+      return {
+        ...candidate,
+        overrides: nextOverrides,
+      };
+    }),
   });
 
   await writeValidatedSyncConfig(context.paths.syncDirectory, nextConfig, {
@@ -205,7 +121,6 @@ export const unsetSyncRule = async (
     entryRepoPath: target.entry.repoPath,
     localPath: target.localPath,
     mode: inheritedMode,
-    ...(entry.machine === undefined ? {} : { machine: entry.machine }),
     repoPath: target.repoPath,
     reason: "reverted-to-inherited",
     scope,

@@ -10,12 +10,11 @@ export default class SyncRuleUnset extends BaseCommand {
     "Remove a rule from a child path inside a tracked directory";
 
   public static override description =
-    "Remove an exact or subtree rule from the shared base layer or a specific machine layer. After removal, the target falls back to inherited behavior.";
+    "Remove an exact or subtree rule from the configuration. After removal, the target falls back to inherited behavior.";
 
   public static override examples = [
     "<%= config.bin %> <%= command.id %> ~/.config/zsh/secrets.zsh",
     "<%= config.bin %> <%= command.id %> ~/.config/zsh/cache --recursive",
-    "<%= config.bin %> <%= command.id %> ~/.config/zsh/secrets.zsh --machine work",
   ];
 
   public static override args = {
@@ -33,11 +32,6 @@ export default class SyncRuleUnset extends BaseCommand {
       description:
         "When the target is a directory, remove the subtree rule. Omit this flag for a single file rule.",
     }),
-    machine: Flags.string({
-      summary: "Remove the rule from a specific machine layer",
-      description:
-        "When omitted, the rule is removed from the shared base layer.",
-    }),
   };
 
   public override async run(): Promise<void> {
@@ -45,7 +39,6 @@ export default class SyncRuleUnset extends BaseCommand {
     const output = formatSyncSetResult(
       await unsetSyncRule(
         {
-          machine: flags.machine,
           recursive: flags.recursive,
           target: args.target,
         },

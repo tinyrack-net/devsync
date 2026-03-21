@@ -13,20 +13,16 @@ export type SyncListOverride = Readonly<{
 }>;
 
 export type SyncListEntry = Readonly<{
-  active: boolean;
   kind: "directory" | "file";
   localPath: string;
   mode: SyncMode;
   name: string;
   overrides: readonly SyncListOverride[];
-  machine?: string;
   repoPath: string;
 }>;
 
 export type SyncListResult = Readonly<{
-  activeEntryCount: number;
   activeMachine?: string;
-  activeMachinesMode: "none" | "single";
   configPath: string;
   entries: readonly SyncListEntry[];
   recipientCount: number;
@@ -46,24 +42,14 @@ export const listSyncConfig = async (
     context,
     options,
   );
-  const activeEntryKeys = new Set(
-    effectiveConfig.entries.map((entry) => {
-      return `${entry.machine ?? ""}\u0000${entry.repoPath}`;
-    }),
-  );
 
   return {
-    activeEntryCount: effectiveConfig.entries.length,
     ...(effectiveConfig.activeMachine === undefined
       ? {}
       : { activeMachine: effectiveConfig.activeMachine }),
-    activeMachinesMode: effectiveConfig.activeMachinesMode,
     configPath: context.paths.configPath,
     entries: fullConfig.entries.map((entry) => {
       return {
-        active: activeEntryKeys.has(
-          `${entry.machine ?? ""}\u0000${entry.repoPath}`,
-        ),
         kind: entry.kind,
         localPath: entry.localPath,
         mode: entry.mode,
@@ -74,7 +60,6 @@ export const listSyncConfig = async (
             selector: formatSyncOverrideSelector(override),
           };
         }),
-        ...(entry.machine === undefined ? {} : { machine: entry.machine }),
         repoPath: entry.repoPath,
       };
     }),

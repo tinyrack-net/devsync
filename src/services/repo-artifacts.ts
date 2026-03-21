@@ -8,6 +8,7 @@ import {
   type ResolvedSyncConfigEntry,
   resolveSyncArtifactsDirectoryPath,
   resolveSyncRule,
+  syncDefaultMachine,
   syncSecretArtifactSuffix,
 } from "#app/config/sync.ts";
 
@@ -27,25 +28,21 @@ type ArtifactConfig = ResolvedSyncConfig &
     activeMachine?: string;
   }>;
 
-export const syncBaseArtifactNamespace = "base";
-export const syncMachinesArtifactDirectory = "machines";
-
-export const buildArtifactNamespace = (machine?: string) => {
-  return machine === undefined
-    ? syncBaseArtifactNamespace
-    : `${syncMachinesArtifactDirectory}/${machine}`;
+export const buildArtifactNamespace = (machine: string) => {
+  return machine;
 };
 
 export const collectArtifactNamespaces = (
-  entries: readonly Pick<ResolvedSyncConfigEntry, "machine" | "machineLayer">[],
+  entries: readonly Pick<ResolvedSyncConfigEntry, "machines">[],
 ) => {
   const namespaces = new Set<string>();
+  namespaces.add(syncDefaultMachine);
 
   for (const entry of entries) {
-    namespaces.add(buildArtifactNamespace(entry.machine));
-
-    if (entry.machineLayer !== undefined) {
-      namespaces.add(buildArtifactNamespace(entry.machineLayer));
+    for (const machineList of Object.values(entry.machines)) {
+      for (const machine of machineList) {
+        namespaces.add(machine);
+      }
     }
   }
 
@@ -56,28 +53,28 @@ export type RepoArtifact =
   | Readonly<{
       category: "plain";
       kind: "directory";
-      machine?: string;
+      machine: string;
       repoPath: string;
     }>
   | Readonly<{
       category: "plain";
       kind: "file";
       repoPath: string;
-      machine?: string;
+      machine: string;
       contents: Uint8Array;
       executable: boolean;
     }>
   | Readonly<{
       category: "plain";
       kind: "symlink";
-      machine?: string;
+      machine: string;
       repoPath: string;
       linkTarget: string;
     }>
   | Readonly<{
       category: "secret";
       kind: "file";
-      machine?: string;
+      machine: string;
       repoPath: string;
       contents: string;
       executable: boolean;
@@ -136,56 +133,41 @@ export const parseArtifactRelativePath = (relativePath: string) => {
     : relativePath;
   const segments = logicalPath.split("/");
 
-  if (segments.length < 2) {
+  if (segments.length < 2 || segments[0] === undefined) {
     throw new DevsyncError("Repository artifact path is invalid.", {
       code: "INVALID_REPO_ENTRY",
       details: [`Repository path: ${relativePath}`],
     });
   }
 
-  if (segments[0] === syncBaseArtifactNamespace) {
-    const [, ...repoPathSegments] = segments;
+  const [machine, ...repoPathSegments] = segments;
 
-    return {
-      machine: undefined,
-      repoPath: repoPathSegments.join("/"),
-      secret,
-    };
-  }
-
-  if (segments[0] === syncMachinesArtifactDirectory && segments.length >= 3) {
-    const [, machine, ...repoPathSegments] = segments;
-
-    return {
-      machine,
-      repoPath: repoPathSegments.join("/"),
-      secret,
-    };
-  }
-
-  throw new DevsyncError("Repository artifact path is invalid.", {
-    code: "INVALID_REPO_ENTRY",
-    details: [`Repository path: ${relativePath}`],
-  });
+  return {
+    machine,
+    repoPath: repoPathSegments.join("/"),
+    secret,
+  };
 };
 
 export const resolveEntryArtifactRelativePath = (
-  entry: Pick<ResolvedSyncConfigEntry, "machine" | "repoPath">,
+  entry: Pick<ResolvedSyncConfigEntry, "repoPath">,
+  machine: string,
 ) => {
   return resolveArtifactRelativePath({
     category: "plain",
-    machine: entry.machine,
+    machine,
     repoPath: entry.repoPath,
   });
 };
 
 export const resolveEntryArtifactPath = (
   artifactsDirectory: string,
-  entry: Pick<ResolvedSyncConfigEntry, "machine" | "repoPath">,
+  entry: Pick<ResolvedSyncConfigEntry, "repoPath">,
+  machine: string,
 ) => {
   return join(
     artifactsDirectory,
-    ...resolveEntryArtifactRelativePath(entry).split("/"),
+    ...resolveEntryArtifactRelativePath(entry, machine).split("/"),
   );
 };
 

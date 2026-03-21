@@ -13,6 +13,7 @@ describe("output", () => {
       formatSyncMachineListResult({
         activeMachine: "work",
         activeMachinesMode: "single",
+        assignments: [],
         availableMachines: ["personal", "work"],
         globalConfigExists: true,
         globalConfigPath: "/tmp/config.json",
@@ -39,19 +40,18 @@ describe("output", () => {
     ).toContain("Cleared active sync machine.");
   });
 
-  it("formats track and rule updates with machine storage", () => {
+  it("formats track and rule updates", () => {
     expect(
       formatSyncAddResult({
         alreadyTracked: false,
         configPath: "/tmp/config.json",
         kind: "file",
         localPath: "/tmp/home/.gitconfig-work",
-        machine: "work",
         mode: "secret",
         repoPath: ".gitconfig-work",
         syncDirectory: "/tmp/sync",
       }),
-    ).toContain("machines/work/.gitconfig-work");
+    ).toContain("default/.gitconfig-work");
 
     expect(
       formatSyncSetResult({
@@ -59,13 +59,12 @@ describe("output", () => {
         configPath: "/tmp/config.json",
         entryRepoPath: ".config/zsh",
         localPath: "/tmp/home/.config/zsh/secrets.zsh",
-        machine: "work",
         mode: "ignore",
         reason: "reverted-to-inherited",
         repoPath: ".config/zsh/secrets.zsh",
         scope: "exact",
         syncDirectory: "/tmp/sync",
       }),
-    ).toContain("Machine: work");
+    ).toContain("Removed the redundant rule");
   });
 });

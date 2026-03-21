@@ -1,5 +1,4 @@
 import {
-  normalizeSyncMachineName,
   type ResolvedSyncConfig,
   type ResolvedSyncConfigEntry,
   readSyncConfig,
@@ -22,7 +21,6 @@ import {
 import { ensureSyncRepository, type SyncContext } from "./runtime.ts";
 
 export type SyncAddRequest = Readonly<{
-  machine?: string;
   mode: Extract<SyncMode, "normal" | "secret">;
   target: string;
 }>;
@@ -32,7 +30,6 @@ export type SyncAddResult = Readonly<{
   configPath: string;
   kind: SyncConfigEntryKind;
   localPath: string;
-  machine?: string;
   mode: Extract<SyncMode, "normal" | "secret">;
   repoPath: string;
   syncDirectory: string;
@@ -41,9 +38,8 @@ export type SyncAddResult = Readonly<{
 const buildAddEntryCandidate = async (
   targetPath: string,
   config: ResolvedSyncConfig,
-  context: Pick<SyncContext, "paths">,
+  context: Pick<SyncContext, "environment" | "paths">,
   input: Readonly<{
-    machine?: string;
     mode: Extract<SyncMode, "normal" | "secret">;
   }>,
 ) => {
@@ -103,17 +99,17 @@ const buildAddEntryCandidate = async (
     context.paths.homeDirectory,
     "Sync target",
   );
+  const configuredLocalPath = buildConfiguredHomeLocalPath(repoPath);
 
   return {
-    configuredLocalPath: buildConfiguredHomeLocalPath(repoPath),
+    configuredLocalPath,
     kind,
     localPath: targetPath,
+    machines: {},
     mode: input.mode,
     modeExplicit: true,
-    name:
-      input.machine === undefined ? repoPath : `${repoPath}#${input.machine}`,
+    name: repoPath,
     overrides: [],
-    ...(input.machine === undefined ? {} : { machine: input.machine }),
     repoPath,
   } satisfies ResolvedSyncConfigEntry;
 };
@@ -139,10 +135,6 @@ export const trackSyncTarget = async (
   context: SyncContext,
 ): Promise<SyncAddResult> => {
   const target = request.target.trim();
-  const machine =
-    request.machine === undefined
-      ? undefined
-      : normalizeSyncMachineName(request.machine);
 
   if (target.length === 0) {
     throw new DevsyncError("Target path is required.", {
@@ -162,13 +154,11 @@ export const trackSyncTarget = async (
     config,
     context,
     {
-      ...(machine === undefined ? {} : { machine }),
       mode: request.mode,
     },
   );
   const existingEntry = config.entries.find((entry) => {
     return (
-      entry.machine === machine &&
       entry.localPath === candidate.localPath &&
       entry.repoPath === candidate.repoPath
     );
@@ -208,10 +198,6 @@ export const trackSyncTarget = async (
           return entry;
         }
 
-        if (entry.machine !== machine) {
-          return entry;
-        }
-
         return {
           ...entry,
           mode: request.mode,
@@ -232,7 +218,6 @@ export const trackSyncTarget = async (
     configPath: context.paths.configPath,
     kind: candidate.kind,
     localPath: candidate.localPath,
-    ...(machine === undefined ? {} : { machine }),
     mode,
     repoPath: candidate.repoPath,
     syncDirectory: context.paths.syncDirectory,

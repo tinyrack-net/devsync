@@ -1,7 +1,5 @@
 import {
-  normalizeSyncMachineName,
   type ResolvedSyncConfig,
-  type ResolvedSyncConfigEntry,
   readSyncConfig,
   type SyncMode,
 } from "#app/config/sync.ts";
@@ -20,7 +18,6 @@ import { ensureSyncRepository, type SyncContext } from "./runtime.ts";
 import type { SyncSetResult } from "./set.ts";
 
 export type SyncEntryModeRequest = Readonly<{
-  machine?: string;
   state: SyncMode;
   target: string;
 }>;
@@ -28,7 +25,6 @@ export type SyncEntryModeRequest = Readonly<{
 const findExactTrackedEntry = (
   config: ResolvedSyncConfig,
   target: string,
-  machine: string | undefined,
   context: Pick<SyncContext, "cwd" | "environment">,
 ) => {
   const trimmedTarget = target.trim();
@@ -38,7 +34,7 @@ const findExactTrackedEntry = (
     context.cwd,
   );
   const byLocalPath = config.entries.filter((entry) => {
-    return entry.localPath === resolvedTargetPath && entry.machine === machine;
+    return entry.localPath === resolvedTargetPath;
   });
 
   if (byLocalPath.length > 0 || isExplicitLocalPath(trimmedTarget)) {
@@ -52,7 +48,7 @@ const findExactTrackedEntry = (
   }
 
   return config.entries.filter((entry) => {
-    return entry.repoPath === normalizedRepoPath && entry.machine === machine;
+    return entry.repoPath === normalizedRepoPath;
   });
 };
 
@@ -62,10 +58,6 @@ export const setSyncEntryMode = async (
 ): Promise<SyncSetResult> => {
   await ensureSyncRepository(context);
 
-  const machine =
-    request.machine === undefined
-      ? undefined
-      : normalizeSyncMachineName(request.machine);
   const config = await readSyncConfig(
     context.paths.syncDirectory,
     context.environment,
@@ -79,7 +71,7 @@ export const setSyncEntryMode = async (
     });
   }
 
-  const matches = findExactTrackedEntry(config, target, machine, context);
+  const matches = findExactTrackedEntry(config, target, context);
 
   if (matches.length > 1) {
     throw new DevsyncError(`Multiple tracked sync entries match: ${target}`, {
@@ -89,81 +81,28 @@ export const setSyncEntryMode = async (
   }
 
   const matchedEntry = matches[0];
-  const nextEntry =
-    matchedEntry ??
-    (() => {
-      if (machine === undefined) {
-        return undefined;
-      }
 
-      const baseMatches = findExactTrackedEntry(
-        config,
-        target,
-        undefined,
-        context,
-      );
-      const baseEntry = baseMatches[0];
-
-      if (baseMatches.length > 1) {
-        throw new DevsyncError(
-          `Multiple tracked sync entries match: ${target}`,
-          {
-            code: "TARGET_CONFLICT",
-            hint: "Use an explicit local path to choose the tracked root.",
-          },
-        );
-      }
-
-      if (baseEntry === undefined) {
-        return undefined;
-      }
-
-      return {
-        ...baseEntry,
-        machine,
-        mode: request.state,
-        modeExplicit: true,
-        name: `${baseEntry.repoPath}#${machine}`,
-        overrides: [],
-      } satisfies ResolvedSyncConfigEntry;
-    })();
-
-  if (nextEntry === undefined) {
+  if (matchedEntry === undefined) {
     throw new DevsyncError(`No tracked sync entry matches: ${target}`, {
       code: "TARGET_NOT_TRACKED",
       hint: "Track the root first with 'devsync track'.",
     });
   }
 
-  const action =
-    matchedEntry === undefined
-      ? "added"
-      : matchedEntry.mode === request.state
-        ? "unchanged"
-        : "updated";
-  const nextConfig =
-    action === "added"
-      ? createSyncConfigDocument({
-          ...config,
-          entries: [...config.entries, nextEntry],
-        })
-      : createSyncConfigDocument({
-          ...config,
-          entries: config.entries.map((entry) => {
-            if (entry.repoPath !== nextEntry.repoPath) {
-              return entry;
-            }
+  const action = matchedEntry.mode === request.state ? "unchanged" : "updated";
+  const nextConfig = createSyncConfigDocument({
+    ...config,
+    entries: config.entries.map((entry) => {
+      if (entry.repoPath !== matchedEntry.repoPath) {
+        return entry;
+      }
 
-            if (entry.machine !== nextEntry.machine) {
-              return entry;
-            }
-
-            return {
-              ...entry,
-              mode: request.state,
-            };
-          }),
-        });
+      return {
+        ...entry,
+        mode: request.state,
+      };
+    }),
+  });
 
   if (action !== "unchanged") {
     await writeValidatedSyncConfig(context.paths.syncDirectory, nextConfig, {
@@ -174,11 +113,10 @@ export const setSyncEntryMode = async (
   return {
     action,
     configPath: context.paths.configPath,
-    entryRepoPath: nextEntry.repoPath,
-    localPath: nextEntry.localPath,
+    entryRepoPath: matchedEntry.repoPath,
+    localPath: matchedEntry.localPath,
     mode: request.state,
-    ...(machine === undefined ? {} : { machine }),
-    repoPath: nextEntry.repoPath,
+    repoPath: matchedEntry.repoPath,
     scope: "default",
     syncDirectory: context.paths.syncDirectory,
   };

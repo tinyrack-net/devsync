@@ -44,7 +44,7 @@ describe("CLI e2e", () => {
     expect(result.stdout).toContain("status");
   });
 
-  it("shows help for new root, machine, and rule commands", async () => {
+  it("shows help for track, entry, rule, and machine commands", async () => {
     const [trackHelp, entryHelp, ruleHelp, machineHelp] = await Promise.all([
       runCli(["track", "--help"]),
       runCli(["entry", "mode", "--help"]),
@@ -53,20 +53,14 @@ describe("CLI e2e", () => {
     ]);
 
     expect(trackHelp.stdout).toContain("$ devsync track TARGET");
-    expect(trackHelp.stdout).toContain("--machine");
     expect(trackHelp.stdout).toContain("--mode");
 
     expect(entryHelp.stdout).toContain("$ devsync entry mode STATE TARGET");
-    expect(entryHelp.stdout).toContain(
-      "Change the root mode for a shared or machine-specific tracked entry",
-    );
 
     expect(ruleHelp.stdout).toContain("$ devsync rule set STATE TARGET");
     expect(ruleHelp.stdout).toContain("--recursive");
-    expect(ruleHelp.stdout).toContain("--machine");
 
     expect(machineHelp.stdout).toContain("$ devsync machine use MACHINE");
-    expect(machineHelp.stdout).toContain("selected machine layer by default");
   });
 
   it("returns a non-zero exit code for removed command surfaces", async () => {

@@ -16,9 +16,7 @@ import {
 } from "./runtime.ts";
 
 export type SyncStatusResult = Readonly<{
-  activeEntryCount: number;
   activeMachine?: string;
-  activeMachinesMode: "none" | "single";
   configPath: string;
   entryCount: number;
   pull: ReturnType<typeof buildPullResultFromPlan> & {
@@ -48,11 +46,9 @@ export const getSyncStatus = async (
   const pullPlan = await buildPullPlan(effectiveConfig, context);
 
   return {
-    activeEntryCount: effectiveConfig.entries.length,
     ...(effectiveConfig.activeMachine === undefined
       ? {}
       : { activeMachine: effectiveConfig.activeMachine }),
-    activeMachinesMode: effectiveConfig.activeMachinesMode,
     configPath: context.paths.configPath,
     entryCount: fullConfig.entries.length,
     pull: {
