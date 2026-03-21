@@ -29,40 +29,72 @@ const syncOverrideMapSchema = z.record(
   z.enum(syncModes),
 );
 
-const syncProfileEntrySchema = z
+const syncLayerSchema = z
   .object({
-    overrides: syncOverrideMapSchema.optional(),
+    mode: z.enum(syncModes).optional(),
+    rules: syncOverrideMapSchema.optional(),
   })
-  .strict();
+  .strict()
+  .superRefine((layer, context) => {
+    if (layer.mode === undefined && layer.rules === undefined) {
+      context.addIssue({
+        code: "custom",
+        message: "Each sync layer must define a mode, rules, or both.",
+      });
+    }
+  });
 
-const syncProfilesSchema = z.record(
+const syncMachinesSchema = z.record(
   requiredTrimmedStringSchema,
-  syncProfileEntrySchema,
+  syncLayerSchema,
 );
 
 const syncConfigEntrySchema = z
   .object({
+    base: syncLayerSchema.optional(),
     kind: z.enum(syncEntryKinds),
     localPath: requiredTrimmedStringSchema,
-    mode: z.enum(syncModes),
-    overrides: syncOverrideMapSchema.optional(),
-    profiles: syncProfilesSchema.optional(),
+    machines: syncMachinesSchema.optional(),
     repoPath: requiredTrimmedStringSchema,
   })
   .strict()
   .superRefine((entry, context) => {
-    if (entry.kind === "file" && entry.profiles !== undefined) {
+    if (entry.base === undefined && entry.machines === undefined) {
       context.addIssue({
         code: "custom",
-        message: "File sync entries cannot define profile-specific overrides.",
-        path: ["profiles"],
+        message:
+          "Sync entries must define a base layer, machine layers, or both.",
+      });
+    }
+
+    if (entry.kind !== "file") {
+      return;
+    }
+
+    if (entry.base?.rules !== undefined) {
+      context.addIssue({
+        code: "custom",
+        message: "File sync entries cannot define rules.",
+        path: ["base", "rules"],
+      });
+    }
+
+    for (const [machineName, layer] of Object.entries(entry.machines ?? {})) {
+      if (layer.rules === undefined) {
+        continue;
+      }
+
+      context.addIssue({
+        code: "custom",
+        message: "File sync entries cannot define rules.",
+        path: ["machines", machineName, "rules"],
       });
     }
   });
 
 const syncConfigSchema = z
   .object({
-    version: z.literal(1),
+    version: z.literal(2),
     age: z
       .object({
         recipients: z
@@ -90,10 +122,15 @@ export type ResolvedSyncConfigEntry = Readonly<{
   configuredLocalPath: string;
   kind: SyncConfigEntryKind;
   localPath: string;
+  machine?: string;
+  machineLayer?: string;
+  machineMode?: SyncMode;
+  machineModeExplicit?: boolean;
+  machineOverrides?: readonly ResolvedSyncOverride[];
   mode: SyncMode;
+  modeExplicit: boolean;
   name: string;
   overrides: readonly ResolvedSyncOverride[];
-  profile?: string;
   repoPath: string;
 }>;
 
@@ -104,16 +141,16 @@ export type ResolvedSyncConfig = Readonly<{
     recipients: readonly string[];
   }>;
   entries: readonly ResolvedSyncConfigEntry[];
-  version: 1;
+  version: 2;
 }>;
 
 const createResolvedEntryName = (input: {
-  profile?: string;
+  machine?: string;
   repoPath: string;
 }) => {
-  return input.profile === undefined
+  return input.machine === undefined
     ? input.repoPath
-    : `${input.repoPath}#${input.profile}`;
+    : `${input.repoPath}#${input.machine}`;
 };
 
 export const normalizeSyncRepoPath = (value: string) => {
@@ -150,23 +187,23 @@ export const normalizeSyncRepoPath = (value: string) => {
   return normalizedValue;
 };
 
-export const normalizeSyncProfileName = (
+export const normalizeSyncMachineName = (
   value: string,
-  description = "Profile name",
+  description = "Machine name",
 ) => {
   const normalizedValue = value.trim();
 
   if (normalizedValue.length === 0) {
     throw new DevsyncError(`${description} must not be empty.`, {
-      code: "INVALID_PROFILE_NAME",
+      code: "INVALID_MACHINE_NAME",
       details: [`${description}: ${value}`],
-      hint: "Use a short profile name like 'work' or 'personal'.",
+      hint: "Use a short machine name like 'work' or 'personal'.",
     });
   }
 
   if (!/^[A-Za-z0-9][A-Za-z0-9._-]*$/u.test(normalizedValue)) {
     throw new DevsyncError(`${description} contains unsupported characters.`, {
-      code: "INVALID_PROFILE_NAME",
+      code: "INVALID_MACHINE_NAME",
       details: [`${description}: ${value}`],
       hint: "Use letters, numbers, dots, underscores, or hyphens, and start with a letter or number.",
     });
@@ -174,7 +211,7 @@ export const normalizeSyncProfileName = (
 
   if (normalizedValue.startsWith(".")) {
     throw new DevsyncError(`${description} must not start with '.'.`, {
-      code: "INVALID_PROFILE_NAME",
+      code: "INVALID_MACHINE_NAME",
       details: [`${description}: ${value}`],
       hint: "Use a plain name like 'work' instead of hidden-path style names.",
     });
@@ -182,16 +219,16 @@ export const normalizeSyncProfileName = (
 
   if (normalizedValue === "." || normalizedValue === "..") {
     throw new DevsyncError(`${description} is invalid.`, {
-      code: "INVALID_PROFILE_NAME",
+      code: "INVALID_MACHINE_NAME",
       details: [`${description}: ${value}`],
     });
   }
 
-  if (normalizedValue === "default") {
+  if (normalizedValue === "base") {
     throw new DevsyncError(`${description} uses a reserved name.`, {
-      code: "INVALID_PROFILE_NAME",
+      code: "INVALID_MACHINE_NAME",
       details: [`${description}: ${value}`],
-      hint: "Use another name like 'work' or 'personal'; 'default' is reserved for the base sync namespace.",
+      hint: "Use another name like 'work' or 'personal'; 'base' is reserved for the shared sync namespace.",
     });
   }
 
@@ -302,8 +339,9 @@ const buildResolvedEntry = (input: {
   kind: SyncConfigEntryKind;
   localPath: string;
   mode: SyncMode;
+  modeExplicit: boolean;
   overrides: readonly ResolvedSyncOverride[];
-  profile?: string;
+  machine?: string;
   repoPath: string;
 }) => {
   return {
@@ -311,12 +349,13 @@ const buildResolvedEntry = (input: {
     kind: input.kind,
     localPath: input.localPath,
     mode: input.mode,
+    modeExplicit: input.modeExplicit,
     name: createResolvedEntryName({
-      profile: input.profile,
+      machine: input.machine,
       repoPath: input.repoPath,
     }),
     overrides: input.overrides,
-    ...(input.profile === undefined ? {} : { profile: input.profile }),
+    ...(input.machine === undefined ? {} : { machine: input.machine }),
     repoPath: input.repoPath,
   } satisfies ResolvedSyncConfigEntry;
 };
@@ -329,53 +368,6 @@ const matchesEntryPath = (
     entry.repoPath === repoPath ||
     (entry.kind === "directory" && repoPath.startsWith(`${entry.repoPath}/`))
   );
-};
-
-const mergeResolvedOverrides = (
-  baseOverrides: readonly ResolvedSyncOverride[],
-  profileOverrides: readonly ResolvedSyncOverride[],
-) => {
-  const mergedOverrides = new Map<string, ResolvedSyncOverride>();
-
-  for (const override of baseOverrides) {
-    mergedOverrides.set(formatSyncOverrideSelector(override), override);
-  }
-
-  for (const override of profileOverrides) {
-    mergedOverrides.set(formatSyncOverrideSelector(override), override);
-  }
-
-  return [...mergedOverrides.values()];
-};
-
-const mergeResolvedEntries = (
-  baseEntry: ResolvedSyncConfigEntry | undefined,
-  profileEntry: ResolvedSyncConfigEntry | undefined,
-) => {
-  if (profileEntry === undefined) {
-    return baseEntry;
-  }
-
-  if (baseEntry === undefined) {
-    return profileEntry;
-  }
-
-  return {
-    configuredLocalPath: baseEntry.configuredLocalPath,
-    kind: baseEntry.kind,
-    localPath: baseEntry.localPath,
-    mode: baseEntry.mode,
-    name: createResolvedEntryName({
-      profile: profileEntry.profile,
-      repoPath: baseEntry.repoPath,
-    }),
-    overrides: mergeResolvedOverrides(
-      baseEntry.overrides,
-      profileEntry.overrides,
-    ),
-    profile: profileEntry.profile,
-    repoPath: baseEntry.repoPath,
-  } satisfies ResolvedSyncConfigEntry;
 };
 
 export const findOwningSyncEntry = (
@@ -463,18 +455,57 @@ export const resolveRelativeSyncMode = (
 };
 
 export const resolveRelativeSyncRule = (
-  entry: Pick<ResolvedSyncConfigEntry, "mode" | "overrides" | "profile">,
+  entry: Pick<
+    ResolvedSyncConfigEntry,
+    | "machine"
+    | "machineLayer"
+    | "machineMode"
+    | "machineModeExplicit"
+    | "machineOverrides"
+    | "mode"
+    | "overrides"
+  >,
   relativePath: string,
-  activeProfile: string | undefined,
+  activeMachine: string | undefined,
 ) => {
-  if (entry.profile !== undefined && entry.profile !== activeProfile) {
+  if (entry.machine !== undefined && entry.machine !== activeMachine) {
     return undefined;
   }
 
   if (relativePath === "") {
+    if (
+      entry.machine === undefined &&
+      entry.machineLayer !== undefined &&
+      entry.machineModeExplicit &&
+      activeMachine === entry.machineLayer
+    ) {
+      return {
+        machine: entry.machineLayer,
+        mode: entry.machineMode ?? entry.mode,
+      };
+    }
+
     return {
       mode: entry.mode,
-      ...(entry.profile === undefined ? {} : { profile: entry.profile }),
+      ...(entry.machine === undefined ? {} : { machine: entry.machine }),
+    };
+  }
+
+  const matchingMachineOverride =
+    activeMachine !== undefined &&
+    entry.machineLayer === activeMachine &&
+    entry.machineOverrides !== undefined
+      ? [...entry.machineOverrides]
+          .filter((override) => {
+            return matchesOverride(override, relativePath);
+          })
+          .sort(compareOverrideSpecificity)[0]
+      : undefined;
+
+  if (matchingMachineOverride !== undefined) {
+    return {
+      machine: activeMachine,
+      mode: matchingMachineOverride.mode,
     };
   }
 
@@ -484,9 +515,28 @@ export const resolveRelativeSyncRule = (
     })
     .sort(compareOverrideSpecificity)[0];
 
+  if (matchingOverride !== undefined) {
+    return {
+      mode: matchingOverride.mode,
+      ...(entry.machine === undefined ? {} : { machine: entry.machine }),
+    };
+  }
+
+  if (
+    entry.machine === undefined &&
+    entry.machineLayer !== undefined &&
+    entry.machineModeExplicit &&
+    activeMachine === entry.machineLayer
+  ) {
+    return {
+      machine: entry.machineLayer,
+      mode: entry.machineMode ?? entry.mode,
+    };
+  }
+
   return {
-    mode: matchingOverride?.mode ?? entry.mode,
-    ...(entry.profile === undefined ? {} : { profile: entry.profile }),
+    mode: entry.mode,
+    ...(entry.machine === undefined ? {} : { machine: entry.machine }),
   };
 };
 
@@ -557,31 +607,31 @@ const resolveConfiguredIdentityFile = (
 };
 
 const canEntriesShareNamespace = (
-  left: Pick<ResolvedSyncConfigEntry, "profile">,
-  right: Pick<ResolvedSyncConfigEntry, "profile">,
+  left: Pick<ResolvedSyncConfigEntry, "machine">,
+  right: Pick<ResolvedSyncConfigEntry, "machine">,
 ) => {
   return (
-    left.profile !== undefined &&
-    right.profile !== undefined &&
-    left.profile !== right.profile
+    left.machine !== undefined &&
+    right.machine !== undefined &&
+    left.machine !== right.machine
   );
 };
 
-const areProfileVariantsOfSameEntry = (
+const areMachineVariantsOfSameEntry = (
   left: Pick<
     ResolvedSyncConfigEntry,
-    "kind" | "localPath" | "profile" | "repoPath"
+    "kind" | "localPath" | "machine" | "repoPath"
   >,
   right: Pick<
     ResolvedSyncConfigEntry,
-    "kind" | "localPath" | "profile" | "repoPath"
+    "kind" | "localPath" | "machine" | "repoPath"
   >,
 ) => {
   return (
     left.kind === right.kind &&
     left.localPath === right.localPath &&
     left.repoPath === right.repoPath &&
-    left.profile !== right.profile
+    left.machine !== right.machine
   );
 };
 
@@ -590,7 +640,7 @@ const validatePathOverlaps = (
   property: "localPath" | "repoPath",
   description: string,
   options: Readonly<{
-    allowProfileDisjointOverlaps: boolean;
+    allowMachineDisjointOverlaps: boolean;
   }>,
 ) => {
   for (let index = 0; index < entries.length; index += 1) {
@@ -622,9 +672,9 @@ const validatePathOverlaps = (
 
       if (overlaps) {
         if (
-          options.allowProfileDisjointOverlaps &&
+          options.allowMachineDisjointOverlaps &&
           (canEntriesShareNamespace(currentEntry, otherEntry) ||
-            areProfileVariantsOfSameEntry(currentEntry, otherEntry))
+            areMachineVariantsOfSameEntry(currentEntry, otherEntry))
         ) {
           continue;
         }
@@ -636,12 +686,12 @@ const validatePathOverlaps = (
             details: [
               `${currentEntry.name}: ${currentValue}`,
               `${otherEntry.name}: ${otherValue}`,
-              ...(currentEntry.profile === undefined
+              ...(currentEntry.machine === undefined
                 ? []
-                : [`${currentEntry.name} profile: ${currentEntry.profile}`]),
-              ...(otherEntry.profile === undefined
+                : [`${currentEntry.name} machine: ${currentEntry.machine}`]),
+              ...(otherEntry.machine === undefined
                 ? []
-                : [`${otherEntry.name} profile: ${otherEntry.profile}`]),
+                : [`${otherEntry.name} machine: ${otherEntry.machine}`]),
             ],
             hint: "Split overlapping entries so each tracked root owns a distinct path.",
           },
@@ -651,7 +701,7 @@ const validatePathOverlaps = (
   }
 };
 
-const validateProfileRepoPathConflicts = (
+const validateMachineRepoPathConflicts = (
   entries: readonly ResolvedSyncConfigEntry[],
 ) => {
   for (let index = 0; index < entries.length; index += 1) {
@@ -676,19 +726,19 @@ const validateProfileRepoPathConflicts = (
         continue;
       }
 
-      if (currentEntry.profile !== otherEntry.profile) {
+      if (currentEntry.machine !== otherEntry.machine) {
         continue;
       }
 
       throw new DevsyncError(
-        "Repository paths must be unique within the same profile namespace.",
+        "Repository paths must be unique within the same machine namespace.",
         {
           code: "OVERLAPPING_PATHS",
           details: [
             `${currentEntry.name}: ${currentEntry.repoPath}`,
             `${otherEntry.name}: ${otherEntry.repoPath}`,
           ],
-          hint: "Use distinct repository paths, or assign the entries to different non-default profiles.",
+          hint: "Use distinct repository paths, or assign the entries to different non-default machines.",
         },
       );
     }
@@ -698,12 +748,12 @@ const validateProfileRepoPathConflicts = (
 export const validateResolvedSyncConfigEntries = (
   entries: readonly ResolvedSyncConfigEntry[],
   options: Readonly<{
-    allowProfileDisjointOverlaps: boolean;
+    allowMachineDisjointOverlaps: boolean;
   }> = {
-    allowProfileDisjointOverlaps: false,
+    allowMachineDisjointOverlaps: false,
   },
 ) => {
-  validateProfileRepoPathConflicts(entries);
+  validateMachineRepoPathConflicts(entries);
   validatePathOverlaps(entries, "repoPath", "Repository", options);
   validatePathOverlaps(entries, "localPath", "Local", options);
 };
@@ -758,39 +808,65 @@ export const parseSyncConfig = (
       environment,
     );
     const resolvedEntries: ResolvedSyncConfigEntry[] = [];
+    const baseMode = entry.base?.mode;
 
-    if (entry.mode !== undefined) {
+    if (entry.base !== undefined) {
+      if (entry.base.mode === undefined) {
+        throw new DevsyncError(
+          "Base layers must define a mode in config.json.",
+          {
+            code: "CONFIG_VALIDATION_FAILED",
+            details: [`Entry: ${entry.repoPath}`],
+            hint: "Set base.mode for shared tracked roots.",
+          },
+        );
+      }
+
       resolvedEntries.push(
         buildResolvedEntry({
           configuredLocalPath: entry.localPath,
           kind: entry.kind,
           localPath: resolvedLocalPath,
-          mode: entry.mode,
+          mode: entry.base.mode,
+          modeExplicit: true,
           overrides: buildResolvedOverrides(
-            entry.overrides,
-            "Entry override selector",
+            entry.base.rules,
+            "Base rule selector",
           ),
           repoPath: resolvedRepoPath,
         }),
       );
     }
 
-    for (const [profileName, profileEntry] of Object.entries(
-      entry.profiles ?? {},
+    for (const [machineName, machineLayer] of Object.entries(
+      entry.machines ?? {},
     )) {
-      const profile = normalizeSyncProfileName(profileName);
+      const machine = normalizeSyncMachineName(machineName);
+      const mode = machineLayer.mode ?? baseMode;
+
+      if (mode === undefined) {
+        throw new DevsyncError(
+          "Machine layers must define a mode unless the base layer provides one.",
+          {
+            code: "CONFIG_VALIDATION_FAILED",
+            details: [`Entry: ${entry.repoPath}`, `Machine: ${machine}`],
+            hint: "Set machines.<name>.mode, or add base.mode for the shared root.",
+          },
+        );
+      }
 
       resolvedEntries.push(
         buildResolvedEntry({
           configuredLocalPath: entry.localPath,
           kind: entry.kind,
           localPath: resolvedLocalPath,
-          mode: entry.mode,
+          mode,
+          modeExplicit: machineLayer.mode !== undefined,
           overrides: buildResolvedOverrides(
-            profileEntry.overrides,
-            `Profile override selector (${profile})`,
+            machineLayer.rules,
+            `Machine rule selector (${machine})`,
           ),
-          profile,
+          machine,
           repoPath: resolvedRepoPath,
         }),
       );
@@ -802,7 +878,7 @@ export const parseSyncConfig = (
   });
 
   validateResolvedSyncConfigEntries(entries, {
-    allowProfileDisjointOverlaps: true,
+    allowMachineDisjointOverlaps: true,
   });
 
   return {
@@ -815,7 +891,7 @@ export const parseSyncConfig = (
       recipients: [...new Set(result.data.age.recipients)],
     },
     entries,
-    version: 1,
+    version: 2,
   };
 };
 
@@ -824,7 +900,7 @@ export const createInitialSyncConfig = (input: {
   recipients: readonly string[];
 }): SyncConfig => {
   return {
-    version: 1,
+    version: 2,
     age: {
       identityFile: input.identityFile,
       recipients: [
@@ -899,39 +975,64 @@ export const readSyncConfig = async (
 export const resolveSyncMode = (
   config: ResolvedSyncConfig,
   repoPath: string,
-  activeProfile?: string,
+  activeMachine?: string,
 ): SyncMode | undefined => {
-  return resolveSyncRule(config, repoPath, activeProfile)?.mode;
+  return resolveSyncRule(config, repoPath, activeMachine)?.mode;
 };
 
 export const resolveSyncRule = (
   config: ResolvedSyncConfig,
   repoPath: string,
-  activeProfile?: string,
+  activeMachine?: string,
 ) => {
   const matchingEntries = config.entries.filter((entry) => {
     return matchesEntryPath(entry, repoPath);
   });
   const baseEntry = matchingEntries.find(
-    (entry) => entry.profile === undefined,
+    (entry) => entry.machine === undefined,
   );
-  const profileEntry =
-    activeProfile === undefined
+  const machineEntry =
+    activeMachine === undefined
       ? undefined
-      : matchingEntries.find((entry) => entry.profile === activeProfile);
-  const entry = mergeResolvedEntries(baseEntry, profileEntry);
+      : matchingEntries.find((entry) => entry.machine === activeMachine);
 
-  if (entry === undefined) {
+  if (baseEntry === undefined && machineEntry === undefined) {
     return undefined;
   }
 
-  const relativePath = resolveEntryRelativeRepoPath(entry, repoPath);
+  const ownerEntry = baseEntry ?? machineEntry;
+  const relativePath =
+    ownerEntry === undefined
+      ? undefined
+      : resolveEntryRelativeRepoPath(ownerEntry, repoPath);
 
   if (relativePath === undefined) {
     return undefined;
   }
 
-  return resolveRelativeSyncRule(entry, relativePath, activeProfile);
+  if (baseEntry === undefined && machineEntry !== undefined) {
+    return resolveRelativeSyncRule(machineEntry, relativePath, activeMachine);
+  }
+
+  if (baseEntry === undefined) {
+    return undefined;
+  }
+
+  if (machineEntry === undefined) {
+    return resolveRelativeSyncRule(baseEntry, relativePath, activeMachine);
+  }
+
+  return resolveRelativeSyncRule(
+    {
+      ...baseEntry,
+      machineLayer: machineEntry.machine,
+      machineMode: machineEntry.mode,
+      machineModeExplicit: machineEntry.modeExplicit,
+      machineOverrides: machineEntry.overrides,
+    },
+    relativePath,
+    activeMachine,
+  );
 };
 
 export const isIgnoredSyncPath = (
@@ -951,12 +1052,12 @@ export const isSecretSyncPath = (
 export const resolveManagedSyncMode = (
   config: ResolvedSyncConfig,
   repoPath: string,
-  activeProfileOrContext?: string,
+  activeMachineOrContext?: string,
   context?: string,
 ) => {
-  const activeProfile = activeProfileOrContext;
+  const activeMachine = activeMachineOrContext;
   const resolvedContext = context;
-  const mode = resolveSyncMode(config, repoPath, activeProfile);
+  const mode = resolveSyncMode(config, repoPath, activeMachine);
 
   if (mode === undefined) {
     throw new DevsyncError(
