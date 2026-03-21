@@ -12,8 +12,9 @@ import {
 import { writeTextFileAtomically } from "./filesystem.ts";
 
 type SyncConfigDocumentEntry = SyncConfig["entries"][number];
+type SyncLayerDocument = NonNullable<SyncConfigDocumentEntry["base"]>;
 
-const createSyncOverrideMap = (
+const createSyncRuleMap = (
   overrides: readonly Pick<ResolvedSyncOverride, "match" | "mode" | "path">[],
 ) => {
   return Object.fromEntries(
@@ -29,43 +30,19 @@ const createSyncOverrideMap = (
   );
 };
 
-const createSyncProfileDocument = (
-  entry: Pick<ResolvedSyncConfigEntry, "overrides">,
-) => {
-  return {
-    ...(entry.overrides.length === 0
-      ? {}
-      : { overrides: createSyncOverrideMap(entry.overrides) }),
-  };
-};
+const createLayerDocument = (input: {
+  baseMode?: ResolvedSyncConfigEntry["mode"];
+  entry: Pick<ResolvedSyncConfigEntry, "mode" | "overrides">;
+}) => {
+  const rules =
+    input.entry.overrides.length === 0
+      ? undefined
+      : createSyncRuleMap(input.entry.overrides);
 
-export const createSyncConfigDocumentEntry = (
-  entry: Pick<
-    ResolvedSyncConfigEntry,
-    | "configuredLocalPath"
-    | "kind"
-    | "mode"
-    | "overrides"
-    | "profile"
-    | "repoPath"
-  >,
-): SyncConfigDocumentEntry => {
   return {
-    kind: entry.kind,
-    localPath: entry.configuredLocalPath,
-    mode: entry.mode,
-    ...(entry.profile === undefined && entry.overrides.length > 0
-      ? { overrides: createSyncOverrideMap(entry.overrides) }
-      : {}),
-    ...(entry.profile === undefined
-      ? {}
-      : {
-          profiles: {
-            [entry.profile]: createSyncProfileDocument(entry),
-          },
-        }),
-    repoPath: entry.repoPath,
-  };
+    ...(input.baseMode === input.entry.mode ? {} : { mode: input.entry.mode }),
+    ...(rules === undefined ? {} : { rules }),
+  } satisfies SyncLayerDocument;
 };
 
 export const sortSyncConfigEntries = (
@@ -79,86 +56,81 @@ export const sortSyncConfigEntries = (
 export const createSyncConfigDocument = (
   config: ResolvedSyncConfig,
 ): SyncConfig => {
-  const groupedEntries = new Map<string, SyncConfigDocumentEntry>();
+  const groupedEntries = new Map<
+    string,
+    {
+      baseEntry?: ResolvedSyncConfigEntry;
+      machineEntries: Map<string, ResolvedSyncConfigEntry>;
+    }
+  >();
 
   for (const entry of config.entries) {
     const key = `${entry.kind}\u0000${entry.configuredLocalPath}\u0000${entry.repoPath}`;
-    const existingEntry = groupedEntries.get(key);
-    if (existingEntry === undefined) {
-      groupedEntries.set(
-        key,
-        entry.profile === undefined
-          ? {
-              kind: entry.kind,
-              localPath: entry.configuredLocalPath,
-              mode: entry.mode,
-              ...(entry.overrides.length === 0
-                ? {}
-                : { overrides: createSyncOverrideMap(entry.overrides) }),
-              repoPath: entry.repoPath,
-            }
-          : {
-              kind: entry.kind,
-              localPath: entry.configuredLocalPath,
-              mode: entry.mode,
-              profiles: {
-                [entry.profile]: createSyncProfileDocument(entry),
-              },
-              repoPath: entry.repoPath,
-            },
-      );
-      continue;
-    }
-
-    if (entry.profile === undefined) {
-      existingEntry.mode = entry.mode;
-      if (entry.overrides.length === 0) {
-        delete existingEntry.overrides;
-      } else {
-        existingEntry.overrides = createSyncOverrideMap(entry.overrides);
-      }
-      continue;
-    }
-
-    existingEntry.profiles = {
-      ...(existingEntry.profiles ?? {}),
-      [entry.profile]: createSyncProfileDocument(entry),
+    const group = groupedEntries.get(key) ?? {
+      machineEntries: new Map<string, ResolvedSyncConfigEntry>(),
     };
+
+    if (entry.machine === undefined) {
+      group.baseEntry = entry;
+    } else {
+      group.machineEntries.set(entry.machine, entry);
+    }
+
+    groupedEntries.set(key, group);
   }
 
   const entries = sortSyncConfigEntries(
-    [...groupedEntries.values()].map((entry) => {
-      if (entry.profiles !== undefined && entry.mode !== undefined) {
-        entry.profiles = Object.fromEntries(
-          Object.entries(entry.profiles).filter(([, profileEntry]) => {
-            const profileOverrides = profileEntry.overrides ?? {};
+    [...groupedEntries.values()].map((group) => {
+      const primaryEntry =
+        group.baseEntry ?? [...group.machineEntries.values()][0];
 
-            return Object.keys(profileOverrides).length > 0;
-          }),
-        );
-
-        if (Object.keys(entry.profiles).length === 0) {
-          delete entry.profiles;
-        }
+      if (primaryEntry === undefined) {
+        throw new Error("Grouped sync entries must not be empty.");
       }
 
-      if (entry.profiles === undefined) {
-        return entry;
-      }
+      const baseMode = group.baseEntry?.mode;
+      const baseRules =
+        group.baseEntry === undefined || group.baseEntry.overrides.length === 0
+          ? undefined
+          : createSyncRuleMap(group.baseEntry.overrides);
 
       return {
-        ...entry,
-        profiles: Object.fromEntries(
-          Object.entries(entry.profiles).sort(([left], [right]) => {
-            return left.localeCompare(right);
-          }),
-        ),
-      };
+        kind: primaryEntry.kind,
+        localPath: primaryEntry.configuredLocalPath,
+        repoPath: primaryEntry.repoPath,
+        ...(group.baseEntry === undefined
+          ? {}
+          : {
+              base: {
+                mode: group.baseEntry.mode,
+                ...(baseRules === undefined ? {} : { rules: baseRules }),
+              },
+            }),
+        ...(group.machineEntries.size === 0
+          ? {}
+          : {
+              machines: Object.fromEntries(
+                [...group.machineEntries.entries()]
+                  .sort(([left], [right]) => {
+                    return left.localeCompare(right);
+                  })
+                  .map(([machine, entry]) => {
+                    return [
+                      machine,
+                      createLayerDocument({
+                        baseMode,
+                        entry,
+                      }),
+                    ];
+                  }),
+              ),
+            }),
+      } satisfies SyncConfigDocumentEntry;
     }),
   );
 
   return {
-    version: 1,
+    version: 2,
     age: {
       identityFile: config.age.configuredIdentityFile,
       recipients: [...config.age.recipients],
