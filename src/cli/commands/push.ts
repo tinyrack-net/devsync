@@ -15,6 +15,7 @@ export default class SyncPush extends BaseCommand {
   public static override examples = [
     "<%= config.bin %> <%= command.id %>",
     "<%= config.bin %> <%= command.id %> --dry-run",
+    "<%= config.bin %> <%= command.id %> --machine work",
   ];
 
   public static override flags = {
@@ -24,6 +25,11 @@ export default class SyncPush extends BaseCommand {
       description:
         "Show which repository files devsync would create, update, or remove without writing any changes into the sync repository.",
     }),
+    machine: Flags.string({
+      summary: "Use a specific machine layer for this command",
+      description:
+        "Override the persisted active machine for this push operation only.",
+    }),
   };
 
   public override async run(): Promise<void> {
@@ -32,6 +38,7 @@ export default class SyncPush extends BaseCommand {
       await pushSync(
         {
           dryRun: flags["dry-run"],
+          machine: flags.machine,
         },
         createSyncContext(),
       ),

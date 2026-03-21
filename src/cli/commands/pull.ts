@@ -15,6 +15,7 @@ export default class SyncPull extends BaseCommand {
   public static override examples = [
     "<%= config.bin %> <%= command.id %>",
     "<%= config.bin %> <%= command.id %> --dry-run",
+    "<%= config.bin %> <%= command.id %> --machine work",
   ];
 
   public static override flags = {
@@ -24,6 +25,11 @@ export default class SyncPull extends BaseCommand {
       description:
         "Show which local files and directories devsync would create, update, or remove without touching the working machine state.",
     }),
+    machine: Flags.string({
+      summary: "Use a specific machine layer for this command",
+      description:
+        "Override the persisted active machine for this pull operation only.",
+    }),
   };
 
   public override async run(): Promise<void> {
@@ -32,6 +38,7 @@ export default class SyncPull extends BaseCommand {
       await pullSync(
         {
           dryRun: flags["dry-run"],
+          machine: flags.machine,
         },
         createSyncContext(),
       ),
