@@ -5,30 +5,30 @@ import { resolveDevsyncGlobalConfigFilePath } from "#app/config/xdg.ts";
 import { ensureTrailingNewline } from "#app/lib/string.ts";
 import { formatInputIssues } from "#app/lib/validation.ts";
 import { DevsyncError } from "#app/services/error.ts";
-import { normalizeSyncProfileName } from "./sync.ts";
+import { normalizeSyncMachineName } from "./sync.ts";
 
 const optionalTrimmedStringSchema = z.string().trim().min(1).optional();
 
 const globalConfigSchema = z
   .object({
-    activeProfile: optionalTrimmedStringSchema,
+    activeMachine: optionalTrimmedStringSchema,
     version: z.literal(1),
   })
   .strict();
 
 export type GlobalDevsyncConfig = Readonly<{
-  activeProfile?: string;
+  activeMachine?: string;
   version: 1;
 }>;
 
-export type ActiveProfileSelection = Readonly<
+export type ActiveMachineSelection = Readonly<
   | {
+      machine?: undefined;
       mode: "none";
-      profile?: undefined;
     }
   | {
+      machine: string;
       mode: "single";
-      profile: string;
     }
 >;
 
@@ -46,9 +46,11 @@ export const parseGlobalDevsyncConfig = (
   }
 
   return {
-    ...(result.data.activeProfile === undefined
+    ...(result.data.activeMachine === undefined
       ? {}
-      : { activeProfile: normalizeSyncProfileName(result.data.activeProfile) }),
+      : {
+          activeMachine: normalizeSyncMachineName(result.data.activeMachine),
+        }),
     version: 1,
   };
 };
@@ -96,26 +98,26 @@ export const readGlobalDevsyncConfig = async (
   }
 };
 
-export const resolveActiveProfileSelection = (
+export const resolveActiveMachineSelection = (
   config: GlobalDevsyncConfig | undefined,
-): ActiveProfileSelection => {
-  if (config?.activeProfile === undefined) {
+): ActiveMachineSelection => {
+  if (config?.activeMachine === undefined) {
     return {
       mode: "none",
     };
   }
 
   return {
+    machine: config.activeMachine,
     mode: "single",
-    profile: config.activeProfile,
   };
 };
 
-export const isProfileActive = (
-  selection: ActiveProfileSelection,
-  profile: string | undefined,
+export const isMachineActive = (
+  selection: ActiveMachineSelection,
+  machine: string | undefined,
 ) => {
-  if (profile === undefined) {
+  if (machine === undefined) {
     return true;
   }
 
@@ -123,5 +125,5 @@ export const isProfileActive = (
     return false;
   }
 
-  return selection.profile === profile;
+  return selection.machine === machine;
 };
