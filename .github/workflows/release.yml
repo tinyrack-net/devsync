@@ -39,11 +39,11 @@ jobs:
           console.error(`Tag ${tag} does not match package.json version
           ${expectedTag}`); process.exit(1); }'
 
-      - name: Run validation
-        run: npm run check
-
       - name: Build
         run: npm run build
+
+      - name: Run validation
+        run: npm run check
 
       - name: Verify published package contents
         run: npm pack --dry-run
