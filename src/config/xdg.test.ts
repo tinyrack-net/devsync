@@ -27,9 +27,9 @@ describe("resolveHomeDirectory", () => {
 
 describe("resolveXdgConfigHome", () => {
   it("uses XDG_CONFIG_HOME when set", () => {
-    expect(
-      resolveXdgConfigHome({ XDG_CONFIG_HOME: "/custom/config" }),
-    ).toBe(resolve("/custom/config"));
+    expect(resolveXdgConfigHome({ XDG_CONFIG_HOME: "/custom/config" })).toBe(
+      resolve("/custom/config"),
+    );
   });
 
   it("falls back to ~/.config on all platforms", () => {
