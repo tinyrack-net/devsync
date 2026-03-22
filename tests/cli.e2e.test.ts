@@ -42,18 +42,15 @@ describe("CLI e2e", () => {
     expect(result.stdout).toContain("status");
   });
 
-  it("shows help for track, machine assign, and machine use commands", async () => {
-    const [trackHelp, machineAssignHelp, machineHelp] = await Promise.all([
+  it("shows help for track and machine use commands", async () => {
+    const [trackHelp, machineHelp] = await Promise.all([
       runCli(["track", "--help"]),
-      runCli(["machine", "assign", "--help"]),
       runCli(["machine", "use", "--help"]),
     ]);
 
     expect(trackHelp.stdout).toContain("$ devsync track");
     expect(trackHelp.stdout).toContain("--mode");
     expect(trackHelp.stdout).toContain("--machine");
-
-    expect(machineAssignHelp.stdout).toContain("$ devsync machine assign");
 
     expect(machineHelp.stdout).toContain("$ devsync machine use");
   });

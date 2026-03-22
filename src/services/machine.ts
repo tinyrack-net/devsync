@@ -1,12 +1,10 @@
 import {
   formatGlobalDevsyncConfig,
-  type GlobalDevsyncConfig,
   readGlobalDevsyncConfig,
 } from "#app/config/global-config.ts";
 import {
   collectAllMachineNames,
   normalizeSyncMachineName,
-  type ResolvedSyncConfig,
   readSyncConfig,
 } from "#app/config/sync.ts";
 
@@ -16,11 +14,7 @@ import {
 } from "./config-file.ts";
 import { DevsyncError } from "./error.ts";
 import { writeTextFileAtomically } from "./filesystem.ts";
-import {
-  isExplicitLocalPath,
-  resolveCommandTargetPath,
-  tryNormalizeRepoPathInput,
-} from "./paths.ts";
+import { resolveTrackedEntry } from "./paths.ts";
 import { ensureSyncRepository, type SyncContext } from "./runtime.ts";
 
 export type SyncMachineAssignment = Readonly<{
@@ -45,77 +39,21 @@ export type SyncMachineUpdateResult = Readonly<{
   mode: "clear" | "use";
   machine?: string;
   syncDirectory: string;
+  warning?: string;
 }>;
 
-export type SyncMachineAssignRequest = Readonly<{
+type SyncMachineAssignRequest = Readonly<{
   machines: readonly string[];
   target: string;
 }>;
 
-export type SyncMachineAssignResult = Readonly<{
+type SyncMachineAssignResult = Readonly<{
   action: "assigned" | "unchanged";
   configPath: string;
   entryRepoPath: string;
   machines: readonly string[];
   syncDirectory: string;
 }>;
-
-const findExactTrackedEntry = (
-  config: ResolvedSyncConfig,
-  target: string,
-  context: Pick<SyncContext, "cwd" | "environment">,
-) => {
-  const trimmedTarget = target.trim();
-  const resolvedTargetPath = resolveCommandTargetPath(
-    trimmedTarget,
-    context.environment,
-    context.cwd,
-  );
-  const byLocalPath = config.entries.filter((entry) => {
-    return entry.localPath === resolvedTargetPath;
-  });
-
-  if (byLocalPath.length > 0 || isExplicitLocalPath(trimmedTarget)) {
-    return byLocalPath;
-  }
-
-  const normalizedRepoPath = tryNormalizeRepoPathInput(trimmedTarget);
-
-  if (normalizedRepoPath === undefined) {
-    return [];
-  }
-
-  return config.entries.filter((entry) => {
-    return entry.repoPath === normalizedRepoPath;
-  });
-};
-
-const collectAssignments = (
-  config: ResolvedSyncConfig,
-): SyncMachineAssignment[] => {
-  const assignments: SyncMachineAssignment[] = [];
-
-  for (const entry of config.entries) {
-    if (entry.machines.length > 0) {
-      assignments.push({
-        entryLocalPath: entry.localPath,
-        entryRepoPath: entry.repoPath,
-        machines: entry.machines,
-      });
-    }
-  }
-
-  return assignments.sort((left, right) =>
-    left.entryRepoPath.localeCompare(right.entryRepoPath),
-  );
-};
-
-const writeGlobalConfig = async (
-  configPath: string,
-  config: GlobalDevsyncConfig,
-) => {
-  await writeTextFileAtomically(configPath, formatGlobalDevsyncConfig(config));
-};
 
 export const listSyncMachines = async (
   context: SyncContext,
@@ -133,7 +71,16 @@ export const listSyncMachines = async (
       : { activeMachine: globalConfig.activeMachine }),
     activeMachinesMode:
       globalConfig?.activeMachine === undefined ? "none" : "single",
-    assignments: collectAssignments(syncConfig),
+    assignments: syncConfig.entries
+      .filter((entry) => entry.machines.length > 0)
+      .map((entry) => ({
+        entryLocalPath: entry.localPath,
+        entryRepoPath: entry.repoPath,
+        machines: entry.machines,
+      }))
+      .sort((left, right) =>
+        left.entryRepoPath.localeCompare(right.entryRepoPath),
+      ),
     availableMachines: collectAllMachineNames(syncConfig.entries),
     globalConfigExists: globalConfig !== undefined,
     globalConfigPath: context.paths.globalConfigPath,
@@ -149,10 +96,22 @@ export const useSyncMachine = async (
 
   await ensureSyncRepository(context);
 
-  await writeGlobalConfig(context.paths.globalConfigPath, {
-    activeMachine: normalizedMachine,
-    version: 3,
-  });
+  const syncConfig = await readSyncConfig(
+    context.paths.syncDirectory,
+    context.environment,
+  );
+  const knownMachines = collectAllMachineNames(syncConfig.entries);
+  const warning = knownMachines.includes(normalizedMachine)
+    ? undefined
+    : `Machine '${normalizedMachine}' is not referenced by any tracked entry.`;
+
+  await writeTextFileAtomically(
+    context.paths.globalConfigPath,
+    formatGlobalDevsyncConfig({
+      activeMachine: normalizedMachine,
+      version: 3,
+    }),
+  );
 
   return {
     activeMachine: normalizedMachine,
@@ -160,6 +119,7 @@ export const useSyncMachine = async (
     mode: "use",
     machine: normalizedMachine,
     syncDirectory: context.paths.syncDirectory,
+    ...(warning !== undefined ? { warning } : {}),
   };
 };
 
@@ -168,9 +128,10 @@ export const clearSyncMachines = async (
 ): Promise<SyncMachineUpdateResult> => {
   await ensureSyncRepository(context);
 
-  await writeGlobalConfig(context.paths.globalConfigPath, {
-    version: 3,
-  });
+  await writeTextFileAtomically(
+    context.paths.globalConfigPath,
+    formatGlobalDevsyncConfig({ version: 3 }),
+  );
 
   return {
     globalConfigPath: context.paths.globalConfigPath,
@@ -188,7 +149,7 @@ export const assignSyncMachines = async (
   if (target.length === 0) {
     throw new DevsyncError("Target path is required.", {
       code: "TARGET_REQUIRED",
-      hint: "Pass a tracked entry path, for example 'devsync machine assign ~/.gitconfig default work'.",
+      hint: "Pass a tracked entry path, for example 'devsync track ~/.gitconfig --machine default --machine work'.",
     });
   }
 
@@ -198,16 +159,7 @@ export const assignSyncMachines = async (
     context.paths.syncDirectory,
     context.environment,
   );
-  const matches = findExactTrackedEntry(config, target, context);
-
-  if (matches.length > 1) {
-    throw new DevsyncError(`Multiple tracked sync entries match: ${target}`, {
-      code: "TARGET_CONFLICT",
-      hint: "Use an explicit local path to choose the tracked root.",
-    });
-  }
-
-  const entry = matches[0];
+  const entry = resolveTrackedEntry(target, config.entries, context);
 
   if (entry === undefined) {
     throw new DevsyncError(`No tracked sync entry matches: ${target}`, {
@@ -244,9 +196,11 @@ export const assignSyncMachines = async (
     }),
   });
 
-  await writeValidatedSyncConfig(context.paths.syncDirectory, nextConfig, {
-    environment: context.environment,
-  });
+  await writeValidatedSyncConfig(
+    context.paths.syncDirectory,
+    nextConfig,
+    context.environment,
+  );
 
   return {
     action: "assigned",

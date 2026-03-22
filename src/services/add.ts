@@ -23,17 +23,18 @@ import { ensureSyncRepository, type SyncContext } from "./runtime.ts";
 
 export type SyncAddRequest = Readonly<{
   machines?: readonly string[];
-  mode: Extract<SyncMode, "normal" | "secret">;
+  mode: SyncMode;
   target: string;
 }>;
 
 export type SyncAddResult = Readonly<{
   alreadyTracked: boolean;
+  changed: boolean;
   configPath: string;
   kind: SyncConfigEntryKind;
   localPath: string;
   machines: readonly string[];
-  mode: Extract<SyncMode, "normal" | "secret">;
+  mode: SyncMode;
   repoPath: string;
   syncDirectory: string;
 }>;
@@ -44,7 +45,7 @@ const buildAddEntryCandidate = async (
   input: Readonly<{
     identityFile: string | undefined;
     machines?: readonly string[];
-    mode: Extract<SyncMode, "normal" | "secret">;
+    mode: SyncMode;
   }>,
 ) => {
   const targetStats = await getPathStats(targetPath);
@@ -120,22 +121,6 @@ const buildAddEntryCandidate = async (
   } satisfies ResolvedSyncConfigEntry;
 };
 
-export const addSyncTarget = async (
-  request: Readonly<{
-    secret: boolean;
-    target: string;
-  }>,
-  context: SyncContext,
-) => {
-  return trackSyncTarget(
-    {
-      mode: request.secret ? "secret" : "normal",
-      target: request.target,
-    },
-    context,
-  );
-};
-
 export const trackSyncTarget = async (
   request: SyncAddRequest,
   context: SyncContext,
@@ -162,12 +147,18 @@ export const trackSyncTarget = async (
           context.environment,
         )
       : undefined;
+  const isMachineClear =
+    request.machines !== undefined &&
+    request.machines.length === 1 &&
+    request.machines[0] === "";
+  const effectiveMachines = isMachineClear ? [] : request.machines;
+
   const candidate = await buildAddEntryCandidate(
     resolveCommandTargetPath(target, context.environment, context.cwd),
     context,
     {
       identityFile,
-      machines: request.machines,
+      machines: effectiveMachines,
       mode: request.mode,
     },
   );
@@ -195,62 +186,71 @@ export const trackSyncTarget = async (
     );
   }
 
-  let nextConfig = createSyncConfigDocument(config);
-  let mode: Extract<SyncMode, "normal" | "secret"> = request.mode;
-  let machines: readonly string[] = candidate.machines;
-  let changed = false;
-
   if (!alreadyTracked) {
-    nextConfig = createSyncConfigDocument({
+    const nextConfig = createSyncConfigDocument({
       ...config,
       entries: [...config.entries, candidate],
     });
-    mode = candidate.mode;
-    changed = true;
-  } else {
-    const modeChanged = existingEntry?.mode !== request.mode;
-    const machinesChanged =
-      request.machines !== undefined &&
-      (existingEntry?.machines.length !== candidate.machines.length ||
-        !candidate.machines.every((m) => existingEntry?.machines.includes(m)));
 
-    if (modeChanged || machinesChanged) {
-      nextConfig = createSyncConfigDocument({
-        ...config,
-        entries: config.entries.map((entry) => {
-          if (entry.repoPath !== candidate.repoPath) {
-            return entry;
-          }
+    await writeValidatedSyncConfig(
+      context.paths.syncDirectory,
+      nextConfig,
+      context.environment,
+    );
 
-          return {
-            ...entry,
-            ...(modeChanged ? { mode: request.mode } : {}),
-            ...(machinesChanged ? { machines: candidate.machines } : {}),
-          };
-        }),
-      });
-      mode = modeChanged ? request.mode : (existingEntry?.mode ?? request.mode);
-      changed = true;
-    }
-
-    machines = machinesChanged
-      ? candidate.machines
-      : (existingEntry?.machines ?? []);
+    return {
+      alreadyTracked,
+      changed: true,
+      configPath: context.paths.configPath,
+      kind: candidate.kind,
+      localPath: candidate.localPath,
+      machines: candidate.machines,
+      mode: candidate.mode,
+      repoPath: candidate.repoPath,
+      syncDirectory: context.paths.syncDirectory,
+    };
   }
 
+  const modeChanged = existingEntry?.mode !== request.mode;
+  const machinesChanged =
+    effectiveMachines !== undefined &&
+    (existingEntry?.machines.length !== candidate.machines.length ||
+      !candidate.machines.every((m) => existingEntry?.machines.includes(m)));
+  const changed = modeChanged || machinesChanged;
+
   if (changed) {
-    await writeValidatedSyncConfig(context.paths.syncDirectory, nextConfig, {
-      environment: context.environment,
+    const nextConfig = createSyncConfigDocument({
+      ...config,
+      entries: config.entries.map((entry) => {
+        if (entry.repoPath !== candidate.repoPath) {
+          return entry;
+        }
+
+        return {
+          ...entry,
+          ...(modeChanged ? { mode: request.mode } : {}),
+          ...(machinesChanged ? { machines: candidate.machines } : {}),
+        };
+      }),
     });
+
+    await writeValidatedSyncConfig(
+      context.paths.syncDirectory,
+      nextConfig,
+      context.environment,
+    );
   }
 
   return {
     alreadyTracked,
+    changed,
     configPath: context.paths.configPath,
     kind: candidate.kind,
     localPath: candidate.localPath,
-    machines,
-    mode,
+    machines: machinesChanged
+      ? candidate.machines
+      : (existingEntry?.machines ?? []),
+    mode: modeChanged ? request.mode : (existingEntry?.mode ?? request.mode),
     repoPath: candidate.repoPath,
     syncDirectory: context.paths.syncDirectory,
   };

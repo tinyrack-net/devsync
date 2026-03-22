@@ -1,7 +1,12 @@
 import { isAbsolute, relative, resolve } from "node:path";
 
-import { normalizeSyncRepoPath } from "#app/config/sync.ts";
+import {
+  normalizeSyncRepoPath,
+  type ResolvedSyncConfigEntry,
+} from "#app/config/sync.ts";
 import { expandHomePath } from "#app/config/xdg.ts";
+
+import { isExplicitLocalPath } from "#app/lib/path.ts";
 
 export {
   buildDirectoryKey,
@@ -78,4 +83,40 @@ export const tryNormalizeRepoPathInput = (value: string) => {
   } catch {
     return undefined;
   }
+};
+
+export const resolveTrackedEntry = (
+  target: string,
+  entries: readonly ResolvedSyncConfigEntry[],
+  context: Readonly<{ cwd: string; environment: NodeJS.ProcessEnv }>,
+): ResolvedSyncConfigEntry | undefined => {
+  const resolvedTargetPath = resolveCommandTargetPath(
+    target,
+    context.environment,
+    context.cwd,
+  );
+  const byLocalPath = entries.filter(
+    (entry) => entry.localPath === resolvedTargetPath,
+  );
+
+  let matches: typeof byLocalPath;
+
+  if (byLocalPath.length > 0 || isExplicitLocalPath(target)) {
+    matches = byLocalPath;
+  } else {
+    const normalizedRepoPath = tryNormalizeRepoPathInput(target);
+    matches =
+      normalizedRepoPath === undefined
+        ? []
+        : entries.filter((entry) => entry.repoPath === normalizedRepoPath);
+  }
+
+  if (matches.length > 1) {
+    throw new DevsyncError(`Multiple tracked sync entries match: ${target}`, {
+      code: "TARGET_CONFLICT",
+      hint: "Use an explicit local path to choose the tracked entry.",
+    });
+  }
+
+  return matches[0];
 };

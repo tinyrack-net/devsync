@@ -167,12 +167,32 @@ const assertInitRequestMatchesConfig = (
   }
 };
 
-const writeGlobalSettings = async (
-  configPath: string,
-  config: GlobalDevsyncConfig,
-) => {
-  await mkdir(dirname(configPath), { recursive: true });
-  await writeTextFileAtomically(configPath, formatGlobalDevsyncConfig(config));
+const buildAlreadyInitializedResult = (
+  config: Awaited<ReturnType<typeof readSyncConfig>>,
+  environment: NodeJS.ProcessEnv,
+  base: Readonly<{
+    configPath: string;
+    gitAction: SyncInitResult["gitAction"];
+    gitSource?: string;
+    syncDirectory: string;
+  }>,
+): SyncInitResult => {
+  const age =
+    config.age !== undefined
+      ? resolveAgeFromSyncConfig(config.age, environment)
+      : undefined;
+
+  return {
+    alreadyInitialized: true,
+    configPath: base.configPath,
+    entryCount: config.entries.length,
+    gitAction: base.gitAction,
+    ...(base.gitSource === undefined ? {} : { gitSource: base.gitSource }),
+    generatedIdentity: false,
+    identityFile: age?.identityFile ?? "",
+    recipientCount: age?.recipients.length ?? 0,
+    syncDirectory: base.syncDirectory,
+  };
 };
 
 export const initializeSync = async (
@@ -189,21 +209,11 @@ export const initializeSync = async (
     const config = await readSyncConfig(syncDirectory, context.environment);
     assertInitRequestMatchesConfig(config.age, request, context.environment);
 
-    const age =
-      config.age !== undefined
-        ? resolveAgeFromSyncConfig(config.age, context.environment)
-        : undefined;
-
-    return {
-      alreadyInitialized: true,
+    return buildAlreadyInitializedResult(config, context.environment, {
       configPath,
-      entryCount: config.entries.length,
       gitAction: "existing",
-      generatedIdentity: false,
-      identityFile: age?.identityFile ?? "",
-      recipientCount: age?.recipients.length ?? 0,
       syncDirectory,
-    };
+    });
   }
 
   await mkdir(dirname(syncDirectory), {
@@ -275,22 +285,12 @@ export const initializeSync = async (
     const config = await readSyncConfig(syncDirectory, context.environment);
     assertInitRequestMatchesConfig(config.age, request, context.environment);
 
-    const age =
-      config.age !== undefined
-        ? resolveAgeFromSyncConfig(config.age, context.environment)
-        : undefined;
-
-    return {
-      alreadyInitialized: true,
+    return buildAlreadyInitializedResult(config, context.environment, {
       configPath,
-      entryCount: config.entries.length,
       gitAction,
-      ...(gitSource === undefined ? {} : { gitSource }),
-      generatedIdentity: false,
-      identityFile: age?.identityFile ?? "",
-      recipientCount: age?.recipients.length ?? 0,
+      gitSource,
       syncDirectory,
-    };
+    });
   }
 
   const ageBootstrap = await resolveInitAgeBootstrap(request, context);
@@ -303,9 +303,10 @@ export const initializeSync = async (
     activeMachine: existingGlobalConfig?.activeMachine ?? "default",
     version: 3,
   };
-  await writeGlobalSettings(
+  await mkdir(dirname(context.paths.globalConfigPath), { recursive: true });
+  await writeTextFileAtomically(
     context.paths.globalConfigPath,
-    globalConfigToWrite,
+    formatGlobalDevsyncConfig(globalConfigToWrite),
   );
 
   // Write sync manifest with age

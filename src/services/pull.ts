@@ -36,20 +36,6 @@ export type PullPlan = Readonly<{
   materializations: readonly ReturnType<typeof buildEntryMaterialization>[];
 }>;
 
-const collectDesiredKeys = (
-  materializations: readonly ReturnType<typeof buildEntryMaterialization>[],
-) => {
-  const keys = new Set<string>();
-
-  for (const materialization of materializations) {
-    for (const key of materialization.desiredKeys) {
-      keys.add(key);
-    }
-  }
-
-  return keys;
-};
-
 export const buildPullPlan = async (
   config: EffectiveSyncConfig,
   context: SyncContext,
@@ -84,7 +70,7 @@ export const buildPullPlan = async (
   return {
     counts: buildPullCounts(materializations),
     deletedLocalCount,
-    desiredKeys: collectDesiredKeys(materializations),
+    desiredKeys: new Set(materializations.flatMap((m) => [...m.desiredKeys])),
     existingKeys,
     materializations,
   };

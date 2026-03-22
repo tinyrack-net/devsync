@@ -45,17 +45,9 @@ export const createSyncConfigDocument = (
 export const writeValidatedSyncConfig = async (
   syncDirectory: string,
   config: SyncConfig,
-  dependencies: Readonly<{
-    environment: NodeJS.ProcessEnv;
-  }>,
+  environment: NodeJS.ProcessEnv,
 ) => {
-  const resolvedConfig = parseSyncConfig(
-    {
-      ...config,
-      entries: sortSyncConfigEntries(config.entries),
-    },
-    dependencies.environment,
-  );
+  const resolvedConfig = parseSyncConfig(config, environment);
   const nextConfig = createSyncConfigDocument(resolvedConfig);
 
   await writeTextFileAtomically(

@@ -19,6 +19,7 @@ import {
   resolveHomeDirectory,
 } from "#app/config/xdg.ts";
 
+import { DevsyncError } from "./error.ts";
 import { ensureGitRepository } from "./git.ts";
 
 export type ResolvedAgeConfig = Readonly<{
@@ -147,9 +148,11 @@ export const loadSyncConfig = async (
   const rawAge = fullConfig.age;
 
   if (rawAge === undefined) {
-    throw new Error(
-      "Age configuration is missing from manifest.json. Run 'devsync init' to set up encryption.",
-    );
+    throw new DevsyncError("Age configuration is missing from manifest.json.", {
+      code: "AGE_CONFIG_MISSING",
+      details: [`Config file: ${context.paths.configPath}`],
+      hint: "Run 'devsync init' to set up encryption.",
+    });
   }
 
   const age = resolveAgeFromSyncConfig(rawAge, context.environment);

@@ -20,6 +20,7 @@ export default class SyncTrack extends BaseCommand {
     "<%= config.bin %> <%= command.id %> ~/.gitconfig ~/.zshrc ~/.config/nvim",
     "<%= config.bin %> <%= command.id %> ~/.ssh/config --mode secret",
     "<%= config.bin %> <%= command.id %> ~/.ssh/config --mode secret --machine vivident",
+    "<%= config.bin %> <%= command.id %> ~/.gitconfig --machine ''",
     "<%= config.bin %> <%= command.id %> ./.zshrc",
     "<%= config.bin %> <%= command.id %> ~/.config/mytool/cache --mode ignore",
     "<%= config.bin %> <%= command.id %> .config/mytool/token.json --mode secret",
@@ -69,45 +70,13 @@ export default class SyncTrack extends BaseCommand {
         const result = await trackSyncTarget(
           {
             machines: machines.length > 0 ? machines : undefined,
-            mode: mode === "ignore" ? "normal" : mode,
+            mode,
             target,
           },
           context,
         );
 
-        if (result.alreadyTracked && result.mode !== mode) {
-          const setResult = await setSyncTargetMode(
-            {
-              state: mode,
-              target,
-            },
-            context,
-          );
-
-          if (machines.length > 0) {
-            await assignSyncMachines({ machines, target }, context);
-          }
-
-          results.push(formatSyncSetResult(setResult));
-        } else if (result.alreadyTracked) {
-          results.push(formatSyncAddResult(result));
-        } else if (mode === "ignore") {
-          const setResult = await setSyncTargetMode(
-            {
-              state: "ignore",
-              target,
-            },
-            context,
-          );
-
-          if (machines.length > 0) {
-            await assignSyncMachines({ machines, target }, context);
-          }
-
-          results.push(formatSyncSetResult(setResult));
-        } else {
-          results.push(formatSyncAddResult(result));
-        }
+        results.push(formatSyncAddResult(result));
       } catch (error: unknown) {
         if (
           error instanceof DevsyncError &&
@@ -122,7 +91,11 @@ export default class SyncTrack extends BaseCommand {
           );
 
           if (machines.length > 0) {
-            await assignSyncMachines({ machines, target }, context);
+            const isMachineClear = machines.length === 1 && machines[0] === "";
+            await assignSyncMachines(
+              { machines: isMachineClear ? [] : machines, target },
+              context,
+            );
           }
 
           results.push(formatSyncSetResult(setResult));

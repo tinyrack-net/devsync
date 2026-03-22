@@ -24,10 +24,6 @@ import type { EffectiveSyncConfig } from "./runtime.ts";
 
 type ArtifactConfig = EffectiveSyncConfig;
 
-export const buildArtifactNamespace = (machine: string) => {
-  return machine;
-};
-
 export const collectArtifactNamespaces = (
   entries: readonly Pick<ResolvedSyncConfigEntry, "machines">[],
 ) => {
@@ -112,8 +108,7 @@ export const assertStorageSafeRepoPath = (repoPath: string) => {
 export const resolveArtifactRelativePath = (
   artifact: Pick<RepoArtifact, "category" | "machine" | "repoPath">,
 ) => {
-  const namespace = buildArtifactNamespace(artifact.machine);
-  const machineRelativePath = `${namespace}/${artifact.repoPath}`;
+  const machineRelativePath = `${artifact.machine}/${artifact.repoPath}`;
 
   return artifact.category === "secret"
     ? `${machineRelativePath}${syncSecretArtifactSuffix}`
@@ -172,6 +167,20 @@ export const buildRepoArtifacts = async (
   const artifacts: RepoArtifact[] = [];
   const seenArtifactKeys = new Set<string>();
 
+  const addArtifact = (artifact: RepoArtifact) => {
+    const key = buildArtifactKey(artifact);
+
+    if (seenArtifactKeys.has(key)) {
+      throw new DevsyncError("Duplicate repository artifact was generated.", {
+        code: "DUPLICATE_REPO_ARTIFACT",
+        details: [`Artifact key: ${key}`],
+      });
+    }
+
+    seenArtifactKeys.add(key);
+    artifacts.push(artifact);
+  };
+
   for (const repoPath of [...snapshot.keys()].sort((left, right) => {
     return left.localeCompare(right);
   })) {
@@ -193,90 +202,46 @@ export const buildRepoArtifacts = async (
     }
 
     if (node.type === "directory") {
-      const artifact = {
+      addArtifact({
         category: "plain",
         kind: "directory",
         machine: resolvedRule.machine,
         repoPath,
-      } satisfies RepoArtifact;
-      const key = buildArtifactKey(artifact);
-
-      if (seenArtifactKeys.has(key)) {
-        throw new DevsyncError("Duplicate repository artifact was generated.", {
-          code: "DUPLICATE_REPO_ARTIFACT",
-          details: [`Artifact key: ${key}`],
-        });
-      }
-
-      seenArtifactKeys.add(key);
-      artifacts.push(artifact);
+      });
       continue;
     }
 
     if (node.type === "symlink") {
-      const artifact = {
+      addArtifact({
         category: "plain",
         kind: "symlink",
         linkTarget: node.linkTarget,
         machine: resolvedRule.machine,
         repoPath,
-      } satisfies RepoArtifact;
-      const key = buildArtifactKey(artifact);
-
-      if (seenArtifactKeys.has(key)) {
-        throw new DevsyncError("Duplicate repository artifact was generated.", {
-          code: "DUPLICATE_REPO_ARTIFACT",
-          details: [`Artifact key: ${key}`],
-        });
-      }
-
-      seenArtifactKeys.add(key);
-      artifacts.push(artifact);
+      });
       continue;
     }
 
     if (!node.secret) {
-      const artifact = {
+      addArtifact({
         category: "plain",
         contents: node.contents,
         executable: node.executable,
         kind: "file",
         machine: resolvedRule.machine,
         repoPath,
-      } satisfies RepoArtifact;
-      const key = buildArtifactKey(artifact);
-
-      if (seenArtifactKeys.has(key)) {
-        throw new DevsyncError("Duplicate repository artifact was generated.", {
-          code: "DUPLICATE_REPO_ARTIFACT",
-          details: [`Artifact key: ${key}`],
-        });
-      }
-
-      seenArtifactKeys.add(key);
-      artifacts.push(artifact);
+      });
       continue;
     }
 
-    const artifact = {
+    addArtifact({
       category: "secret",
       contents: await encryptSecretFile(node.contents, config.age.recipients),
       executable: node.executable,
       kind: "file",
       machine: resolvedRule.machine,
       repoPath,
-    } satisfies RepoArtifact;
-    const key = buildArtifactKey(artifact);
-
-    if (seenArtifactKeys.has(key)) {
-      throw new DevsyncError("Duplicate repository artifact was generated.", {
-        code: "DUPLICATE_REPO_ARTIFACT",
-        details: [`Artifact key: ${key}`],
-      });
-    }
-
-    seenArtifactKeys.add(key);
-    artifacts.push(artifact);
+    });
   }
 
   return artifacts;

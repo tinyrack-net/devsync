@@ -7,7 +7,6 @@ import { formatDevsyncError } from "#app/services/error.ts";
 import type { SyncForgetResult } from "#app/services/forget.ts";
 import type { SyncInitResult } from "#app/services/init.ts";
 import type {
-  SyncMachineAssignResult,
   SyncMachineListResult,
   SyncMachineUpdateResult,
 } from "#app/services/machine.ts";
@@ -113,10 +112,13 @@ const formatHeadline = (
   }
 };
 
-const formatSetReason = (result: SyncSetResult) => {
-  switch (result.reason) {
+const formatSetReason = (
+  reason: SyncSetResult["reason"],
+  mode: SyncSetResult["mode"],
+) => {
+  switch (reason) {
     case "already-set":
-      return `This target already has ${result.mode} mode.`;
+      return `This target already has ${mode} mode.`;
     default:
       return undefined;
   }
@@ -184,8 +186,8 @@ const formatPullPlan = (result: SyncStatusResult["pull"]) => {
   ];
 };
 
-const formatDoctorCounts = (result: SyncDoctorResult) => {
-  const counts = result.checks.reduce(
+const formatDoctorCounts = (checks: SyncDoctorResult["checks"]) => {
+  const counts = checks.reduce(
     (accumulator, check) => {
       accumulator[check.level] += 1;
 
@@ -240,13 +242,15 @@ export const formatSyncInitResult = (result: SyncInitResult) => {
 };
 
 export const formatSyncAddResult = (result: SyncAddResult) => {
+  const headline = !result.alreadyTracked
+    ? "Tracked sync target."
+    : result.changed
+      ? "Updated sync target."
+      : "Sync target already tracked.";
+  const tone = !result.alreadyTracked || result.changed ? "success" : "warn";
+
   return output(
-    formatHeadline(
-      result.alreadyTracked
-        ? "Sync target already tracked."
-        : "Tracked sync target.",
-      result.alreadyTracked ? "warn" : "success",
-    ),
+    formatHeadline(headline, tone),
     line("Sync directory", result.syncDirectory),
     line("Config file", result.configPath),
     line("Local path", result.localPath),
@@ -254,6 +258,7 @@ export const formatSyncAddResult = (result: SyncAddResult) => {
     line("Repository storage", formatStoragePath(result.repoPath)),
     line("Kind", result.kind),
     line("Mode", result.mode),
+    result.machines.length > 0 && line("Machines", result.machines.join(", ")),
   );
 };
 
@@ -285,7 +290,7 @@ export const formatSyncSetResult = (result: SyncSetResult) => {
     line("Target repository path", result.repoPath),
     line("Mode", result.mode),
     line("Action", result.action),
-    formatSetReason(result),
+    formatSetReason(result.reason, result.mode),
   );
 };
 
@@ -345,7 +350,7 @@ export const formatSyncDoctorResult = (result: SyncDoctorResult) => {
     ),
     line("Sync directory", result.syncDirectory),
     line("Config file", result.configPath),
-    formatDoctorCounts(result),
+    formatDoctorCounts(result.checks),
     ...result.checks.map(formatDoctorCheck),
   );
 };
@@ -358,6 +363,9 @@ export const formatSyncMachineListResult = (result: SyncMachineListResult) => {
           (a) =>
             `${OUTPUT_INDENT}${style.bullet("-")} ${style.value(a.entryRepoPath)} ${style.detail(`[${a.machines.join(", ")}]`)}`,
         );
+
+  const noActiveMachine = result.activeMachine === undefined;
+  const hasRestrictedEntries = result.assignments.length > 0;
 
   return output(
     formatHeadline("Sync machines overview."),
@@ -375,6 +383,11 @@ export const formatSyncMachineListResult = (result: SyncMachineListResult) => {
       ? [line("Machines", "none")]
       : preview("Machines", result.availableMachines, "none")),
     ...assignmentLines,
+    noActiveMachine &&
+      hasRestrictedEntries &&
+      style.warn(
+        "No active machine set. Entries restricted to specific machines will not sync.",
+      ),
   );
 };
 
@@ -392,22 +405,6 @@ export const formatSyncMachineUpdateResult = (
     line("Global config", result.globalConfigPath),
     result.machine !== undefined && line("Machine", result.machine),
     line("Active machines", result.activeMachine ?? "none"),
-  );
-};
-
-export const formatSyncMachineAssignResult = (
-  result: SyncMachineAssignResult,
-) => {
-  return output(
-    formatHeadline(
-      result.action === "assigned"
-        ? "Assigned machines to path."
-        : "Machine assignment unchanged.",
-      result.action === "assigned" ? "success" : "warn",
-    ),
-    line("Sync directory", result.syncDirectory),
-    line("Config file", result.configPath),
-    line("Entry", result.entryRepoPath),
-    line("Machines", result.machines.join(", ")),
+    result.warning !== undefined && style.warn(result.warning),
   );
 };

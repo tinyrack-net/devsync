@@ -43,62 +43,12 @@ export type SyncSetResult = Readonly<{
   syncDirectory: string;
 }>;
 
-const resolveTargetPath = async (
-  target: string,
-  entry: ResolvedSyncConfigEntry,
-  context: Pick<SyncContext, "cwd" | "environment" | "paths">,
-) => {
-  if (isExplicitLocalPath(target)) {
-    const localPath = resolveCommandTargetPath(
-      target,
-      context.environment,
-      context.cwd,
-    );
-    const stats = await getPathStats(localPath);
-
-    if (stats === undefined) {
-      throw new DevsyncError("Sync set target does not exist.", {
-        code: "TARGET_NOT_FOUND",
-        details: [`Target: ${localPath}`],
-        hint: "Use an existing local path, or pass a repository path inside a tracked directory.",
-      });
-    }
-
-    return {
-      localPath,
-      repoPath: buildRepoPathWithinRoot(
-        localPath,
-        context.paths.homeDirectory,
-        "Sync set target",
-      ),
-      stats,
-    };
-  }
-
-  const repoPath = tryNormalizeRepoPathInput(target);
-
-  if (repoPath === undefined) {
-    throw new DevsyncError(
-      "Sync set target is not a valid local or repository path.",
-      {
-        code: "INVALID_SET_TARGET",
-        details: [`Target: ${target}`],
-        hint: "Use an absolute path, a cwd-relative path, or a repository path like '.config/tool/file.json'.",
-      },
-    );
-  }
-
+const computeLocalPath = (entry: ResolvedSyncConfigEntry, repoPath: string) => {
   const relativePath = resolveEntryRelativeRepoPath(entry, repoPath);
-  const localPath =
-    relativePath === undefined || relativePath === ""
-      ? entry.localPath
-      : join(entry.localPath, ...relativePath.split("/"));
-
-  return {
-    localPath,
-    repoPath,
-    stats: await getPathStats(localPath),
-  };
+  if (relativePath === undefined || relativePath === "") {
+    return entry.localPath;
+  }
+  return join(entry.localPath, ...relativePath.split("/"));
 };
 
 export const resolveSetTarget = async (
@@ -116,13 +66,13 @@ export const resolveSetTarget = async (
   }
 
   const homeDirectory = context.paths.homeDirectory;
-  const explicitLocalPath = isExplicitLocalPath(trimmedTarget);
+  const explicit = isExplicitLocalPath(trimmedTarget);
   const localTargetPath = resolveCommandTargetPath(
     trimmedTarget,
     context.environment,
     context.cwd,
   );
-  const localRepoPath = explicitLocalPath
+  const localRepoPath = explicit
     ? buildRepoPathWithinRoot(localTargetPath, homeDirectory, "Sync set target")
     : tryBuildRepoPathWithinRoot(
         localTargetPath,
@@ -130,10 +80,11 @@ export const resolveSetTarget = async (
         "Sync set target",
       );
 
+  // Phase 1: Try resolving as a local path
   if (localRepoPath !== undefined) {
     const localStats = await getPathStats(localTargetPath);
 
-    if (explicitLocalPath && localStats === undefined) {
+    if (explicit && localStats === undefined) {
       throw new DevsyncError("Sync set target does not exist.", {
         code: "TARGET_NOT_FOUND",
         details: [`Target: ${localTargetPath}`],
@@ -172,7 +123,7 @@ export const resolveSetTarget = async (
       }
     }
 
-    if (explicitLocalPath) {
+    if (explicit) {
       throw new DevsyncError(
         "Local set target is not inside a tracked directory entry.",
         {
@@ -184,6 +135,7 @@ export const resolveSetTarget = async (
     }
   }
 
+  // Phase 2: Fallback to repo path resolution
   const repoPath = tryNormalizeRepoPathInput(trimmedTarget);
 
   if (repoPath === undefined) {
@@ -200,24 +152,24 @@ export const resolveSetTarget = async (
   const exactEntry = config.entries.find((e) => e.repoPath === repoPath);
 
   if (exactEntry !== undefined) {
-    const resolvedTarget = await resolveTargetPath(
-      trimmedTarget,
-      exactEntry,
-      context,
-    );
+    const localPath = computeLocalPath(exactEntry, repoPath);
 
     return {
       entry: exactEntry,
-      localPath: resolvedTarget.localPath,
+      localPath,
       relativePath: "",
       repoPath,
-      stats: resolvedTarget.stats,
+      stats: await getPathStats(localPath),
     };
   }
 
   const entry = findOwningSyncEntry(config, repoPath);
+  const relativePath =
+    entry?.kind === "directory"
+      ? resolveEntryRelativeRepoPath(entry, repoPath)
+      : undefined;
 
-  if (entry === undefined || entry.kind !== "directory") {
+  if (entry === undefined || relativePath === undefined) {
     throw new DevsyncError(
       "Repository set target is not inside a tracked directory entry.",
       {
@@ -228,29 +180,14 @@ export const resolveSetTarget = async (
     );
   }
 
-  const resolvedTarget = await resolveTargetPath(trimmedTarget, entry, context);
-  const relativePath = resolveEntryRelativeRepoPath(
-    entry,
-    resolvedTarget.repoPath,
-  );
-
-  if (relativePath === undefined) {
-    throw new DevsyncError(
-      "Repository set target is not inside a tracked directory entry.",
-      {
-        code: "TARGET_NOT_TRACKED",
-        details: [`Target: ${trimmedTarget}`],
-        hint: "Use a repository path under an existing tracked directory, or track it first with 'devsync track'.",
-      },
-    );
-  }
+  const localPath = computeLocalPath(entry, repoPath);
 
   return {
     entry,
-    localPath: resolvedTarget.localPath,
+    localPath,
     relativePath,
-    repoPath: resolvedTarget.repoPath,
-    stats: resolvedTarget.stats,
+    repoPath,
+    stats: await getPathStats(localPath),
   };
 };
 
@@ -265,6 +202,20 @@ export const setSyncTargetMode = async (
     context.environment,
   );
   const target = await resolveSetTarget(request.target, config, context);
+
+  const buildResult = (
+    action: SyncSetAction,
+    extras?: Partial<SyncSetResult>,
+  ): SyncSetResult => ({
+    action,
+    configPath: context.paths.configPath,
+    entryRepoPath: target.entry.repoPath,
+    localPath: target.localPath,
+    mode: request.state,
+    repoPath: target.repoPath,
+    syncDirectory: context.paths.syncDirectory,
+    ...extras,
+  });
 
   if (target.relativePath === "") {
     const action =
@@ -284,20 +235,14 @@ export const setSyncTargetMode = async (
     });
 
     if (action !== "unchanged") {
-      await writeValidatedSyncConfig(context.paths.syncDirectory, nextConfig, {
-        environment: context.environment,
-      });
+      await writeValidatedSyncConfig(
+        context.paths.syncDirectory,
+        nextConfig,
+        context.environment,
+      );
     }
 
-    return {
-      action,
-      configPath: context.paths.configPath,
-      entryRepoPath: target.entry.repoPath,
-      localPath: target.localPath,
-      mode: request.state,
-      repoPath: target.repoPath,
-      syncDirectory: context.paths.syncDirectory,
-    };
+    return buildResult(action);
   }
 
   const childKind = target.stats?.isDirectory() ? "directory" : "file";
@@ -310,16 +255,7 @@ export const setSyncTargetMode = async (
 
   if (existingChild !== undefined) {
     if (existingChild.mode === request.state) {
-      return {
-        action: "unchanged",
-        configPath: context.paths.configPath,
-        entryRepoPath: target.entry.repoPath,
-        localPath: target.localPath,
-        mode: request.state,
-        repoPath: target.repoPath,
-        reason: "already-set",
-        syncDirectory: context.paths.syncDirectory,
-      };
+      return buildResult("unchanged", { reason: "already-set" });
     }
 
     const nextConfig = createSyncConfigDocument({
@@ -333,31 +269,17 @@ export const setSyncTargetMode = async (
       }),
     });
 
-    await writeValidatedSyncConfig(context.paths.syncDirectory, nextConfig, {
-      environment: context.environment,
-    });
+    await writeValidatedSyncConfig(
+      context.paths.syncDirectory,
+      nextConfig,
+      context.environment,
+    );
 
-    return {
-      action: "updated",
-      configPath: context.paths.configPath,
-      entryRepoPath: target.entry.repoPath,
-      localPath: target.localPath,
-      mode: request.state,
-      repoPath: target.repoPath,
-      syncDirectory: context.paths.syncDirectory,
-    };
+    return buildResult("updated");
   }
 
   if (request.state === target.entry.mode) {
-    return {
-      action: "unchanged",
-      configPath: context.paths.configPath,
-      entryRepoPath: target.entry.repoPath,
-      localPath: target.localPath,
-      mode: request.state,
-      repoPath: target.repoPath,
-      syncDirectory: context.paths.syncDirectory,
-    };
+    return buildResult("unchanged");
   }
 
   const newEntry: ResolvedSyncConfigEntry = {
@@ -376,17 +298,11 @@ export const setSyncTargetMode = async (
     entries: [...config.entries, newEntry],
   });
 
-  await writeValidatedSyncConfig(context.paths.syncDirectory, nextConfig, {
-    environment: context.environment,
-  });
+  await writeValidatedSyncConfig(
+    context.paths.syncDirectory,
+    nextConfig,
+    context.environment,
+  );
 
-  return {
-    action: "added",
-    configPath: context.paths.configPath,
-    entryRepoPath: target.entry.repoPath,
-    localPath: target.localPath,
-    mode: request.state,
-    repoPath: target.repoPath,
-    syncDirectory: context.paths.syncDirectory,
-  };
+  return buildResult("added");
 };

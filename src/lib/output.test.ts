@@ -44,6 +44,7 @@ describe("output", () => {
     expect(
       formatSyncAddResult({
         alreadyTracked: false,
+        changed: true,
         configPath: "/tmp/config.json",
         kind: "file",
         localPath: "/tmp/home/.gitconfig-work",

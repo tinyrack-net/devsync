@@ -1,7 +1,6 @@
 import SyncDir from "#app/cli/commands/dir.ts";
 import SyncDoctor from "#app/cli/commands/doctor.ts";
 import SyncInit from "#app/cli/commands/init.ts";
-import SyncMachineAssign from "#app/cli/commands/machine/assign.ts";
 import SyncMachineList from "#app/cli/commands/machine/list.ts";
 import SyncMachineUse from "#app/cli/commands/machine/use.ts";
 import SyncPull from "#app/cli/commands/pull.ts";
@@ -14,7 +13,6 @@ export const COMMANDS = {
   dir: SyncDir,
   doctor: SyncDoctor,
   init: SyncInit,
-  "machine:assign": SyncMachineAssign,
   "machine:list": SyncMachineList,
   "machine:use": SyncMachineUse,
   pull: SyncPull,
