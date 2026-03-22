@@ -72,7 +72,7 @@ export const listSyncMachines = async (
     activeMachinesMode:
       globalConfig?.activeMachine === undefined ? "none" : "single",
     assignments: syncConfig.entries
-      .filter((entry) => entry.machines.length > 0)
+      .filter((entry) => entry.machinesExplicit && entry.machines.length > 0)
       .map((entry) => ({
         entryLocalPath: entry.localPath,
         entryRepoPath: entry.repoPath,
@@ -192,7 +192,11 @@ export const assignSyncMachines = async (
         return e;
       }
 
-      return { ...e, machines: normalizedMachines };
+      return {
+        ...e,
+        machines: normalizedMachines,
+        machinesExplicit: normalizedMachines.length > 0,
+      };
     }),
   });
 

@@ -23,8 +23,8 @@ export const createSyncConfigDocument = (
     config.entries.map((entry): SyncConfig["entries"][number] => ({
       kind: entry.kind,
       localPath: entry.configuredLocalPath,
-      ...(entry.mode === "normal" ? {} : { mode: entry.mode }),
-      ...(entry.machines.length === 0 ? {} : { machines: [...entry.machines] }),
+      ...(entry.modeExplicit ? { mode: entry.mode } : {}),
+      ...(entry.machinesExplicit ? { machines: [...entry.machines] } : {}),
     })),
   );
 

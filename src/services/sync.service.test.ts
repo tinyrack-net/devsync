@@ -110,6 +110,7 @@ describe("sync service", () => {
       {
         kind: "directory",
         localPath: "~/.config/zsh",
+        mode: "normal",
       },
       {
         kind: "file",
@@ -268,7 +269,7 @@ describe("sync service", () => {
       (entry) => entry.localPath === "~/.config/zsh/secrets.zsh",
     );
 
-    expect(secretEntry?.mode).toBeUndefined();
+    expect(secretEntry?.mode).toBe("normal");
   });
 
   it("assigns and unassigns machines to entries", async () => {

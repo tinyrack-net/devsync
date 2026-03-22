@@ -195,6 +195,155 @@ describe("sync config", () => {
     expect(config.entries).toHaveLength(2);
   });
 
+  it("child inherits mode from parent directory", async () => {
+    const workspace = await createTemporaryDirectory("devsync-sync-config-");
+    const homeDirectory = join(workspace, "home");
+
+    const config = parseSyncConfig(
+      {
+        version: 5,
+        entries: [
+          { kind: "directory", localPath: "~/.config/zsh", mode: "secret" },
+          { kind: "file", localPath: "~/.config/zsh/aliases.zsh" },
+        ],
+      },
+      { HOME: homeDirectory },
+    );
+
+    const child = config.entries.find(
+      (e) => e.repoPath === ".config/zsh/aliases.zsh",
+    );
+    expect(child?.mode).toBe("secret");
+    expect(child?.modeExplicit).toBe(false);
+  });
+
+  it("child inherits machines from parent directory", async () => {
+    const workspace = await createTemporaryDirectory("devsync-sync-config-");
+    const homeDirectory = join(workspace, "home");
+
+    const config = parseSyncConfig(
+      {
+        version: 5,
+        entries: [
+          {
+            kind: "directory",
+            localPath: "~/.config/zsh",
+            machines: ["vivident", "default"],
+          },
+          { kind: "file", localPath: "~/.config/zsh/secrets.zsh" },
+        ],
+      },
+      { HOME: homeDirectory },
+    );
+
+    const child = config.entries.find(
+      (e) => e.repoPath === ".config/zsh/secrets.zsh",
+    );
+    expect(child?.machines).toEqual(["vivident", "default"]);
+    expect(child?.machinesExplicit).toBe(false);
+  });
+
+  it("explicit child mode overrides parent", async () => {
+    const workspace = await createTemporaryDirectory("devsync-sync-config-");
+    const homeDirectory = join(workspace, "home");
+
+    const config = parseSyncConfig(
+      {
+        version: 5,
+        entries: [
+          { kind: "directory", localPath: "~/.config/zsh", mode: "secret" },
+          {
+            kind: "file",
+            localPath: "~/.config/zsh/aliases.zsh",
+            mode: "normal",
+          },
+        ],
+      },
+      { HOME: homeDirectory },
+    );
+
+    const child = config.entries.find(
+      (e) => e.repoPath === ".config/zsh/aliases.zsh",
+    );
+    expect(child?.mode).toBe("normal");
+    expect(child?.modeExplicit).toBe(true);
+  });
+
+  it("transitive inheritance through multiple levels", async () => {
+    const workspace = await createTemporaryDirectory("devsync-sync-config-");
+    const homeDirectory = join(workspace, "home");
+
+    const config = parseSyncConfig(
+      {
+        version: 5,
+        entries: [
+          {
+            kind: "directory",
+            localPath: "~/.config",
+            machines: ["vivident"],
+            mode: "secret",
+          },
+          { kind: "directory", localPath: "~/.config/zsh" },
+          { kind: "file", localPath: "~/.config/zsh/secrets.zsh" },
+        ],
+      },
+      { HOME: homeDirectory },
+    );
+
+    const mid = config.entries.find((e) => e.repoPath === ".config/zsh");
+    const leaf = config.entries.find(
+      (e) => e.repoPath === ".config/zsh/secrets.zsh",
+    );
+
+    expect(mid?.machines).toEqual(["vivident"]);
+    expect(mid?.mode).toBe("secret");
+    expect(leaf?.machines).toEqual(["vivident"]);
+    expect(leaf?.mode).toBe("secret");
+  });
+
+  it("entry order in manifest does not affect inheritance", async () => {
+    const workspace = await createTemporaryDirectory("devsync-sync-config-");
+    const homeDirectory = join(workspace, "home");
+
+    const config = parseSyncConfig(
+      {
+        version: 5,
+        entries: [
+          { kind: "file", localPath: "~/.config/zsh/secrets.zsh" },
+          {
+            kind: "directory",
+            localPath: "~/.config/zsh",
+            machines: ["vivident"],
+            mode: "secret",
+          },
+        ],
+      },
+      { HOME: homeDirectory },
+    );
+
+    const child = config.entries.find(
+      (e) => e.repoPath === ".config/zsh/secrets.zsh",
+    );
+    expect(child?.machines).toEqual(["vivident"]);
+    expect(child?.mode).toBe("secret");
+  });
+
+  it("root entry with no parent uses defaults", async () => {
+    const workspace = await createTemporaryDirectory("devsync-sync-config-");
+    const homeDirectory = join(workspace, "home");
+
+    const config = parseSyncConfig(
+      {
+        version: 5,
+        entries: [{ kind: "file", localPath: "~/.gitconfig" }],
+      },
+      { HOME: homeDirectory },
+    );
+
+    expect(config.entries[0]?.machines).toEqual([]);
+    expect(config.entries[0]?.mode).toBe("normal");
+  });
+
   it("treats machines as an allowlist", async () => {
     const workspace = await createTemporaryDirectory("devsync-sync-config-");
     const homeDirectory = join(workspace, "home");

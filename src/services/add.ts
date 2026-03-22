@@ -114,6 +114,7 @@ const buildAddEntryCandidate = async (
     kind,
     localPath: targetPath,
     machines: input.machines?.map((m) => normalizeSyncMachineName(m)) ?? [],
+    machinesExplicit: input.machines !== undefined,
     mode: input.mode,
     modeExplicit: true,
     name: repoPath,
@@ -229,7 +230,12 @@ export const trackSyncTarget = async (
         return {
           ...entry,
           ...(modeChanged ? { mode: request.mode } : {}),
-          ...(machinesChanged ? { machines: candidate.machines } : {}),
+          ...(machinesChanged
+            ? {
+                machines: candidate.machines,
+                machinesExplicit: candidate.machinesExplicit,
+              }
+            : {}),
         };
       }),
     });

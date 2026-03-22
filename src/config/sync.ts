@@ -71,6 +71,7 @@ export type ResolvedSyncConfigEntry = Readonly<{
   kind: SyncConfigEntryKind;
   localPath: string;
   machines: readonly string[];
+  machinesExplicit: boolean;
   mode: SyncMode;
   modeExplicit: boolean;
   name: string;
@@ -371,6 +372,64 @@ const buildNormalizedMachines = (
   return entry.machines;
 };
 
+const findNearestParentEntry = (
+  entries: ReadonlyMap<string, ResolvedSyncConfigEntry>,
+  childRepoPath: string,
+): ResolvedSyncConfigEntry | undefined => {
+  let best: ResolvedSyncConfigEntry | undefined;
+
+  for (const entry of entries.values()) {
+    if (
+      entry.kind === "directory" &&
+      childRepoPath !== entry.repoPath &&
+      childRepoPath.startsWith(`${entry.repoPath}/`) &&
+      (best === undefined || entry.repoPath.length > best.repoPath.length)
+    ) {
+      best = entry;
+    }
+  }
+
+  return best;
+};
+
+const applyEntryInheritance = (
+  entries: ResolvedSyncConfigEntry[],
+): ResolvedSyncConfigEntry[] => {
+  const sorted = [...entries].sort(
+    (a, b) => a.repoPath.length - b.repoPath.length,
+  );
+
+  const resolved = new Map<string, ResolvedSyncConfigEntry>();
+
+  for (const entry of sorted) {
+    const parent = findNearestParentEntry(resolved, entry.repoPath);
+
+    const inheritedMode =
+      !entry.modeExplicit && parent !== undefined ? parent.mode : entry.mode;
+
+    const inheritedMachines =
+      !entry.machinesExplicit && parent !== undefined
+        ? parent.machines
+        : entry.machines;
+
+    resolved.set(entry.repoPath, {
+      ...entry,
+      machines: inheritedMachines,
+      mode: inheritedMode,
+    });
+  }
+
+  return entries.map((e) => {
+    const entry = resolved.get(e.repoPath);
+
+    if (entry === undefined) {
+      throw new Error(`Missing resolved entry for ${e.repoPath}`);
+    }
+
+    return entry;
+  });
+};
+
 export const parseSyncConfig = (
   input: unknown,
   environment: NodeJS.ProcessEnv = process.env,
@@ -385,7 +444,7 @@ export const parseSyncConfig = (
     });
   }
 
-  const entries = result.data.entries.map((entry) => {
+  const rawEntries = result.data.entries.map((entry) => {
     const resolvedLocalPath = resolveSyncEntryLocalPath(
       entry.localPath,
       environment,
@@ -399,6 +458,7 @@ export const parseSyncConfig = (
       kind: entry.kind,
       localPath: resolvedLocalPath,
       machines,
+      machinesExplicit: entry.machines !== undefined,
       mode,
       modeExplicit: entry.mode !== undefined,
       name: repoPath,
@@ -406,7 +466,9 @@ export const parseSyncConfig = (
     } satisfies ResolvedSyncConfigEntry;
   });
 
-  validateResolvedSyncConfigEntries(entries);
+  validateResolvedSyncConfigEntries(rawEntries);
+
+  const entries = applyEntryInheritance(rawEntries);
 
   const age =
     result.data.version === 6

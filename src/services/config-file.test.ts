@@ -12,6 +12,7 @@ describe("config-file", () => {
             kind: "directory",
             localPath: "/tmp/home/.config/zsh",
             machines: [],
+            machinesExplicit: false,
             mode: "normal",
             modeExplicit: false,
             name: ".config/zsh",
@@ -40,6 +41,7 @@ describe("config-file", () => {
             kind: "file",
             localPath: "/tmp/home/.gitconfig",
             machines: ["default", "work"],
+            machinesExplicit: true,
             mode: "secret",
             modeExplicit: true,
             name: ".gitconfig",
@@ -61,7 +63,7 @@ describe("config-file", () => {
     });
   });
 
-  it("omits mode when normal and machines when empty", () => {
+  it("omits mode and machines when not explicit", () => {
     expect(
       createSyncConfigDocument({
         entries: [
@@ -70,6 +72,7 @@ describe("config-file", () => {
             kind: "file",
             localPath: "/tmp/home/.bashrc",
             machines: [],
+            machinesExplicit: false,
             mode: "normal",
             modeExplicit: false,
             name: ".bashrc",
@@ -83,6 +86,36 @@ describe("config-file", () => {
         {
           kind: "file",
           localPath: "~/.bashrc",
+        },
+      ],
+      version: 6,
+    });
+  });
+
+  it("writes explicit mode even when normal", () => {
+    expect(
+      createSyncConfigDocument({
+        entries: [
+          {
+            configuredLocalPath: "~/.bashrc",
+            kind: "file",
+            localPath: "/tmp/home/.bashrc",
+            machines: [],
+            machinesExplicit: false,
+            mode: "normal",
+            modeExplicit: true,
+            name: ".bashrc",
+            repoPath: ".bashrc",
+          },
+        ],
+        version: 5,
+      }),
+    ).toEqual({
+      entries: [
+        {
+          kind: "file",
+          localPath: "~/.bashrc",
+          mode: "normal",
         },
       ],
       version: 6,

@@ -287,6 +287,7 @@ export const setSyncTargetMode = async (
     kind: childKind,
     localPath: target.localPath,
     machines: [],
+    machinesExplicit: false,
     mode: request.state,
     modeExplicit: true,
     name: childRepoPath,
