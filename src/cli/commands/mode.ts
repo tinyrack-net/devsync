@@ -38,7 +38,7 @@ export default class SyncMode extends BaseCommand {
       default: false,
       summary: "Apply the mode to a directory subtree",
       description:
-        "When the target is a directory, update the whole subtree. For tracked directory roots, this also changes the default mode used for descendants unless a child override exists.",
+        "When the target is a directory, create a directory entry that applies the mode to the entire subtree.",
     }),
   };
 

@@ -104,17 +104,29 @@ const walkLocalDirectory = async (
   config: SnapshotConfig,
   localDirectory: string,
   repoPathPrefix: string,
+  childEntryPaths: ReadonlySet<string>,
 ) => {
   const entries = await listDirectoryEntries(localDirectory);
 
   for (const entry of entries) {
     const localPath = join(localDirectory, entry.name);
     const repoPath = posix.join(repoPathPrefix, entry.name);
+
+    if (childEntryPaths.has(repoPath)) {
+      continue;
+    }
+
     const stats = await lstat(localPath);
 
     if (stats.isDirectory()) {
       assertStorageSafeRepoPath(repoPath);
-      await walkLocalDirectory(snapshot, config, localPath, repoPath);
+      await walkLocalDirectory(
+        snapshot,
+        config,
+        localPath,
+        repoPath,
+        childEntryPaths,
+      );
       continue;
     }
 
@@ -124,6 +136,7 @@ const walkLocalDirectory = async (
 
 export const buildLocalSnapshot = async (config: SnapshotConfig) => {
   const snapshot = new Map<string, SnapshotNode>();
+  const allEntryPaths = new Set(config.entries.map((e) => e.repoPath));
 
   for (const entry of config.entries) {
     const stats = await getPathStats(entry.localPath);
@@ -165,8 +178,20 @@ export const buildLocalSnapshot = async (config: SnapshotConfig) => {
       );
     }
 
+    const childEntryPaths = new Set(
+      [...allEntryPaths].filter(
+        (p) => p !== entry.repoPath && p.startsWith(`${entry.repoPath}/`),
+      ),
+    );
+
     const snapshotSizeBeforeWalk = snapshot.size;
-    await walkLocalDirectory(snapshot, config, entry.localPath, entry.repoPath);
+    await walkLocalDirectory(
+      snapshot,
+      config,
+      entry.localPath,
+      entry.repoPath,
+      childEntryPaths,
+    );
 
     if (entryMode !== "ignore" || snapshot.size > snapshotSizeBeforeWalk) {
       addSnapshotNode(snapshot, entry.repoPath, {

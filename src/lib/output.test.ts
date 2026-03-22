@@ -40,7 +40,7 @@ describe("output", () => {
     ).toContain("Cleared active sync machine.");
   });
 
-  it("formats track and rule updates", () => {
+  it("formats track and set results", () => {
     expect(
       formatSyncAddResult({
         alreadyTracked: false,
@@ -55,16 +55,15 @@ describe("output", () => {
 
     expect(
       formatSyncSetResult({
-        action: "removed",
+        action: "unchanged",
         configPath: "/tmp/config.json",
         entryRepoPath: ".config/zsh",
         localPath: "/tmp/home/.config/zsh/secrets.zsh",
         mode: "ignore",
-        reason: "reverted-to-inherited",
+        reason: "already-set",
         repoPath: ".config/zsh/secrets.zsh",
-        scope: "exact",
         syncDirectory: "/tmp/sync",
       }),
-    ).toContain("Removed the redundant rule");
+    ).toContain("already has ignore mode");
   });
 });

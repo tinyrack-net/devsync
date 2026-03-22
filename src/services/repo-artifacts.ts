@@ -35,10 +35,8 @@ export const collectArtifactNamespaces = (
   namespaces.add(syncDefaultMachine);
 
   for (const entry of entries) {
-    for (const machineList of Object.values(entry.machines)) {
-      for (const machine of machineList) {
-        namespaces.add(machine);
-      }
+    for (const machine of entry.machines) {
+      namespaces.add(machine);
     }
   }
 

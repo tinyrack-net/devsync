@@ -23,44 +23,22 @@ const requiredTrimmedStringSchema = z
   .trim()
   .min(1, "Value must not be empty.");
 
-const syncOverrideMapSchema = z.record(
-  requiredTrimmedStringSchema,
-  z.enum(syncModes),
-);
-
 const syncMachineNameArraySchema = z
   .array(requiredTrimmedStringSchema)
   .min(1, "At least one machine must be specified.");
 
-const syncConfigFileEntrySchema = z
+const syncConfigEntrySchema = z
   .object({
-    kind: z.literal("file"),
+    kind: z.enum(syncEntryKinds),
     localPath: requiredTrimmedStringSchema,
     machines: syncMachineNameArraySchema.optional(),
     mode: z.enum(syncModes).optional(),
   })
   .strict();
 
-const syncConfigDirectoryEntrySchema = z
-  .object({
-    kind: z.literal("directory"),
-    localPath: requiredTrimmedStringSchema,
-    machines: z
-      .record(requiredTrimmedStringSchema, syncMachineNameArraySchema)
-      .optional(),
-    mode: z.enum(syncModes).optional(),
-    rules: syncOverrideMapSchema.optional(),
-  })
-  .strict();
-
-const syncConfigEntrySchema = z.discriminatedUnion("kind", [
-  syncConfigFileEntrySchema,
-  syncConfigDirectoryEntrySchema,
-]);
-
 const syncConfigSchema = z
   .object({
-    version: z.literal(4),
+    version: z.literal(5),
     entries: z.array(syncConfigEntrySchema),
   })
   .strict();
@@ -68,29 +46,21 @@ const syncConfigSchema = z
 export type SyncConfigEntryKind = (typeof syncEntryKinds)[number];
 export type SyncMode = (typeof syncModes)[number];
 export type SyncConfig = z.infer<typeof syncConfigSchema>;
-export type SyncOverrideMatch = "exact" | "subtree";
-
-export type ResolvedSyncOverride = Readonly<{
-  match: SyncOverrideMatch;
-  mode: SyncMode;
-  path: string;
-}>;
 
 export type ResolvedSyncConfigEntry = Readonly<{
   configuredLocalPath: string;
   kind: SyncConfigEntryKind;
   localPath: string;
-  machines: Readonly<Record<string, readonly string[]>>;
+  machines: readonly string[];
   mode: SyncMode;
   modeExplicit: boolean;
   name: string;
-  overrides: readonly ResolvedSyncOverride[];
   repoPath: string;
 }>;
 
 export type ResolvedSyncConfig = Readonly<{
   entries: readonly ResolvedSyncConfigEntry[];
-  version: 4;
+  version: 5;
 }>;
 
 export const syncDefaultMachine = "default";
@@ -169,103 +139,11 @@ export const normalizeSyncMachineName = (
   return normalizedValue;
 };
 
-export const normalizeSyncOverridePath = (
-  value: string,
-  description = "Override path",
-) => {
-  const posixValue = value.replaceAll("\\", "/");
-
-  if (
-    posixValue === "" ||
-    posixValue === "." ||
-    posixValue === ".." ||
-    posixValue.startsWith("../") ||
-    posixValue.includes("/../") ||
-    posixValue.startsWith("/")
-  ) {
-    throw new DevsyncError(
-      `${description} must be a relative POSIX path inside the repository root.`,
-      {
-        code: "INVALID_OVERRIDE_PATH",
-        details: [`${description}: ${value}`],
-        hint: "Use a relative child path without '..' segments.",
-      },
-    );
-  }
-
-  const normalizedValue = posix.normalize(posixValue);
-
-  if (
-    normalizedValue === "" ||
-    normalizedValue === "." ||
-    normalizedValue === ".." ||
-    normalizedValue.startsWith("../") ||
-    normalizedValue.includes("/../") ||
-    normalizedValue.startsWith("/")
-  ) {
-    throw new DevsyncError(
-      `${description} must be a relative POSIX path inside the repository root.`,
-      {
-        code: "INVALID_OVERRIDE_PATH",
-        details: [`${description}: ${value}`],
-        hint: "Use a relative child path without '..' segments.",
-      },
-    );
-  }
-
-  if (hasReservedSyncArtifactSuffixSegment(normalizedValue)) {
-    throw new DevsyncError(
-      `${description} must not use the reserved suffix ${syncSecretArtifactSuffix}.`,
-      {
-        code: "RESERVED_SECRET_SUFFIX",
-        details: [`${description}: ${value}`],
-        hint: "Rename the path so no segment ends with the secret artifact suffix.",
-      },
-    );
-  }
-
-  return normalizedValue;
-};
-
 export const hasReservedSyncArtifactSuffixSegment = (value: string) => {
   return value
     .replaceAll("\\", "/")
     .split("/")
     .some((segment) => segment.endsWith(syncSecretArtifactSuffix));
-};
-
-export const normalizeSyncOverrideSelector = (
-  value: string,
-  description = "Override selector",
-): ResolvedSyncOverride => {
-  const posixValue = value.replaceAll("\\", "/");
-  const match = posixValue.endsWith("/") ? "subtree" : "exact";
-  const trimmedValue =
-    match === "subtree" ? posixValue.replace(/\/+$/u, "") : posixValue;
-
-  return {
-    match,
-    mode: "normal",
-    path: normalizeSyncOverridePath(trimmedValue, description),
-  };
-};
-
-export const formatSyncOverrideSelector = (
-  override: Pick<ResolvedSyncOverride, "match" | "path">,
-) => {
-  return override.match === "subtree" ? `${override.path}/` : override.path;
-};
-
-const buildResolvedOverrides = (
-  overrides: Record<string, SyncMode> | undefined,
-  description: string,
-) => {
-  return Object.entries(overrides ?? {}).map(([selector, mode]) => {
-    return {
-      ...normalizeSyncOverrideSelector(selector, description),
-      mode,
-    } satisfies ResolvedSyncOverride;
-  });
 };
 
 const matchesEntryPath = (
@@ -282,7 +160,18 @@ export const findOwningSyncEntry = (
   config: Pick<ResolvedSyncConfig, "entries">,
   repoPath: string,
 ): ResolvedSyncConfigEntry | undefined => {
-  return config.entries.find((entry) => matchesEntryPath(entry, repoPath));
+  let best: ResolvedSyncConfigEntry | undefined;
+
+  for (const entry of config.entries) {
+    if (
+      matchesEntryPath(entry, repoPath) &&
+      (best === undefined || entry.repoPath.length > best.repoPath.length)
+    ) {
+      best = entry;
+    }
+  }
+
+  return best;
 };
 
 export const resolveEntryRelativeRepoPath = (
@@ -302,105 +191,6 @@ export const resolveEntryRelativeRepoPath = (
   }
 
   return repoPath.slice(entry.repoPath.length + 1);
-};
-
-const getRulePathDepth = (path: string) => {
-  return path.split("/").length;
-};
-
-const compareOverrideSpecificity = (
-  left: Pick<ResolvedSyncOverride, "match" | "path">,
-  right: Pick<ResolvedSyncOverride, "match" | "path">,
-) => {
-  const depthComparison =
-    getRulePathDepth(right.path) - getRulePathDepth(left.path);
-
-  if (depthComparison !== 0) {
-    return depthComparison;
-  }
-
-  if (left.match === right.match) {
-    return 0;
-  }
-
-  return left.match === "exact" ? -1 : 1;
-};
-
-const matchesOverride = (
-  override: Pick<ResolvedSyncOverride, "match" | "path">,
-  relativePath: string,
-) => {
-  if (relativePath === "") {
-    return false;
-  }
-
-  if (override.match === "exact") {
-    return override.path === relativePath;
-  }
-
-  return (
-    override.path === relativePath ||
-    relativePath.startsWith(`${override.path}/`)
-  );
-};
-
-export const resolveRelativeSyncMode = (
-  mode: SyncMode,
-  overrides: readonly Pick<ResolvedSyncOverride, "match" | "mode" | "path">[],
-  relativePath: string,
-) => {
-  if (relativePath === "") {
-    return mode;
-  }
-
-  const matchingOverride = [...overrides]
-    .filter((override) => {
-      return matchesOverride(override, relativePath);
-    })
-    .sort(compareOverrideSpecificity)[0];
-
-  return matchingOverride?.mode ?? mode;
-};
-
-export const resolveFileMachine = (
-  machines: Readonly<Record<string, readonly string[]>>,
-  relativePath: string,
-  activeMachine: string | undefined,
-): string => {
-  const machineList = machines[relativePath];
-
-  if (machineList === undefined || machineList.length === 0) {
-    return syncDefaultMachine;
-  }
-
-  if (
-    activeMachine !== undefined &&
-    activeMachine !== syncDefaultMachine &&
-    machineList.includes(activeMachine)
-  ) {
-    return activeMachine;
-  }
-
-  return syncDefaultMachine;
-};
-
-export const resolveRelativeSyncRule = (
-  entry: Pick<ResolvedSyncConfigEntry, "machines" | "mode" | "overrides">,
-  relativePath: string,
-  activeMachine: string | undefined,
-): { mode: SyncMode; machine: string } => {
-  const mode = resolveRelativeSyncMode(
-    entry.mode,
-    entry.overrides,
-    relativePath,
-  );
-  const machine = resolveFileMachine(
-    entry.machines,
-    relativePath,
-    activeMachine,
-  );
-
-  return { mode, machine };
 };
 
 const resolveSyncEntryLocalPath = (
@@ -490,11 +280,32 @@ const validatePathOverlaps = (
 
       const currentValue = currentEntry[property];
       const otherValue = otherEntry[property];
+
+      if (currentValue === otherValue) {
+        throw new DevsyncError(
+          `Duplicate ${description.toLowerCase()} paths in manifest.json.`,
+          {
+            code: "DUPLICATE_PATHS",
+            details: [
+              `${currentEntry.name}: ${currentValue}`,
+              `${otherEntry.name}: ${otherValue}`,
+            ],
+            hint: "Remove the duplicate entry from manifest.json.",
+          },
+        );
+      }
+
+      const isParentChild =
+        currentValue.startsWith(`${otherValue}/`) ||
+        otherValue.startsWith(`${currentValue}/`);
+
+      if (isParentChild) {
+        continue;
+      }
+
       const overlaps =
         property === "repoPath"
-          ? currentValue === otherValue ||
-            currentValue.startsWith(`${otherValue}/`) ||
-            otherValue.startsWith(`${currentValue}/`)
+          ? false
           : doPathsOverlap(currentValue, otherValue);
 
       if (overlaps) {
@@ -521,73 +332,18 @@ export const validateResolvedSyncConfigEntries = (
   validatePathOverlaps(entries, "localPath", "Local");
 };
 
-const validateOverrides = (entry: ResolvedSyncConfigEntry) => {
-  if (entry.kind === "file" && entry.overrides.length > 0) {
-    throw new DevsyncError("File sync entries cannot define overrides.", {
-      code: "FILE_ENTRY_OVERRIDES",
-      details: [`Entry: ${entry.name}`],
-      hint: "Remove overrides or change the entry kind to 'directory'.",
-    });
-  }
-
-  const seenOverrides = new Set<string>();
-
-  for (const override of entry.overrides) {
-    const key = formatSyncOverrideSelector(override);
-
-    if (seenOverrides.has(key)) {
-      throw new DevsyncError(
-        "Duplicate sync override found in manifest.json.",
-        {
-          code: "DUPLICATE_OVERRIDE",
-          details: [
-            `Entry: ${entry.name}`,
-            `Override: ${formatSyncOverrideSelector(override)}`,
-          ],
-          hint: "Keep only one override selector in each entry.",
-        },
-      );
-    }
-
-    seenOverrides.add(key);
-  }
-};
-
 const buildNormalizedMachines = (
   entry: z.infer<typeof syncConfigEntrySchema>,
-): Record<string, readonly string[]> => {
-  if (entry.kind === "file") {
-    if (entry.machines === undefined || entry.machines.length === 0) {
-      return {};
-    }
-
-    for (const machine of entry.machines) {
-      normalizeSyncMachineName(machine);
-    }
-
-    return { "": entry.machines };
+): readonly string[] => {
+  if (entry.machines === undefined || entry.machines.length === 0) {
+    return [];
   }
 
-  if (entry.machines === undefined) {
-    return {};
+  for (const machine of entry.machines) {
+    normalizeSyncMachineName(machine);
   }
 
-  const normalized: Record<string, readonly string[]> = {};
-
-  for (const [path, machineList] of Object.entries(entry.machines)) {
-    const normalizedPath = normalizeSyncOverridePath(
-      path,
-      "Machine path selector",
-    );
-
-    for (const machine of machineList) {
-      normalizeSyncMachineName(machine);
-    }
-
-    normalized[normalizedPath] = machineList;
-  }
-
-  return normalized;
+  return entry.machines;
 };
 
 export const parseSyncConfig = (
@@ -611,55 +367,31 @@ export const parseSyncConfig = (
     );
     const repoPath = deriveRepoPathFromLocalPath(entry.localPath, environment);
     const machines = buildNormalizedMachines(entry);
+    const mode = entry.mode ?? "normal";
 
-    if (entry.kind === "file") {
-      const mode = entry.mode ?? "normal";
-      const resolved: ResolvedSyncConfigEntry = {
-        configuredLocalPath: entry.localPath,
-        kind: entry.kind,
-        localPath: resolvedLocalPath,
-        machines,
-        mode,
-        modeExplicit: entry.mode !== undefined,
-        name: repoPath,
-        overrides: [],
-        repoPath,
-      };
-
-      validateOverrides(resolved);
-
-      return resolved;
-    }
-
-    const dirMode = entry.mode ?? "normal";
-    const resolved: ResolvedSyncConfigEntry = {
+    return {
       configuredLocalPath: entry.localPath,
       kind: entry.kind,
       localPath: resolvedLocalPath,
       machines,
-      mode: dirMode,
+      mode,
       modeExplicit: entry.mode !== undefined,
       name: repoPath,
-      overrides: buildResolvedOverrides(entry.rules, "Rule selector"),
       repoPath,
-    };
-
-    validateOverrides(resolved);
-
-    return resolved;
+    } satisfies ResolvedSyncConfigEntry;
   });
 
   validateResolvedSyncConfigEntries(entries);
 
   return {
     entries,
-    version: 4,
+    version: 5,
   };
 };
 
 export const createInitialSyncConfig = (): SyncConfig => {
   return {
-    version: 4,
+    version: 5,
     entries: [],
   };
 };
@@ -725,6 +457,25 @@ export const readSyncConfig = async (
   }
 };
 
+const resolveMachineForEntry = (
+  entry: Pick<ResolvedSyncConfigEntry, "machines">,
+  activeMachine: string | undefined,
+): string => {
+  if (entry.machines.length === 0) {
+    return syncDefaultMachine;
+  }
+
+  if (
+    activeMachine !== undefined &&
+    activeMachine !== syncDefaultMachine &&
+    entry.machines.includes(activeMachine)
+  ) {
+    return activeMachine;
+  }
+
+  return syncDefaultMachine;
+};
+
 export const resolveSyncRule = (
   config: ResolvedSyncConfig,
   repoPath: string,
@@ -736,13 +487,9 @@ export const resolveSyncRule = (
     return undefined;
   }
 
-  const relativePath = resolveEntryRelativeRepoPath(entry, repoPath);
+  const machine = resolveMachineForEntry(entry, activeMachine);
 
-  if (relativePath === undefined) {
-    return undefined;
-  }
-
-  return resolveRelativeSyncRule(entry, relativePath, activeMachine);
+  return { mode: entry.mode, machine };
 };
 
 export const resolveSyncMode = (
@@ -798,10 +545,8 @@ export const collectAllMachineNames = (
   const machines = new Set<string>();
 
   for (const entry of entries) {
-    for (const machineList of Object.values(entry.machines)) {
-      for (const machine of machineList) {
-        machines.add(machine);
-      }
+    for (const machine of entry.machines) {
+      machines.add(machine);
     }
   }
 

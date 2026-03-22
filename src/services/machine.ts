@@ -6,7 +6,6 @@ import {
 import {
   collectAllMachineNames,
   normalizeSyncMachineName,
-  normalizeSyncOverridePath,
   type ResolvedSyncConfig,
   readSyncConfig,
 } from "#app/config/sync.ts";
@@ -28,7 +27,6 @@ export type SyncMachineAssignment = Readonly<{
   entryLocalPath: string;
   entryRepoPath: string;
   machines: readonly string[];
-  path: string;
 }>;
 
 export type SyncMachineListResult = Readonly<{
@@ -51,7 +49,6 @@ export type SyncMachineUpdateResult = Readonly<{
 
 export type SyncMachineAssignRequest = Readonly<{
   machines: readonly string[];
-  path?: string;
   target: string;
 }>;
 
@@ -60,13 +57,11 @@ export type SyncMachineAssignResult = Readonly<{
   configPath: string;
   entryRepoPath: string;
   machines: readonly string[];
-  path: string;
   syncDirectory: string;
 }>;
 
 export type SyncMachineUnassignRequest = Readonly<{
   machines: readonly string[];
-  path?: string;
   target: string;
 }>;
 
@@ -75,7 +70,6 @@ export type SyncMachineUnassignResult = Readonly<{
   configPath: string;
   entryRepoPath: string;
   machines: readonly string[];
-  path: string;
   syncDirectory: string;
 }>;
 
@@ -115,17 +109,18 @@ const collectAssignments = (
   const assignments: SyncMachineAssignment[] = [];
 
   for (const entry of config.entries) {
-    for (const [path, machines] of Object.entries(entry.machines)) {
+    if (entry.machines.length > 0) {
       assignments.push({
         entryLocalPath: entry.localPath,
         entryRepoPath: entry.repoPath,
-        machines,
-        path: path === "" ? entry.repoPath : `${entry.repoPath}/${path}`,
+        machines: entry.machines,
       });
     }
   }
 
-  return assignments.sort((left, right) => left.path.localeCompare(right.path));
+  return assignments.sort((left, right) =>
+    left.entryRepoPath.localeCompare(right.entryRepoPath),
+  );
 };
 
 const writeGlobalConfig = async (
@@ -210,7 +205,7 @@ export const assignSyncMachines = async (
   if (target.length === 0) {
     throw new DevsyncError("Target path is required.", {
       code: "TARGET_REQUIRED",
-      hint: "Pass a tracked entry path, for example 'devsync machine assign ~/.config/zsh default work --path secrets.zsh'.",
+      hint: "Pass a tracked entry path, for example 'devsync machine assign ~/.gitconfig default work'.",
     });
   }
 
@@ -248,46 +243,20 @@ export const assignSyncMachines = async (
   const normalizedMachines = request.machines.map((m) =>
     normalizeSyncMachineName(m),
   );
-  const machineKey =
-    entry.kind === "file"
-      ? ""
-      : (() => {
-          if (request.path === undefined || request.path.trim().length === 0) {
-            throw new DevsyncError(
-              "A child path is required for directory entries.",
-              {
-                code: "PATH_REQUIRED",
-                hint: "Use --path to specify which child path within the directory to assign machines to.",
-              },
-            );
-          }
-
-          return normalizeSyncOverridePath(request.path, "Machine path");
-        })();
-
-  const existingMachines = entry.machines[machineKey];
-  const displayPath =
-    machineKey === "" ? entry.repoPath : `${entry.repoPath}/${machineKey}`;
 
   if (
-    existingMachines !== undefined &&
-    existingMachines.length === normalizedMachines.length &&
-    normalizedMachines.every((m) => existingMachines.includes(m))
+    entry.machines.length === normalizedMachines.length &&
+    normalizedMachines.every((m) => entry.machines.includes(m))
   ) {
     return {
       action: "unchanged",
       configPath: context.paths.configPath,
       entryRepoPath: entry.repoPath,
       machines: normalizedMachines,
-      path: displayPath,
       syncDirectory: context.paths.syncDirectory,
     };
   }
 
-  const nextMachines = {
-    ...entry.machines,
-    [machineKey]: normalizedMachines,
-  };
   const nextConfig = createSyncConfigDocument({
     ...config,
     entries: config.entries.map((e) => {
@@ -295,7 +264,7 @@ export const assignSyncMachines = async (
         return e;
       }
 
-      return { ...e, machines: nextMachines };
+      return { ...e, machines: normalizedMachines };
     }),
   });
 
@@ -308,7 +277,6 @@ export const assignSyncMachines = async (
     configPath: context.paths.configPath,
     entryRepoPath: entry.repoPath,
     machines: normalizedMachines,
-    path: displayPath,
     syncDirectory: context.paths.syncDirectory,
   };
 };
@@ -360,59 +328,29 @@ export const unassignSyncMachines = async (
   const normalizedMachines = request.machines.map((m) =>
     normalizeSyncMachineName(m),
   );
-  const machineKey =
-    entry.kind === "file"
-      ? ""
-      : (() => {
-          if (request.path === undefined || request.path.trim().length === 0) {
-            throw new DevsyncError(
-              "A child path is required for directory entries.",
-              {
-                code: "PATH_REQUIRED",
-                hint: "Use --path to specify which child path within the directory to unassign machines from.",
-              },
-            );
-          }
 
-          return normalizeSyncOverridePath(request.path, "Machine path");
-        })();
-
-  const existingMachines = entry.machines[machineKey];
-  const displayPath =
-    machineKey === "" ? entry.repoPath : `${entry.repoPath}/${machineKey}`;
-
-  if (existingMachines === undefined) {
+  if (entry.machines.length === 0) {
     return {
       action: "unchanged",
       configPath: context.paths.configPath,
       entryRepoPath: entry.repoPath,
       machines: [],
-      path: displayPath,
       syncDirectory: context.paths.syncDirectory,
     };
   }
 
-  const remaining = existingMachines.filter(
+  const remaining = entry.machines.filter(
     (m) => !normalizedMachines.includes(m),
   );
 
-  if (remaining.length === existingMachines.length) {
+  if (remaining.length === entry.machines.length) {
     return {
       action: "unchanged",
       configPath: context.paths.configPath,
       entryRepoPath: entry.repoPath,
-      machines: [...existingMachines],
-      path: displayPath,
+      machines: [...entry.machines],
       syncDirectory: context.paths.syncDirectory,
     };
-  }
-
-  const nextMachines = { ...entry.machines };
-
-  if (remaining.length === 0) {
-    delete nextMachines[machineKey];
-  } else {
-    nextMachines[machineKey] = remaining;
   }
 
   const nextConfig = createSyncConfigDocument({
@@ -422,7 +360,7 @@ export const unassignSyncMachines = async (
         return e;
       }
 
-      return { ...e, machines: nextMachines };
+      return { ...e, machines: remaining };
     }),
   });
 
@@ -435,7 +373,6 @@ export const unassignSyncMachines = async (
     configPath: context.paths.configPath,
     entryRepoPath: entry.repoPath,
     machines: remaining,
-    path: displayPath,
     syncDirectory: context.paths.syncDirectory,
   };
 };

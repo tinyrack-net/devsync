@@ -16,7 +16,6 @@ import {
 } from "#app/config/sync.ts";
 import { resolveConfiguredAbsolutePath } from "#app/config/xdg.ts";
 
-import { countConfiguredRules } from "./config-file.ts";
 import {
   createAgeIdentityFile,
   readAgeRecipientsFromIdentityFile,
@@ -45,7 +44,6 @@ export type SyncInitResult = Readonly<{
   identityFile: string;
   generatedIdentity: boolean;
   recipientCount: number;
-  ruleCount: number;
   syncDirectory: string;
 }>;
 
@@ -204,7 +202,6 @@ export const initializeSync = async (
       generatedIdentity: false,
       identityFile: age?.identityFile ?? "",
       recipientCount: age?.recipients.length ?? 0,
-      ruleCount: countConfiguredRules(config),
       syncDirectory,
     };
   }
@@ -294,7 +291,6 @@ export const initializeSync = async (
       generatedIdentity: false,
       identityFile: age?.identityFile ?? "",
       recipientCount: age?.recipients.length ?? 0,
-      ruleCount: countConfiguredRules(config),
       syncDirectory,
     };
   }
@@ -338,7 +334,6 @@ export const initializeSync = async (
       context.environment,
     ),
     recipientCount: ageBootstrap.recipients.length,
-    ruleCount: 0,
     syncDirectory,
   };
 };

@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { createSyncConfigDocument } from "./config-file.ts";
 
 describe("config-file", () => {
-  it("writes v4 directory entries with rules", () => {
+  it("writes v5 directory entries", () => {
     expect(
       createSyncConfigDocument({
         entries: [
@@ -11,42 +11,27 @@ describe("config-file", () => {
             configuredLocalPath: "~/.config/zsh",
             kind: "directory",
             localPath: "/tmp/home/.config/zsh",
-            machines: {
-              "secrets.zsh": ["default", "work"],
-            },
+            machines: [],
             mode: "normal",
             modeExplicit: false,
             name: ".config/zsh",
-            overrides: [
-              {
-                match: "exact",
-                mode: "secret",
-                path: "secrets.zsh",
-              },
-            ],
             repoPath: ".config/zsh",
           },
         ],
-        version: 4,
+        version: 5,
       }),
     ).toEqual({
       entries: [
         {
           kind: "directory",
           localPath: "~/.config/zsh",
-          machines: {
-            "secrets.zsh": ["default", "work"],
-          },
-          rules: {
-            "secrets.zsh": "secret",
-          },
         },
       ],
-      version: 4,
+      version: 5,
     });
   });
 
-  it("writes v4 file entries with mode and machines", () => {
+  it("writes v5 file entries with mode and machines", () => {
     expect(
       createSyncConfigDocument({
         entries: [
@@ -54,17 +39,14 @@ describe("config-file", () => {
             configuredLocalPath: "~/.gitconfig",
             kind: "file",
             localPath: "/tmp/home/.gitconfig",
-            machines: {
-              "": ["default", "work"],
-            },
+            machines: ["default", "work"],
             mode: "secret",
             modeExplicit: true,
             name: ".gitconfig",
-            overrides: [],
             repoPath: ".gitconfig",
           },
         ],
-        version: 4,
+        version: 5,
       }),
     ).toEqual({
       entries: [
@@ -75,7 +57,35 @@ describe("config-file", () => {
           mode: "secret",
         },
       ],
-      version: 4,
+      version: 5,
+    });
+  });
+
+  it("omits mode when normal and machines when empty", () => {
+    expect(
+      createSyncConfigDocument({
+        entries: [
+          {
+            configuredLocalPath: "~/.bashrc",
+            kind: "file",
+            localPath: "/tmp/home/.bashrc",
+            machines: [],
+            mode: "normal",
+            modeExplicit: false,
+            name: ".bashrc",
+            repoPath: ".bashrc",
+          },
+        ],
+        version: 5,
+      }),
+    ).toEqual({
+      entries: [
+        {
+          kind: "file",
+          localPath: "~/.bashrc",
+        },
+      ],
+      version: 5,
     });
   });
 });

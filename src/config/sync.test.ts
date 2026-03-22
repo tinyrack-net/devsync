@@ -6,7 +6,6 @@ import { createTemporaryDirectory } from "#app/test/helpers/sync-fixture.ts";
 import {
   normalizeSyncMachineName,
   parseSyncConfig,
-  resolveFileMachine,
   resolveSyncRule,
 } from "./sync.ts";
 
@@ -17,7 +16,7 @@ describe("sync config", () => {
     expect(normalizeSyncMachineName("personal")).toBe("personal");
   });
 
-  it("parses v4 directory entries with rules and machines", async () => {
+  it("parses v5 entries with flat machines", async () => {
     const workspace = await createTemporaryDirectory("devsync-sync-config-");
     const homeDirectory = join(workspace, "home");
 
@@ -27,23 +26,23 @@ describe("sync config", () => {
           {
             kind: "directory",
             localPath: "~/.config/zsh",
-            machines: {
-              "secrets.zsh": ["default", "work"],
-            },
-            rules: {
-              "secrets.zsh": "secret",
-            },
+          },
+          {
+            kind: "file",
+            localPath: "~/.config/zsh/secrets.zsh",
+            machines: ["default", "work"],
+            mode: "secret",
           },
         ],
-        version: 4,
+        version: 5,
       },
       {
         HOME: homeDirectory,
       },
     );
 
-    expect(config.version).toBe(4);
-    expect(config.entries).toHaveLength(1);
+    expect(config.version).toBe(5);
+    expect(config.entries).toHaveLength(2);
     expect(resolveSyncRule(config, ".config/zsh/secrets.zsh")).toEqual({
       machine: "default",
       mode: "secret",
@@ -58,7 +57,7 @@ describe("sync config", () => {
     });
   });
 
-  it("parses v4 file entries with mode and machines", async () => {
+  it("parses v5 file entries with mode and machines", async () => {
     const workspace = await createTemporaryDirectory("devsync-sync-config-");
     const homeDirectory = join(workspace, "home");
 
@@ -72,7 +71,7 @@ describe("sync config", () => {
             mode: "secret",
           },
         ],
-        version: 4,
+        version: 5,
       },
       {
         HOME: homeDirectory,
@@ -80,7 +79,7 @@ describe("sync config", () => {
     );
 
     expect(config.entries).toHaveLength(1);
-    expect(config.entries[0]?.machines).toEqual({ "": ["default", "work"] });
+    expect(config.entries[0]?.machines).toEqual(["default", "work"]);
     expect(resolveSyncRule(config, ".gitconfig", "work")).toEqual({
       machine: "work",
       mode: "secret",
@@ -91,20 +90,47 @@ describe("sync config", () => {
     });
   });
 
-  it("resolves machine fallback to default for unknown machines", () => {
-    const machines = { "secrets.zsh": ["default", "work"] };
+  it("finds the most specific entry for nested paths", async () => {
+    const workspace = await createTemporaryDirectory("devsync-sync-config-");
+    const homeDirectory = join(workspace, "home");
 
-    expect(resolveFileMachine(machines, "secrets.zsh", "work")).toBe("work");
-    expect(resolveFileMachine(machines, "secrets.zsh", "personal")).toBe(
-      "default",
+    const config = parseSyncConfig(
+      {
+        entries: [
+          {
+            kind: "directory",
+            localPath: "~/.config/zsh",
+          },
+          {
+            kind: "file",
+            localPath: "~/.config/zsh/secrets.zsh",
+            mode: "secret",
+          },
+          {
+            kind: "directory",
+            localPath: "~/.config/zsh/cache",
+            mode: "ignore",
+          },
+        ],
+        version: 5,
+      },
+      {
+        HOME: homeDirectory,
+      },
     );
-    expect(resolveFileMachine(machines, "secrets.zsh", undefined)).toBe(
-      "default",
+
+    expect(resolveSyncRule(config, ".config/zsh/secrets.zsh")?.mode).toBe(
+      "secret",
     );
-    expect(resolveFileMachine(machines, "other.zsh", "work")).toBe("default");
+    expect(resolveSyncRule(config, ".config/zsh/cache/state.txt")?.mode).toBe(
+      "ignore",
+    );
+    expect(resolveSyncRule(config, ".config/zsh/other.zsh")?.mode).toBe(
+      "normal",
+    );
   });
 
-  it("rejects v3 config format", async () => {
+  it("rejects v4 config format", async () => {
     const workspace = await createTemporaryDirectory("devsync-sync-config-");
     const homeDirectory = join(workspace, "home");
 
@@ -112,12 +138,56 @@ describe("sync config", () => {
       parseSyncConfig(
         {
           entries: [],
-          version: 3,
+          version: 4,
         },
         {
           HOME: homeDirectory,
         },
       ),
     ).toThrowError("Sync configuration is invalid.");
+  });
+
+  it("rejects duplicate repo paths", async () => {
+    const workspace = await createTemporaryDirectory("devsync-sync-config-");
+    const homeDirectory = join(workspace, "home");
+
+    expect(() =>
+      parseSyncConfig(
+        {
+          entries: [
+            { kind: "file", localPath: "~/.gitconfig" },
+            { kind: "file", localPath: "~/.gitconfig" },
+          ],
+          version: 5,
+        },
+        {
+          HOME: homeDirectory,
+        },
+      ),
+    ).toThrowError("Duplicate");
+  });
+
+  it("allows parent-child path overlaps", async () => {
+    const workspace = await createTemporaryDirectory("devsync-sync-config-");
+    const homeDirectory = join(workspace, "home");
+
+    const config = parseSyncConfig(
+      {
+        entries: [
+          { kind: "directory", localPath: "~/.config/zsh" },
+          {
+            kind: "file",
+            localPath: "~/.config/zsh/secrets.zsh",
+            mode: "secret",
+          },
+        ],
+        version: 5,
+      },
+      {
+        HOME: homeDirectory,
+      },
+    );
+
+    expect(config.entries).toHaveLength(2);
   });
 });

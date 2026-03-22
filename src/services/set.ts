@@ -3,10 +3,8 @@ import { join } from "node:path";
 import {
   findOwningSyncEntry,
   type ResolvedSyncConfigEntry,
-  type ResolvedSyncOverride,
   readSyncConfig,
   resolveEntryRelativeRepoPath,
-  resolveRelativeSyncMode,
   type SyncMode,
 } from "#app/config/sync.ts";
 
@@ -17,6 +15,7 @@ import {
 import { DevsyncError } from "./error.ts";
 import { getPathStats } from "./filesystem.ts";
 import {
+  buildConfiguredHomeLocalPath,
   buildRepoPathWithinRoot,
   isExplicitLocalPath,
   resolveCommandTargetPath,
@@ -31,12 +30,8 @@ export type SyncSetRequest = Readonly<{
   target: string;
 }>;
 
-type SyncSetScope = "default" | "exact" | "subtree";
 type SyncSetAction = "added" | "removed" | "unchanged" | "updated";
-type SyncSetReason =
-  | "already-inherited"
-  | "already-set"
-  | "reverted-to-inherited";
+type SyncSetReason = "already-set";
 
 export type SyncSetResult = Readonly<{
   action: SyncSetAction;
@@ -46,7 +41,6 @@ export type SyncSetResult = Readonly<{
   mode: SyncMode;
   repoPath: string;
   reason?: SyncSetReason;
-  scope: SyncSetScope;
   syncDirectory: string;
 }>;
 
@@ -148,16 +142,11 @@ export const resolveSetTarget = async (
       });
     }
 
-    const entry = findOwningSyncEntry(config, localRepoPath);
+    const exactEntry = config.entries.find((e) => e.repoPath === localRepoPath);
 
-    if (
-      explicitLocalPath &&
-      entry !== undefined &&
-      entry.kind === "file" &&
-      entry.localPath === localTargetPath
-    ) {
+    if (exactEntry !== undefined) {
       return {
-        entry,
+        entry: exactEntry,
         localPath: localTargetPath,
         relativePath: "",
         repoPath: localRepoPath,
@@ -165,12 +154,17 @@ export const resolveSetTarget = async (
       };
     }
 
-    if (entry?.kind === "directory") {
-      const relativePath = resolveEntryRelativeRepoPath(entry, localRepoPath);
+    const parentEntry = findOwningSyncEntry(config, localRepoPath);
+
+    if (parentEntry?.kind === "directory") {
+      const relativePath = resolveEntryRelativeRepoPath(
+        parentEntry,
+        localRepoPath,
+      );
 
       if (relativePath !== undefined) {
         return {
-          entry,
+          entry: parentEntry,
           localPath: localTargetPath,
           relativePath,
           repoPath: localRepoPath,
@@ -202,6 +196,24 @@ export const resolveSetTarget = async (
         hint: "Use an absolute path, a cwd-relative path, or a repository path like '.config/tool/file.json'.",
       },
     );
+  }
+
+  const exactEntry = config.entries.find((e) => e.repoPath === repoPath);
+
+  if (exactEntry !== undefined) {
+    const resolvedTarget = await resolveTargetPath(
+      trimmedTarget,
+      exactEntry,
+      context,
+    );
+
+    return {
+      entry: exactEntry,
+      localPath: resolvedTarget.localPath,
+      relativePath: "",
+      repoPath,
+      stats: resolvedTarget.stats,
+    };
   }
 
   const entry = findOwningSyncEntry(config, repoPath);
@@ -240,76 +252,6 @@ export const resolveSetTarget = async (
     relativePath,
     repoPath: resolvedTarget.repoPath,
     stats: resolvedTarget.stats,
-  };
-};
-
-const updateChildOverride = (
-  entry: ResolvedSyncConfigEntry,
-  input: Readonly<{
-    match: Extract<SyncSetScope, "exact" | "subtree">;
-    mode: SyncMode;
-    relativePath: string;
-  }>,
-): {
-  action: SyncSetAction;
-  entry: ResolvedSyncConfigEntry;
-  reason?: SyncSetReason;
-} => {
-  const existingOverride = entry.overrides.find((override) => {
-    return (
-      override.match === input.match && override.path === input.relativePath
-    );
-  });
-  const remainingOverrides = entry.overrides.filter((override) => {
-    return !(
-      override.match === input.match && override.path === input.relativePath
-    );
-  });
-  const inheritedMode = resolveRelativeSyncMode(
-    entry.mode,
-    remainingOverrides,
-    input.relativePath,
-  );
-
-  if (input.mode === inheritedMode) {
-    if (existingOverride === undefined) {
-      return {
-        action: "unchanged",
-        entry,
-        reason: "already-inherited",
-      };
-    }
-
-    return {
-      action: "removed",
-      entry: {
-        ...entry,
-        overrides: remainingOverrides,
-      },
-      reason: "reverted-to-inherited",
-    };
-  }
-
-  if (existingOverride?.mode === input.mode) {
-    return {
-      action: "unchanged",
-      entry,
-      reason: "already-set",
-    };
-  }
-
-  const nextOverride = {
-    match: input.match,
-    mode: input.mode,
-    path: input.relativePath,
-  } satisfies ResolvedSyncOverride;
-
-  return {
-    action: existingOverride === undefined ? "added" : "updated",
-    entry: {
-      ...entry,
-      overrides: [...remainingOverrides, nextOverride],
-    },
   };
 };
 
@@ -355,7 +297,6 @@ export const setSyncTargetMode = async (
       localPath: target.localPath,
       mode: request.state,
       repoPath: target.repoPath,
-      scope: "default" as const,
       syncDirectory: context.paths.syncDirectory,
     };
   }
@@ -364,7 +305,7 @@ export const setSyncTargetMode = async (
     throw new DevsyncError("Directory targets require --recursive.", {
       code: "RECURSIVE_REQUIRED",
       details: [`Target: ${target.localPath}`],
-      hint: "Use '--recursive' for subtree rules, or point at a file for an exact rule.",
+      hint: "Use '--recursive' for directory entries, or point at a file.",
     });
   }
 
@@ -383,38 +324,93 @@ export const setSyncTargetMode = async (
     );
   }
 
-  const scope = request.recursive ? "subtree" : "exact";
-  const update = updateChildOverride(target.entry, {
-    match: scope,
-    mode: request.state,
-    relativePath: target.relativePath,
-  });
-  const nextConfig = createSyncConfigDocument({
-    ...config,
-    entries: config.entries.map((entry) => {
-      if (entry.repoPath !== target.entry.repoPath) {
-        return entry;
-      }
+  const childKind = request.recursive ? "directory" : "file";
+  const childRepoPath = target.repoPath;
+  const childConfiguredLocalPath = buildConfiguredHomeLocalPath(childRepoPath);
 
-      return update.entry;
-    }),
-  });
+  const existingChild = config.entries.find(
+    (e) => e.repoPath === childRepoPath,
+  );
 
-  if (update.action !== "unchanged") {
+  if (existingChild !== undefined) {
+    if (existingChild.mode === request.state) {
+      return {
+        action: "unchanged",
+        configPath: context.paths.configPath,
+        entryRepoPath: target.entry.repoPath,
+        localPath: target.localPath,
+        mode: request.state,
+        repoPath: target.repoPath,
+        reason: "already-set",
+        syncDirectory: context.paths.syncDirectory,
+      };
+    }
+
+    const nextConfig = createSyncConfigDocument({
+      ...config,
+      entries: config.entries.map((entry) => {
+        if (entry.repoPath !== childRepoPath) {
+          return entry;
+        }
+
+        return { ...entry, mode: request.state };
+      }),
+    });
+
     await writeValidatedSyncConfig(context.paths.syncDirectory, nextConfig, {
       environment: context.environment,
     });
+
+    return {
+      action: "updated",
+      configPath: context.paths.configPath,
+      entryRepoPath: target.entry.repoPath,
+      localPath: target.localPath,
+      mode: request.state,
+      repoPath: target.repoPath,
+      syncDirectory: context.paths.syncDirectory,
+    };
   }
 
+  if (request.state === target.entry.mode) {
+    return {
+      action: "unchanged",
+      configPath: context.paths.configPath,
+      entryRepoPath: target.entry.repoPath,
+      localPath: target.localPath,
+      mode: request.state,
+      repoPath: target.repoPath,
+      syncDirectory: context.paths.syncDirectory,
+    };
+  }
+
+  const newEntry: ResolvedSyncConfigEntry = {
+    configuredLocalPath: childConfiguredLocalPath,
+    kind: childKind,
+    localPath: target.localPath,
+    machines: [],
+    mode: request.state,
+    modeExplicit: true,
+    name: childRepoPath,
+    repoPath: childRepoPath,
+  };
+
+  const nextConfig = createSyncConfigDocument({
+    ...config,
+    entries: [...config.entries, newEntry],
+  });
+
+  await writeValidatedSyncConfig(context.paths.syncDirectory, nextConfig, {
+    environment: context.environment,
+  });
+
   return {
-    action: update.action,
+    action: "added",
     configPath: context.paths.configPath,
     entryRepoPath: target.entry.repoPath,
     localPath: target.localPath,
     mode: request.state,
     repoPath: target.repoPath,
-    ...(update.reason === undefined ? {} : { reason: update.reason }),
-    scope,
     syncDirectory: context.paths.syncDirectory,
   };
 };

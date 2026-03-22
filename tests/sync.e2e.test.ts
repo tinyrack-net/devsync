@@ -93,7 +93,7 @@ describe("sync CLI e2e", () => {
       ),
     ).toMatchObject({
       entries: [],
-      version: 4,
+      version: 5,
     });
   });
 
@@ -155,34 +155,43 @@ describe("sync CLI e2e", () => {
         kind: string;
         localPath: string;
         mode?: string;
-        rules?: Record<string, string>;
       }>;
     };
 
     expect(trackResult.stdout).toContain("Tracked sync target.");
     expect(trackResult.stdout).toContain("Mode: secret");
-    expect(exactRuleResult.stdout).toContain("Scope: exact rule");
-    expect(subtreeRuleResult.stdout).toContain("Scope: subtree rule");
+    expect(exactRuleResult.stdout).toContain("Action: added");
+    expect(subtreeRuleResult.stdout).toContain("Action: added");
     expect(configAfterSet.entries).toMatchObject([
       {
         kind: "directory",
         localPath: "~/.config/mytool",
         mode: "secret",
-        rules: {
-          "cache/": "ignore",
-          "public.json": "normal",
-        },
+      },
+      {
+        kind: "directory",
+        localPath: "~/.config/mytool/cache",
+        mode: "ignore",
+      },
+      {
+        kind: "file",
+        localPath: "~/.config/mytool/public.json",
       },
     ]);
 
     const untrackResult = await runCli(["untrack", ".config/mytool"], { env });
+
+    expect(untrackResult.stdout).toContain("Untracked sync target.");
+
+    await runCli(["untrack", ".config/mytool/cache"], { env });
+    await runCli(["untrack", ".config/mytool/public.json"], { env });
+
     const configAfterUntrack = JSON.parse(
       await readFile(join(syncDirectory, "manifest.json"), "utf8"),
     ) as {
       entries: unknown[];
     };
 
-    expect(untrackResult.stdout).toContain("Untracked sync target.");
     expect(configAfterUntrack.entries).toEqual([]);
   }, 15_000);
 

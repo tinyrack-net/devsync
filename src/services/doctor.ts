@@ -1,4 +1,3 @@
-import { countConfiguredRules } from "./config-file.ts";
 import { pathExists } from "./filesystem.ts";
 import { ensureRepository } from "./git.ts";
 import {
@@ -75,7 +74,7 @@ export const runSyncDoctor = async (
     checks.push(
       ok(
         "config",
-        `Loaded config with ${fullConfig.entries.length} entries, ${countConfiguredRules(fullConfig)} rules, and ${effectiveConfig.age.recipients.length} recipients.`,
+        `Loaded config with ${fullConfig.entries.length} entries and ${effectiveConfig.age.recipients.length} recipients.`,
       ),
     );
     checks.push(

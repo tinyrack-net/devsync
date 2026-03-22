@@ -17,23 +17,14 @@ describe("sync runtime", () => {
           configuredLocalPath: "~/.config/zsh",
           kind: "directory",
           localPath: "/tmp/home/.config/zsh",
-          machines: {
-            "secrets.zsh": ["default", "work"],
-          },
+          machines: ["default", "work"],
           mode: "normal",
           modeExplicit: false,
           name: ".config/zsh",
-          overrides: [
-            {
-              match: "exact",
-              mode: "ignore",
-              path: "secrets.zsh",
-            },
-          ],
           repoPath: ".config/zsh",
         },
       ],
-      version: 4 as const,
+      version: 5 as const,
     } satisfies ResolvedSyncConfig;
 
     const effective = buildEffectiveSyncConfig(
@@ -52,9 +43,7 @@ describe("sync runtime", () => {
       mode: "normal",
       repoPath: ".config/zsh",
     });
-    expect(effective.entries[0]?.machines).toEqual({
-      "secrets.zsh": ["default", "work"],
-    });
+    expect(effective.entries[0]?.machines).toEqual(["default", "work"]);
   });
 
   it("passes through all entries regardless of machine selection", () => {
@@ -64,17 +53,14 @@ describe("sync runtime", () => {
           configuredLocalPath: "~/.gitconfig",
           kind: "file",
           localPath: "/tmp/home/.gitconfig",
-          machines: {
-            "": ["default", "work"],
-          },
+          machines: ["default", "work"],
           mode: "secret",
           modeExplicit: true,
           name: ".gitconfig",
-          overrides: [],
           repoPath: ".gitconfig",
         },
       ],
-      version: 4 as const,
+      version: 5 as const,
     } satisfies ResolvedSyncConfig;
 
     expect(

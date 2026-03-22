@@ -111,11 +111,10 @@ const buildAddEntryCandidate = async (
     configuredLocalPath,
     kind,
     localPath: targetPath,
-    machines: {},
+    machines: [],
     mode: input.mode,
     modeExplicit: true,
     name: repoPath,
-    overrides: [],
     repoPath,
   } satisfies ResolvedSyncConfigEntry;
 };

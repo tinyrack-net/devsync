@@ -1,23 +1,17 @@
-import { formatSyncOverrideSelector, type SyncMode } from "#app/config/sync.ts";
+import type { SyncMode } from "#app/config/sync.ts";
 
-import { countConfiguredRules } from "./config-file.ts";
 import {
   ensureSyncRepository,
   loadSyncConfig,
   type SyncContext,
 } from "./runtime.ts";
 
-export type SyncListOverride = Readonly<{
-  mode: SyncMode;
-  selector: string;
-}>;
-
 export type SyncListEntry = Readonly<{
   kind: "directory" | "file";
   localPath: string;
+  machines: readonly string[];
   mode: SyncMode;
   name: string;
-  overrides: readonly SyncListOverride[];
   repoPath: string;
 }>;
 
@@ -26,7 +20,6 @@ export type SyncListResult = Readonly<{
   configPath: string;
   entries: readonly SyncListEntry[];
   recipientCount: number;
-  ruleCount: number;
   syncDirectory: string;
 }>;
 
@@ -52,19 +45,13 @@ export const listSyncConfig = async (
       return {
         kind: entry.kind,
         localPath: entry.localPath,
+        machines: entry.machines,
         mode: entry.mode,
         name: entry.name,
-        overrides: entry.overrides.map((override) => {
-          return {
-            mode: override.mode,
-            selector: formatSyncOverrideSelector(override),
-          };
-        }),
         repoPath: entry.repoPath,
       };
     }),
     recipientCount: effectiveConfig.age.recipients.length,
-    ruleCount: countConfiguredRules(fullConfig),
     syncDirectory: context.paths.syncDirectory,
   };
 };

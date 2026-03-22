@@ -1,4 +1,3 @@
-import { countConfiguredRules } from "./config-file.ts";
 import {
   buildPullPlan,
   buildPullPlanPreview,
@@ -26,7 +25,6 @@ export type SyncStatusResult = Readonly<{
     preview: readonly string[];
   };
   recipientCount: number;
-  ruleCount: number;
   syncDirectory: string;
 }>;
 
@@ -60,7 +58,6 @@ export const getSyncStatus = async (
       preview: buildPushPlanPreview(pushPlan),
     },
     recipientCount: effectiveConfig.age.recipients.length,
-    ruleCount: countConfiguredRules(fullConfig),
     syncDirectory: context.paths.syncDirectory,
   };
 };

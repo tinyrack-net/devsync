@@ -112,25 +112,10 @@ const formatHeadline = (
   }
 };
 
-const formatSetScope = (scope: SyncSetResult["scope"]) => {
-  switch (scope) {
-    case "default":
-      return "entry default";
-    case "subtree":
-      return "subtree rule";
-    default:
-      return "exact rule";
-  }
-};
-
 const formatSetReason = (result: SyncSetResult) => {
   switch (result.reason) {
-    case "already-inherited":
-      return `No rule created because this target already inherits ${result.mode} mode.`;
     case "already-set":
-      return `This target already has a ${result.mode} ${formatSetScope(result.scope)}.`;
-    case "reverted-to-inherited":
-      return `Removed the redundant rule; this target now inherits ${result.mode} mode.`;
+      return `This target already has ${result.mode} mode.`;
     default:
       return undefined;
   }
@@ -168,9 +153,11 @@ const formatTrackedEntry = (entry: SyncListResult["entries"][number]) => {
   const lines = [
     `${style.bullet("-")} ${style.value(entry.repoPath)} ${style.detail(`[${entry.kind}, ${entry.mode}] -> ${entry.localPath}`)}`,
     `${OUTPUT_INDENT}${style.detail("storage")} ${style.value(formatStoragePath(entry.repoPath))}`,
-    ...entry.overrides.map((override) => {
-      return `${OUTPUT_INDENT}${style.detail("rule")} ${style.value(override.selector)}: ${style.value(override.mode)}`;
-    }),
+    ...(entry.machines.length > 0
+      ? [
+          `${OUTPUT_INDENT}${style.detail("machines")} ${style.value(entry.machines.join(", "))}`,
+        ]
+      : []),
   ];
 
   return lines;
@@ -247,7 +234,6 @@ export const formatSyncInitResult = (result: SyncInitResult) => {
     summary(
       `${result.recipientCount} recipients`,
       `${result.entryCount} entries`,
-      `${result.ruleCount} rules`,
     ),
   );
 };
@@ -297,7 +283,6 @@ export const formatSyncSetResult = (result: SyncSetResult) => {
     line("Owning entry", result.entryRepoPath),
     line("Target repository path", result.repoPath),
     line("Mode", result.mode),
-    line("Scope", formatSetScope(result.scope)),
     line("Action", result.action),
     formatSetReason(result),
   );
@@ -342,7 +327,6 @@ export const formatSyncListResult = (result: SyncListResult) => {
     summary(
       `${result.recipientCount} recipients`,
       `${result.entries.length} entries`,
-      `${result.ruleCount} rules`,
     ),
     ...(result.entries.length === 0
       ? [line("Entries", "none")]
@@ -359,7 +343,6 @@ export const formatSyncStatusResult = (result: SyncStatusResult) => {
     summary(
       `${result.recipientCount} recipients`,
       `${result.entryCount} entries`,
-      `${result.ruleCount} rules`,
     ),
     ...formatPushPlan(result.push),
     ...formatPullPlan(result.pull),
@@ -385,7 +368,7 @@ export const formatSyncMachineListResult = (result: SyncMachineListResult) => {
       ? [line("Assignments", "none")]
       : result.assignments.map(
           (a) =>
-            `${OUTPUT_INDENT}${style.bullet("-")} ${style.value(a.path)} ${style.detail(`[${a.machines.join(", ")}]`)}`,
+            `${OUTPUT_INDENT}${style.bullet("-")} ${style.value(a.entryRepoPath)} ${style.detail(`[${a.machines.join(", ")}]`)}`,
         );
 
   return output(
@@ -437,7 +420,6 @@ export const formatSyncMachineAssignResult = (
     line("Sync directory", result.syncDirectory),
     line("Config file", result.configPath),
     line("Entry", result.entryRepoPath),
-    line("Path", result.path),
     line("Machines", result.machines.join(", ")),
   );
 };
@@ -455,7 +437,6 @@ export const formatSyncMachineUnassignResult = (
     line("Sync directory", result.syncDirectory),
     line("Config file", result.configPath),
     line("Entry", result.entryRepoPath),
-    line("Path", result.path),
     line(
       "Remaining machines",
       result.machines.length === 0 ? "none" : result.machines.join(", "),
