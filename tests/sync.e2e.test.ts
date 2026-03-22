@@ -75,32 +75,40 @@ describe("sync CLI e2e", () => {
     ).toContain("AGE-SECRET-KEY-");
     expect(
       JSON.parse(
-        await readFile(
-          join(xdgConfigHome, "devsync", "sync", "config.json"),
-          "utf8",
-        ),
+        await readFile(join(xdgConfigHome, "devsync", "settings.json"), "utf8"),
       ),
     ).toMatchObject({
       age: {
         identityFile: "$XDG_CONFIG_HOME/devsync/age/keys.txt",
         recipients: [expect.stringMatching(/^age1/u)],
       },
-      version: 3,
+      version: 2,
+    });
+    expect(
+      JSON.parse(
+        await readFile(
+          join(xdgConfigHome, "devsync", "sync", "manifest.json"),
+          "utf8",
+        ),
+      ),
+    ).toMatchObject({
+      entries: [],
+      version: 4,
     });
   });
 
-  it("prints the sync directory in non-interactive mode", async () => {
+  it("prints the sync directory via dir command", async () => {
     const workspace = await createWorkspace();
     const homeDirectory = join(workspace, "home");
     const xdgConfigHome = join(workspace, "xdg");
-    const result = await runCli(["cd"], {
+    const result = await runCli(["dir"], {
       env: createSyncEnvironment(homeDirectory, xdgConfigHome),
     });
 
     expect(result.stdout).toBe(`${join(xdgConfigHome, "devsync", "sync")}`);
   });
 
-  it("adds roots, sets rules, and removes from the CLI", async () => {
+  it("tracks roots, sets modes, and untracks from the CLI", async () => {
     const workspace = await createWorkspace();
     const homeDirectory = join(workspace, "home");
     const xdgConfigHome = join(workspace, "xdg");
@@ -127,18 +135,21 @@ describe("sync CLI e2e", () => {
       { env },
     );
 
-    const addResult = await runCli(["add", bundleDirectory, "--secret"], {
-      env,
-    });
-    const exactRuleResult = await runCli(["set", publicFile, "normal"], {
+    const trackResult = await runCli(
+      ["track", bundleDirectory, "--mode", "secret"],
+      {
+        env,
+      },
+    );
+    const exactRuleResult = await runCli(["mode", publicFile, "normal"], {
       env,
     });
     const subtreeRuleResult = await runCli(
-      ["set", cacheDirectory, "ignore", "--recursive"],
+      ["mode", cacheDirectory, "ignore", "--recursive"],
       { env },
     );
     const configAfterSet = JSON.parse(
-      await readFile(join(syncDirectory, "config.json"), "utf8"),
+      await readFile(join(syncDirectory, "manifest.json"), "utf8"),
     ) as {
       entries: Array<{
         kind: string;
@@ -148,8 +159,8 @@ describe("sync CLI e2e", () => {
       }>;
     };
 
-    expect(addResult.stdout).toContain("Tracked sync target.");
-    expect(addResult.stdout).toContain("Mode: secret");
+    expect(trackResult.stdout).toContain("Tracked sync target.");
+    expect(trackResult.stdout).toContain("Mode: secret");
     expect(exactRuleResult.stdout).toContain("Scope: exact rule");
     expect(subtreeRuleResult.stdout).toContain("Scope: subtree rule");
     expect(configAfterSet.entries).toMatchObject([
@@ -164,15 +175,15 @@ describe("sync CLI e2e", () => {
       },
     ]);
 
-    const removeResult = await runCli(["remove", ".config/mytool"], { env });
-    const configAfterRemove = JSON.parse(
-      await readFile(join(syncDirectory, "config.json"), "utf8"),
+    const untrackResult = await runCli(["untrack", ".config/mytool"], { env });
+    const configAfterUntrack = JSON.parse(
+      await readFile(join(syncDirectory, "manifest.json"), "utf8"),
     ) as {
       entries: unknown[];
     };
 
-    expect(removeResult.stdout).toContain("Untracked sync target.");
-    expect(configAfterRemove.entries).toEqual([]);
+    expect(untrackResult.stdout).toContain("Untracked sync target.");
+    expect(configAfterUntrack.entries).toEqual([]);
   }, 15_000);
 
   it("syncs with the default machine namespace using push and pull", async () => {
@@ -200,8 +211,8 @@ describe("sync CLI e2e", () => {
       ],
       { env },
     );
-    await runCli(["add", zshDirectory], { env });
-    await runCli(["set", secretsFile, "secret"], { env });
+    await runCli(["track", zshDirectory], { env });
+    await runCli(["mode", secretsFile, "secret"], { env });
 
     await runCli(["push"], { env });
 
@@ -240,7 +251,7 @@ describe("sync CLI e2e", () => {
     expect(await readFile(secretsFile, "utf8")).toContain("TOKEN=work");
   }, 15_000);
 
-  it("sets mode on tracked roots via the unified set command", async () => {
+  it("sets mode on tracked roots via the mode command", async () => {
     const workspace = await createWorkspace();
     const homeDirectory = join(workspace, "home");
     const xdgConfigHome = join(workspace, "xdg");
@@ -261,9 +272,9 @@ describe("sync CLI e2e", () => {
       ],
       { env },
     );
-    await runCli(["add", bundleDirectory], { env });
+    await runCli(["track", bundleDirectory], { env });
 
-    const result = await runCli(["set", bundleDirectory, "secret"], {
+    const result = await runCli(["mode", bundleDirectory, "secret"], {
       env,
     });
 

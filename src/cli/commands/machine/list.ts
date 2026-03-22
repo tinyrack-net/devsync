@@ -7,7 +7,7 @@ export default class SyncMachineList extends BaseCommand {
   public static override summary = "Show configured and active sync machines";
 
   public static override description =
-    "List the machine names referenced by the current sync configuration and show which machine is active through ~/.config/devsync/config.json.";
+    "List the machine names referenced by the current sync configuration and show which machine is active through ~/.config/devsync/settings.json.";
 
   public override async run(): Promise<void> {
     this.print(

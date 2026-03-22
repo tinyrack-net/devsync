@@ -1,5 +1,8 @@
 import {
-  type ResolvedSyncConfig,
+  readGlobalDevsyncConfig,
+  resolveConfiguredIdentityFile,
+} from "#app/config/global-config.ts";
+import {
   type ResolvedSyncConfigEntry,
   readSyncConfig,
   type SyncConfigEntryKind,
@@ -37,9 +40,9 @@ export type SyncAddResult = Readonly<{
 
 const buildAddEntryCandidate = async (
   targetPath: string,
-  config: ResolvedSyncConfig,
   context: Pick<SyncContext, "environment" | "paths">,
   input: Readonly<{
+    identityFile: string | undefined;
     mode: Extract<SyncMode, "normal" | "secret">;
   }>,
 ) => {
@@ -80,14 +83,17 @@ const buildAddEntryCandidate = async (
     });
   }
 
-  if (doPathsOverlap(targetPath, config.age.identityFile)) {
+  if (
+    input.identityFile !== undefined &&
+    doPathsOverlap(targetPath, input.identityFile)
+  ) {
     throw new DevsyncError(
       "Sync target contains the configured age identity file.",
       {
         code: "TARGET_OVERLAPS_IDENTITY",
         details: [
           `Target: ${targetPath}`,
-          `Age identity file: ${config.age.identityFile}`,
+          `Age identity file: ${input.identityFile}`,
         ],
         hint: "Store age key material outside tracked sync targets.",
       },
@@ -139,7 +145,7 @@ export const trackSyncTarget = async (
   if (target.length === 0) {
     throw new DevsyncError("Target path is required.", {
       code: "TARGET_REQUIRED",
-      hint: "Pass a file or directory path, for example 'devsync add ~/.gitconfig'.",
+      hint: "Pass a file or directory path, for example 'devsync track ~/.gitconfig'.",
     });
   }
 
@@ -149,11 +155,19 @@ export const trackSyncTarget = async (
     context.paths.syncDirectory,
     context.environment,
   );
+  const globalConfig = await readGlobalDevsyncConfig(context.environment);
+  const identityFile =
+    globalConfig?.age !== undefined
+      ? resolveConfiguredIdentityFile(
+          globalConfig.age.identityFile,
+          context.environment,
+        )
+      : undefined;
   const candidate = await buildAddEntryCandidate(
     resolveCommandTargetPath(target, context.environment, context.cwd),
-    config,
     context,
     {
+      identityFile,
       mode: request.mode,
     },
   );

@@ -3,6 +3,7 @@ import {
   type GlobalDevsyncConfig,
   readGlobalDevsyncConfig,
   resolveActiveMachineSelection,
+  resolveConfiguredIdentityFile,
 } from "#app/config/global-config.ts";
 import {
   type ResolvedSyncConfig,
@@ -17,6 +18,12 @@ import {
 } from "#app/config/xdg.ts";
 
 import { ensureGitRepository } from "./git.ts";
+
+export type ResolvedAgeConfig = Readonly<{
+  configuredIdentityFile: string;
+  identityFile: string;
+  recipients: readonly string[];
+}>;
 
 export type SyncPaths = Readonly<{
   artifactsDirectory: string;
@@ -35,6 +42,7 @@ export type SyncContext = Readonly<{
 export type EffectiveSyncConfig = ResolvedSyncConfig &
   Readonly<{
     activeMachine?: string;
+    age: ResolvedAgeConfig;
   }>;
 
 export type LoadedSyncConfig = Readonly<{
@@ -78,12 +86,32 @@ export const ensureSyncRepository = async (
   await ensureGitRepository(context.paths.syncDirectory);
 };
 
+export const resolveAgeFromGlobalConfig = (
+  globalConfig: GlobalDevsyncConfig,
+  environment: NodeJS.ProcessEnv,
+): ResolvedAgeConfig | undefined => {
+  if (globalConfig.age === undefined) {
+    return undefined;
+  }
+
+  return {
+    configuredIdentityFile: globalConfig.age.identityFile,
+    identityFile: resolveConfiguredIdentityFile(
+      globalConfig.age.identityFile,
+      environment,
+    ),
+    recipients: globalConfig.age.recipients,
+  };
+};
+
 export const buildEffectiveSyncConfig = (
   fullConfig: ResolvedSyncConfig,
   selection: ActiveMachineSelection,
+  age: ResolvedAgeConfig,
 ): EffectiveSyncConfig => {
   return {
     ...fullConfig,
+    age,
     ...(selection.mode === "single"
       ? { activeMachine: selection.machine }
       : {}),
@@ -109,8 +137,19 @@ export const loadSyncConfig = async (
           mode: "single" as const,
         };
 
+  const age =
+    globalConfig !== undefined
+      ? resolveAgeFromGlobalConfig(globalConfig, context.environment)
+      : undefined;
+
+  if (age === undefined) {
+    throw new Error(
+      "Age configuration is missing from settings.json. Run 'devsync init' to set up encryption.",
+    );
+  }
+
   return {
-    effectiveConfig: buildEffectiveSyncConfig(fullConfig, selection),
+    effectiveConfig: buildEffectiveSyncConfig(fullConfig, selection, age),
     fullConfig,
     ...(globalConfig === undefined ? {} : { globalConfig }),
   };

@@ -118,7 +118,7 @@ export const resolveSetTarget = async (
   if (trimmedTarget.length === 0) {
     throw new DevsyncError("Target path is required.", {
       code: "TARGET_REQUIRED",
-      hint: "Pass a tracked path, for example 'devsync set ~/.ssh/id_ed25519 secret'.",
+      hint: "Pass a tracked path, for example 'devsync mode ~/.ssh/id_ed25519 secret'.",
     });
   }
 
@@ -185,7 +185,7 @@ export const resolveSetTarget = async (
         {
           code: "TARGET_NOT_TRACKED",
           details: [`Target: ${trimmedTarget}`],
-          hint: "Track the parent directory first with 'devsync add', then use 'devsync set' on the child path.",
+          hint: "Track the parent directory first with 'devsync track', then use 'devsync mode' on the child path.",
         },
       );
     }
@@ -212,7 +212,7 @@ export const resolveSetTarget = async (
       {
         code: "TARGET_NOT_TRACKED",
         details: [`Target: ${trimmedTarget}`],
-        hint: "Use a repository path under an existing tracked directory, or track it first with 'devsync add'.",
+        hint: "Use a repository path under an existing tracked directory, or track it first with 'devsync track'.",
       },
     );
   }
@@ -229,7 +229,7 @@ export const resolveSetTarget = async (
       {
         code: "TARGET_NOT_TRACKED",
         details: [`Target: ${trimmedTarget}`],
-        hint: "Use a repository path under an existing tracked directory, or track it first with 'devsync add'.",
+        hint: "Use a repository path under an existing tracked directory, or track it first with 'devsync track'.",
       },
     );
   }

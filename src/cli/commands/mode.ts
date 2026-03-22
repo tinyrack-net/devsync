@@ -5,7 +5,7 @@ import { formatSyncSetResult } from "#app/lib/output.ts";
 import { createSyncContext } from "#app/services/runtime.ts";
 import { setSyncTargetMode } from "#app/services/set.ts";
 
-export default class SyncSet extends BaseCommand {
+export default class SyncMode extends BaseCommand {
   public static override summary = "Set sync mode for a tracked path";
 
   public static override description =
@@ -25,7 +25,7 @@ export default class SyncSet extends BaseCommand {
         "Tracked local path (including cwd-relative) or repository path",
       required: true,
     }),
-    state: Args.string({
+    mode: Args.string({
       description:
         "Mode to apply. normal keeps plain files in sync, secret encrypts synced artifacts, and ignore skips the target during push and pull.",
       options: ["normal", "secret", "ignore"],
@@ -43,12 +43,12 @@ export default class SyncSet extends BaseCommand {
   };
 
   public override async run(): Promise<void> {
-    const { args, flags } = await this.parse(SyncSet);
+    const { args, flags } = await this.parse(SyncMode);
     const output = formatSyncSetResult(
       await setSyncTargetMode(
         {
           recursive: flags.recursive,
-          state: args.state as "ignore" | "normal" | "secret",
+          state: args.mode as "ignore" | "normal" | "secret",
           target: args.target,
         },
         createSyncContext(),

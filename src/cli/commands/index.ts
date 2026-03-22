@@ -1,33 +1,33 @@
-import SyncAdd from "#app/cli/commands/add.ts";
-import SyncAssign from "#app/cli/commands/assign.ts";
-import SyncCd from "#app/cli/commands/cd.ts";
+import SyncDir from "#app/cli/commands/dir.ts";
 import SyncDoctor from "#app/cli/commands/doctor.ts";
 import SyncInit from "#app/cli/commands/init.ts";
 import SyncList from "#app/cli/commands/list.ts";
-import SyncMachineClear from "#app/cli/commands/machine/clear.ts";
+import SyncMachineAssign from "#app/cli/commands/machine/assign.ts";
 import SyncMachineList from "#app/cli/commands/machine/list.ts";
+import SyncMachineUnassign from "#app/cli/commands/machine/unassign.ts";
+import SyncMachineUnset from "#app/cli/commands/machine/unset.ts";
 import SyncMachineUse from "#app/cli/commands/machine/use.ts";
+import SyncMode from "#app/cli/commands/mode.ts";
 import SyncPull from "#app/cli/commands/pull.ts";
 import SyncPush from "#app/cli/commands/push.ts";
-import SyncRemove from "#app/cli/commands/remove.ts";
-import SyncSet from "#app/cli/commands/set.ts";
 import SyncStatus from "#app/cli/commands/status.ts";
-import SyncUnassign from "#app/cli/commands/unassign.ts";
+import SyncTrack from "#app/cli/commands/track.ts";
+import SyncUntrack from "#app/cli/commands/untrack.ts";
 
 export const COMMANDS = {
-  add: SyncAdd,
-  assign: SyncAssign,
-  cd: SyncCd,
+  dir: SyncDir,
   doctor: SyncDoctor,
   init: SyncInit,
   list: SyncList,
-  "machine:clear": SyncMachineClear,
+  "machine:assign": SyncMachineAssign,
   "machine:list": SyncMachineList,
+  "machine:unassign": SyncMachineUnassign,
+  "machine:unset": SyncMachineUnset,
   "machine:use": SyncMachineUse,
+  mode: SyncMode,
   pull: SyncPull,
   push: SyncPush,
-  remove: SyncRemove,
-  set: SyncSet,
   status: SyncStatus,
-  unassign: SyncUnassign,
+  track: SyncTrack,
+  untrack: SyncUntrack,
 };

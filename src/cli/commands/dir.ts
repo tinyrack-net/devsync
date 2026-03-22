@@ -1,0 +1,20 @@
+import { BaseCommand } from "#app/cli/base-command.ts";
+import { resolveDevsyncSyncDirectory } from "#app/config/xdg.ts";
+import { output } from "#app/lib/output.ts";
+
+export default class SyncDir extends BaseCommand {
+  public static override summary = "Print the sync directory path";
+
+  public static override description =
+    'Print the absolute path of the local sync repository directory. Compose with your shell to navigate there, for example: cd "$(devsync dir)".';
+
+  public static override examples = [
+    "<%= config.bin %> <%= command.id %>",
+    'cd "$(<%= config.bin %> <%= command.id %>)"',
+  ];
+
+  public override async run(): Promise<void> {
+    const syncDirectory = resolveDevsyncSyncDirectory();
+    this.print(output(syncDirectory));
+  }
+}

@@ -2,7 +2,6 @@ import { lstat, readFile, readlink } from "node:fs/promises";
 import { join } from "node:path";
 
 import {
-  type ResolvedSyncConfig,
   resolveManagedSyncMode,
   resolveSyncArtifactsDirectoryPath,
   resolveSyncRule,
@@ -17,11 +16,9 @@ import {
   collectArtifactNamespaces,
   parseArtifactRelativePath,
 } from "./repo-artifacts.ts";
+import type { EffectiveSyncConfig } from "./runtime.ts";
 
-type RepositorySnapshotConfig = ResolvedSyncConfig &
-  Readonly<{
-    activeMachine?: string;
-  }>;
+type RepositorySnapshotConfig = EffectiveSyncConfig;
 
 const isActiveStorageMachine = (
   storageMachine: string,

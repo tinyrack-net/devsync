@@ -75,7 +75,7 @@ export const runSyncDoctor = async (
     checks.push(
       ok(
         "config",
-        `Loaded config with ${fullConfig.entries.length} entries, ${countConfiguredRules(fullConfig)} rules, and ${fullConfig.age.recipients.length} recipients.`,
+        `Loaded config with ${fullConfig.entries.length} entries, ${countConfiguredRules(fullConfig)} rules, and ${effectiveConfig.age.recipients.length} recipients.`,
       ),
     );
     checks.push(

@@ -3,14 +3,9 @@ import { describe, expect, it } from "vitest";
 import { createSyncConfigDocument } from "./config-file.ts";
 
 describe("config-file", () => {
-  it("writes v3 directory entries with rules", () => {
+  it("writes v4 directory entries with rules", () => {
     expect(
       createSyncConfigDocument({
-        age: {
-          configuredIdentityFile: "$XDG_CONFIG_HOME/devsync/age/keys.txt",
-          identityFile: "/tmp/keys.txt",
-          recipients: ["age1example"],
-        },
         entries: [
           {
             configuredLocalPath: "~/.config/zsh",
@@ -32,13 +27,9 @@ describe("config-file", () => {
             repoPath: ".config/zsh",
           },
         ],
-        version: 3,
+        version: 4,
       }),
     ).toEqual({
-      age: {
-        identityFile: "$XDG_CONFIG_HOME/devsync/age/keys.txt",
-        recipients: ["age1example"],
-      },
       entries: [
         {
           kind: "directory",
@@ -51,18 +42,13 @@ describe("config-file", () => {
           },
         },
       ],
-      version: 3,
+      version: 4,
     });
   });
 
-  it("writes v3 file entries with mode and machines", () => {
+  it("writes v4 file entries with mode and machines", () => {
     expect(
       createSyncConfigDocument({
-        age: {
-          configuredIdentityFile: "$XDG_CONFIG_HOME/devsync/age/keys.txt",
-          identityFile: "/tmp/keys.txt",
-          recipients: ["age1example"],
-        },
         entries: [
           {
             configuredLocalPath: "~/.gitconfig",
@@ -78,13 +64,9 @@ describe("config-file", () => {
             repoPath: ".gitconfig",
           },
         ],
-        version: 3,
+        version: 4,
       }),
     ).toEqual({
-      age: {
-        identityFile: "$XDG_CONFIG_HOME/devsync/age/keys.txt",
-        recipients: ["age1example"],
-      },
       entries: [
         {
           kind: "file",
@@ -93,7 +75,7 @@ describe("config-file", () => {
           mode: "secret",
         },
       ],
-      version: 3,
+      version: 4,
     });
   });
 });

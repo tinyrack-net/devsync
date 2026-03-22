@@ -1,24 +1,42 @@
 import { readFile } from "node:fs/promises";
 
 import { z } from "zod";
-import { resolveDevsyncGlobalConfigFilePath } from "#app/config/xdg.ts";
+import {
+  resolveConfiguredAbsolutePath,
+  resolveDevsyncGlobalConfigFilePath,
+} from "#app/config/xdg.ts";
 import { ensureTrailingNewline } from "#app/lib/string.ts";
 import { formatInputIssues } from "#app/lib/validation.ts";
 import { DevsyncError } from "#app/services/error.ts";
 import { normalizeSyncMachineName } from "./sync.ts";
 
 const optionalTrimmedStringSchema = z.string().trim().min(1).optional();
+const requiredTrimmedStringSchema = z.string().trim().min(1);
+
+const globalConfigAgeSchema = z
+  .object({
+    identityFile: requiredTrimmedStringSchema,
+    recipients: z
+      .array(requiredTrimmedStringSchema)
+      .min(1, "At least one age recipient is required."),
+  })
+  .strict();
 
 const globalConfigSchema = z
   .object({
     activeMachine: optionalTrimmedStringSchema,
-    version: z.literal(1),
+    age: globalConfigAgeSchema.optional(),
+    version: z.literal(2),
   })
   .strict();
 
 export type GlobalDevsyncConfig = Readonly<{
   activeMachine?: string;
-  version: 1;
+  age?: Readonly<{
+    identityFile: string;
+    recipients: readonly string[];
+  }>;
+  version: 2;
 }>;
 
 export type ActiveMachineSelection = Readonly<
@@ -32,6 +50,21 @@ export type ActiveMachineSelection = Readonly<
     }
 >;
 
+export const resolveConfiguredIdentityFile = (
+  value: string,
+  environment: NodeJS.ProcessEnv,
+) => {
+  try {
+    return resolveConfiguredAbsolutePath(value, environment);
+  } catch (error: unknown) {
+    throw new DevsyncError(
+      error instanceof Error
+        ? error.message
+        : `Invalid age identity file path: ${value}`,
+    );
+  }
+};
+
 export const parseGlobalDevsyncConfig = (
   input: unknown,
 ): GlobalDevsyncConfig => {
@@ -41,7 +74,7 @@ export const parseGlobalDevsyncConfig = (
     throw new DevsyncError("Global devsync configuration is invalid.", {
       code: "GLOBAL_CONFIG_VALIDATION_FAILED",
       details: formatInputIssues(result.error.issues).split("\n"),
-      hint: "Fix ~/.config/devsync/config.json, then run the command again.",
+      hint: "Fix ~/.config/devsync/settings.json, then run the command again.",
     });
   }
 
@@ -51,7 +84,15 @@ export const parseGlobalDevsyncConfig = (
       : {
           activeMachine: normalizeSyncMachineName(result.data.activeMachine),
         }),
-    version: 1,
+    ...(result.data.age === undefined
+      ? {}
+      : {
+          age: {
+            identityFile: result.data.age.identityFile,
+            recipients: [...new Set(result.data.age.recipients)],
+          },
+        }),
+    version: 2,
   };
 };
 
@@ -79,7 +120,7 @@ export const readGlobalDevsyncConfig = async (
         {
           code: "GLOBAL_CONFIG_INVALID_JSON",
           details: [`Config file: ${filePath}`, error.message],
-          hint: "Fix the JSON syntax in ~/.config/devsync/config.json, then run the command again.",
+          hint: "Fix the JSON syntax in ~/.config/devsync/settings.json, then run the command again.",
         },
       );
     }

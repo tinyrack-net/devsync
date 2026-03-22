@@ -17,16 +17,12 @@ describe("sync config", () => {
     expect(normalizeSyncMachineName("personal")).toBe("personal");
   });
 
-  it("parses v3 directory entries with rules and machines", async () => {
+  it("parses v4 directory entries with rules and machines", async () => {
     const workspace = await createTemporaryDirectory("devsync-sync-config-");
     const homeDirectory = join(workspace, "home");
 
     const config = parseSyncConfig(
       {
-        age: {
-          identityFile: "~/keys.txt",
-          recipients: ["age1example"],
-        },
         entries: [
           {
             kind: "directory",
@@ -39,14 +35,14 @@ describe("sync config", () => {
             },
           },
         ],
-        version: 3,
+        version: 4,
       },
       {
         HOME: homeDirectory,
       },
     );
 
-    expect(config.version).toBe(3);
+    expect(config.version).toBe(4);
     expect(config.entries).toHaveLength(1);
     expect(resolveSyncRule(config, ".config/zsh/secrets.zsh")).toEqual({
       machine: "default",
@@ -62,16 +58,12 @@ describe("sync config", () => {
     });
   });
 
-  it("parses v3 file entries with mode and machines", async () => {
+  it("parses v4 file entries with mode and machines", async () => {
     const workspace = await createTemporaryDirectory("devsync-sync-config-");
     const homeDirectory = join(workspace, "home");
 
     const config = parseSyncConfig(
       {
-        age: {
-          identityFile: "~/keys.txt",
-          recipients: ["age1example"],
-        },
         entries: [
           {
             kind: "file",
@@ -80,7 +72,7 @@ describe("sync config", () => {
             mode: "secret",
           },
         ],
-        version: 3,
+        version: 4,
       },
       {
         HOME: homeDirectory,
@@ -112,19 +104,15 @@ describe("sync config", () => {
     expect(resolveFileMachine(machines, "other.zsh", "work")).toBe("default");
   });
 
-  it("rejects v2 config format", async () => {
+  it("rejects v3 config format", async () => {
     const workspace = await createTemporaryDirectory("devsync-sync-config-");
     const homeDirectory = join(workspace, "home");
 
     expect(() =>
       parseSyncConfig(
         {
-          age: {
-            identityFile: "~/keys.txt",
-            recipients: ["age1example"],
-          },
           entries: [],
-          version: 2,
+          version: 3,
         },
         {
           HOME: homeDirectory,

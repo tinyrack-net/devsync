@@ -166,9 +166,12 @@ export const useSyncMachine = async (
   const normalizedMachine = normalizeSyncMachineName(machine);
 
   await ensureSyncRepository(context);
+
+  const existing = await readGlobalDevsyncConfig(context.environment);
   await writeGlobalConfig(context.paths.globalConfigPath, {
+    ...(existing?.age === undefined ? {} : { age: existing.age }),
     activeMachine: normalizedMachine,
-    version: 1,
+    version: 2,
   });
 
   return {
@@ -184,8 +187,11 @@ export const clearSyncMachines = async (
   context: SyncContext,
 ): Promise<SyncMachineUpdateResult> => {
   await ensureSyncRepository(context);
+
+  const existing = await readGlobalDevsyncConfig(context.environment);
   await writeGlobalConfig(context.paths.globalConfigPath, {
-    version: 1,
+    ...(existing?.age === undefined ? {} : { age: existing.age }),
+    version: 2,
   });
 
   return {
@@ -204,7 +210,7 @@ export const assignSyncMachines = async (
   if (target.length === 0) {
     throw new DevsyncError("Target path is required.", {
       code: "TARGET_REQUIRED",
-      hint: "Pass a tracked entry path, for example 'devsync assign ~/.config/zsh --machine default --machine work --path secrets.zsh'.",
+      hint: "Pass a tracked entry path, for example 'devsync machine assign ~/.config/zsh default work --path secrets.zsh'.",
     });
   }
 
@@ -235,7 +241,7 @@ export const assignSyncMachines = async (
   if (entry === undefined) {
     throw new DevsyncError(`No tracked sync entry matches: ${target}`, {
       code: "TARGET_NOT_TRACKED",
-      hint: "Track the root first with 'devsync add'.",
+      hint: "Track the root first with 'devsync track'.",
     });
   }
 
@@ -347,7 +353,7 @@ export const unassignSyncMachines = async (
   if (entry === undefined) {
     throw new DevsyncError(`No tracked sync entry matches: ${target}`, {
       code: "TARGET_NOT_TRACKED",
-      hint: "Track the root first with 'devsync add'.",
+      hint: "Track the root first with 'devsync track'.",
     });
   }
 

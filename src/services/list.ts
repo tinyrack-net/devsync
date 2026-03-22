@@ -63,7 +63,7 @@ export const listSyncConfig = async (
         repoPath: entry.repoPath,
       };
     }),
-    recipientCount: fullConfig.age.recipients.length,
+    recipientCount: effectiveConfig.age.recipients.length,
     ruleCount: countConfiguredRules(fullConfig),
     syncDirectory: context.paths.syncDirectory,
   };

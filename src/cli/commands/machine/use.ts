@@ -9,7 +9,7 @@ export default class SyncMachineUse extends BaseCommand {
   public static override summary = "Activate a single sync machine";
 
   public static override description =
-    "Write ~/.config/devsync/config.json so plain push, pull, status, list, and doctor commands use the selected machine layer by default.";
+    "Write ~/.config/devsync/settings.json so plain push, pull, status, list, and doctor commands use the selected machine layer by default.";
 
   public static override args = {
     machine: Args.string({

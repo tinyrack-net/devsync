@@ -93,11 +93,7 @@ export const createSyncConfigDocument = (
   );
 
   return {
-    version: 3,
-    age: {
-      identityFile: config.age.configuredIdentityFile,
-      recipients: [...config.age.recipients],
-    },
+    version: 4,
     entries,
   };
 };

@@ -53,7 +53,7 @@ afterEach(async () => {
 });
 
 describe("sync service", () => {
-  it("tracks entries in v3 config format", async () => {
+  it("tracks entries in v4 manifest format", async () => {
     const workspace = await createWorkspace();
     const homeDirectory = join(workspace, "home");
     const xdgConfigHome = join(workspace, "xdg");
@@ -98,7 +98,7 @@ describe("sync service", () => {
 
     const config = JSON.parse(
       await readFile(
-        join(xdgConfigHome, "devsync", "sync", "config.json"),
+        join(xdgConfigHome, "devsync", "sync", "manifest.json"),
         "utf8",
       ),
     ) as {
@@ -106,7 +106,7 @@ describe("sync service", () => {
       version: number;
     };
 
-    expect(config.version).toBe(3);
+    expect(config.version).toBe(4);
     expect(config.entries).toEqual([
       {
         kind: "directory",
@@ -306,7 +306,7 @@ describe("sync service", () => {
 
     const config = JSON.parse(
       await readFile(
-        join(xdgConfigHome, "devsync", "sync", "config.json"),
+        join(xdgConfigHome, "devsync", "sync", "manifest.json"),
         "utf8",
       ),
     ) as { entries: Array<{ machines?: Record<string, string[]> }> };
@@ -345,7 +345,7 @@ describe("sync service", () => {
 
     const configAfter = JSON.parse(
       await readFile(
-        join(xdgConfigHome, "devsync", "sync", "config.json"),
+        join(xdgConfigHome, "devsync", "sync", "manifest.json"),
         "utf8",
       ),
     ) as { entries: Array<{ machines?: Record<string, string[]> }> };
@@ -387,7 +387,7 @@ describe("sync service", () => {
 
     const config = JSON.parse(
       await readFile(
-        join(xdgConfigHome, "devsync", "sync", "config.json"),
+        join(xdgConfigHome, "devsync", "sync", "manifest.json"),
         "utf8",
       ),
     ) as { entries: Array<{ machines?: string[] }> };

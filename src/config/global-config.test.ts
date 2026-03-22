@@ -11,11 +11,29 @@ describe("global config", () => {
     expect(
       parseGlobalDevsyncConfig({
         activeMachine: " work ",
-        version: 1,
+        version: 2,
       }),
     ).toEqual({
       activeMachine: "work",
-      version: 1,
+      version: 2,
+    });
+  });
+
+  it("parses config with age settings", () => {
+    expect(
+      parseGlobalDevsyncConfig({
+        age: {
+          identityFile: "$XDG_CONFIG_HOME/devsync/age/keys.txt",
+          recipients: ["age1example"],
+        },
+        version: 2,
+      }),
+    ).toEqual({
+      age: {
+        identityFile: "$XDG_CONFIG_HOME/devsync/age/keys.txt",
+        recipients: ["age1example"],
+      },
+      version: 2,
     });
   });
 
@@ -32,7 +50,7 @@ describe("global config", () => {
   it("uses the configured active machine", () => {
     const selection = resolveActiveMachineSelection({
       activeMachine: "work",
-      version: 1,
+      version: 2,
     });
 
     expect(selection).toEqual({

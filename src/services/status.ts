@@ -59,7 +59,7 @@ export const getSyncStatus = async (
       ...buildPushResultFromPlan(pushPlan, context, true),
       preview: buildPushPlanPreview(pushPlan),
     },
-    recipientCount: fullConfig.age.recipients.length,
+    recipientCount: effectiveConfig.age.recipients.length,
     ruleCount: countConfiguredRules(fullConfig),
     syncDirectory: context.paths.syncDirectory,
   };

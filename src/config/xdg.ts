@@ -55,7 +55,7 @@ export const resolveDevsyncConfigDirectory = (
 export const resolveDevsyncGlobalConfigFilePath = (
   environment: NodeJS.ProcessEnv = process.env,
 ) => {
-  return resolve(resolveDevsyncConfigDirectory(environment), "config.json");
+  return resolve(resolveDevsyncConfigDirectory(environment), "settings.json");
 };
 
 export const resolveDevsyncSyncDirectory = (

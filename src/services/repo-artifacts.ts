@@ -4,7 +4,6 @@ import { join } from "node:path";
 import {
   findOwningSyncEntry,
   hasReservedSyncArtifactSuffixSegment,
-  type ResolvedSyncConfig,
   type ResolvedSyncConfigEntry,
   resolveSyncArtifactsDirectoryPath,
   resolveSyncRule,
@@ -21,11 +20,9 @@ import {
   writeSymlinkNode,
 } from "./filesystem.ts";
 import type { SnapshotNode } from "./local-snapshot.ts";
+import type { EffectiveSyncConfig } from "./runtime.ts";
 
-type ArtifactConfig = ResolvedSyncConfig &
-  Readonly<{
-    activeMachine?: string;
-  }>;
+type ArtifactConfig = EffectiveSyncConfig;
 
 export const buildArtifactNamespace = (machine: string) => {
   return machine;

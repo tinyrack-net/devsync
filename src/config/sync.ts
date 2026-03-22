@@ -3,7 +3,6 @@ import { isAbsolute, join, posix, relative } from "node:path";
 
 import { z } from "zod";
 import {
-  resolveConfiguredAbsolutePath,
   resolveDevsyncSyncDirectory,
   resolveHomeConfiguredAbsolutePath,
   resolveHomeDirectory,
@@ -13,7 +12,7 @@ import { ensureTrailingNewline } from "#app/lib/string.ts";
 import { formatInputIssues } from "#app/lib/validation.ts";
 import { DevsyncError } from "#app/services/error.ts";
 
-export const syncConfigFileName = "config.json";
+export const syncConfigFileName = "manifest.json";
 export const syncSecretArtifactSuffix = ".devsync.secret";
 
 const syncEntryKinds = ["file", "directory"] as const;
@@ -61,15 +60,7 @@ const syncConfigEntrySchema = z.discriminatedUnion("kind", [
 
 const syncConfigSchema = z
   .object({
-    version: z.literal(3),
-    age: z
-      .object({
-        recipients: z
-          .array(requiredTrimmedStringSchema)
-          .min(1, "At least one age recipient is required."),
-        identityFile: requiredTrimmedStringSchema,
-      })
-      .strict(),
+    version: z.literal(4),
     entries: z.array(syncConfigEntrySchema),
   })
   .strict();
@@ -98,13 +89,8 @@ export type ResolvedSyncConfigEntry = Readonly<{
 }>;
 
 export type ResolvedSyncConfig = Readonly<{
-  age: Readonly<{
-    configuredIdentityFile: string;
-    identityFile: string;
-    recipients: readonly string[];
-  }>;
   entries: readonly ResolvedSyncConfigEntry[];
-  version: 3;
+  version: 4;
 }>;
 
 export const syncDefaultMachine = "default";
@@ -479,21 +465,6 @@ export const deriveRepoPathFromLocalPath = (
   return normalizeSyncRepoPath(relativePath.replaceAll("\\", "/"));
 };
 
-const resolveConfiguredIdentityFile = (
-  value: string,
-  environment: NodeJS.ProcessEnv,
-) => {
-  try {
-    return resolveConfiguredAbsolutePath(value, environment);
-  } catch (error: unknown) {
-    throw new DevsyncError(
-      error instanceof Error
-        ? error.message
-        : `Invalid sync age identity file path: ${value}`,
-    );
-  }
-};
-
 const validatePathOverlaps = (
   entries: readonly ResolvedSyncConfigEntry[],
   property: "localPath" | "repoPath",
@@ -528,7 +499,7 @@ const validatePathOverlaps = (
 
       if (overlaps) {
         throw new DevsyncError(
-          `${description} paths must not overlap in config.json.`,
+          `${description} paths must not overlap in manifest.json.`,
           {
             code: "OVERLAPPING_PATHS",
             details: [
@@ -565,14 +536,17 @@ const validateOverrides = (entry: ResolvedSyncConfigEntry) => {
     const key = formatSyncOverrideSelector(override);
 
     if (seenOverrides.has(key)) {
-      throw new DevsyncError("Duplicate sync override found in config.json.", {
-        code: "DUPLICATE_OVERRIDE",
-        details: [
-          `Entry: ${entry.name}`,
-          `Override: ${formatSyncOverrideSelector(override)}`,
-        ],
-        hint: "Keep only one override selector in each entry.",
-      });
+      throw new DevsyncError(
+        "Duplicate sync override found in manifest.json.",
+        {
+          code: "DUPLICATE_OVERRIDE",
+          details: [
+            `Entry: ${entry.name}`,
+            `Override: ${formatSyncOverrideSelector(override)}`,
+          ],
+          hint: "Keep only one override selector in each entry.",
+        },
+      );
     }
 
     seenOverrides.add(key);
@@ -626,7 +600,7 @@ export const parseSyncConfig = (
     throw new DevsyncError("Sync configuration is invalid.", {
       code: "CONFIG_VALIDATION_FAILED",
       details: formatInputIssues(result.error.issues).split("\n"),
-      hint: "Fix the invalid fields in config.json, then run the command again.",
+      hint: "Fix the invalid fields in manifest.json, then run the command again.",
     });
   }
 
@@ -678,31 +652,14 @@ export const parseSyncConfig = (
   validateResolvedSyncConfigEntries(entries);
 
   return {
-    age: {
-      configuredIdentityFile: result.data.age.identityFile,
-      identityFile: resolveConfiguredIdentityFile(
-        result.data.age.identityFile,
-        environment,
-      ),
-      recipients: [...new Set(result.data.age.recipients)],
-    },
     entries,
-    version: 3,
+    version: 4,
   };
 };
 
-export const createInitialSyncConfig = (input: {
-  identityFile: string;
-  recipients: readonly string[];
-}): SyncConfig => {
+export const createInitialSyncConfig = (): SyncConfig => {
   return {
-    version: 3,
-    age: {
-      identityFile: input.identityFile,
-      recipients: [
-        ...new Set(input.recipients.map((recipient) => recipient.trim())),
-      ],
-    },
+    version: 4,
     entries: [],
   };
 };
@@ -753,7 +710,7 @@ export const readSyncConfig = async (
           `Config file: ${resolveSyncConfigFilePath(syncDirectory)}`,
           error.message,
         ],
-        hint: "Fix the JSON syntax in config.json, then run the command again.",
+        hint: "Fix the JSON syntax in manifest.json, then run the command again.",
       });
     }
 

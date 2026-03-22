@@ -68,7 +68,10 @@ describe("init service", () => {
     expect(result.gitAction).toBe("cloned");
     expect(result.gitSource).toBe(sourceRepository);
     expect(
-      await readFile(join(result.syncDirectory, "config.json"), "utf8"),
+      await readFile(join(result.syncDirectory, "manifest.json"), "utf8"),
+    ).toContain('"version": 4');
+    expect(
+      await readFile(join(xdgConfigHome, "devsync", "settings.json"), "utf8"),
     ).toContain("$XDG_CONFIG_HOME/devsync/age/keys.txt");
   });
 
