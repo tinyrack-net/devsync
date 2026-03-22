@@ -139,7 +139,7 @@ export const trackSyncTarget = async (
   if (target.length === 0) {
     throw new DevsyncError("Target path is required.", {
       code: "TARGET_REQUIRED",
-      hint: "Pass a file or directory path, for example 'devsync track ~/.gitconfig'.",
+      hint: "Pass a file or directory path, for example 'devsync add ~/.gitconfig'.",
     });
   }
 

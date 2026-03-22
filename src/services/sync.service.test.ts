@@ -19,8 +19,8 @@ import {
 } from "./machine.ts";
 import { pullSync } from "./pull.ts";
 import { pushSync } from "./push.ts";
-import { setSyncRule, unsetSyncRule } from "./rule.ts";
 import { createSyncContext } from "./runtime.ts";
+import { setSyncTargetMode } from "./set.ts";
 
 const temporaryDirectories: string[] = [];
 
@@ -152,7 +152,7 @@ describe("sync service", () => {
       },
       context,
     );
-    await setSyncRule(
+    await setSyncTargetMode(
       {
         recursive: false,
         state: "secret",
@@ -203,7 +203,7 @@ describe("sync service", () => {
       },
       context,
     );
-    await setSyncRule(
+    await setSyncTargetMode(
       {
         recursive: false,
         state: "secret",
@@ -253,9 +253,10 @@ describe("sync service", () => {
 
     expect(await readFile(secretsFile, "utf8")).toContain("TOKEN=work");
 
-    await unsetSyncRule(
+    await setSyncTargetMode(
       {
         recursive: false,
+        state: "normal",
         target: secretsFile,
       },
       context,

@@ -5,12 +5,12 @@ import { formatSyncForgetResult } from "#app/lib/output.ts";
 import { forgetSyncTarget } from "#app/services/forget.ts";
 import { createSyncContext } from "#app/services/runtime.ts";
 
-export default class SyncForget extends BaseCommand {
+export default class SyncRemove extends BaseCommand {
   public static override summary =
-    "Remove a tracked local path or repository path from sync config.json";
+    "Remove a tracked path from sync configuration";
 
   public static override description =
-    "Remove a tracked root entry or a nested override from devsync configuration. Use a local path to forget the main tracked target, or use a repository-relative child path inside a tracked directory to remove only that override.";
+    "Remove a tracked root entry or a nested override from devsync configuration. Use a local path to remove the main tracked target, or use a repository-relative child path inside a tracked directory to remove only that override.";
 
   public static override examples = [
     "<%= config.bin %> <%= command.id %> ~/.gitconfig",
@@ -21,13 +21,13 @@ export default class SyncForget extends BaseCommand {
   public static override args = {
     target: Args.string({
       description:
-        "Tracked local path (including cwd-relative) or repository path to forget",
+        "Tracked local path (including cwd-relative) or repository path to remove",
       required: true,
     }),
   };
 
   public override async run(): Promise<void> {
-    const { args } = await this.parse(SyncForget);
+    const { args } = await this.parse(SyncRemove);
     const output = formatSyncForgetResult(
       await forgetSyncTarget(
         {

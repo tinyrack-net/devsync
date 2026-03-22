@@ -34,47 +34,53 @@ describe("CLI e2e", () => {
     expect(result.exitCode).toBe(0);
     expect(result.stderr).toBe("");
     expect(result.stdout).toContain("autocomplete");
-    expect(result.stdout).toContain("track");
-    expect(result.stdout).toContain("untrack");
-    expect(result.stdout).toContain("entry");
+    expect(result.stdout).toContain("add");
+    expect(result.stdout).toContain("remove");
+    expect(result.stdout).toContain("set");
+    expect(result.stdout).toContain("assign");
+    expect(result.stdout).toContain("unassign");
     expect(result.stdout).toContain("machine");
-    expect(result.stdout).toContain("rule");
     expect(result.stdout).toContain("push");
     expect(result.stdout).toContain("pull");
     expect(result.stdout).toContain("status");
   });
 
-  it("shows help for track, entry, rule, and machine commands", async () => {
-    const [trackHelp, entryHelp, ruleHelp, machineHelp] = await Promise.all([
-      runCli(["track", "--help"]),
-      runCli(["entry", "mode", "--help"]),
-      runCli(["rule", "set", "--help"]),
+  it("shows help for add, set, assign, and machine commands", async () => {
+    const [addHelp, setHelp, assignHelp, machineHelp] = await Promise.all([
+      runCli(["add", "--help"]),
+      runCli(["set", "--help"]),
+      runCli(["assign", "--help"]),
       runCli(["machine", "use", "--help"]),
     ]);
 
-    expect(trackHelp.stdout).toContain("$ devsync track TARGET");
-    expect(trackHelp.stdout).toContain("--mode");
+    expect(addHelp.stdout).toContain("$ devsync add TARGET");
+    expect(addHelp.stdout).toContain("--secret");
 
-    expect(entryHelp.stdout).toContain("$ devsync entry mode STATE TARGET");
+    expect(setHelp.stdout).toContain("$ devsync set TARGET STATE");
+    expect(setHelp.stdout).toContain("--recursive");
 
-    expect(ruleHelp.stdout).toContain("$ devsync rule set STATE TARGET");
-    expect(ruleHelp.stdout).toContain("--recursive");
+    expect(assignHelp.stdout).toContain("$ devsync assign TARGET");
+    expect(assignHelp.stdout).toContain("--machine");
 
     expect(machineHelp.stdout).toContain("$ devsync machine use MACHINE");
   });
 
   it("returns a non-zero exit code for removed command surfaces", async () => {
-    const [addResult, forgetResult, setResult] = await Promise.all([
-      runCli(["add", "~/.gitconfig"], { reject: false }),
-      runCli(["forget", "~/.gitconfig"], { reject: false }),
-      runCli(["set", "secret", "~/.gitconfig"], { reject: false }),
-    ]);
+    const [trackResult, untrackResult, entryResult, ruleResult] =
+      await Promise.all([
+        runCli(["track", "~/.gitconfig"], { reject: false }),
+        runCli(["untrack", "~/.gitconfig"], { reject: false }),
+        runCli(["entry", "mode", "secret", "~/.gitconfig"], { reject: false }),
+        runCli(["rule", "set", "secret", "~/.gitconfig"], { reject: false }),
+      ]);
 
-    expect(addResult.exitCode).not.toBe(0);
-    expect(addResult.stderr).toContain("not found");
-    expect(forgetResult.exitCode).not.toBe(0);
-    expect(forgetResult.stderr).toContain("not found");
-    expect(setResult.exitCode).not.toBe(0);
-    expect(setResult.stderr).toContain("not found");
+    expect(trackResult.exitCode).not.toBe(0);
+    expect(trackResult.stderr).toContain("not found");
+    expect(untrackResult.exitCode).not.toBe(0);
+    expect(untrackResult.stderr).toContain("not found");
+    expect(entryResult.exitCode).not.toBe(0);
+    expect(entryResult.stderr).toContain("not found");
+    expect(ruleResult.exitCode).not.toBe(0);
+    expect(ruleResult.stderr).toContain("not found");
   });
 });

@@ -100,7 +100,7 @@ describe("sync CLI e2e", () => {
     expect(result.stdout).toBe(`${join(xdgConfigHome, "devsync", "sync")}`);
   });
 
-  it("tracks roots, manages rules, and untracks from the CLI", async () => {
+  it("adds roots, sets rules, and removes from the CLI", async () => {
     const workspace = await createWorkspace();
     const homeDirectory = join(workspace, "home");
     const xdgConfigHome = join(workspace, "xdg");
@@ -127,16 +127,14 @@ describe("sync CLI e2e", () => {
       { env },
     );
 
-    const trackResult = await runCli(
-      ["track", bundleDirectory, "--mode", "secret"],
-      { env },
-    );
-    const exactRuleResult = await runCli(
-      ["rule", "set", "normal", publicFile],
-      { env },
-    );
+    const addResult = await runCli(["add", bundleDirectory, "--secret"], {
+      env,
+    });
+    const exactRuleResult = await runCli(["set", publicFile, "normal"], {
+      env,
+    });
     const subtreeRuleResult = await runCli(
-      ["rule", "set", "ignore", cacheDirectory, "--recursive"],
+      ["set", cacheDirectory, "ignore", "--recursive"],
       { env },
     );
     const configAfterSet = JSON.parse(
@@ -150,8 +148,8 @@ describe("sync CLI e2e", () => {
       }>;
     };
 
-    expect(trackResult.stdout).toContain("Tracked sync target.");
-    expect(trackResult.stdout).toContain("Mode: secret");
+    expect(addResult.stdout).toContain("Tracked sync target.");
+    expect(addResult.stdout).toContain("Mode: secret");
     expect(exactRuleResult.stdout).toContain("Scope: exact rule");
     expect(subtreeRuleResult.stdout).toContain("Scope: subtree rule");
     expect(configAfterSet.entries).toMatchObject([
@@ -166,15 +164,15 @@ describe("sync CLI e2e", () => {
       },
     ]);
 
-    const untrackResult = await runCli(["untrack", ".config/mytool"], { env });
-    const configAfterUntrack = JSON.parse(
+    const removeResult = await runCli(["remove", ".config/mytool"], { env });
+    const configAfterRemove = JSON.parse(
       await readFile(join(syncDirectory, "config.json"), "utf8"),
     ) as {
       entries: unknown[];
     };
 
-    expect(untrackResult.stdout).toContain("Untracked sync target.");
-    expect(configAfterUntrack.entries).toEqual([]);
+    expect(removeResult.stdout).toContain("Untracked sync target.");
+    expect(configAfterRemove.entries).toEqual([]);
   }, 15_000);
 
   it("syncs with the default machine namespace using push and pull", async () => {
@@ -202,8 +200,8 @@ describe("sync CLI e2e", () => {
       ],
       { env },
     );
-    await runCli(["track", zshDirectory], { env });
-    await runCli(["rule", "set", "secret", secretsFile], { env });
+    await runCli(["add", zshDirectory], { env });
+    await runCli(["set", secretsFile, "secret"], { env });
 
     await runCli(["push"], { env });
 
@@ -242,7 +240,7 @@ describe("sync CLI e2e", () => {
     expect(await readFile(secretsFile, "utf8")).toContain("TOKEN=work");
   }, 15_000);
 
-  it("rejects rule updates on tracked roots", async () => {
+  it("sets mode on tracked roots via the unified set command", async () => {
     const workspace = await createWorkspace();
     const homeDirectory = join(workspace, "home");
     const xdgConfigHome = join(workspace, "xdg");
@@ -263,16 +261,13 @@ describe("sync CLI e2e", () => {
       ],
       { env },
     );
-    await runCli(["track", bundleDirectory], { env });
+    await runCli(["add", bundleDirectory], { env });
 
-    const result = await runCli(["rule", "set", "ignore", bundleDirectory], {
+    const result = await runCli(["set", bundleDirectory, "secret"], {
       env,
-      reject: false,
     });
 
-    expect(result.exitCode).not.toBe(0);
-    expect(result.stderr).toContain(
-      "Rule targets must be child paths inside tracked directory roots",
-    );
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toContain("Mode: secret");
   });
 });

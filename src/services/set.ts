@@ -118,7 +118,7 @@ export const resolveSetTarget = async (
   if (trimmedTarget.length === 0) {
     throw new DevsyncError("Target path is required.", {
       code: "TARGET_REQUIRED",
-      hint: "Pass a local path or repository path after the mode, for example 'devsync rule set secret ~/.ssh/id_ed25519'.",
+      hint: "Pass a tracked path, for example 'devsync set ~/.ssh/id_ed25519 secret'.",
     });
   }
 
@@ -185,7 +185,7 @@ export const resolveSetTarget = async (
         {
           code: "TARGET_NOT_TRACKED",
           details: [`Target: ${trimmedTarget}`],
-          hint: "Track the parent directory first, then apply nested rules with 'devsync rule set'.",
+          hint: "Track the parent directory first with 'devsync add', then use 'devsync set' on the child path.",
         },
       );
     }
@@ -212,7 +212,7 @@ export const resolveSetTarget = async (
       {
         code: "TARGET_NOT_TRACKED",
         details: [`Target: ${trimmedTarget}`],
-        hint: "Use a repository path under an existing tracked directory, or add the parent directory first.",
+        hint: "Use a repository path under an existing tracked directory, or track it first with 'devsync add'.",
       },
     );
   }
@@ -229,7 +229,7 @@ export const resolveSetTarget = async (
       {
         code: "TARGET_NOT_TRACKED",
         details: [`Target: ${trimmedTarget}`],
-        hint: "Use a repository path under an existing tracked directory, or add the parent directory first.",
+        hint: "Use a repository path under an existing tracked directory, or track it first with 'devsync add'.",
       },
     );
   }
@@ -326,14 +326,38 @@ export const setSyncTargetMode = async (
   const target = await resolveSetTarget(request.target, config, context);
 
   if (target.relativePath === "") {
-    throw new DevsyncError(
-      "Rule targets must be child paths inside tracked directory roots.",
-      {
-        code: "TARGET_NOT_TRACKED",
-        details: [`Target: ${target.repoPath}`],
-        hint: "Use 'devsync entry mode' for tracked roots, or point 'devsync rule set' at a child path inside a tracked directory.",
-      },
-    );
+    const action =
+      target.entry.mode === request.state ? "unchanged" : "updated";
+    const nextConfig = createSyncConfigDocument({
+      ...config,
+      entries: config.entries.map((entry) => {
+        if (entry.repoPath !== target.entry.repoPath) {
+          return entry;
+        }
+
+        return {
+          ...entry,
+          mode: request.state,
+        };
+      }),
+    });
+
+    if (action !== "unchanged") {
+      await writeValidatedSyncConfig(context.paths.syncDirectory, nextConfig, {
+        environment: context.environment,
+      });
+    }
+
+    return {
+      action,
+      configPath: context.paths.configPath,
+      entryRepoPath: target.entry.repoPath,
+      localPath: target.localPath,
+      mode: request.state,
+      repoPath: target.repoPath,
+      scope: "default" as const,
+      syncDirectory: context.paths.syncDirectory,
+    };
   }
 
   if (target.stats?.isDirectory() && !request.recursive) {

@@ -1,8 +1,6 @@
 import { spawn } from "node:child_process";
 import { mkdir } from "node:fs/promises";
 
-import { Flags } from "@oclif/core";
-
 import { BaseCommand } from "#app/cli/base-command.ts";
 import { resolveDevsyncSyncDirectory } from "#app/config/xdg.ts";
 import { output } from "#app/lib/output.ts";
@@ -60,27 +58,14 @@ export default class SyncCd extends BaseCommand {
     "Open a shell in the sync directory or print its path";
 
   public static override description =
-    "Open an interactive shell inside the local sync repository directory for manual inspection and git operations. In non-interactive contexts, or when you pass --print, devsync outputs the directory path instead of spawning a shell.";
+    "Open an interactive shell inside the local sync repository directory for manual inspection and git operations. In non-interactive contexts devsync outputs the directory path instead of spawning a shell.";
 
-  public static override examples = [
-    "<%= config.bin %> <%= command.id %>",
-    "<%= config.bin %> <%= command.id %> --print",
-  ];
-
-  public static override flags = {
-    print: Flags.boolean({
-      default: false,
-      summary: "Print the sync directory path",
-      description:
-        "Write the sync directory path to stdout and exit instead of opening an interactive shell there.",
-    }),
-  };
+  public static override examples = ["<%= config.bin %> <%= command.id %>"];
 
   public override async run(): Promise<void> {
-    const { flags } = await this.parse(SyncCd);
     const syncDirectory = resolveDevsyncSyncDirectory();
 
-    if (flags.print || !process.stdin.isTTY || !process.stdout.isTTY) {
+    if (!process.stdin.isTTY || !process.stdout.isTTY) {
       this.print(output(syncDirectory));
 
       return;

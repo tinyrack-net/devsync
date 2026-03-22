@@ -204,7 +204,7 @@ export const assignSyncMachines = async (
   if (target.length === 0) {
     throw new DevsyncError("Target path is required.", {
       code: "TARGET_REQUIRED",
-      hint: "Pass a tracked entry path, for example 'devsync machine assign ~/.config/zsh default work --path secrets.zsh'.",
+      hint: "Pass a tracked entry path, for example 'devsync assign ~/.config/zsh --machine default --machine work --path secrets.zsh'.",
     });
   }
 
@@ -235,7 +235,7 @@ export const assignSyncMachines = async (
   if (entry === undefined) {
     throw new DevsyncError(`No tracked sync entry matches: ${target}`, {
       code: "TARGET_NOT_TRACKED",
-      hint: "Track the root first with 'devsync track'.",
+      hint: "Track the root first with 'devsync add'.",
     });
   }
 
@@ -347,7 +347,7 @@ export const unassignSyncMachines = async (
   if (entry === undefined) {
     throw new DevsyncError(`No tracked sync entry matches: ${target}`, {
       code: "TARGET_NOT_TRACKED",
-      hint: "Track the root first with 'devsync track'.",
+      hint: "Track the root first with 'devsync add'.",
     });
   }
 
