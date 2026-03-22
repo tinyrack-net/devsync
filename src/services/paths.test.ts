@@ -1,3 +1,5 @@
+import { resolve } from "node:path";
+
 import { describe, expect, it } from "vitest";
 
 import {
@@ -12,17 +14,17 @@ describe("path helpers", () => {
   it("resolves command targets from cwd and home prefixes", () => {
     expect(
       resolveCommandTargetPath("~/bundle", { HOME: "/tmp/home" }, "/tmp/cwd"),
-    ).toBe("/tmp/home/bundle");
+    ).toBe(resolve("/tmp/home", "bundle"));
     expect(
       resolveCommandTargetPath("./bundle", { HOME: "/tmp/home" }, "/tmp/cwd"),
-    ).toBe("/tmp/cwd/bundle");
+    ).toBe(resolve("/tmp/cwd", "bundle"));
   });
 
   it("builds repository paths within a root", () => {
     expect(
       buildRepoPathWithinRoot(
-        "/tmp/home/.config/tool/settings.json",
-        "/tmp/home",
+        resolve("/tmp/home", ".config/tool/settings.json"),
+        resolve("/tmp/home"),
         "Sync target",
       ),
     ).toBe(".config/tool/settings.json");
@@ -33,16 +35,28 @@ describe("path helpers", () => {
 
   it("rejects root and out-of-root repository paths", () => {
     expect(() => {
-      buildRepoPathWithinRoot("/tmp/home", "/tmp/home", "Sync target");
+      buildRepoPathWithinRoot(
+        resolve("/tmp/home"),
+        resolve("/tmp/home"),
+        "Sync target",
+      );
     }).toThrowError(/root directory/u);
     expect(() => {
-      buildRepoPathWithinRoot("/tmp/elsewhere", "/tmp/home", "Sync target");
+      buildRepoPathWithinRoot(
+        resolve("/tmp/elsewhere"),
+        resolve("/tmp/home"),
+        "Sync target",
+      );
     }).toThrowError(/must stay inside the configured home root/u);
   });
 
   it("returns undefined from tolerant helpers for invalid inputs", () => {
     expect(
-      tryBuildRepoPathWithinRoot("/tmp/elsewhere", "/tmp/home", "Sync target"),
+      tryBuildRepoPathWithinRoot(
+        resolve("/tmp/elsewhere"),
+        resolve("/tmp/home"),
+        "Sync target",
+      ),
     ).toBeUndefined();
     expect(tryNormalizeRepoPathInput("../bundle")).toBeUndefined();
   });

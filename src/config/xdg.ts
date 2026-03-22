@@ -43,6 +43,16 @@ export const resolveXdgConfigHome = (
     return resolve(configuredValue);
   }
 
+  if (process.platform === "win32") {
+    const appData = readTrimmedEnvironmentValue(environment, "APPDATA");
+
+    if (appData !== undefined) {
+      return resolve(appData);
+    }
+
+    return resolve(resolveHomeDirectory(environment), "AppData", "Roaming");
+  }
+
   return resolve(resolveHomeDirectory(environment), ".config");
 };
 

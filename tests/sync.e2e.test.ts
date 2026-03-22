@@ -8,6 +8,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import {
   createAgeKeyPair,
   createTemporaryDirectory,
+  stripAnsi,
   writeIdentityFile,
 } from "../src/test/helpers/sync-fixture.ts";
 
@@ -66,8 +67,8 @@ describe("sync CLI e2e", () => {
       env: createSyncEnvironment(homeDirectory, xdgConfigHome),
     });
 
-    expect(result.stdout).toContain("Initialized sync directory.");
-    expect(result.stdout).toContain(
+    expect(stripAnsi(result.stdout)).toContain("Initialized sync directory.");
+    expect(stripAnsi(result.stdout)).toContain(
       "Age bootstrap: generated a new local identity.",
     );
     expect(
@@ -165,10 +166,10 @@ describe("sync CLI e2e", () => {
       }>;
     };
 
-    expect(trackResult.stdout).toContain("Tracked sync target.");
-    expect(trackResult.stdout).toContain("Mode: secret");
-    expect(exactRuleResult.stdout).toContain("Tracked sync target.");
-    expect(subtreeRuleResult.stdout).toContain("Mode: ignore");
+    expect(stripAnsi(trackResult.stdout)).toContain("Tracked sync target.");
+    expect(stripAnsi(trackResult.stdout)).toContain("Mode: secret");
+    expect(stripAnsi(exactRuleResult.stdout)).toContain("Tracked sync target.");
+    expect(stripAnsi(subtreeRuleResult.stdout)).toContain("Mode: ignore");
     expect(configAfterSet.entries).toMatchObject([
       {
         kind: "directory",
@@ -188,7 +189,7 @@ describe("sync CLI e2e", () => {
 
     const untrackResult = await runCli(["untrack", ".config/mytool"], { env });
 
-    expect(untrackResult.stdout).toContain("Untracked sync target.");
+    expect(stripAnsi(untrackResult.stdout)).toContain("Untracked sync target.");
 
     await runCli(["untrack", ".config/mytool/cache"], { env });
     await runCli(["untrack", ".config/mytool/public.json"], { env });
@@ -298,6 +299,6 @@ describe("sync CLI e2e", () => {
     );
 
     expect(result.exitCode).toBe(0);
-    expect(result.stdout).toContain("Mode: secret");
+    expect(stripAnsi(result.stdout)).toContain("Mode: secret");
   });
 });

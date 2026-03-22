@@ -1,5 +1,5 @@
 import { readFile } from "node:fs/promises";
-import { isAbsolute, join, posix, relative } from "node:path";
+import { isAbsolute, join, posix, relative, sep } from "node:path";
 
 import { z } from "zod";
 import {
@@ -323,7 +323,9 @@ const validatePathOverlaps = (
 
       const isParentChild =
         currentValue.startsWith(`${otherValue}/`) ||
-        otherValue.startsWith(`${currentValue}/`);
+        currentValue.startsWith(`${otherValue}${sep}`) ||
+        otherValue.startsWith(`${currentValue}/`) ||
+        otherValue.startsWith(`${currentValue}${sep}`);
 
       if (isParentChild) {
         continue;
