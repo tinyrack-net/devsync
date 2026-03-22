@@ -15,11 +15,11 @@ import {
 } from "node:fs/promises";
 import { basename, dirname, join } from "node:path";
 
-import { buildExecutableMode, isExecutableMode } from "#app/lib/file-mode.ts";
+import { buildExecutableMode, isExecutableMode } from "#app/lib/file-mode.js";
 
-export { buildExecutableMode, isExecutableMode } from "#app/lib/file-mode.ts";
+export { buildExecutableMode, isExecutableMode } from "#app/lib/file-mode.js";
 
-import { DevsyncError } from "./error.ts";
+import { DevsyncError } from "./error.js";
 
 export const pathExists = async (path: string) => {
   try {

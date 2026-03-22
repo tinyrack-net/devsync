@@ -1,9 +1,9 @@
 import { Flags } from "@oclif/core";
 
-import { BaseCommand } from "#app/cli/base-command.ts";
-import { formatSyncPushResult } from "#app/lib/output.ts";
-import { pushSync } from "#app/services/push.ts";
-import { createSyncContext } from "#app/services/runtime.ts";
+import { BaseCommand } from "#app/cli/base-command.js";
+import { formatSyncPushResult } from "#app/lib/output.js";
+import { pushSync } from "#app/services/push.js";
+import { createSyncContext } from "#app/services/runtime.js";
 
 export default class SyncPush extends BaseCommand {
   public static override summary =

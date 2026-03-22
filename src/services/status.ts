@@ -1,20 +1,20 @@
-import type { SyncConfigEntryKind, SyncMode } from "#app/config/sync.ts";
+import type { SyncConfigEntryKind, SyncMode } from "#app/config/sync.js";
 
 import {
   buildPullPlan,
   buildPullPlanPreview,
   buildPullResultFromPlan,
-} from "./pull.ts";
+} from "./pull.js";
 import {
   buildPushPlan,
   buildPushPlanPreview,
   buildPushResultFromPlan,
-} from "./push.ts";
+} from "./push.js";
 import {
   ensureSyncRepository,
   loadSyncConfig,
   type SyncContext,
-} from "./runtime.ts";
+} from "./runtime.js";
 
 export type SyncStatusEntry = Readonly<{
   kind: SyncConfigEntryKind;

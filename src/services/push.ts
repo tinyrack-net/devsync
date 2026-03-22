@@ -1,21 +1,21 @@
 import { join } from "node:path";
 
-import { resolveSyncArtifactsDirectoryPath } from "#app/config/sync.ts";
+import { resolveSyncArtifactsDirectoryPath } from "#app/config/sync.js";
 
-import { removePathAtomically } from "./filesystem.ts";
-import { buildLocalSnapshot, type SnapshotNode } from "./local-snapshot.ts";
+import { removePathAtomically } from "./filesystem.js";
+import { buildLocalSnapshot, type SnapshotNode } from "./local-snapshot.js";
 import {
   buildArtifactKey,
   buildRepoArtifacts,
   collectExistingArtifactKeys,
   writeArtifactsToDirectory,
-} from "./repo-artifacts.ts";
+} from "./repo-artifacts.js";
 import {
   type EffectiveSyncConfig,
   ensureSyncRepository,
   loadSyncConfig,
   type SyncContext,
-} from "./runtime.ts";
+} from "./runtime.js";
 
 export type SyncPushRequest = Readonly<{
   dryRun: boolean;

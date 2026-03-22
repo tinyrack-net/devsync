@@ -1,10 +1,10 @@
-import { pathExists } from "./filesystem.ts";
-import { ensureRepository } from "./git.ts";
+import { pathExists } from "./filesystem.js";
+import { ensureRepository } from "./git.js";
 import {
   type EffectiveSyncConfig,
   loadSyncConfig,
   type SyncContext,
-} from "./runtime.ts";
+} from "./runtime.js";
 
 export type DoctorCheckLevel = "fail" | "ok" | "warn";
 

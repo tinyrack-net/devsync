@@ -3,15 +3,15 @@ import { join } from "node:path";
 
 import { afterEach, describe, expect, it } from "vitest";
 
-import { DevsyncError } from "#app/services/error.ts";
-import { initializeSync } from "#app/services/init.ts";
-import { createSyncContext } from "#app/services/runtime.ts";
+import { DevsyncError } from "#app/services/error.js";
+import { initializeSync } from "#app/services/init.js";
+import { createSyncContext } from "#app/services/runtime.js";
 import {
   createAgeKeyPair,
   createTemporaryDirectory,
   runGit,
   writeIdentityFile,
-} from "../test/helpers/sync-fixture.ts";
+} from "../test/helpers/sync-fixture.js";
 
 const temporaryDirectories: string[] = [];
 

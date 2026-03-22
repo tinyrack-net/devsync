@@ -4,7 +4,7 @@ import {
   readGlobalDevsyncConfig,
   resolveActiveMachineSelection,
   resolveConfiguredIdentityFile,
-} from "#app/config/global-config.ts";
+} from "#app/config/global-config.js";
 import {
   type ResolvedSyncConfig,
   type ResolvedSyncConfigAge,
@@ -12,15 +12,15 @@ import {
   resolveSyncArtifactsDirectoryPath,
   resolveSyncConfigFilePath,
   syncDefaultMachine,
-} from "#app/config/sync.ts";
+} from "#app/config/sync.js";
 import {
   resolveDevsyncGlobalConfigFilePath,
   resolveDevsyncSyncDirectory,
   resolveHomeDirectory,
-} from "#app/config/xdg.ts";
+} from "#app/config/xdg.js";
 
-import { DevsyncError } from "./error.ts";
-import { ensureGitRepository } from "./git.ts";
+import { DevsyncError } from "./error.js";
+import { ensureGitRepository } from "./git.js";
 
 export type ResolvedAgeConfig = Readonly<{
   configuredIdentityFile: string;

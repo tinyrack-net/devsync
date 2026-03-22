@@ -8,7 +8,7 @@ import {
   resolveCommandTargetPath,
   tryBuildRepoPathWithinRoot,
   tryNormalizeRepoPathInput,
-} from "#app/services/paths.ts";
+} from "#app/services/paths.js";
 
 describe("path helpers", () => {
   it("resolves command targets from cwd and home prefixes", () => {

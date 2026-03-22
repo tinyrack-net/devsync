@@ -5,9 +5,9 @@ import {
   type ResolvedSyncConfig,
   type ResolvedSyncConfigEntry,
   resolveManagedSyncMode,
-} from "#app/config/sync.ts";
-import { buildDirectoryKey } from "#app/lib/path.ts";
-import { DevsyncError } from "./error.ts";
+} from "#app/config/sync.js";
+import { buildDirectoryKey } from "#app/lib/path.js";
+import { DevsyncError } from "./error.js";
 import {
   copyFilesystemNode,
   getPathStats,
@@ -16,8 +16,8 @@ import {
   replacePathAtomically,
   writeFileNode,
   writeSymlinkNode,
-} from "./filesystem.ts";
-import type { FileLikeSnapshotNode, SnapshotNode } from "./local-snapshot.ts";
+} from "./filesystem.js";
+import type { FileLikeSnapshotNode, SnapshotNode } from "./local-snapshot.js";
 
 type MaterializationConfig = ResolvedSyncConfig &
   Readonly<{

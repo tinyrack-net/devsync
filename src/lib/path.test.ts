@@ -5,7 +5,7 @@ import {
   doPathsOverlap,
   isExplicitLocalPath,
   isPathEqualOrNested,
-} from "#app/lib/path.ts";
+} from "#app/lib/path.js";
 
 describe("path helpers", () => {
   it("builds repository directory keys", () => {

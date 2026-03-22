@@ -4,9 +4,9 @@ import {
   type ResolvedSyncConfig,
   resolveSyncConfigFilePath,
   type SyncConfig,
-} from "#app/config/sync.ts";
+} from "#app/config/sync.js";
 
-import { writeTextFileAtomically } from "./filesystem.ts";
+import { writeTextFileAtomically } from "./filesystem.js";
 
 export const sortSyncConfigEntries = (
   entries: readonly SyncConfig["entries"][number][],

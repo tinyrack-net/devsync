@@ -1,25 +1,25 @@
-import { resolveConfiguredIdentityFile } from "#app/config/global-config.ts";
+import { resolveConfiguredIdentityFile } from "#app/config/global-config.js";
 import {
   normalizeSyncMachineName,
   type ResolvedSyncConfigEntry,
   readSyncConfig,
   type SyncConfigEntryKind,
   type SyncMode,
-} from "#app/config/sync.ts";
+} from "#app/config/sync.js";
 
 import {
   createSyncConfigDocument,
   writeValidatedSyncConfig,
-} from "./config-file.ts";
-import { DevsyncError } from "./error.ts";
-import { getPathStats } from "./filesystem.ts";
+} from "./config-file.js";
+import { DevsyncError } from "./error.js";
+import { getPathStats } from "./filesystem.js";
 import {
   buildConfiguredHomeLocalPath,
   buildRepoPathWithinRoot,
   doPathsOverlap,
   resolveCommandTargetPath,
-} from "./paths.ts";
-import { ensureSyncRepository, type SyncContext } from "./runtime.ts";
+} from "./paths.js";
+import { ensureSyncRepository, type SyncContext } from "./runtime.js";
 
 export type SyncAddRequest = Readonly<{
   machines?: readonly string[];

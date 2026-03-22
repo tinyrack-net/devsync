@@ -9,7 +9,7 @@ import {
   resolveHomeConfiguredAbsolutePath,
   resolveHomeDirectory,
   resolveXdgConfigHome,
-} from "#app/config/xdg.ts";
+} from "#app/config/xdg.js";
 
 describe("resolveHomeDirectory", () => {
   it("uses HOME environment variable when set", () => {

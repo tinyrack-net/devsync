@@ -1,9 +1,9 @@
 import { Args } from "@oclif/core";
 
-import { BaseCommand } from "#app/cli/base-command.ts";
-import { formatSyncForgetResult } from "#app/lib/output.ts";
-import { forgetSyncTarget } from "#app/services/forget.ts";
-import { createSyncContext } from "#app/services/runtime.ts";
+import { BaseCommand } from "#app/cli/base-command.js";
+import { formatSyncForgetResult } from "#app/lib/output.js";
+import { forgetSyncTarget } from "#app/services/forget.js";
+import { createSyncContext } from "#app/services/runtime.js";
 
 export default class SyncUntrack extends BaseCommand {
   public static override summary = "Stop tracking a synced path";

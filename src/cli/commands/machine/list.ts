@@ -1,7 +1,7 @@
-import { BaseCommand } from "#app/cli/base-command.ts";
-import { formatSyncMachineListResult } from "#app/lib/output.ts";
-import { listSyncMachines } from "#app/services/machine.ts";
-import { createSyncContext } from "#app/services/runtime.ts";
+import { BaseCommand } from "#app/cli/base-command.js";
+import { formatSyncMachineListResult } from "#app/lib/output.js";
+import { listSyncMachines } from "#app/services/machine.js";
+import { createSyncContext } from "#app/services/runtime.js";
 
 export default class SyncMachineList extends BaseCommand {
   public static override summary = "Show configured and active sync machines";

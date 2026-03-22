@@ -4,8 +4,8 @@ import {
   formatErrorMessage,
   writeStderr,
   writeStdout,
-} from "#app/lib/output.ts";
-import { formatDevsyncError } from "#app/services/error.ts";
+} from "#app/lib/output.js";
+import { formatDevsyncError } from "#app/services/error.js";
 
 type CommandError = Error & {
   exitCode?: number;

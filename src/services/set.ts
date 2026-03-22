@@ -6,14 +6,14 @@ import {
   readSyncConfig,
   resolveEntryRelativeRepoPath,
   type SyncMode,
-} from "#app/config/sync.ts";
+} from "#app/config/sync.js";
 
 import {
   createSyncConfigDocument,
   writeValidatedSyncConfig,
-} from "./config-file.ts";
-import { DevsyncError } from "./error.ts";
-import { getPathStats } from "./filesystem.ts";
+} from "./config-file.js";
+import { DevsyncError } from "./error.js";
+import { getPathStats } from "./filesystem.js";
 import {
   buildConfiguredHomeLocalPath,
   buildRepoPathWithinRoot,
@@ -21,8 +21,8 @@ import {
   resolveCommandTargetPath,
   tryBuildRepoPathWithinRoot,
   tryNormalizeRepoPathInput,
-} from "./paths.ts";
-import { ensureSyncRepository, type SyncContext } from "./runtime.ts";
+} from "./paths.js";
+import { ensureSyncRepository, type SyncContext } from "./runtime.js";
 
 export type SyncSetRequest = Readonly<{
   state: SyncMode;

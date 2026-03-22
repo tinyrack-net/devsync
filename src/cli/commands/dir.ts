@@ -1,6 +1,6 @@
-import { BaseCommand } from "#app/cli/base-command.ts";
-import { resolveDevsyncSyncDirectory } from "#app/config/xdg.ts";
-import { output } from "#app/lib/output.ts";
+import { BaseCommand } from "#app/cli/base-command.js";
+import { resolveDevsyncSyncDirectory } from "#app/config/xdg.js";
+import { output } from "#app/lib/output.js";
 
 export default class SyncDir extends BaseCommand {
   public static override summary = "Print the sync directory path";

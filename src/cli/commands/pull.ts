@@ -1,9 +1,9 @@
 import { Flags } from "@oclif/core";
 
-import { BaseCommand } from "#app/cli/base-command.ts";
-import { formatSyncPullResult } from "#app/lib/output.ts";
-import { pullSync } from "#app/services/pull.ts";
-import { createSyncContext } from "#app/services/runtime.ts";
+import { BaseCommand } from "#app/cli/base-command.js";
+import { formatSyncPullResult } from "#app/lib/output.js";
+import { pullSync } from "#app/services/pull.js";
+import { createSyncContext } from "#app/services/runtime.js";
 
 export default class SyncPull extends BaseCommand {
   public static override summary =

@@ -1,12 +1,12 @@
 import { Args, Flags } from "@oclif/core";
 
-import { BaseCommand } from "#app/cli/base-command.ts";
-import { formatSyncAddResult, formatSyncSetResult } from "#app/lib/output.ts";
-import { trackSyncTarget } from "#app/services/add.ts";
-import { DevsyncError } from "#app/services/error.ts";
-import { assignSyncMachines } from "#app/services/machine.ts";
-import { createSyncContext } from "#app/services/runtime.ts";
-import { setSyncTargetMode } from "#app/services/set.ts";
+import { BaseCommand } from "#app/cli/base-command.js";
+import { formatSyncAddResult, formatSyncSetResult } from "#app/lib/output.js";
+import { trackSyncTarget } from "#app/services/add.js";
+import { DevsyncError } from "#app/services/error.js";
+import { assignSyncMachines } from "#app/services/machine.js";
+import { createSyncContext } from "#app/services/runtime.js";
+import { setSyncTargetMode } from "#app/services/set.js";
 
 export default class SyncTrack extends BaseCommand {
   public static override summary =

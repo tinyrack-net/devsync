@@ -1,9 +1,9 @@
 import { Args } from "@oclif/core";
 
-import { BaseCommand } from "#app/cli/base-command.ts";
-import { formatSyncMachineUpdateResult } from "#app/lib/output.ts";
-import { clearSyncMachines, useSyncMachine } from "#app/services/machine.ts";
-import { createSyncContext } from "#app/services/runtime.ts";
+import { BaseCommand } from "#app/cli/base-command.js";
+import { formatSyncMachineUpdateResult } from "#app/lib/output.js";
+import { clearSyncMachines, useSyncMachine } from "#app/services/machine.js";
+import { createSyncContext } from "#app/services/runtime.js";
 
 export default class SyncMachineUse extends BaseCommand {
   public static override summary = "Set or clear the active sync machine";

@@ -6,11 +6,11 @@ import {
   resolveDevsyncSyncDirectory,
   resolveHomeConfiguredAbsolutePath,
   resolveHomeDirectory,
-} from "#app/config/xdg.ts";
-import { doPathsOverlap } from "#app/lib/path.ts";
-import { ensureTrailingNewline } from "#app/lib/string.ts";
-import { formatInputIssues } from "#app/lib/validation.ts";
-import { DevsyncError } from "#app/services/error.ts";
+} from "#app/config/xdg.js";
+import { doPathsOverlap } from "#app/lib/path.js";
+import { ensureTrailingNewline } from "#app/lib/string.js";
+import { formatInputIssues } from "#app/lib/validation.js";
+import { DevsyncError } from "#app/services/error.js";
 
 export const syncConfigFileName = "manifest.json";
 export const syncSecretArtifactSuffix = ".devsync.secret";

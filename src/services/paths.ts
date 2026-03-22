@@ -3,19 +3,19 @@ import { isAbsolute, relative, resolve } from "node:path";
 import {
   normalizeSyncRepoPath,
   type ResolvedSyncConfigEntry,
-} from "#app/config/sync.ts";
-import { expandHomePath } from "#app/config/xdg.ts";
+} from "#app/config/sync.js";
+import { expandHomePath } from "#app/config/xdg.js";
 
-import { isExplicitLocalPath } from "#app/lib/path.ts";
+import { isExplicitLocalPath } from "#app/lib/path.js";
 
 export {
   buildDirectoryKey,
   doPathsOverlap,
   isExplicitLocalPath,
   isPathEqualOrNested,
-} from "#app/lib/path.ts";
+} from "#app/lib/path.js";
 
-import { DevsyncError } from "./error.ts";
+import { DevsyncError } from "./error.js";
 
 export const resolveCommandTargetPath = (
   target: string,

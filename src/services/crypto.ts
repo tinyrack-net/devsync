@@ -9,8 +9,8 @@ import {
   identityToRecipient,
 } from "age-encryption";
 
-import { ensureTrailingNewline } from "#app/lib/string.ts";
-import { DevsyncError, wrapUnknownError } from "#app/services/error.ts";
+import { ensureTrailingNewline } from "#app/lib/string.js";
+import { DevsyncError, wrapUnknownError } from "#app/services/error.js";
 
 export const readAgeIdentityLines = async (identityFile: string) => {
   const contents = await readFile(identityFile, "utf8");

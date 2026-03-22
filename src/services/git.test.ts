@@ -3,16 +3,16 @@ import { join } from "node:path";
 
 import { afterEach, describe, expect, it } from "vitest";
 
-import { DevsyncError } from "#app/services/error.ts";
+import { DevsyncError } from "#app/services/error.js";
 import {
   ensureGitRepository,
   ensureRepository,
   initializeRepository,
-} from "#app/services/git.ts";
+} from "#app/services/git.js";
 import {
   createTemporaryDirectory,
   runGit,
-} from "../test/helpers/sync-fixture.ts";
+} from "../test/helpers/sync-fixture.js";
 
 const temporaryDirectories: string[] = [];
 

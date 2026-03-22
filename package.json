@@ -24,13 +24,13 @@
     "devsync"
   ],
   "imports": {
-    "#app/*": "./src/*"
+    "#app/*.js": "./dist/*.js"
   },
   "bin": {
-    "devsync": "./src/index.ts"
+    "devsync": "./dist/index.js"
   },
   "files": [
-    "src",
+    "dist",
     "README.md",
     "LICENSE"
   ],
@@ -42,7 +42,7 @@
     },
     "commands": {
       "strategy": "explicit",
-      "target": "./src/cli/commands/index.ts",
+      "target": "./dist/cli/commands/index.js",
       "identifier": "COMMANDS"
     },
     "topicSeparator": " ",
@@ -57,8 +57,12 @@
     "node": ">=24"
   },
   "scripts": {
-    "dev": "node --watch src/index.ts",
-    "start": "node src/index.ts",
+    "build": "tsc -p tsconfig.build.json",
+    "clean": "rm -rf dist",
+    "prebuild": "rm -rf dist",
+    "dev": "tsc -p tsconfig.build.json --watch",
+    "start": "node dist/index.js",
+    "prepack": "npm run build",
     "typecheck": "tsc -p tsconfig.json",
     "test": "vitest run",
     "test:watch": "vitest",

@@ -2,12 +2,12 @@ import { join } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
-import { createTemporaryDirectory } from "#app/test/helpers/sync-fixture.ts";
+import { createTemporaryDirectory } from "#app/test/helpers/sync-fixture.js";
 import {
   normalizeSyncMachineName,
   parseSyncConfig,
   resolveSyncRule,
-} from "./sync.ts";
+} from "./sync.js";
 
 describe("sync config", () => {
   it("allows all alphanumeric machine names", () => {

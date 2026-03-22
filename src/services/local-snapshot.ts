@@ -4,11 +4,11 @@ import { join, posix } from "node:path";
 import {
   type ResolvedSyncConfig,
   resolveManagedSyncMode,
-} from "#app/config/sync.ts";
-import { isExecutableMode } from "#app/lib/file-mode.ts";
-import { DevsyncError } from "./error.ts";
-import { getPathStats, listDirectoryEntries } from "./filesystem.ts";
-import { assertStorageSafeRepoPath } from "./repo-artifacts.ts";
+} from "#app/config/sync.js";
+import { isExecutableMode } from "#app/lib/file-mode.js";
+import { DevsyncError } from "./error.js";
+import { getPathStats, listDirectoryEntries } from "./filesystem.js";
+import { assertStorageSafeRepoPath } from "./repo-artifacts.js";
 
 type SnapshotConfig = ResolvedSyncConfig &
   Readonly<{

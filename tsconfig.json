@@ -6,12 +6,11 @@
     "moduleResolution": "NodeNext",
     "baseUrl": ".",
     "paths": {
-      "#app/*": ["./src/*"]
+      "#app/*.js": ["./src/*.ts"]
     },
     "moduleDetection": "force",
     "types": ["node"],
     "resolveJsonModule": true,
-    "allowImportingTsExtensions": true,
     "verbatimModuleSyntax": true,
     "isolatedModules": true,
     "noEmit": true,

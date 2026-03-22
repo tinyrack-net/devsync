@@ -3,18 +3,18 @@ import { join } from "node:path";
 
 import { afterEach, describe, expect, it } from "vitest";
 
-import { syncSecretArtifactSuffix } from "#app/config/sync.ts";
-import { trackSyncTarget } from "#app/services/add.ts";
-import { initializeSync } from "#app/services/init.ts";
-import { pullSync } from "#app/services/pull.ts";
-import { pushSync } from "#app/services/push.ts";
-import { createSyncContext } from "#app/services/runtime.ts";
-import { setSyncTargetMode } from "#app/services/set.ts";
+import { syncSecretArtifactSuffix } from "#app/config/sync.js";
+import { trackSyncTarget } from "#app/services/add.js";
+import { initializeSync } from "#app/services/init.js";
+import { pullSync } from "#app/services/pull.js";
+import { pushSync } from "#app/services/push.js";
+import { createSyncContext } from "#app/services/runtime.js";
+import { setSyncTargetMode } from "#app/services/set.js";
 import {
   createAgeKeyPair,
   createTemporaryDirectory,
   writeIdentityFile,
-} from "../test/helpers/sync-fixture.ts";
+} from "../test/helpers/sync-fixture.js";
 
 const temporaryDirectories: string[] = [];
 

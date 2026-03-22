@@ -9,18 +9,18 @@ import {
   resolveSyncRule,
   syncDefaultMachine,
   syncSecretArtifactSuffix,
-} from "#app/config/sync.ts";
-import { buildDirectoryKey } from "#app/lib/path.ts";
-import { decryptSecretFile, encryptSecretFile } from "./crypto.ts";
-import { DevsyncError } from "./error.ts";
+} from "#app/config/sync.js";
+import { buildDirectoryKey } from "#app/lib/path.js";
+import { decryptSecretFile, encryptSecretFile } from "./crypto.js";
+import { DevsyncError } from "./error.js";
 import {
   getPathStats,
   listDirectoryEntries,
   writeFileNode,
   writeSymlinkNode,
-} from "./filesystem.ts";
-import type { SnapshotNode } from "./local-snapshot.ts";
-import type { EffectiveSyncConfig } from "./runtime.ts";
+} from "./filesystem.js";
+import type { SnapshotNode } from "./local-snapshot.js";
+import type { EffectiveSyncConfig } from "./runtime.js";
 
 type ArtifactConfig = EffectiveSyncConfig;
 

@@ -9,11 +9,11 @@ import {
   encryptSecretFile,
   readAgeIdentityLines,
   readAgeRecipientsFromIdentityFile,
-} from "#app/services/crypto.ts";
+} from "#app/services/crypto.js";
 import {
   createAgeKeyPair,
   createTemporaryDirectory,
-} from "../test/helpers/sync-fixture.ts";
+} from "../test/helpers/sync-fixture.js";
 
 const temporaryDirectories: string[] = [];
 

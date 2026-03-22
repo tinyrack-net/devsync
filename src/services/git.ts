@@ -1,7 +1,7 @@
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 
-import { wrapUnknownError } from "./error.ts";
+import { wrapUnknownError } from "./error.js";
 
 const execFileAsync = promisify(execFile);
 

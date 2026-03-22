@@ -3,14 +3,14 @@ import {
   buildEntryMaterialization,
   buildPullCounts,
   countDeletedLocalNodes,
-} from "./local-materialization.ts";
-import { buildRepositorySnapshot } from "./repo-snapshot.ts";
+} from "./local-materialization.js";
+import { buildRepositorySnapshot } from "./repo-snapshot.js";
 import {
   type EffectiveSyncConfig,
   ensureSyncRepository,
   loadSyncConfig,
   type SyncContext,
-} from "./runtime.ts";
+} from "./runtime.js";
 
 export type SyncPullRequest = Readonly<{
   dryRun: boolean;

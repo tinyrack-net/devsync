@@ -5,26 +5,26 @@ import {
   type ResolvedSyncConfigEntry,
   readSyncConfig,
   resolveSyncArtifactsDirectoryPath,
-} from "#app/config/sync.ts";
+} from "#app/config/sync.js";
 
 import {
   createSyncConfigDocument,
   writeValidatedSyncConfig,
-} from "./config-file.ts";
-import { DevsyncError } from "./error.ts";
+} from "./config-file.js";
+import { DevsyncError } from "./error.js";
 import {
   getPathStats,
   listDirectoryEntries,
   removePathAtomically,
-} from "./filesystem.ts";
-import { isPathEqualOrNested, resolveTrackedEntry } from "./paths.ts";
+} from "./filesystem.js";
+import { isPathEqualOrNested, resolveTrackedEntry } from "./paths.js";
 import {
   collectArtifactNamespaces,
   isSecretArtifactPath,
   resolveArtifactRelativePath,
   resolveEntryArtifactPath,
-} from "./repo-artifacts.ts";
-import { ensureSyncRepository, type SyncContext } from "./runtime.ts";
+} from "./repo-artifacts.js";
+import { ensureSyncRepository, type SyncContext } from "./runtime.js";
 
 export type SyncForgetRequest = Readonly<{
   target: string;

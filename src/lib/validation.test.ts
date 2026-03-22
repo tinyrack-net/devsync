@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { ZodIssue } from "zod";
 
-import { formatInputIssues } from "#app/lib/validation.ts";
+import { formatInputIssues } from "#app/lib/validation.js";
 
 describe("validation helpers", () => {
   it("formats root-level issues as input", () => {

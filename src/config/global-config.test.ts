@@ -4,7 +4,7 @@ import {
   isMachineActive,
   parseGlobalDevsyncConfig,
   resolveActiveMachineSelection,
-} from "./global-config.ts";
+} from "./global-config.js";
 
 describe("global config", () => {
   it("normalizes the active machine name", () => {

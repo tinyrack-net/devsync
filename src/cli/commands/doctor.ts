@@ -1,7 +1,7 @@
-import { BaseCommand } from "#app/cli/base-command.ts";
-import { formatSyncDoctorResult } from "#app/lib/output.ts";
-import { runSyncDoctor } from "#app/services/doctor.ts";
-import { createSyncContext } from "#app/services/runtime.ts";
+import { BaseCommand } from "#app/cli/base-command.js";
+import { formatSyncDoctorResult } from "#app/lib/output.js";
+import { runSyncDoctor } from "#app/services/doctor.js";
+import { createSyncContext } from "#app/services/runtime.js";
 
 export default class SyncDoctor extends BaseCommand {
   public static override summary =

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { buildExecutableMode, isExecutableMode } from "#app/lib/file-mode.ts";
+import { buildExecutableMode, isExecutableMode } from "#app/lib/file-mode.js";
 
 describe("file mode helpers", () => {
   it("builds and detects executable modes", () => {

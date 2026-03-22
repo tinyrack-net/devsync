@@ -10,7 +10,7 @@ import {
   createTemporaryDirectory,
   stripAnsi,
   writeIdentityFile,
-} from "../src/test/helpers/sync-fixture.ts";
+} from "../src/test/helpers/sync-fixture.js";
 
 const cliPath = fileURLToPath(new URL("../src/index.ts", import.meta.url));
 const temporaryDirectories: string[] = [];

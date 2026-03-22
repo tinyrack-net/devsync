@@ -1,9 +1,9 @@
 import { Flags } from "@oclif/core";
 
-import { BaseCommand } from "#app/cli/base-command.ts";
-import { formatSyncStatusResult } from "#app/lib/output.ts";
-import { createSyncContext } from "#app/services/runtime.ts";
-import { getSyncStatus } from "#app/services/status.ts";
+import { BaseCommand } from "#app/cli/base-command.js";
+import { formatSyncStatusResult } from "#app/lib/output.js";
+import { createSyncContext } from "#app/services/runtime.js";
+import { getSyncStatus } from "#app/services/status.js";
 
 export default class SyncStatus extends BaseCommand {
   public static override summary =

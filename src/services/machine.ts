@@ -1,21 +1,21 @@
 import {
   formatGlobalDevsyncConfig,
   readGlobalDevsyncConfig,
-} from "#app/config/global-config.ts";
+} from "#app/config/global-config.js";
 import {
   collectAllMachineNames,
   normalizeSyncMachineName,
   readSyncConfig,
-} from "#app/config/sync.ts";
+} from "#app/config/sync.js";
 
 import {
   createSyncConfigDocument,
   writeValidatedSyncConfig,
-} from "./config-file.ts";
-import { DevsyncError } from "./error.ts";
-import { writeTextFileAtomically } from "./filesystem.ts";
-import { resolveTrackedEntry } from "./paths.ts";
-import { ensureSyncRepository, type SyncContext } from "./runtime.ts";
+} from "./config-file.js";
+import { DevsyncError } from "./error.js";
+import { writeTextFileAtomically } from "./filesystem.js";
+import { resolveTrackedEntry } from "./paths.js";
+import { ensureSyncRepository, type SyncContext } from "./runtime.js";
 
 export type SyncMachineAssignment = Readonly<{
   entryLocalPath: string;

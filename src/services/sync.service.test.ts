@@ -6,19 +6,19 @@ import {
   createAgeKeyPair,
   createTemporaryDirectory,
   writeIdentityFile,
-} from "../test/helpers/sync-fixture.ts";
-import { trackSyncTarget } from "./add.ts";
-import { initializeSync } from "./init.ts";
+} from "../test/helpers/sync-fixture.js";
+import { trackSyncTarget } from "./add.js";
+import { initializeSync } from "./init.js";
 import {
   assignSyncMachines,
   clearSyncMachines,
   listSyncMachines,
   useSyncMachine,
-} from "./machine.ts";
-import { pullSync } from "./pull.ts";
-import { pushSync } from "./push.ts";
-import { createSyncContext } from "./runtime.ts";
-import { setSyncTargetMode } from "./set.ts";
+} from "./machine.js";
+import { pullSync } from "./pull.js";
+import { pushSync } from "./push.js";
+import { createSyncContext } from "./runtime.js";
+import { setSyncTargetMode } from "./set.js";
 
 const temporaryDirectories: string[] = [];
 

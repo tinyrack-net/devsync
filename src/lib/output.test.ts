@@ -5,7 +5,7 @@ import {
   formatSyncMachineListResult,
   formatSyncMachineUpdateResult,
   formatSyncSetResult,
-} from "./output.ts";
+} from "./output.js";
 
 // biome-ignore lint/suspicious/noControlCharactersInRegex: stripping ANSI escape sequences
 const ansiPattern = /\x1b\[[0-9;]*m/g;

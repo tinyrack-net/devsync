@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { ensureTrailingNewline } from "#app/lib/string.ts";
+import { ensureTrailingNewline } from "#app/lib/string.js";
 
 describe("string helpers", () => {
   it("adds a trailing newline when missing", () => {

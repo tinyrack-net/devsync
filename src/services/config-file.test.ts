@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { createSyncConfigDocument } from "./config-file.ts";
+import { createSyncConfigDocument } from "./config-file.js";
 
 describe("config-file", () => {
   it("writes v6 directory entries", () => {

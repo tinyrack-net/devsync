@@ -1,13 +1,13 @@
-import SyncDir from "#app/cli/commands/dir.ts";
-import SyncDoctor from "#app/cli/commands/doctor.ts";
-import SyncInit from "#app/cli/commands/init.ts";
-import SyncMachineList from "#app/cli/commands/machine/list.ts";
-import SyncMachineUse from "#app/cli/commands/machine/use.ts";
-import SyncPull from "#app/cli/commands/pull.ts";
-import SyncPush from "#app/cli/commands/push.ts";
-import SyncStatus from "#app/cli/commands/status.ts";
-import SyncTrack from "#app/cli/commands/track.ts";
-import SyncUntrack from "#app/cli/commands/untrack.ts";
+import SyncDir from "#app/cli/commands/dir.js";
+import SyncDoctor from "#app/cli/commands/doctor.js";
+import SyncInit from "#app/cli/commands/init.js";
+import SyncMachineList from "#app/cli/commands/machine/list.js";
+import SyncMachineUse from "#app/cli/commands/machine/use.js";
+import SyncPull from "#app/cli/commands/pull.js";
+import SyncPush from "#app/cli/commands/push.js";
+import SyncStatus from "#app/cli/commands/status.js";
+import SyncTrack from "#app/cli/commands/track.js";
+import SyncUntrack from "#app/cli/commands/untrack.js";
 
 export const COMMANDS = {
   dir: SyncDir,
