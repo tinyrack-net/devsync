@@ -1,4 +1,4 @@
-import { lstat, mkdir } from "node:fs/promises";
+import { lstat, mkdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
 
 import {
@@ -11,7 +11,7 @@ import {
   syncSecretArtifactSuffix,
 } from "#app/config/sync.ts";
 import { buildDirectoryKey } from "#app/lib/path.ts";
-import { encryptSecretFile } from "./crypto.ts";
+import { decryptSecretFile, encryptSecretFile } from "./crypto.ts";
 import { DevsyncError } from "./error.ts";
 import {
   getPathStats,
@@ -66,7 +66,7 @@ export type RepoArtifact =
       kind: "file";
       machine: string;
       repoPath: string;
-      contents: string;
+      contents: Uint8Array;
       executable: boolean;
     }>;
 
@@ -236,7 +236,7 @@ export const buildRepoArtifacts = async (
 
     addArtifact({
       category: "secret",
-      contents: await encryptSecretFile(node.contents, config.age.recipients),
+      contents: node.contents,
       executable: node.executable,
       kind: "file",
       machine: resolvedRule.machine,
@@ -344,9 +344,44 @@ export const collectExistingArtifactKeys = async (
   return keys;
 };
 
+type AgeWriteConfig = Readonly<{
+  identityFile: string;
+  recipients: readonly string[];
+}>;
+
+const isSecretArtifactUnchanged = async (
+  artifactPath: string,
+  plaintext: Uint8Array,
+  identityFile: string,
+) => {
+  let existingCiphertext: string;
+
+  try {
+    existingCiphertext = await readFile(artifactPath, "utf8");
+  } catch {
+    return false;
+  }
+
+  try {
+    const existingPlaintext = await decryptSecretFile(
+      existingCiphertext,
+      identityFile,
+    );
+
+    if (existingPlaintext.length !== plaintext.length) {
+      return false;
+    }
+
+    return existingPlaintext.every((byte, index) => byte === plaintext[index]);
+  } catch {
+    return false;
+  }
+};
+
 export const writeArtifactsToDirectory = async (
   rootDirectory: string,
   artifacts: readonly RepoArtifact[],
+  ageConfig?: AgeWriteConfig,
 ) => {
   await mkdir(rootDirectory, { recursive: true });
 
@@ -363,6 +398,29 @@ export const writeArtifactsToDirectory = async (
 
     if (artifact.kind === "symlink") {
       await writeSymlinkNode(artifactPath, artifact.linkTarget);
+      continue;
+    }
+
+    if (artifact.category === "secret" && ageConfig !== undefined) {
+      const unchanged = await isSecretArtifactUnchanged(
+        artifactPath,
+        artifact.contents,
+        ageConfig.identityFile,
+      );
+
+      if (unchanged) {
+        continue;
+      }
+
+      const encrypted = await encryptSecretFile(
+        artifact.contents,
+        ageConfig.recipients,
+      );
+
+      await writeFileNode(artifactPath, {
+        contents: encrypted,
+        executable: artifact.executable,
+      });
       continue;
     }
 

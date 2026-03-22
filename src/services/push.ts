@@ -159,7 +159,7 @@ export const pushSync = async (
       );
     }
 
-    await writeArtifactsToDirectory(artifactsDirectory, artifacts);
+    await writeArtifactsToDirectory(artifactsDirectory, artifacts, config.age);
   }
 
   return buildPushResultFromPlan(plan, context, request.dryRun);
