@@ -11,7 +11,7 @@ import {
   syncDefaultMachine,
   syncSecretArtifactSuffix,
 } from "#app/config/sync.ts";
-
+import { buildDirectoryKey } from "#app/lib/path.ts";
 import { encryptSecretFile } from "./crypto.ts";
 import { DevsyncError } from "./error.ts";
 import {
@@ -21,7 +21,6 @@ import {
   writeSymlinkNode,
 } from "./filesystem.ts";
 import type { SnapshotNode } from "./local-snapshot.ts";
-import { buildDirectoryKey } from "./paths.ts";
 
 type ArtifactConfig = ResolvedSyncConfig &
   Readonly<{

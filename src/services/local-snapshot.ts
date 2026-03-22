@@ -5,12 +5,9 @@ import {
   type ResolvedSyncConfig,
   resolveManagedSyncMode,
 } from "#app/config/sync.ts";
+import { isExecutableMode } from "#app/lib/file-mode.ts";
 import { DevsyncError } from "./error.ts";
-import {
-  getPathStats,
-  isExecutableMode,
-  listDirectoryEntries,
-} from "./filesystem.ts";
+import { getPathStats, listDirectoryEntries } from "./filesystem.ts";
 import { assertStorageSafeRepoPath } from "./repo-artifacts.ts";
 
 type SnapshotConfig = ResolvedSyncConfig &

@@ -7,14 +7,10 @@ import {
   resolveSyncArtifactsDirectoryPath,
   resolveSyncRule,
 } from "#app/config/sync.ts";
-
+import { isExecutableMode } from "#app/lib/file-mode.ts";
 import { decryptSecretFile } from "./crypto.ts";
 import { DevsyncError, wrapUnknownError } from "./error.ts";
-import {
-  getPathStats,
-  isExecutableMode,
-  listDirectoryEntries,
-} from "./filesystem.ts";
+import { getPathStats, listDirectoryEntries } from "./filesystem.ts";
 import { addSnapshotNode, type SnapshotNode } from "./local-snapshot.ts";
 import {
   assertStorageSafeRepoPath,

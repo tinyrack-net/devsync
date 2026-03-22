@@ -12,11 +12,10 @@ import { join } from "node:path";
 
 import { afterEach, describe, expect, it } from "vitest";
 
+import { isExecutableMode } from "#app/lib/file-mode.ts";
 import {
-  buildExecutableMode,
   copyFilesystemNode,
   getPathStats,
-  isExecutableMode,
   listDirectoryEntries,
   pathExists,
   removePathAtomically,
@@ -71,13 +70,6 @@ describe("filesystem helpers", () => {
     const entries = await listDirectoryEntries(workspace);
 
     expect(entries.map((entry) => entry.name)).toEqual(["a.txt", "b", "c.txt"]);
-  });
-
-  it("builds and detects executable modes", async () => {
-    expect(buildExecutableMode(true)).toBe(0o755);
-    expect(buildExecutableMode(false)).toBe(0o644);
-    expect(isExecutableMode(0o100755)).toBe(true);
-    expect(isExecutableMode(0o100644)).toBe(false);
   });
 
   it("writes regular files and preserves executable bits", async () => {

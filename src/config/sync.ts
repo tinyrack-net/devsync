@@ -8,10 +8,10 @@ import {
   resolveHomeConfiguredAbsolutePath,
   resolveHomeDirectory,
 } from "#app/config/xdg.ts";
+import { doPathsOverlap } from "#app/lib/path.ts";
 import { ensureTrailingNewline } from "#app/lib/string.ts";
 import { formatInputIssues } from "#app/lib/validation.ts";
 import { DevsyncError } from "#app/services/error.ts";
-import { doPathsOverlap } from "#app/services/paths.ts";
 
 export const syncConfigFileName = "config.json";
 export const syncSecretArtifactSuffix = ".devsync.secret";

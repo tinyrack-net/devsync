@@ -6,6 +6,7 @@ import {
   type ResolvedSyncConfigEntry,
   resolveManagedSyncMode,
 } from "#app/config/sync.ts";
+import { buildDirectoryKey } from "#app/lib/path.ts";
 import { DevsyncError } from "./error.ts";
 import {
   copyFilesystemNode,
@@ -17,7 +18,6 @@ import {
   writeSymlinkNode,
 } from "./filesystem.ts";
 import type { FileLikeSnapshotNode, SnapshotNode } from "./local-snapshot.ts";
-import { buildDirectoryKey } from "./paths.ts";
 
 type MaterializationConfig = ResolvedSyncConfig &
   Readonly<{

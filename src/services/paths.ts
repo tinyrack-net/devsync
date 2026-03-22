@@ -3,41 +3,14 @@ import { isAbsolute, relative, resolve } from "node:path";
 import { normalizeSyncRepoPath } from "#app/config/sync.ts";
 import { expandHomePath } from "#app/config/xdg.ts";
 
+export {
+  buildDirectoryKey,
+  doPathsOverlap,
+  isExplicitLocalPath,
+  isPathEqualOrNested,
+} from "#app/lib/path.ts";
+
 import { DevsyncError } from "./error.ts";
-
-export const buildDirectoryKey = (repoPath: string) => {
-  return `${repoPath}/`;
-};
-
-export const isPathEqualOrNested = (path: string, rootPath: string) => {
-  const rootToPath = relative(rootPath, path);
-
-  return (
-    rootToPath === "" ||
-    (!isAbsolute(rootToPath) &&
-      !rootToPath.startsWith("..") &&
-      rootToPath !== "..")
-  );
-};
-
-export const doPathsOverlap = (leftPath: string, rightPath: string) => {
-  return (
-    isPathEqualOrNested(leftPath, rightPath) ||
-    isPathEqualOrNested(rightPath, leftPath)
-  );
-};
-
-export const isExplicitLocalPath = (target: string) => {
-  return (
-    target === "." ||
-    target === ".." ||
-    target === "~" ||
-    target.startsWith("./") ||
-    target.startsWith("../") ||
-    target.startsWith("~/") ||
-    isAbsolute(target)
-  );
-};
 
 export const resolveCommandTargetPath = (
   target: string,

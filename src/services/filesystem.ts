@@ -15,6 +15,10 @@ import {
 } from "node:fs/promises";
 import { basename, dirname, join } from "node:path";
 
+import { buildExecutableMode, isExecutableMode } from "#app/lib/file-mode.ts";
+
+export { buildExecutableMode, isExecutableMode } from "#app/lib/file-mode.ts";
+
 import { DevsyncError } from "./error.ts";
 
 export const pathExists = async (path: string) => {
@@ -49,14 +53,6 @@ export const listDirectoryEntries = async (path: string) => {
   return entries.sort((left, right) => {
     return left.name.localeCompare(right.name);
   });
-};
-
-export const buildExecutableMode = (executable: boolean) => {
-  return executable ? 0o755 : 0o644;
-};
-
-export const isExecutableMode = (mode: number | bigint) => {
-  return (Number(mode) & 0o111) !== 0;
 };
 
 export const writeFileNode = async (
