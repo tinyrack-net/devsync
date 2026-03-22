@@ -1,3 +1,5 @@
+import type { SyncConfigEntryKind, SyncMode } from "#app/config/sync.ts";
+
 import {
   buildPullPlan,
   buildPullPlanPreview,
@@ -14,9 +16,19 @@ import {
   type SyncContext,
 } from "./runtime.ts";
 
+export type SyncStatusEntry = Readonly<{
+  kind: SyncConfigEntryKind;
+  localPath: string;
+  machines: readonly string[];
+  mode: SyncMode;
+  name: string;
+  repoPath: string;
+}>;
+
 export type SyncStatusResult = Readonly<{
   activeMachine?: string;
   configPath: string;
+  entries: readonly SyncStatusEntry[];
   entryCount: number;
   pull: ReturnType<typeof buildPullResultFromPlan> & {
     preview: readonly string[];
@@ -48,6 +60,14 @@ export const getSyncStatus = async (
       ? {}
       : { activeMachine: effectiveConfig.activeMachine }),
     configPath: context.paths.configPath,
+    entries: fullConfig.entries.map((entry) => ({
+      kind: entry.kind,
+      localPath: entry.localPath,
+      machines: entry.machines,
+      mode: entry.mode,
+      name: entry.name,
+      repoPath: entry.repoPath,
+    })),
     entryCount: fullConfig.entries.length,
     pull: {
       ...buildPullResultFromPlan(pullPlan, context, true),

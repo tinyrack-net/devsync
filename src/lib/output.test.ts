@@ -47,6 +47,7 @@ describe("output", () => {
         configPath: "/tmp/config.json",
         kind: "file",
         localPath: "/tmp/home/.gitconfig-work",
+        machines: [],
         mode: "secret",
         repoPath: ".gitconfig-work",
         syncDirectory: "/tmp/sync",

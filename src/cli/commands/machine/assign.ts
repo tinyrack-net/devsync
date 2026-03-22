@@ -6,14 +6,15 @@ import { assignSyncMachines } from "#app/services/machine.ts";
 import { createSyncContext } from "#app/services/runtime.ts";
 
 export default class SyncMachineAssign extends BaseCommand {
-  public static override summary = "Assign machines to a tracked entry";
+  public static override summary = "Set or clear machines for a tracked entry";
 
   public static override description =
-    "Replace the machine list for a tracked entry. Machines control which namespace stores the entry's artifacts in the sync repository.";
+    "Replace the machine list for a tracked entry. Machines control which namespace stores the entry's artifacts in the sync repository. Omit machine names to clear all assignments.";
 
   public static override examples = [
     "<%= config.bin %> <%= command.id %> ~/.gitconfig default work",
     "<%= config.bin %> <%= command.id %> ~/.config/zsh/secrets.zsh default work",
+    "<%= config.bin %> <%= command.id %> ~/.gitconfig",
   ];
 
   public static override strict = false;
@@ -33,10 +34,6 @@ export default class SyncMachineAssign extends BaseCommand {
 
     if (!target) {
       this.error("A target path is required.");
-    }
-
-    if (machines.length === 0) {
-      this.error("At least one machine name is required.");
     }
 
     this.print(

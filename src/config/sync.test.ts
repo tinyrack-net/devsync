@@ -55,6 +55,10 @@ describe("sync config", () => {
       machine: "default",
       mode: "normal",
     });
+
+    expect(
+      resolveSyncRule(config, ".config/zsh/secrets.zsh", "personal"),
+    ).toBeUndefined();
   });
 
   it("parses v5 file entries with mode and machines", async () => {
@@ -189,5 +193,65 @@ describe("sync config", () => {
     );
 
     expect(config.entries).toHaveLength(2);
+  });
+
+  it("treats machines as an allowlist", async () => {
+    const workspace = await createTemporaryDirectory("devsync-sync-config-");
+    const homeDirectory = join(workspace, "home");
+
+    const config = parseSyncConfig(
+      {
+        entries: [
+          {
+            kind: "file",
+            localPath: "~/.gitconfig",
+          },
+          {
+            kind: "file",
+            localPath: "~/.ssh/config",
+            machines: ["vivident"],
+            mode: "secret",
+          },
+          {
+            kind: "file",
+            localPath: "~/.npmrc",
+            machines: ["default", "work"],
+          },
+        ],
+        version: 5,
+      },
+      {
+        HOME: homeDirectory,
+      },
+    );
+
+    // No machines specified → syncs on all machines using default namespace
+    expect(resolveSyncRule(config, ".gitconfig")).toEqual({
+      machine: "default",
+      mode: "normal",
+    });
+    expect(resolveSyncRule(config, ".gitconfig", "vivident")).toEqual({
+      machine: "default",
+      mode: "normal",
+    });
+
+    // machines: ["vivident"] → only vivident
+    expect(resolveSyncRule(config, ".ssh/config", "vivident")).toEqual({
+      machine: "vivident",
+      mode: "secret",
+    });
+    expect(resolveSyncRule(config, ".ssh/config")).toBeUndefined();
+    expect(resolveSyncRule(config, ".ssh/config", "work")).toBeUndefined();
+
+    // machines: ["default", "work"] → default and work only
+    expect(resolveSyncRule(config, ".npmrc")).toEqual({
+      machine: "default",
+      mode: "normal",
+    });
+    expect(resolveSyncRule(config, ".npmrc", "work")).toEqual({
+      machine: "work",
+      mode: "normal",
+    });
+    expect(resolveSyncRule(config, ".npmrc", "vivident")).toBeUndefined();
   });
 });

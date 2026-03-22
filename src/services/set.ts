@@ -25,7 +25,6 @@ import {
 import { ensureSyncRepository, type SyncContext } from "./runtime.ts";
 
 export type SyncSetRequest = Readonly<{
-  recursive: boolean;
   state: SyncMode;
   target: string;
 }>;
@@ -301,30 +300,7 @@ export const setSyncTargetMode = async (
     };
   }
 
-  if (target.stats?.isDirectory() && !request.recursive) {
-    throw new DevsyncError("Directory targets require --recursive.", {
-      code: "RECURSIVE_REQUIRED",
-      details: [`Target: ${target.localPath}`],
-      hint: "Use '--recursive' for directory entries, or point at a file.",
-    });
-  }
-
-  if (
-    request.recursive &&
-    target.stats !== undefined &&
-    !target.stats.isDirectory()
-  ) {
-    throw new DevsyncError(
-      "--recursive can only be used with directories or tracked directory roots.",
-      {
-        code: "RECURSIVE_INVALID",
-        details: [`Target: ${target.localPath}`],
-        hint: "Remove '--recursive' when setting the mode for a single file.",
-      },
-    );
-  }
-
-  const childKind = request.recursive ? "directory" : "file";
+  const childKind = target.stats?.isDirectory() ? "directory" : "file";
   const childRepoPath = target.repoPath;
   const childConfiguredLocalPath = buildConfiguredHomeLocalPath(childRepoPath);
 
