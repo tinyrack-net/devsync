@@ -1,5 +1,5 @@
 import { resolve } from "node:path";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import {
   expandConfiguredPath,
@@ -10,15 +10,6 @@ import {
   resolveHomeDirectory,
   resolveXdgConfigHome,
 } from "#app/config/xdg.ts";
-
-const stubPlatform = (platform: string) => {
-  vi.stubGlobal("process", { ...process, platform });
-};
-
-afterEach(() => {
-  vi.restoreAllMocks();
-  vi.unstubAllGlobals();
-});
 
 describe("resolveHomeDirectory", () => {
   it("uses HOME environment variable when set", () => {
@@ -41,45 +32,10 @@ describe("resolveXdgConfigHome", () => {
     ).toBe(resolve("/custom/config"));
   });
 
-  it("falls back to ~/.config on non-Windows platforms", () => {
-    stubPlatform("linux");
+  it("falls back to ~/.config on all platforms", () => {
     expect(resolveXdgConfigHome({ HOME: "/tmp/home" })).toBe(
       resolve("/tmp/home", ".config"),
     );
-  });
-
-  it("falls back to ~/.config on darwin", () => {
-    stubPlatform("darwin");
-    expect(resolveXdgConfigHome({ HOME: "/tmp/home" })).toBe(
-      resolve("/tmp/home", ".config"),
-    );
-  });
-
-  it("uses APPDATA on Windows when available", () => {
-    stubPlatform("win32");
-    expect(
-      resolveXdgConfigHome({
-        HOME: "C:\\Users\\test",
-        APPDATA: "C:\\Users\\test\\AppData\\Roaming",
-      }),
-    ).toBe(resolve("C:\\Users\\test\\AppData\\Roaming"));
-  });
-
-  it("falls back to homedir/AppData/Roaming on Windows without APPDATA", () => {
-    stubPlatform("win32");
-    expect(resolveXdgConfigHome({ HOME: "C:\\Users\\test" })).toBe(
-      resolve("C:\\Users\\test", "AppData", "Roaming"),
-    );
-  });
-
-  it("prefers XDG_CONFIG_HOME over APPDATA on Windows", () => {
-    stubPlatform("win32");
-    expect(
-      resolveXdgConfigHome({
-        XDG_CONFIG_HOME: "D:\\custom\\config",
-        APPDATA: "C:\\Users\\test\\AppData\\Roaming",
-      }),
-    ).toBe(resolve("D:\\custom\\config"));
   });
 });
 
