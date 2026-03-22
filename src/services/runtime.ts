@@ -7,9 +7,11 @@ import {
 } from "#app/config/global-config.ts";
 import {
   type ResolvedSyncConfig,
+  type ResolvedSyncConfigAge,
   readSyncConfig,
   resolveSyncArtifactsDirectoryPath,
   resolveSyncConfigFilePath,
+  syncDefaultMachine,
 } from "#app/config/sync.ts";
 import {
   resolveDevsyncGlobalConfigFilePath,
@@ -86,21 +88,14 @@ export const ensureSyncRepository = async (
   await ensureGitRepository(context.paths.syncDirectory);
 };
 
-export const resolveAgeFromGlobalConfig = (
-  globalConfig: GlobalDevsyncConfig,
+export const resolveAgeFromSyncConfig = (
+  age: ResolvedSyncConfigAge,
   environment: NodeJS.ProcessEnv,
-): ResolvedAgeConfig | undefined => {
-  if (globalConfig.age === undefined) {
-    return undefined;
-  }
-
+): ResolvedAgeConfig => {
   return {
-    configuredIdentityFile: globalConfig.age.identityFile,
-    identityFile: resolveConfiguredIdentityFile(
-      globalConfig.age.identityFile,
-      environment,
-    ),
-    recipients: globalConfig.age.recipients,
+    configuredIdentityFile: age.identityFile,
+    identityFile: resolveConfiguredIdentityFile(age.identityFile, environment),
+    recipients: age.recipients,
   };
 };
 
@@ -109,12 +104,24 @@ export const buildEffectiveSyncConfig = (
   selection: ActiveMachineSelection,
   age: ResolvedAgeConfig,
 ): EffectiveSyncConfig => {
+  const activeMachine =
+    selection.mode === "single" ? selection.machine : undefined;
+
+  const effectiveMachine =
+    activeMachine !== undefined && activeMachine !== syncDefaultMachine
+      ? activeMachine
+      : syncDefaultMachine;
+
+  const entries = fullConfig.entries.filter(
+    (entry) =>
+      entry.machines.length === 0 || entry.machines.includes(effectiveMachine),
+  );
+
   return {
     ...fullConfig,
+    entries,
     age,
-    ...(selection.mode === "single"
-      ? { activeMachine: selection.machine }
-      : {}),
+    ...(activeMachine !== undefined ? { activeMachine } : {}),
   };
 };
 
@@ -137,16 +144,15 @@ export const loadSyncConfig = async (
           mode: "single" as const,
         };
 
-  const age =
-    globalConfig !== undefined
-      ? resolveAgeFromGlobalConfig(globalConfig, context.environment)
-      : undefined;
+  const rawAge = fullConfig.age;
 
-  if (age === undefined) {
+  if (rawAge === undefined) {
     throw new Error(
-      "Age configuration is missing from settings.json. Run 'devsync init' to set up encryption.",
+      "Age configuration is missing from manifest.json. Run 'devsync init' to set up encryption.",
     );
   }
+
+  const age = resolveAgeFromSyncConfig(rawAge, context.environment);
 
   return {
     effectiveConfig: buildEffectiveSyncConfig(fullConfig, selection, age),

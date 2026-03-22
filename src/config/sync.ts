@@ -36,12 +36,31 @@ const syncConfigEntrySchema = z
   })
   .strict();
 
-const syncConfigSchema = z
+const syncConfigAgeSchema = z
+  .object({
+    identityFile: requiredTrimmedStringSchema,
+    recipients: z
+      .array(requiredTrimmedStringSchema)
+      .min(1, "At least one age recipient is required."),
+  })
+  .strict();
+
+const syncConfigSchemaV5 = z
   .object({
     version: z.literal(5),
     entries: z.array(syncConfigEntrySchema),
   })
   .strict();
+
+const syncConfigSchemaV6 = z
+  .object({
+    version: z.literal(6),
+    age: syncConfigAgeSchema,
+    entries: z.array(syncConfigEntrySchema),
+  })
+  .strict();
+
+const syncConfigSchema = z.union([syncConfigSchemaV5, syncConfigSchemaV6]);
 
 export type SyncConfigEntryKind = (typeof syncEntryKinds)[number];
 export type SyncMode = (typeof syncModes)[number];
@@ -58,9 +77,15 @@ export type ResolvedSyncConfigEntry = Readonly<{
   repoPath: string;
 }>;
 
+export type ResolvedSyncConfigAge = Readonly<{
+  identityFile: string;
+  recipients: readonly string[];
+}>;
+
 export type ResolvedSyncConfig = Readonly<{
+  age?: ResolvedSyncConfigAge;
   entries: readonly ResolvedSyncConfigEntry[];
-  version: 5;
+  version: 5 | 6;
 }>;
 
 export const syncDefaultMachine = "default";
@@ -383,15 +408,28 @@ export const parseSyncConfig = (
 
   validateResolvedSyncConfigEntries(entries);
 
+  const age =
+    result.data.version === 6
+      ? {
+          identityFile: result.data.age.identityFile,
+          recipients: [...new Set(result.data.age.recipients)],
+        }
+      : undefined;
+
   return {
+    ...(age === undefined ? {} : { age }),
     entries,
-    version: 5,
+    version: result.data.version,
   };
 };
 
-export const createInitialSyncConfig = (): SyncConfig => {
+export const createInitialSyncConfig = (age: {
+  identityFile: string;
+  recipients: string[];
+}): SyncConfig => {
   return {
-    version: 5,
+    version: 6,
+    age,
     entries: [],
   };
 };
@@ -460,20 +498,17 @@ export const readSyncConfig = async (
 const resolveMachineForEntry = (
   entry: Pick<ResolvedSyncConfigEntry, "machines">,
   activeMachine: string | undefined,
-): string => {
+): string | undefined => {
   if (entry.machines.length === 0) {
     return syncDefaultMachine;
   }
 
-  if (
-    activeMachine !== undefined &&
-    activeMachine !== syncDefaultMachine &&
-    entry.machines.includes(activeMachine)
-  ) {
-    return activeMachine;
-  }
+  const effective =
+    activeMachine !== undefined && activeMachine !== syncDefaultMachine
+      ? activeMachine
+      : syncDefaultMachine;
 
-  return syncDefaultMachine;
+  return entry.machines.includes(effective) ? effective : undefined;
 };
 
 export const resolveSyncRule = (
@@ -488,6 +523,10 @@ export const resolveSyncRule = (
   }
 
   const machine = resolveMachineForEntry(entry, activeMachine);
+
+  if (machine === undefined) {
+    return undefined;
+  }
 
   return { mode: entry.mode, machine };
 };

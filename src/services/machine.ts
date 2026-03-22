@@ -60,19 +60,6 @@ export type SyncMachineAssignResult = Readonly<{
   syncDirectory: string;
 }>;
 
-export type SyncMachineUnassignRequest = Readonly<{
-  machines: readonly string[];
-  target: string;
-}>;
-
-export type SyncMachineUnassignResult = Readonly<{
-  action: "removed" | "unchanged";
-  configPath: string;
-  entryRepoPath: string;
-  machines: readonly string[];
-  syncDirectory: string;
-}>;
-
 const findExactTrackedEntry = (
   config: ResolvedSyncConfig,
   target: string,
@@ -162,11 +149,9 @@ export const useSyncMachine = async (
 
   await ensureSyncRepository(context);
 
-  const existing = await readGlobalDevsyncConfig(context.environment);
   await writeGlobalConfig(context.paths.globalConfigPath, {
-    ...(existing?.age === undefined ? {} : { age: existing.age }),
     activeMachine: normalizedMachine,
-    version: 2,
+    version: 3,
   });
 
   return {
@@ -183,10 +168,8 @@ export const clearSyncMachines = async (
 ): Promise<SyncMachineUpdateResult> => {
   await ensureSyncRepository(context);
 
-  const existing = await readGlobalDevsyncConfig(context.environment);
   await writeGlobalConfig(context.paths.globalConfigPath, {
-    ...(existing?.age === undefined ? {} : { age: existing.age }),
-    version: 2,
+    version: 3,
   });
 
   return {
@@ -206,13 +189,6 @@ export const assignSyncMachines = async (
     throw new DevsyncError("Target path is required.", {
       code: "TARGET_REQUIRED",
       hint: "Pass a tracked entry path, for example 'devsync machine assign ~/.gitconfig default work'.",
-    });
-  }
-
-  if (request.machines.length === 0) {
-    throw new DevsyncError("At least one machine name is required.", {
-      code: "MACHINE_REQUIRED",
-      hint: "Pass one or more machine names after the target.",
     });
   }
 
@@ -277,102 +253,6 @@ export const assignSyncMachines = async (
     configPath: context.paths.configPath,
     entryRepoPath: entry.repoPath,
     machines: normalizedMachines,
-    syncDirectory: context.paths.syncDirectory,
-  };
-};
-
-export const unassignSyncMachines = async (
-  request: SyncMachineUnassignRequest,
-  context: SyncContext,
-): Promise<SyncMachineUnassignResult> => {
-  const target = request.target.trim();
-
-  if (target.length === 0) {
-    throw new DevsyncError("Target path is required.", {
-      code: "TARGET_REQUIRED",
-      hint: "Pass a tracked entry path.",
-    });
-  }
-
-  if (request.machines.length === 0) {
-    throw new DevsyncError("At least one machine name is required.", {
-      code: "MACHINE_REQUIRED",
-      hint: "Pass one or more machine names to remove.",
-    });
-  }
-
-  await ensureSyncRepository(context);
-
-  const config = await readSyncConfig(
-    context.paths.syncDirectory,
-    context.environment,
-  );
-  const matches = findExactTrackedEntry(config, target, context);
-
-  if (matches.length > 1) {
-    throw new DevsyncError(`Multiple tracked sync entries match: ${target}`, {
-      code: "TARGET_CONFLICT",
-      hint: "Use an explicit local path to choose the tracked root.",
-    });
-  }
-
-  const entry = matches[0];
-
-  if (entry === undefined) {
-    throw new DevsyncError(`No tracked sync entry matches: ${target}`, {
-      code: "TARGET_NOT_TRACKED",
-      hint: "Track the root first with 'devsync track'.",
-    });
-  }
-
-  const normalizedMachines = request.machines.map((m) =>
-    normalizeSyncMachineName(m),
-  );
-
-  if (entry.machines.length === 0) {
-    return {
-      action: "unchanged",
-      configPath: context.paths.configPath,
-      entryRepoPath: entry.repoPath,
-      machines: [],
-      syncDirectory: context.paths.syncDirectory,
-    };
-  }
-
-  const remaining = entry.machines.filter(
-    (m) => !normalizedMachines.includes(m),
-  );
-
-  if (remaining.length === entry.machines.length) {
-    return {
-      action: "unchanged",
-      configPath: context.paths.configPath,
-      entryRepoPath: entry.repoPath,
-      machines: [...entry.machines],
-      syncDirectory: context.paths.syncDirectory,
-    };
-  }
-
-  const nextConfig = createSyncConfigDocument({
-    ...config,
-    entries: config.entries.map((e) => {
-      if (e.repoPath !== entry.repoPath) {
-        return e;
-      }
-
-      return { ...e, machines: remaining };
-    }),
-  });
-
-  await writeValidatedSyncConfig(context.paths.syncDirectory, nextConfig, {
-    environment: context.environment,
-  });
-
-  return {
-    action: "removed",
-    configPath: context.paths.configPath,
-    entryRepoPath: entry.repoPath,
-    machines: remaining,
     syncDirectory: context.paths.syncDirectory,
   };
 };

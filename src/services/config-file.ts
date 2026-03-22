@@ -29,9 +29,17 @@ export const createSyncConfigDocument = (
   );
 
   return {
-    version: 5,
+    version: 6,
+    ...(config.age === undefined
+      ? {}
+      : {
+          age: {
+            identityFile: config.age.identityFile,
+            recipients: [...config.age.recipients],
+          },
+        }),
     entries,
-  };
+  } as SyncConfig;
 };
 
 export const writeValidatedSyncConfig = async (

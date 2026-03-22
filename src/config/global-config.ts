@@ -11,32 +11,30 @@ import { DevsyncError } from "#app/services/error.ts";
 import { normalizeSyncMachineName } from "./sync.ts";
 
 const optionalTrimmedStringSchema = z.string().trim().min(1).optional();
-const requiredTrimmedStringSchema = z.string().trim().min(1);
 
-const globalConfigAgeSchema = z
-  .object({
-    identityFile: requiredTrimmedStringSchema,
-    recipients: z
-      .array(requiredTrimmedStringSchema)
-      .min(1, "At least one age recipient is required."),
-  })
-  .strict();
-
-const globalConfigSchema = z
+const globalConfigSchemaV2 = z
   .object({
     activeMachine: optionalTrimmedStringSchema,
-    age: globalConfigAgeSchema.optional(),
+    age: z.unknown().optional(),
     version: z.literal(2),
   })
   .strict();
 
+const globalConfigSchemaV3 = z
+  .object({
+    activeMachine: optionalTrimmedStringSchema,
+    version: z.literal(3),
+  })
+  .strict();
+
+const globalConfigSchema = z.union([
+  globalConfigSchemaV2,
+  globalConfigSchemaV3,
+]);
+
 export type GlobalDevsyncConfig = Readonly<{
   activeMachine?: string;
-  age?: Readonly<{
-    identityFile: string;
-    recipients: readonly string[];
-  }>;
-  version: 2;
+  version: 2 | 3;
 }>;
 
 export type ActiveMachineSelection = Readonly<
@@ -84,15 +82,7 @@ export const parseGlobalDevsyncConfig = (
       : {
           activeMachine: normalizeSyncMachineName(result.data.activeMachine),
         }),
-    ...(result.data.age === undefined
-      ? {}
-      : {
-          age: {
-            identityFile: result.data.age.identityFile,
-            recipients: [...new Set(result.data.age.recipients)],
-          },
-        }),
-    version: 2,
+    version: result.data.version,
   };
 };
 

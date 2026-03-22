@@ -1,8 +1,6 @@
+import { resolveConfiguredIdentityFile } from "#app/config/global-config.ts";
 import {
-  readGlobalDevsyncConfig,
-  resolveConfiguredIdentityFile,
-} from "#app/config/global-config.ts";
-import {
+  normalizeSyncMachineName,
   type ResolvedSyncConfigEntry,
   readSyncConfig,
   type SyncConfigEntryKind,
@@ -24,6 +22,7 @@ import {
 import { ensureSyncRepository, type SyncContext } from "./runtime.ts";
 
 export type SyncAddRequest = Readonly<{
+  machines?: readonly string[];
   mode: Extract<SyncMode, "normal" | "secret">;
   target: string;
 }>;
@@ -33,6 +32,7 @@ export type SyncAddResult = Readonly<{
   configPath: string;
   kind: SyncConfigEntryKind;
   localPath: string;
+  machines: readonly string[];
   mode: Extract<SyncMode, "normal" | "secret">;
   repoPath: string;
   syncDirectory: string;
@@ -43,6 +43,7 @@ const buildAddEntryCandidate = async (
   context: Pick<SyncContext, "environment" | "paths">,
   input: Readonly<{
     identityFile: string | undefined;
+    machines?: readonly string[];
     mode: Extract<SyncMode, "normal" | "secret">;
   }>,
 ) => {
@@ -111,7 +112,7 @@ const buildAddEntryCandidate = async (
     configuredLocalPath,
     kind,
     localPath: targetPath,
-    machines: [],
+    machines: input.machines?.map((m) => normalizeSyncMachineName(m)) ?? [],
     mode: input.mode,
     modeExplicit: true,
     name: repoPath,
@@ -154,11 +155,10 @@ export const trackSyncTarget = async (
     context.paths.syncDirectory,
     context.environment,
   );
-  const globalConfig = await readGlobalDevsyncConfig(context.environment);
   const identityFile =
-    globalConfig?.age !== undefined
+    config.age !== undefined
       ? resolveConfiguredIdentityFile(
-          globalConfig.age.identityFile,
+          config.age.identityFile,
           context.environment,
         )
       : undefined;
@@ -167,6 +167,7 @@ export const trackSyncTarget = async (
     context,
     {
       identityFile,
+      machines: request.machines,
       mode: request.mode,
     },
   );
@@ -196,6 +197,8 @@ export const trackSyncTarget = async (
 
   let nextConfig = createSyncConfigDocument(config);
   let mode: Extract<SyncMode, "normal" | "secret"> = request.mode;
+  let machines: readonly string[] = candidate.machines;
+  let changed = false;
 
   if (!alreadyTracked) {
     nextConfig = createSyncConfigDocument({
@@ -203,24 +206,39 @@ export const trackSyncTarget = async (
       entries: [...config.entries, candidate],
     });
     mode = candidate.mode;
-  } else if (existingEntry?.mode !== request.mode) {
-    nextConfig = createSyncConfigDocument({
-      ...config,
-      entries: config.entries.map((entry) => {
-        if (entry.repoPath !== candidate.repoPath) {
-          return entry;
-        }
+    changed = true;
+  } else {
+    const modeChanged = existingEntry?.mode !== request.mode;
+    const machinesChanged =
+      request.machines !== undefined &&
+      (existingEntry?.machines.length !== candidate.machines.length ||
+        !candidate.machines.every((m) => existingEntry?.machines.includes(m)));
 
-        return {
-          ...entry,
-          mode: request.mode,
-        };
-      }),
-    });
-    mode = request.mode;
+    if (modeChanged || machinesChanged) {
+      nextConfig = createSyncConfigDocument({
+        ...config,
+        entries: config.entries.map((entry) => {
+          if (entry.repoPath !== candidate.repoPath) {
+            return entry;
+          }
+
+          return {
+            ...entry,
+            ...(modeChanged ? { mode: request.mode } : {}),
+            ...(machinesChanged ? { machines: candidate.machines } : {}),
+          };
+        }),
+      });
+      mode = modeChanged ? request.mode : (existingEntry?.mode ?? request.mode);
+      changed = true;
+    }
+
+    machines = machinesChanged
+      ? candidate.machines
+      : (existingEntry?.machines ?? []);
   }
 
-  if (!alreadyTracked || existingEntry?.mode !== request.mode) {
+  if (changed) {
     await writeValidatedSyncConfig(context.paths.syncDirectory, nextConfig, {
       environment: context.environment,
     });
@@ -231,6 +249,7 @@ export const trackSyncTarget = async (
     configPath: context.paths.configPath,
     kind: candidate.kind,
     localPath: candidate.localPath,
+    machines,
     mode,
     repoPath: candidate.repoPath,
     syncDirectory: context.paths.syncDirectory,

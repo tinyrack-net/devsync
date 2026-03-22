@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { createSyncConfigDocument } from "./config-file.ts";
 
 describe("config-file", () => {
-  it("writes v5 directory entries", () => {
+  it("writes v6 directory entries", () => {
     expect(
       createSyncConfigDocument({
         entries: [
@@ -27,11 +27,11 @@ describe("config-file", () => {
           localPath: "~/.config/zsh",
         },
       ],
-      version: 5,
+      version: 6,
     });
   });
 
-  it("writes v5 file entries with mode and machines", () => {
+  it("writes v6 file entries with mode and machines", () => {
     expect(
       createSyncConfigDocument({
         entries: [
@@ -57,7 +57,7 @@ describe("config-file", () => {
           mode: "secret",
         },
       ],
-      version: 5,
+      version: 6,
     });
   });
 
@@ -85,7 +85,7 @@ describe("config-file", () => {
           localPath: "~/.bashrc",
         },
       ],
-      version: 5,
+      version: 6,
     });
   });
 });

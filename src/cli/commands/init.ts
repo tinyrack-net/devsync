@@ -29,13 +29,13 @@ export default class SyncInit extends BaseCommand {
       helpValue: "path",
       summary: "Persist an age identity file path",
       description:
-        "Store the age identity file path in settings.json so later pull operations know which private key file to use for decrypting secret artifacts.",
+        "Store the age identity file path in manifest.json so later pull operations know which private key file to use for decrypting secret artifacts.",
     }),
     recipient: Flags.string({
       helpValue: "recipient",
       summary: "Persist an age recipient public key",
       description:
-        "Add an age recipient public key to settings.json. Repeat this flag to encrypt secrets for multiple recipients during push operations.",
+        "Add an age recipient public key to manifest.json. Repeat this flag to encrypt secrets for multiple recipients during push operations.",
       multiple: true,
     }),
   };

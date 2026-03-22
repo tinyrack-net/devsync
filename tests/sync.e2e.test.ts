@@ -78,12 +78,14 @@ describe("sync CLI e2e", () => {
         await readFile(join(xdgConfigHome, "devsync", "settings.json"), "utf8"),
       ),
     ).toMatchObject({
-      age: {
-        identityFile: "$XDG_CONFIG_HOME/devsync/age/keys.txt",
-        recipients: [expect.stringMatching(/^age1/u)],
-      },
-      version: 2,
+      activeMachine: "default",
+      version: 3,
     });
+    expect(
+      JSON.parse(
+        await readFile(join(xdgConfigHome, "devsync", "settings.json"), "utf8"),
+      ),
+    ).not.toHaveProperty("age");
     expect(
       JSON.parse(
         await readFile(
@@ -92,8 +94,12 @@ describe("sync CLI e2e", () => {
         ),
       ),
     ).toMatchObject({
+      age: {
+        identityFile: "$XDG_CONFIG_HOME/devsync/age/keys.txt",
+        recipients: [expect.stringMatching(/^age1/u)],
+      },
       entries: [],
-      version: 5,
+      version: 6,
     });
   });
 
@@ -141,11 +147,12 @@ describe("sync CLI e2e", () => {
         env,
       },
     );
-    const exactRuleResult = await runCli(["mode", publicFile, "normal"], {
-      env,
-    });
+    const exactRuleResult = await runCli(
+      ["track", publicFile, "--mode", "normal"],
+      { env },
+    );
     const subtreeRuleResult = await runCli(
-      ["mode", cacheDirectory, "ignore", "--recursive"],
+      ["track", cacheDirectory, "--mode", "ignore"],
       { env },
     );
     const configAfterSet = JSON.parse(
@@ -160,8 +167,8 @@ describe("sync CLI e2e", () => {
 
     expect(trackResult.stdout).toContain("Tracked sync target.");
     expect(trackResult.stdout).toContain("Mode: secret");
-    expect(exactRuleResult.stdout).toContain("Action: added");
-    expect(subtreeRuleResult.stdout).toContain("Action: added");
+    expect(exactRuleResult.stdout).toContain("Tracked sync target.");
+    expect(subtreeRuleResult.stdout).toContain("Mode: ignore");
     expect(configAfterSet.entries).toMatchObject([
       {
         kind: "directory",
@@ -221,7 +228,7 @@ describe("sync CLI e2e", () => {
       { env },
     );
     await runCli(["track", zshDirectory], { env });
-    await runCli(["mode", secretsFile, "secret"], { env });
+    await runCli(["track", secretsFile, "--mode", "secret"], { env });
 
     await runCli(["push"], { env });
 
@@ -260,7 +267,7 @@ describe("sync CLI e2e", () => {
     expect(await readFile(secretsFile, "utf8")).toContain("TOKEN=work");
   }, 15_000);
 
-  it("sets mode on tracked roots via the mode command", async () => {
+  it("sets mode on tracked roots via track command", async () => {
     const workspace = await createWorkspace();
     const homeDirectory = join(workspace, "home");
     const xdgConfigHome = join(workspace, "xdg");
@@ -283,9 +290,12 @@ describe("sync CLI e2e", () => {
     );
     await runCli(["track", bundleDirectory], { env });
 
-    const result = await runCli(["mode", bundleDirectory, "secret"], {
-      env,
-    });
+    const result = await runCli(
+      ["track", bundleDirectory, "--mode", "secret"],
+      {
+        env,
+      },
+    );
 
     expect(result.exitCode).toBe(0);
     expect(result.stdout).toContain("Mode: secret");

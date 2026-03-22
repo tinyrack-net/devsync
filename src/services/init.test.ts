@@ -69,9 +69,9 @@ describe("init service", () => {
     expect(result.gitSource).toBe(sourceRepository);
     expect(
       await readFile(join(result.syncDirectory, "manifest.json"), "utf8"),
-    ).toContain('"version": 5');
+    ).toContain('"version": 6');
     expect(
-      await readFile(join(xdgConfigHome, "devsync", "settings.json"), "utf8"),
+      await readFile(join(result.syncDirectory, "manifest.json"), "utf8"),
     ).toContain("$XDG_CONFIG_HOME/devsync/age/keys.txt");
   });
 

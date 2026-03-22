@@ -19,7 +19,7 @@ describe("global config", () => {
     });
   });
 
-  it("parses config with age settings", () => {
+  it("parses v2 config with age settings (ignores age)", () => {
     expect(
       parseGlobalDevsyncConfig({
         age: {
@@ -29,11 +29,19 @@ describe("global config", () => {
         version: 2,
       }),
     ).toEqual({
-      age: {
-        identityFile: "$XDG_CONFIG_HOME/devsync/age/keys.txt",
-        recipients: ["age1example"],
-      },
       version: 2,
+    });
+  });
+
+  it("parses v3 config without age", () => {
+    expect(
+      parseGlobalDevsyncConfig({
+        activeMachine: "work",
+        version: 3,
+      }),
+    ).toEqual({
+      activeMachine: "work",
+      version: 3,
     });
   });
 

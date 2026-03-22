@@ -9,12 +9,10 @@ import {
 } from "../test/helpers/sync-fixture.ts";
 import { trackSyncTarget } from "./add.ts";
 import { initializeSync } from "./init.ts";
-import { listSyncConfig } from "./list.ts";
 import {
   assignSyncMachines,
   clearSyncMachines,
   listSyncMachines,
-  unassignSyncMachines,
   useSyncMachine,
 } from "./machine.ts";
 import { pullSync } from "./pull.ts";
@@ -53,7 +51,7 @@ afterEach(async () => {
 });
 
 describe("sync service", () => {
-  it("tracks entries in v5 manifest format", async () => {
+  it("tracks entries in v6 manifest format", async () => {
     const workspace = await createWorkspace();
     const homeDirectory = join(workspace, "home");
     const xdgConfigHome = join(workspace, "xdg");
@@ -106,7 +104,8 @@ describe("sync service", () => {
       version: number;
     };
 
-    expect(config.version).toBe(5);
+    expect(config.version).toBe(6);
+    expect(config).toHaveProperty("age");
     expect(config.entries).toEqual([
       {
         kind: "directory",
@@ -154,7 +153,6 @@ describe("sync service", () => {
     );
     await setSyncTargetMode(
       {
-        recursive: false,
         state: "secret",
         target: join(sharedDirectory, "secrets.zsh"),
       },
@@ -205,7 +203,6 @@ describe("sync service", () => {
     );
     await setSyncTargetMode(
       {
-        recursive: false,
         state: "secret",
         target: secretsFile,
       },
@@ -255,19 +252,23 @@ describe("sync service", () => {
 
     await setSyncTargetMode(
       {
-        recursive: false,
         state: "normal",
         target: secretsFile,
       },
       context,
     );
 
-    const listResult = await listSyncConfig(context);
-    const secretEntry = listResult.entries.find(
-      (e) => e.repoPath === ".config/zsh/secrets.zsh",
+    const configAfterModeChange = JSON.parse(
+      await readFile(
+        join(xdgConfigHome, "devsync", "sync", "manifest.json"),
+        "utf8",
+      ),
+    ) as { entries: Array<{ localPath: string; mode?: string }> };
+    const secretEntry = configAfterModeChange.entries.find(
+      (entry) => entry.localPath === "~/.config/zsh/secrets.zsh",
     );
 
-    expect(secretEntry?.mode).toBe("normal");
+    expect(secretEntry?.mode).toBeUndefined();
   });
 
   it("assigns and unassigns machines to entries", async () => {
@@ -325,21 +326,21 @@ describe("sync service", () => {
       },
     ]);
 
-    const unassignResult = await unassignSyncMachines(
-      { target: gitconfig, machines: ["work"] },
-      context,
-    );
-
-    expect(unassignResult.action).toBe("removed");
-    expect(unassignResult.machines).toEqual(["default"]);
-
-    const unassignAllResult = await unassignSyncMachines(
+    const reassignResult = await assignSyncMachines(
       { target: gitconfig, machines: ["default"] },
       context,
     );
 
-    expect(unassignAllResult.action).toBe("removed");
-    expect(unassignAllResult.machines).toEqual([]);
+    expect(reassignResult.action).toBe("assigned");
+    expect(reassignResult.machines).toEqual(["default"]);
+
+    const clearResult = await assignSyncMachines(
+      { target: gitconfig, machines: [] },
+      context,
+    );
+
+    expect(clearResult.action).toBe("assigned");
+    expect(clearResult.machines).toEqual([]);
 
     const configAfter = JSON.parse(
       await readFile(
