@@ -10,14 +10,13 @@ import {
 import { trackSyncTarget } from "./add.js";
 import { initializeSync } from "./init.js";
 import {
-  assignSyncMachines,
-  clearSyncMachines,
-  listSyncMachines,
-  useSyncMachine,
-} from "./machine.js";
+  assignSyncProfiles,
+  clearSyncProfiles,
+  listSyncProfiles,
+  useSyncProfile,
+} from "./profile.js";
 import { pullSync } from "./pull.js";
 import { pushSync } from "./push.js";
-import { createSyncContext } from "./runtime.js";
 import { setSyncTargetMode } from "./set.js";
 
 const temporaryDirectories: string[] = [];
@@ -67,16 +66,15 @@ describe("sync service", () => {
     );
     await writeFile(workFile, "[include]\npath=~/.gitconfig.work\n");
 
-    const context = createSyncContext({
-      environment: createSyncEnvironment(homeDirectory, xdgConfigHome),
-    });
+    const environment = createSyncEnvironment(homeDirectory, xdgConfigHome);
+    const cwd = homeDirectory;
 
     await initializeSync(
       {
         identityFile: "$XDG_CONFIG_HOME/devsync/age/keys.txt",
         recipients: [ageKeys.recipient],
       },
-      context,
+      environment,
     );
 
     await trackSyncTarget(
@@ -84,14 +82,16 @@ describe("sync service", () => {
         mode: "normal",
         target: sharedDirectory,
       },
-      context,
+      environment,
+      cwd,
     );
     await trackSyncTarget(
       {
         mode: "secret",
         target: workFile,
       },
-      context,
+      environment,
+      cwd,
     );
 
     const config = JSON.parse(
@@ -120,7 +120,7 @@ describe("sync service", () => {
     ]);
   });
 
-  it("manages the active machine through the global config", async () => {
+  it("manages the active profile through the global config", async () => {
     const workspace = await createWorkspace();
     const homeDirectory = join(workspace, "home");
     const xdgConfigHome = join(workspace, "xdg");
@@ -134,43 +134,44 @@ describe("sync service", () => {
       "export TOKEN=work\n",
     );
 
-    const context = createSyncContext({
-      environment: createSyncEnvironment(homeDirectory, xdgConfigHome),
-    });
+    const environment = createSyncEnvironment(homeDirectory, xdgConfigHome);
+    const cwd = homeDirectory;
 
     await initializeSync(
       {
         identityFile: "$XDG_CONFIG_HOME/devsync/age/keys.txt",
         recipients: [ageKeys.recipient],
       },
-      context,
+      environment,
     );
     await trackSyncTarget(
       {
         mode: "normal",
         target: sharedDirectory,
       },
-      context,
+      environment,
+      cwd,
     );
     await setSyncTargetMode(
       {
         state: "secret",
         target: join(sharedDirectory, "secrets.zsh"),
       },
-      context,
+      environment,
+      cwd,
     );
 
-    expect(await useSyncMachine("work", context)).toMatchObject({
-      activeMachine: "work",
-      machine: "work",
+    expect(await useSyncProfile("work", environment)).toMatchObject({
+      activeProfile: "work",
+      profile: "work",
       mode: "use",
     });
-    expect(await clearSyncMachines(context)).toMatchObject({
+    expect(await clearSyncProfiles(environment)).toMatchObject({
       mode: "clear",
     });
   });
 
-  it("pushes and pulls with the active machine", async () => {
+  it("pushes and pulls with the active profile", async () => {
     const workspace = await createWorkspace();
     const homeDirectory = join(workspace, "home");
     const xdgConfigHome = join(workspace, "xdg");
@@ -184,37 +185,38 @@ describe("sync service", () => {
     await writeFile(sharedFile, "export PATH=$PATH:$HOME/bin\n");
     await writeFile(secretsFile, "export TOKEN=work\n");
 
-    const context = createSyncContext({
-      environment: createSyncEnvironment(homeDirectory, xdgConfigHome),
-    });
+    const environment = createSyncEnvironment(homeDirectory, xdgConfigHome);
+    const cwd = homeDirectory;
 
     await initializeSync(
       {
         identityFile: "$XDG_CONFIG_HOME/devsync/age/keys.txt",
         recipients: [ageKeys.recipient],
       },
-      context,
+      environment,
     );
     await trackSyncTarget(
       {
         mode: "normal",
         target: zshDirectory,
       },
-      context,
+      environment,
+      cwd,
     );
     await setSyncTargetMode(
       {
         state: "secret",
         target: secretsFile,
       },
-      context,
+      environment,
+      cwd,
     );
 
     await pushSync(
       {
         dryRun: false,
       },
-      context,
+      environment,
     );
 
     const sharedArtifact = join(
@@ -246,7 +248,7 @@ describe("sync service", () => {
       {
         dryRun: false,
       },
-      context,
+      environment,
     );
 
     expect(await readFile(secretsFile, "utf8")).toContain("TOKEN=work");
@@ -256,7 +258,8 @@ describe("sync service", () => {
         state: "normal",
         target: secretsFile,
       },
-      context,
+      environment,
+      cwd,
     );
 
     const configAfterModeChange = JSON.parse(
@@ -277,7 +280,7 @@ describe("sync service", () => {
     expect(secretEntry?.mode).toBe("normal");
   });
 
-  it("assigns and unassigns machines to entries", async () => {
+  it("assigns and unassigns profiles to entries", async () => {
     const workspace = await createWorkspace();
     const homeDirectory = join(workspace, "home");
     const xdgConfigHome = join(workspace, "xdg");
@@ -288,73 +291,79 @@ describe("sync service", () => {
     await mkdir(homeDirectory, { recursive: true });
     await writeFile(gitconfig, "[user]\nname=test\n");
 
-    const context = createSyncContext({
-      environment: createSyncEnvironment(homeDirectory, xdgConfigHome),
-    });
+    const environment = createSyncEnvironment(homeDirectory, xdgConfigHome);
+    const cwd = homeDirectory;
 
     await initializeSync(
       {
         identityFile: "$XDG_CONFIG_HOME/devsync/age/keys.txt",
         recipients: [ageKeys.recipient],
       },
-      context,
+      environment,
     );
-    await trackSyncTarget({ mode: "normal", target: gitconfig }, context);
+    await trackSyncTarget(
+      { mode: "normal", target: gitconfig },
+      environment,
+      cwd,
+    );
 
-    const assignResult = await assignSyncMachines(
+    const assignResult = await assignSyncProfiles(
       {
         target: gitconfig,
-        machines: ["default", "work"],
+        profiles: ["default", "work"],
       },
-      context,
+      environment,
+      cwd,
     );
 
     expect(assignResult.action).toBe("assigned");
-    expect(assignResult.machines).toEqual(["default", "work"]);
+    expect(assignResult.profiles).toEqual(["default", "work"]);
 
     const config = JSON.parse(
       await readFile(
         join(xdgConfigHome, "devsync", "sync", "manifest.json"),
         "utf8",
       ),
-    ) as { entries: Array<{ machines?: string[] }> };
+    ) as { entries: Array<{ profiles?: string[] }> };
 
-    expect(config.entries[0]?.machines).toEqual(["default", "work"]);
+    expect(config.entries[0]?.profiles).toEqual(["default", "work"]);
 
-    const listResult = await listSyncMachines(context);
+    const listResult = await listSyncProfiles(environment);
 
-    expect(listResult.availableMachines).toEqual(["default", "work"]);
+    expect(listResult.availableProfiles).toEqual(["default", "work"]);
     expect(listResult.assignments).toEqual([
       {
         entryLocalPath: gitconfig,
         entryRepoPath: ".gitconfig",
-        machines: ["default", "work"],
+        profiles: ["default", "work"],
       },
     ]);
 
-    const reassignResult = await assignSyncMachines(
-      { target: gitconfig, machines: ["default"] },
-      context,
+    const reassignResult = await assignSyncProfiles(
+      { target: gitconfig, profiles: ["default"] },
+      environment,
+      cwd,
     );
 
     expect(reassignResult.action).toBe("assigned");
-    expect(reassignResult.machines).toEqual(["default"]);
+    expect(reassignResult.profiles).toEqual(["default"]);
 
-    const clearResult = await assignSyncMachines(
-      { target: gitconfig, machines: [] },
-      context,
+    const clearResult = await assignSyncProfiles(
+      { target: gitconfig, profiles: [] },
+      environment,
+      cwd,
     );
 
     expect(clearResult.action).toBe("assigned");
-    expect(clearResult.machines).toEqual([]);
+    expect(clearResult.profiles).toEqual([]);
 
     const configAfter = JSON.parse(
       await readFile(
         join(xdgConfigHome, "devsync", "sync", "manifest.json"),
         "utf8",
       ),
-    ) as { entries: Array<{ machines?: string[] }> };
+    ) as { entries: Array<{ profiles?: string[] }> };
 
-    expect(configAfter.entries[0]?.machines).toBeUndefined();
+    expect(configAfter.entries[0]?.profiles).toBeUndefined();
   });
 });

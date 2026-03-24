@@ -1,20 +1,20 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  isMachineActive,
+  isProfileActive,
   parseGlobalDevsyncConfig,
-  resolveActiveMachineSelection,
+  resolveActiveProfileSelection,
 } from "./global-config.js";
 
 describe("global config", () => {
-  it("normalizes the active machine name", () => {
+  it("normalizes the active profile name", () => {
     expect(
       parseGlobalDevsyncConfig({
-        activeMachine: " work ",
+        activeProfile: " work ",
         version: 2,
       }),
     ).toEqual({
-      activeMachine: "work",
+      activeProfile: "work",
       version: 2,
     });
   });
@@ -36,37 +36,37 @@ describe("global config", () => {
   it("parses v3 config without age", () => {
     expect(
       parseGlobalDevsyncConfig({
-        activeMachine: "work",
+        activeProfile: "work",
         version: 3,
       }),
     ).toEqual({
-      activeMachine: "work",
+      activeProfile: "work",
       version: 3,
     });
   });
 
   it("treats missing config as base-only", () => {
-    const selection = resolveActiveMachineSelection(undefined);
+    const selection = resolveActiveProfileSelection(undefined);
 
     expect(selection).toEqual({
       mode: "none",
     });
-    expect(isMachineActive(selection, undefined)).toBe(true);
-    expect(isMachineActive(selection, "work")).toBe(false);
+    expect(isProfileActive(selection, undefined)).toBe(true);
+    expect(isProfileActive(selection, "work")).toBe(false);
   });
 
-  it("uses the configured active machine", () => {
-    const selection = resolveActiveMachineSelection({
-      activeMachine: "work",
+  it("uses the configured active profile", () => {
+    const selection = resolveActiveProfileSelection({
+      activeProfile: "work",
       version: 2,
     });
 
     expect(selection).toEqual({
-      machine: "work",
+      profile: "work",
       mode: "single",
     });
-    expect(isMachineActive(selection, undefined)).toBe(true);
-    expect(isMachineActive(selection, "work")).toBe(true);
-    expect(isMachineActive(selection, "personal")).toBe(false);
+    expect(isProfileActive(selection, undefined)).toBe(true);
+    expect(isProfileActive(selection, "work")).toBe(true);
+    expect(isProfileActive(selection, "personal")).toBe(false);
   });
 });

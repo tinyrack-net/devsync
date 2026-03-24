@@ -1,7 +1,6 @@
 import { BaseCommand } from "#app/cli/base-command.js";
 import { formatSyncDoctorResult } from "#app/lib/output.js";
 import { runSyncDoctor } from "#app/services/doctor.js";
-import { createSyncContext } from "#app/services/runtime.js";
 
 export default class SyncDoctor extends BaseCommand {
   public static override summary =
@@ -13,10 +12,10 @@ export default class SyncDoctor extends BaseCommand {
   public static override examples = ["<%= config.bin %> <%= command.id %>"];
 
   public override async run(): Promise<void> {
-    await this.parse(SyncDoctor);
-    const result = await runSyncDoctor(createSyncContext());
+    const { flags } = await this.parse(SyncDoctor);
+    const result = await runSyncDoctor(process.env);
 
-    this.print(formatSyncDoctorResult(result));
+    this.print(formatSyncDoctorResult(result, { verbose: flags.verbose }));
 
     if (result.hasFailures) {
       this.exit(1);

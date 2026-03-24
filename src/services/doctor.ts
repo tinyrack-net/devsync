@@ -1,9 +1,11 @@
+import { resolveSyncConfigFilePath } from "#app/config/sync.js";
+
 import { pathExists } from "./filesystem.js";
 import { ensureRepository } from "./git.js";
 import {
+  createSyncPaths,
   type EffectiveSyncConfig,
   loadSyncConfig,
-  type SyncContext,
 } from "./runtime.js";
 
 export type DoctorCheckLevel = "fail" | "ok" | "warn";
@@ -41,12 +43,14 @@ const fail = (name: string, detail: string): DoctorCheck => ({
 });
 
 export const runSyncDoctor = async (
-  context: SyncContext,
+  environment: NodeJS.ProcessEnv,
 ): Promise<SyncDoctorResult> => {
+  const { syncDirectory } = createSyncPaths(environment);
+  const configPath = resolveSyncConfigFilePath(syncDirectory);
   const checks: DoctorCheck[] = [];
 
   try {
-    await ensureRepository(context.paths.syncDirectory);
+    await ensureRepository(syncDirectory);
     checks.push(ok("git", "Sync directory is a git repository."));
   } catch (error: unknown) {
     checks.push(
@@ -58,17 +62,20 @@ export const runSyncDoctor = async (
 
     return {
       checks,
-      configPath: context.paths.configPath,
+      configPath,
       hasFailures: true,
       hasWarnings: false,
-      syncDirectory: context.paths.syncDirectory,
+      syncDirectory,
     };
   }
 
   let config: EffectiveSyncConfig;
 
   try {
-    const { effectiveConfig, fullConfig } = await loadSyncConfig(context);
+    const { effectiveConfig, fullConfig } = await loadSyncConfig(
+      syncDirectory,
+      environment,
+    );
 
     config = effectiveConfig;
     checks.push(
@@ -79,10 +86,10 @@ export const runSyncDoctor = async (
     );
     checks.push(
       ok(
-        "machines",
-        effectiveConfig.activeMachine === undefined
-          ? "No active machine configured."
-          : `Active machine: ${effectiveConfig.activeMachine}.`,
+        "profiles",
+        effectiveConfig.activeProfile === undefined
+          ? "No active profile configured."
+          : `Active profile: ${effectiveConfig.activeProfile}.`,
       ),
     );
   } catch (error: unknown) {
@@ -97,10 +104,10 @@ export const runSyncDoctor = async (
 
     return {
       checks,
-      configPath: context.paths.configPath,
+      configPath,
       hasFailures: true,
       hasWarnings: false,
-      syncDirectory: context.paths.syncDirectory,
+      syncDirectory,
     };
   }
 
@@ -117,7 +124,7 @@ export const runSyncDoctor = async (
   );
 
   const missingEntries = config.entries.filter((entry) => {
-    return !context.environment || entry.localPath.length > 0;
+    return !environment || entry.localPath.length > 0;
   });
 
   let missingCount = 0;
@@ -142,9 +149,9 @@ export const runSyncDoctor = async (
 
   return {
     checks,
-    configPath: context.paths.configPath,
+    configPath,
     hasFailures,
     hasWarnings,
-    syncDirectory: context.paths.syncDirectory,
+    syncDirectory,
   };
 };

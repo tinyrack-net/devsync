@@ -8,7 +8,6 @@ import { trackSyncTarget } from "#app/services/add.js";
 import { initializeSync } from "#app/services/init.js";
 import { pullSync } from "#app/services/pull.js";
 import { pushSync } from "#app/services/push.js";
-import { createSyncContext } from "#app/services/runtime.js";
 import { setSyncTargetMode } from "#app/services/set.js";
 import {
   createAgeKeyPair,
@@ -55,9 +54,8 @@ describe("sync dry runs", () => {
     const plainFile = join(bundleDirectory, "plain.txt");
     const secretFile = join(bundleDirectory, "token.txt");
     const ageKeys = await createAgeKeyPair();
-    const context = createSyncContext({
-      environment: createEnvironment(homeDirectory, xdgConfigHome),
-    });
+    const environment = createEnvironment(homeDirectory, xdgConfigHome);
+    const cwd = homeDirectory;
 
     await writeIdentityFile(xdgConfigHome, ageKeys.identity);
     await mkdir(bundleDirectory, { recursive: true });
@@ -69,28 +67,30 @@ describe("sync dry runs", () => {
         identityFile: "$XDG_CONFIG_HOME/devsync/age/keys.txt",
         recipients: [ageKeys.recipient],
       },
-      context,
+      environment,
     );
     await trackSyncTarget(
       {
         mode: "normal",
         target: bundleDirectory,
       },
-      context,
+      environment,
+      cwd,
     );
     await setSyncTargetMode(
       {
         state: "secret",
         target: secretFile,
       },
-      context,
+      environment,
+      cwd,
     );
 
     const result = await pushSync(
       {
         dryRun: true,
       },
-      context,
+      environment,
     );
 
     expect(result.dryRun).toBe(true);
@@ -137,9 +137,8 @@ describe("sync dry runs", () => {
     const plainFile = join(bundleDirectory, "plain.txt");
     const extraFile = join(bundleDirectory, "extra.txt");
     const ageKeys = await createAgeKeyPair();
-    const context = createSyncContext({
-      environment: createEnvironment(homeDirectory, xdgConfigHome),
-    });
+    const environment = createEnvironment(homeDirectory, xdgConfigHome);
+    const cwd = homeDirectory;
 
     await writeIdentityFile(xdgConfigHome, ageKeys.identity);
     await mkdir(bundleDirectory, { recursive: true });
@@ -150,20 +149,21 @@ describe("sync dry runs", () => {
         identityFile: "$XDG_CONFIG_HOME/devsync/age/keys.txt",
         recipients: [ageKeys.recipient],
       },
-      context,
+      environment,
     );
     await trackSyncTarget(
       {
         mode: "normal",
         target: bundleDirectory,
       },
-      context,
+      environment,
+      cwd,
     );
     await pushSync(
       {
         dryRun: false,
       },
-      context,
+      environment,
     );
 
     await writeFile(plainFile, "changed locally\n", "utf8");
@@ -173,7 +173,7 @@ describe("sync dry runs", () => {
       {
         dryRun: true,
       },
-      context,
+      environment,
     );
 
     expect(result.dryRun).toBe(true);

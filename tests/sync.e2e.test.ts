@@ -67,9 +67,9 @@ describe("sync CLI e2e", () => {
       env: createSyncEnvironment(homeDirectory, xdgConfigHome),
     });
 
-    expect(stripAnsi(result.stdout)).toContain("Initialized sync directory.");
+    expect(stripAnsi(result.stdout)).toContain("Initialized sync directory");
     expect(stripAnsi(result.stdout)).toContain(
-      "Age bootstrap: generated a new local identity.",
+      "age       generated a new local identity",
     );
     expect(
       await readFile(join(xdgConfigHome, "devsync", "age", "keys.txt"), "utf8"),
@@ -79,7 +79,7 @@ describe("sync CLI e2e", () => {
         await readFile(join(xdgConfigHome, "devsync", "settings.json"), "utf8"),
       ),
     ).toMatchObject({
-      activeMachine: "default",
+      activeProfile: "default",
       version: 3,
     });
     expect(
@@ -166,10 +166,10 @@ describe("sync CLI e2e", () => {
       }>;
     };
 
-    expect(stripAnsi(trackResult.stdout)).toContain("Tracked sync target.");
-    expect(stripAnsi(trackResult.stdout)).toContain("Mode: secret");
-    expect(stripAnsi(exactRuleResult.stdout)).toContain("Tracked sync target.");
-    expect(stripAnsi(subtreeRuleResult.stdout)).toContain("Mode: ignore");
+    expect(stripAnsi(trackResult.stdout)).toContain("Tracked sync target");
+    expect(stripAnsi(trackResult.stdout)).toContain("mode      secret");
+    expect(stripAnsi(exactRuleResult.stdout)).toContain("Tracked sync target");
+    expect(stripAnsi(subtreeRuleResult.stdout)).toContain("mode      ignore");
     expect(configAfterSet.entries).toMatchObject([
       {
         kind: "directory",
@@ -189,7 +189,9 @@ describe("sync CLI e2e", () => {
 
     const untrackResult = await runCli(["untrack", ".config/mytool"], { env });
 
-    expect(stripAnsi(untrackResult.stdout)).toContain("Untracked sync target.");
+    expect(stripAnsi(untrackResult.stdout)).toContain(
+      "Untracked .config/mytool",
+    );
 
     await runCli(["untrack", ".config/mytool/cache"], { env });
     await runCli(["untrack", ".config/mytool/public.json"], { env });
@@ -203,7 +205,7 @@ describe("sync CLI e2e", () => {
     expect(configAfterUntrack.entries).toEqual([]);
   }, 15_000);
 
-  it("syncs with the default machine namespace using push and pull", async () => {
+  it("syncs with the default profile namespace using push and pull", async () => {
     const workspace = await createWorkspace();
     const homeDirectory = join(workspace, "home");
     const xdgConfigHome = join(workspace, "xdg");
@@ -299,6 +301,6 @@ describe("sync CLI e2e", () => {
     );
 
     expect(result.exitCode).toBe(0);
-    expect(stripAnsi(result.stdout)).toContain("Mode: secret");
+    expect(stripAnsi(result.stdout)).toContain("mode      secret");
   });
 });

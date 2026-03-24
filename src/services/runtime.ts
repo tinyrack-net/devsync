@@ -1,8 +1,8 @@
 import {
-  type ActiveMachineSelection,
+  type ActiveProfileSelection,
   type GlobalDevsyncConfig,
   readGlobalDevsyncConfig,
-  resolveActiveMachineSelection,
+  resolveActiveProfileSelection,
   resolveConfiguredIdentityFile,
 } from "#app/config/global-config.js";
 import {
@@ -11,7 +11,7 @@ import {
   readSyncConfig,
   resolveSyncArtifactsDirectoryPath,
   resolveSyncConfigFilePath,
-  syncDefaultMachine,
+  syncDefaultProfile,
 } from "#app/config/sync.js";
 import {
   resolveDevsyncGlobalConfigFilePath,
@@ -36,15 +36,9 @@ export type SyncPaths = Readonly<{
   syncDirectory: string;
 }>;
 
-export type SyncContext = Readonly<{
-  cwd: string;
-  environment: NodeJS.ProcessEnv;
-  paths: SyncPaths;
-}>;
-
 export type EffectiveSyncConfig = ResolvedSyncConfig &
   Readonly<{
-    activeMachine?: string;
+    activeProfile?: string;
     age: ResolvedAgeConfig;
   }>;
 
@@ -68,25 +62,8 @@ export const createSyncPaths = (
   };
 };
 
-export const createSyncContext = (
-  options: Readonly<{
-    cwd?: string;
-    environment?: NodeJS.ProcessEnv;
-  }> = {},
-): SyncContext => {
-  const environment = options.environment ?? process.env;
-
-  return {
-    cwd: options.cwd ?? process.cwd(),
-    environment,
-    paths: createSyncPaths(environment),
-  };
-};
-
-export const ensureSyncRepository = async (
-  context: Pick<SyncContext, "paths">,
-) => {
-  await ensureGitRepository(context.paths.syncDirectory);
+export const ensureSyncRepository = async (syncDirectory: string) => {
+  await ensureGitRepository(syncDirectory);
 };
 
 export const resolveAgeFromSyncConfig = (
@@ -102,60 +79,59 @@ export const resolveAgeFromSyncConfig = (
 
 export const buildEffectiveSyncConfig = (
   fullConfig: ResolvedSyncConfig,
-  selection: ActiveMachineSelection,
+  selection: ActiveProfileSelection,
   age: ResolvedAgeConfig,
 ): EffectiveSyncConfig => {
-  const activeMachine =
-    selection.mode === "single" ? selection.machine : undefined;
+  const activeProfile =
+    selection.mode === "single" ? selection.profile : undefined;
 
-  const effectiveMachine =
-    activeMachine !== undefined && activeMachine !== syncDefaultMachine
-      ? activeMachine
-      : syncDefaultMachine;
+  const effectiveProfile =
+    activeProfile !== undefined && activeProfile !== syncDefaultProfile
+      ? activeProfile
+      : syncDefaultProfile;
 
   const entries = fullConfig.entries.filter(
     (entry) =>
-      entry.machines.length === 0 || entry.machines.includes(effectiveMachine),
+      entry.profiles.length === 0 || entry.profiles.includes(effectiveProfile),
   );
 
   return {
     ...fullConfig,
     entries,
     age,
-    ...(activeMachine !== undefined ? { activeMachine } : {}),
+    ...(activeProfile !== undefined ? { activeProfile } : {}),
   };
 };
 
 export const loadSyncConfig = async (
-  context: SyncContext,
+  syncDirectory: string,
+  environment: NodeJS.ProcessEnv,
   options: Readonly<{
-    machine?: string;
+    profile?: string;
   }> = {},
 ): Promise<LoadedSyncConfig> => {
-  const fullConfig = await readSyncConfig(
-    context.paths.syncDirectory,
-    context.environment,
-  );
-  const globalConfig = await readGlobalDevsyncConfig(context.environment);
+  const fullConfig = await readSyncConfig(syncDirectory, environment);
+  const globalConfig = await readGlobalDevsyncConfig(environment);
   const selection =
-    options.machine === undefined
-      ? resolveActiveMachineSelection(globalConfig)
+    options.profile === undefined
+      ? resolveActiveProfileSelection(globalConfig)
       : {
-          machine: options.machine,
+          profile: options.profile,
           mode: "single" as const,
         };
 
   const rawAge = fullConfig.age;
 
   if (rawAge === undefined) {
+    const configPath = resolveSyncConfigFilePath(syncDirectory);
     throw new DevsyncError("Age configuration is missing from manifest.json.", {
       code: "AGE_CONFIG_MISSING",
-      details: [`Config file: ${context.paths.configPath}`],
+      details: [`Config file: ${configPath}`],
       hint: "Run 'devsync init' to set up encryption.",
     });
   }
 
-  const age = resolveAgeFromSyncConfig(rawAge, context.environment);
+  const age = resolveAgeFromSyncConfig(rawAge, environment);
 
   return {
     effectiveConfig: buildEffectiveSyncConfig(fullConfig, selection, age),

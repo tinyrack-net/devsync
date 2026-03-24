@@ -1,3 +1,4 @@
+import { resolveSyncConfigFilePath } from "#app/config/sync.js";
 import {
   applyEntryMaterialization,
   buildEntryMaterialization,
@@ -5,16 +6,17 @@ import {
   countDeletedLocalNodes,
 } from "./local-materialization.js";
 import { buildRepositorySnapshot } from "./repo-snapshot.js";
+
 import {
+  createSyncPaths,
   type EffectiveSyncConfig,
   ensureSyncRepository,
   loadSyncConfig,
-  type SyncContext,
 } from "./runtime.js";
 
 export type SyncPullRequest = Readonly<{
   dryRun: boolean;
-  machine?: string;
+  profile?: string;
 }>;
 
 export type SyncPullResult = Readonly<{
@@ -38,12 +40,9 @@ export type PullPlan = Readonly<{
 
 export const buildPullPlan = async (
   config: EffectiveSyncConfig,
-  context: SyncContext,
+  syncDirectory: string,
 ): Promise<PullPlan> => {
-  const snapshot = await buildRepositorySnapshot(
-    context.paths.syncDirectory,
-    config,
-  );
+  const snapshot = await buildRepositorySnapshot(syncDirectory, config);
   const materializations = config.entries.map((entry) => {
     return buildEntryMaterialization(entry, snapshot);
   });
@@ -93,28 +92,35 @@ export const buildPullPlanPreview = (plan: PullPlan) => {
 
 export const buildPullResultFromPlan = (
   plan: PullPlan,
-  context: SyncContext,
+  syncDirectory: string,
   dryRun: boolean,
 ): SyncPullResult => {
+  const configPath = resolveSyncConfigFilePath(syncDirectory);
   return {
-    configPath: context.paths.configPath,
+    configPath,
     deletedLocalCount: plan.deletedLocalCount,
     dryRun,
-    syncDirectory: context.paths.syncDirectory,
+    syncDirectory,
     ...plan.counts,
   };
 };
 
 export const pullSync = async (
   request: SyncPullRequest,
-  context: SyncContext,
+  environment: NodeJS.ProcessEnv,
 ): Promise<SyncPullResult> => {
-  await ensureSyncRepository(context);
+  const { syncDirectory } = createSyncPaths(environment);
 
-  const { effectiveConfig: config } = await loadSyncConfig(context, {
-    ...(request.machine === undefined ? {} : { machine: request.machine }),
-  });
-  const plan = await buildPullPlan(config, context);
+  await ensureSyncRepository(syncDirectory);
+
+  const { effectiveConfig: config } = await loadSyncConfig(
+    syncDirectory,
+    environment,
+    {
+      ...(request.profile === undefined ? {} : { profile: request.profile }),
+    },
+  );
+  const plan = await buildPullPlan(config, syncDirectory);
 
   for (let index = 0; index < config.entries.length; index += 1) {
     const entry = config.entries[index];
@@ -129,5 +135,5 @@ export const pullSync = async (
     }
   }
 
-  return buildPullResultFromPlan(plan, context, request.dryRun);
+  return buildPullResultFromPlan(plan, syncDirectory, request.dryRun);
 };

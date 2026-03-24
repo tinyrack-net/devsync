@@ -10,15 +10,15 @@ const testAge: ResolvedAgeConfig = {
 };
 
 describe("sync runtime", () => {
-  it("attaches activeMachine from selection to the effective config", () => {
+  it("attaches activeProfile from selection to the effective config", () => {
     const config = {
       entries: [
         {
           configuredLocalPath: { default: "~/.config/zsh" },
           kind: "directory",
           localPath: "/tmp/home/.config/zsh",
-          machines: ["default", "work"],
-          machinesExplicit: true,
+          profiles: ["default", "work"],
+          profilesExplicit: true,
           mode: "normal",
           modeExplicit: false,
           name: ".config/zsh",
@@ -31,31 +31,31 @@ describe("sync runtime", () => {
     const effective = buildEffectiveSyncConfig(
       config,
       {
-        machine: "work",
+        profile: "work",
         mode: "single",
       },
       testAge,
     );
 
-    expect(effective.activeMachine).toBe("work");
+    expect(effective.activeProfile).toBe("work");
     expect(effective.age).toEqual(testAge);
     expect(effective.entries).toHaveLength(1);
     expect(effective.entries[0]).toMatchObject({
       mode: "normal",
       repoPath: ".config/zsh",
     });
-    expect(effective.entries[0]?.machines).toEqual(["default", "work"]);
+    expect(effective.entries[0]?.profiles).toEqual(["default", "work"]);
   });
 
-  it("passes through all entries regardless of machine selection", () => {
+  it("passes through all entries regardless of profile selection", () => {
     const config = {
       entries: [
         {
           configuredLocalPath: { default: "~/.gitconfig" },
           kind: "file",
           localPath: "/tmp/home/.gitconfig",
-          machines: ["default", "work"],
-          machinesExplicit: true,
+          profiles: ["default", "work"],
+          profilesExplicit: true,
           mode: "secret",
           modeExplicit: true,
           name: ".gitconfig",
@@ -79,7 +79,7 @@ describe("sync runtime", () => {
       buildEffectiveSyncConfig(
         config,
         {
-          machine: "work",
+          profile: "work",
           mode: "single",
         },
         testAge,

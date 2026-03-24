@@ -2,8 +2,8 @@ import { describe, expect, it } from "vitest";
 
 import {
   formatSyncAddResult,
-  formatSyncMachineListResult,
-  formatSyncMachineUpdateResult,
+  formatSyncProfileListResult,
+  formatSyncProfileUpdateResult,
   formatSyncSetResult,
 } from "./output.js";
 
@@ -12,42 +12,42 @@ const ansiPattern = /\x1b\[[0-9;]*m/g;
 const stripAnsi = (value: string) => value.replaceAll(ansiPattern, "");
 
 describe("output", () => {
-  it("formats machine list and update results", () => {
+  it("formats profile list and update results", () => {
     expect(
       stripAnsi(
-        formatSyncMachineListResult({
-          activeMachine: "work",
-          activeMachinesMode: "single",
+        formatSyncProfileListResult({
+          activeProfile: "work",
+          activeProfilesMode: "single",
           assignments: [],
-          availableMachines: ["personal", "work"],
+          availableProfiles: ["personal", "work"],
           globalConfigExists: true,
           globalConfigPath: "/tmp/config.json",
           syncDirectory: "/tmp/sync",
         }),
       ),
-    ).toContain("Machines: 2 paths");
+    ).toContain("available personal, work");
 
     expect(
       stripAnsi(
-        formatSyncMachineUpdateResult({
-          activeMachine: "work",
+        formatSyncProfileUpdateResult({
+          activeProfile: "work",
           globalConfigPath: "/tmp/config.json",
-          machine: "work",
+          profile: "work",
           mode: "use",
           syncDirectory: "/tmp/sync",
         }),
       ),
-    ).toContain("Updated active sync machine.");
+    ).toContain("Updated active profile to work");
 
     expect(
       stripAnsi(
-        formatSyncMachineUpdateResult({
+        formatSyncProfileUpdateResult({
           globalConfigPath: "/tmp/config.json",
           mode: "clear",
           syncDirectory: "/tmp/sync",
         }),
       ),
-    ).toContain("Cleared active sync machine.");
+    ).toContain("Cleared active profile");
   });
 
   it("formats track and set results", () => {
@@ -59,13 +59,13 @@ describe("output", () => {
           configPath: "/tmp/config.json",
           kind: "file",
           localPath: "/tmp/home/.gitconfig-work",
-          machines: [],
+          profiles: [],
           mode: "secret",
           repoPath: ".gitconfig-work",
           syncDirectory: "/tmp/sync",
         }),
       ),
-    ).toContain("default/.gitconfig-work");
+    ).toContain("repo      .gitconfig-work");
 
     expect(
       stripAnsi(
@@ -80,6 +80,6 @@ describe("output", () => {
           syncDirectory: "/tmp/sync",
         }),
       ),
-    ).toContain("already has ignore mode");
+    ).toContain("detail    already ignore");
   });
 });

@@ -14,8 +14,8 @@ describe("config-file", () => {
             configuredLocalPath: { default: "~/.config/zsh" },
             kind: "directory",
             localPath: "/tmp/home/.config/zsh",
-            machines: [],
-            machinesExplicit: false,
+            profiles: [],
+            profilesExplicit: false,
             mode: "normal",
             modeExplicit: false,
             name: ".config/zsh",
@@ -35,7 +35,7 @@ describe("config-file", () => {
     });
   });
 
-  it("writes v6 file entries with mode and machines", () => {
+  it("writes v6 file entries with mode and profiles", () => {
     expect(
       createSyncConfigDocument({
         entries: [
@@ -43,8 +43,8 @@ describe("config-file", () => {
             configuredLocalPath: { default: "~/.gitconfig" },
             kind: "file",
             localPath: "/tmp/home/.gitconfig",
-            machines: ["default", "work"],
-            machinesExplicit: true,
+            profiles: ["default", "work"],
+            profilesExplicit: true,
             mode: "secret",
             modeExplicit: true,
             name: ".gitconfig",
@@ -58,7 +58,7 @@ describe("config-file", () => {
         {
           kind: "file",
           localPath: { default: "~/.gitconfig" },
-          machines: ["default", "work"],
+          profiles: ["default", "work"],
           mode: "secret",
         },
       ],
@@ -66,7 +66,7 @@ describe("config-file", () => {
     });
   });
 
-  it("omits mode and machines when not explicit", () => {
+  it("omits mode and profiles when not explicit", () => {
     expect(
       createSyncConfigDocument({
         entries: [
@@ -74,8 +74,8 @@ describe("config-file", () => {
             configuredLocalPath: { default: "~/.bashrc" },
             kind: "file",
             localPath: "/tmp/home/.bashrc",
-            machines: [],
-            machinesExplicit: false,
+            profiles: [],
+            profilesExplicit: false,
             mode: "normal",
             modeExplicit: false,
             name: ".bashrc",
@@ -120,8 +120,8 @@ describe("config-file", () => {
             configuredLocalPath: { default: "~/.bashrc" },
             kind: "file",
             localPath: "/tmp/home/.bashrc",
-            machines: [],
-            machinesExplicit: false,
+            profiles: [],
+            profilesExplicit: false,
             mode: "normal",
             modeExplicit: true,
             name: ".bashrc",

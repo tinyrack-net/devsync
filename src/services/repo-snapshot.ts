@@ -20,18 +20,18 @@ import type { EffectiveSyncConfig } from "./runtime.js";
 
 type RepositorySnapshotConfig = EffectiveSyncConfig;
 
-const isActiveStorageMachine = (
-  storageMachine: string,
+const isActiveStorageProfile = (
+  storageProfile: string,
   config: RepositorySnapshotConfig,
   repoPath: string,
 ) => {
-  const rule = resolveSyncRule(config, repoPath, config.activeMachine);
+  const rule = resolveSyncRule(config, repoPath, config.activeProfile);
 
   if (rule === undefined) {
     return false;
   }
 
-  return rule.machine === storageMachine;
+  return rule.profile === storageProfile;
 };
 
 const readArtifactLeaf = async (
@@ -42,12 +42,12 @@ const readArtifactLeaf = async (
 ) => {
   const artifact = parseArtifactRelativePath(storagePath);
 
-  if (!isActiveStorageMachine(artifact.machine, config, artifact.repoPath)) {
+  if (!isActiveStorageProfile(artifact.profile, config, artifact.repoPath)) {
     return;
   }
 
   assertStorageSafeRepoPath(artifact.repoPath);
-  const rule = resolveSyncRule(config, artifact.repoPath, config.activeMachine);
+  const rule = resolveSyncRule(config, artifact.repoPath, config.activeProfile);
 
   if (rule === undefined) {
     throw new DevsyncError(
@@ -63,15 +63,15 @@ const readArtifactLeaf = async (
     );
   }
 
-  if (rule.machine !== artifact.machine) {
+  if (rule.profile !== artifact.profile) {
     throw new DevsyncError(
-      "Repository artifact is stored under the wrong machine namespace.",
+      "Repository artifact is stored under the wrong profile namespace.",
       {
         code: "REPO_PROFILE_MISMATCH",
         details: [
           `Repository path: ${artifact.repoPath}`,
-          `Stored machine: ${artifact.machine}`,
-          `Expected machine: ${rule.machine}`,
+          `Stored profile: ${artifact.profile}`,
+          `Expected profile: ${rule.profile}`,
         ],
       },
     );
@@ -134,7 +134,7 @@ const readArtifactLeaf = async (
   const mode = resolveManagedSyncMode(
     config,
     artifact.repoPath,
-    config.activeMachine,
+    config.activeProfile,
     storagePath,
   );
   const stats = await lstat(absolutePath);
@@ -232,7 +232,7 @@ export const buildRepositorySnapshot = async (
       continue;
     }
 
-    const rule = resolveSyncRule(config, entry.repoPath, config.activeMachine);
+    const rule = resolveSyncRule(config, entry.repoPath, config.activeProfile);
 
     if (rule === undefined) {
       continue;
@@ -243,7 +243,7 @@ export const buildRepositorySnapshot = async (
     });
     const expectedPath = join(
       artifactsDirectory,
-      rule.machine,
+      rule.profile,
       ...entry.repoPath.split("/"),
     );
     const expectedStats = await getPathStats(expectedPath);

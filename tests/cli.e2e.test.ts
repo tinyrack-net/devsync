@@ -36,23 +36,23 @@ describe("CLI e2e", () => {
     expect(result.stdout).toContain("autocomplete");
     expect(result.stdout).toContain("track");
     expect(result.stdout).toContain("untrack");
-    expect(result.stdout).toContain("machine");
+    expect(result.stdout).toContain("profile");
     expect(result.stdout).toContain("push");
     expect(result.stdout).toContain("pull");
     expect(result.stdout).toContain("status");
   });
 
-  it("shows help for track and machine use commands", async () => {
-    const [trackHelp, machineHelp] = await Promise.all([
+  it("shows help for track and profile use commands", async () => {
+    const [trackHelp, profileHelp] = await Promise.all([
       runCli(["track", "--help"]),
-      runCli(["machine", "use", "--help"]),
+      runCli(["profile", "use", "--help"]),
     ]);
 
     expect(trackHelp.stdout).toContain("$ devsync track");
     expect(trackHelp.stdout).toContain("--mode");
-    expect(trackHelp.stdout).toContain("--machine");
+    expect(trackHelp.stdout).toContain("--profile");
 
-    expect(machineHelp.stdout).toContain("$ devsync machine use");
+    expect(profileHelp.stdout).toContain("$ devsync profile use");
   });
 
   it("returns a non-zero exit code for removed command surfaces", async () => {

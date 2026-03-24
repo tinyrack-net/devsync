@@ -1,6 +1,6 @@
 import { resolveConfiguredIdentityFile } from "#app/config/global-config.js";
 import {
-  normalizeSyncMachineName,
+  normalizeSyncProfileName,
   type ResolvedSyncConfigEntry,
   readSyncConfig,
   type SyncConfigEntryKind,
@@ -19,10 +19,10 @@ import {
   doPathsOverlap,
   resolveCommandTargetPath,
 } from "./paths.js";
-import { ensureSyncRepository, type SyncContext } from "./runtime.js";
+import { createSyncPaths, ensureSyncRepository } from "./runtime.js";
 
 export type SyncAddRequest = Readonly<{
-  machines?: readonly string[];
+  profiles?: readonly string[];
   mode: SyncMode;
   target: string;
 }>;
@@ -33,7 +33,7 @@ export type SyncAddResult = Readonly<{
   configPath: string;
   kind: SyncConfigEntryKind;
   localPath: string;
-  machines: readonly string[];
+  profiles: readonly string[];
   mode: SyncMode;
   repoPath: string;
   syncDirectory: string;
@@ -41,10 +41,11 @@ export type SyncAddResult = Readonly<{
 
 const buildAddEntryCandidate = async (
   targetPath: string,
-  context: Pick<SyncContext, "environment" | "paths">,
+  syncDirectory: string,
+  homeDirectory: string,
   input: Readonly<{
     identityFile: string | undefined;
-    machines?: readonly string[];
+    profiles?: readonly string[];
     mode: SyncMode;
   }>,
 ) => {
@@ -74,13 +75,10 @@ const buildAddEntryCandidate = async (
     });
   })();
 
-  if (doPathsOverlap(targetPath, context.paths.syncDirectory)) {
+  if (doPathsOverlap(targetPath, syncDirectory)) {
     throw new DevsyncError("Sync target overlaps the devsync repository.", {
       code: "TARGET_OVERLAPS_SYNC_DIR",
-      details: [
-        `Target: ${targetPath}`,
-        `Sync directory: ${context.paths.syncDirectory}`,
-      ],
+      details: [`Target: ${targetPath}`, `Sync directory: ${syncDirectory}`],
       hint: "Choose a path outside the devsync sync directory.",
     });
   }
@@ -104,7 +102,7 @@ const buildAddEntryCandidate = async (
 
   const repoPath = buildRepoPathWithinRoot(
     targetPath,
-    context.paths.homeDirectory,
+    homeDirectory,
     "Sync target",
   );
   const configuredLocalPath = buildConfiguredHomeLocalPath(repoPath);
@@ -113,8 +111,8 @@ const buildAddEntryCandidate = async (
     configuredLocalPath,
     kind,
     localPath: targetPath,
-    machines: input.machines?.map((m) => normalizeSyncMachineName(m)) ?? [],
-    machinesExplicit: input.machines !== undefined,
+    profiles: input.profiles?.map((m) => normalizeSyncProfileName(m)) ?? [],
+    profilesExplicit: input.profiles !== undefined,
     mode: input.mode,
     modeExplicit: true,
     name: repoPath,
@@ -124,7 +122,8 @@ const buildAddEntryCandidate = async (
 
 export const trackSyncTarget = async (
   request: SyncAddRequest,
-  context: SyncContext,
+  environment: NodeJS.ProcessEnv,
+  cwd: string,
 ): Promise<SyncAddResult> => {
   const target = request.target.trim();
 
@@ -135,31 +134,29 @@ export const trackSyncTarget = async (
     });
   }
 
-  await ensureSyncRepository(context);
+  const { syncDirectory, configPath, homeDirectory } =
+    createSyncPaths(environment);
 
-  const config = await readSyncConfig(
-    context.paths.syncDirectory,
-    context.environment,
-  );
+  await ensureSyncRepository(syncDirectory);
+
+  const config = await readSyncConfig(syncDirectory, environment);
   const identityFile =
     config.age !== undefined
-      ? resolveConfiguredIdentityFile(
-          config.age.identityFile,
-          context.environment,
-        )
+      ? resolveConfiguredIdentityFile(config.age.identityFile, environment)
       : undefined;
-  const isMachineClear =
-    request.machines !== undefined &&
-    request.machines.length === 1 &&
-    request.machines[0] === "";
-  const effectiveMachines = isMachineClear ? [] : request.machines;
+  const isProfileClear =
+    request.profiles !== undefined &&
+    request.profiles.length === 1 &&
+    request.profiles[0] === "";
+  const effectiveProfiles = isProfileClear ? [] : request.profiles;
 
   const candidate = await buildAddEntryCandidate(
-    resolveCommandTargetPath(target, context.environment, context.cwd),
-    context,
+    resolveCommandTargetPath(target, environment, cwd),
+    syncDirectory,
+    homeDirectory,
     {
       identityFile,
-      machines: effectiveMachines,
+      profiles: effectiveProfiles,
       mode: request.mode,
     },
   );
@@ -193,31 +190,27 @@ export const trackSyncTarget = async (
       entries: [...config.entries, candidate],
     });
 
-    await writeValidatedSyncConfig(
-      context.paths.syncDirectory,
-      nextConfig,
-      context.environment,
-    );
+    await writeValidatedSyncConfig(syncDirectory, nextConfig, environment);
 
     return {
       alreadyTracked,
       changed: true,
-      configPath: context.paths.configPath,
+      configPath,
       kind: candidate.kind,
       localPath: candidate.localPath,
-      machines: candidate.machines,
+      profiles: candidate.profiles,
       mode: candidate.mode,
       repoPath: candidate.repoPath,
-      syncDirectory: context.paths.syncDirectory,
+      syncDirectory,
     };
   }
 
   const modeChanged = existingEntry?.mode !== request.mode;
-  const machinesChanged =
-    effectiveMachines !== undefined &&
-    (existingEntry?.machines.length !== candidate.machines.length ||
-      !candidate.machines.every((m) => existingEntry?.machines.includes(m)));
-  const changed = modeChanged || machinesChanged;
+  const profilesChanged =
+    effectiveProfiles !== undefined &&
+    (existingEntry?.profiles.length !== candidate.profiles.length ||
+      !candidate.profiles.every((m) => existingEntry?.profiles.includes(m)));
+  const changed = modeChanged || profilesChanged;
 
   if (changed) {
     const nextConfig = createSyncConfigDocument({
@@ -230,34 +223,30 @@ export const trackSyncTarget = async (
         return {
           ...entry,
           ...(modeChanged ? { mode: request.mode } : {}),
-          ...(machinesChanged
+          ...(profilesChanged
             ? {
-                machines: candidate.machines,
-                machinesExplicit: candidate.machinesExplicit,
+                profiles: candidate.profiles,
+                profilesExplicit: candidate.profilesExplicit,
               }
             : {}),
         };
       }),
     });
 
-    await writeValidatedSyncConfig(
-      context.paths.syncDirectory,
-      nextConfig,
-      context.environment,
-    );
+    await writeValidatedSyncConfig(syncDirectory, nextConfig, environment);
   }
 
   return {
     alreadyTracked,
     changed,
-    configPath: context.paths.configPath,
+    configPath,
     kind: candidate.kind,
     localPath: candidate.localPath,
-    machines: machinesChanged
-      ? candidate.machines
-      : (existingEntry?.machines ?? []),
+    profiles: profilesChanged
+      ? candidate.profiles
+      : (existingEntry?.profiles ?? []),
     mode: modeChanged ? request.mode : (existingEntry?.mode ?? request.mode),
     repoPath: candidate.repoPath,
-    syncDirectory: context.paths.syncDirectory,
+    syncDirectory,
   };
 };

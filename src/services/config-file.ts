@@ -27,7 +27,7 @@ export const createSyncConfigDocument = (
       kind: entry.kind,
       localPath: entry.configuredLocalPath,
       ...(entry.modeExplicit ? { mode: entry.mode } : {}),
-      ...(entry.machinesExplicit ? { machines: [...entry.machines] } : {}),
+      ...(entry.profilesExplicit ? { profiles: [...entry.profiles] } : {}),
     })),
   );
 

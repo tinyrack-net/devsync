@@ -29,9 +29,9 @@ const requiredTrimmedStringSchema = z
   .trim()
   .min(1, "Value must not be empty.");
 
-const syncMachineNameArraySchema = z
+const syncProfileNameArraySchema = z
   .array(requiredTrimmedStringSchema)
-  .min(1, "At least one machine must be specified.");
+  .min(1, "At least one profile must be specified.");
 
 const platformLocalPathSchema = z
   .object({
@@ -48,7 +48,7 @@ const syncConfigEntrySchema = z
   .object({
     kind: z.enum(syncEntryKinds),
     localPath: localPathSchema,
-    machines: syncMachineNameArraySchema.optional(),
+    profiles: syncProfileNameArraySchema.optional(),
     mode: z.enum(syncModes).optional(),
   })
   .strict();
@@ -87,8 +87,8 @@ export type ResolvedSyncConfigEntry = Readonly<{
   configuredLocalPath: ConfiguredLocalPath;
   kind: SyncConfigEntryKind;
   localPath: string;
-  machines: readonly string[];
-  machinesExplicit: boolean;
+  profiles: readonly string[];
+  profilesExplicit: boolean;
   mode: SyncMode;
   modeExplicit: boolean;
   name: string;
@@ -106,7 +106,7 @@ export type ResolvedSyncConfig = Readonly<{
   version: 5 | 6;
 }>;
 
-export const syncDefaultMachine = "default";
+export const syncDefaultProfile = "default";
 
 export const normalizeSyncRepoPath = (value: string) => {
   const normalizedValue = posix.normalize(value.replaceAll("\\", "/"));
@@ -142,23 +142,23 @@ export const normalizeSyncRepoPath = (value: string) => {
   return normalizedValue;
 };
 
-export const normalizeSyncMachineName = (
+export const normalizeSyncProfileName = (
   value: string,
-  description = "Machine name",
+  description = "Profile name",
 ) => {
   const normalizedValue = value.trim();
 
   if (normalizedValue.length === 0) {
     throw new DevsyncError(`${description} must not be empty.`, {
-      code: "INVALID_MACHINE_NAME",
+      code: "INVALID_PROFILE_NAME",
       details: [`${description}: ${value}`],
-      hint: "Use a short machine name like 'work' or 'personal'.",
+      hint: "Use a short profile name like 'work' or 'personal'.",
     });
   }
 
   if (!/^[A-Za-z0-9][A-Za-z0-9._-]*$/u.test(normalizedValue)) {
     throw new DevsyncError(`${description} contains unsupported characters.`, {
-      code: "INVALID_MACHINE_NAME",
+      code: "INVALID_PROFILE_NAME",
       details: [`${description}: ${value}`],
       hint: "Use letters, numbers, dots, underscores, or hyphens, and start with a letter or number.",
     });
@@ -166,7 +166,7 @@ export const normalizeSyncMachineName = (
 
   if (normalizedValue.startsWith(".")) {
     throw new DevsyncError(`${description} must not start with '.'.`, {
-      code: "INVALID_MACHINE_NAME",
+      code: "INVALID_PROFILE_NAME",
       details: [`${description}: ${value}`],
       hint: "Use a plain name like 'work' instead of hidden-path style names.",
     });
@@ -174,7 +174,7 @@ export const normalizeSyncMachineName = (
 
   if (normalizedValue === "." || normalizedValue === "..") {
     throw new DevsyncError(`${description} is invalid.`, {
-      code: "INVALID_MACHINE_NAME",
+      code: "INVALID_PROFILE_NAME",
       details: [`${description}: ${value}`],
     });
   }
@@ -385,18 +385,18 @@ export const validateResolvedSyncConfigEntries = (
   validatePathOverlaps(entries, "localPath", "Local");
 };
 
-const buildNormalizedMachines = (
+const buildNormalizedProfiles = (
   entry: z.infer<typeof syncConfigEntrySchema>,
 ): readonly string[] => {
-  if (entry.machines === undefined || entry.machines.length === 0) {
+  if (entry.profiles === undefined || entry.profiles.length === 0) {
     return [];
   }
 
-  for (const machine of entry.machines) {
-    normalizeSyncMachineName(machine);
+  for (const profile of entry.profiles) {
+    normalizeSyncProfileName(profile);
   }
 
-  return entry.machines;
+  return entry.profiles;
 };
 
 const findNearestParentEntry = (
@@ -434,14 +434,14 @@ const applyEntryInheritance = (
     const inheritedMode =
       !entry.modeExplicit && parent !== undefined ? parent.mode : entry.mode;
 
-    const inheritedMachines =
-      !entry.machinesExplicit && parent !== undefined
-        ? parent.machines
-        : entry.machines;
+    const inheritedProfiles =
+      !entry.profilesExplicit && parent !== undefined
+        ? parent.profiles
+        : entry.profiles;
 
     resolved.set(entry.repoPath, {
       ...entry,
-      machines: inheritedMachines,
+      profiles: inheritedProfiles,
       mode: inheritedMode,
     });
   }
@@ -477,15 +477,15 @@ export const parseSyncConfig = (
       environment,
     );
     const repoPath = deriveRepoPathFromLocalPath(entry.localPath, environment);
-    const machines = buildNormalizedMachines(entry);
+    const profiles = buildNormalizedProfiles(entry);
     const mode = entry.mode ?? "normal";
 
     return {
       configuredLocalPath: entry.localPath,
       kind: entry.kind,
       localPath: resolvedLocalPath,
-      machines,
-      machinesExplicit: entry.machines !== undefined,
+      profiles,
+      profilesExplicit: entry.profiles !== undefined,
       mode,
       modeExplicit: entry.mode !== undefined,
       name: repoPath,
@@ -584,48 +584,48 @@ export const readSyncConfig = async (
   }
 };
 
-const resolveMachineForEntry = (
-  entry: Pick<ResolvedSyncConfigEntry, "machines">,
-  activeMachine: string | undefined,
+const resolveProfileForEntry = (
+  entry: Pick<ResolvedSyncConfigEntry, "profiles">,
+  activeProfile: string | undefined,
 ): string | undefined => {
-  if (entry.machines.length === 0) {
-    return syncDefaultMachine;
+  if (entry.profiles.length === 0) {
+    return syncDefaultProfile;
   }
 
   const effective =
-    activeMachine !== undefined && activeMachine !== syncDefaultMachine
-      ? activeMachine
-      : syncDefaultMachine;
+    activeProfile !== undefined && activeProfile !== syncDefaultProfile
+      ? activeProfile
+      : syncDefaultProfile;
 
-  return entry.machines.includes(effective) ? effective : undefined;
+  return entry.profiles.includes(effective) ? effective : undefined;
 };
 
 export const resolveSyncRule = (
   config: ResolvedSyncConfig,
   repoPath: string,
-  activeMachine?: string,
-): { mode: SyncMode; machine: string } | undefined => {
+  activeProfile?: string,
+): { mode: SyncMode; profile: string } | undefined => {
   const entry = findOwningSyncEntry(config, repoPath);
 
   if (entry === undefined) {
     return undefined;
   }
 
-  const machine = resolveMachineForEntry(entry, activeMachine);
+  const profile = resolveProfileForEntry(entry, activeProfile);
 
-  if (machine === undefined) {
+  if (profile === undefined) {
     return undefined;
   }
 
-  return { mode: entry.mode, machine };
+  return { mode: entry.mode, profile };
 };
 
 export const resolveSyncMode = (
   config: ResolvedSyncConfig,
   repoPath: string,
-  activeMachine?: string,
+  activeProfile?: string,
 ): SyncMode | undefined => {
-  return resolveSyncRule(config, repoPath, activeMachine)?.mode;
+  return resolveSyncRule(config, repoPath, activeProfile)?.mode;
 };
 
 export const isIgnoredSyncPath = (
@@ -645,10 +645,10 @@ export const isSecretSyncPath = (
 export const resolveManagedSyncMode = (
   config: ResolvedSyncConfig,
   repoPath: string,
-  activeMachine?: string,
+  activeProfile?: string,
   context?: string,
 ) => {
-  const mode = resolveSyncMode(config, repoPath, activeMachine);
+  const mode = resolveSyncMode(config, repoPath, activeProfile);
 
   if (mode === undefined) {
     throw new DevsyncError(
@@ -667,16 +667,16 @@ export const resolveManagedSyncMode = (
   return mode;
 };
 
-export const collectAllMachineNames = (
+export const collectAllProfileNames = (
   entries: readonly ResolvedSyncConfigEntry[],
 ): string[] => {
-  const machines = new Set<string>();
+  const profiles = new Set<string>();
 
   for (const entry of entries) {
-    for (const machine of entry.machines) {
-      machines.add(machine);
+    for (const profile of entry.profiles) {
+      profiles.add(profile);
     }
   }
 
-  return [...machines].sort((left, right) => left.localeCompare(right));
+  return [...profiles].sort((left, right) => left.localeCompare(right));
 };

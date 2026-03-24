@@ -1,6 +1,9 @@
 import { join } from "node:path";
 
-import { resolveSyncArtifactsDirectoryPath } from "#app/config/sync.js";
+import {
+  resolveSyncArtifactsDirectoryPath,
+  resolveSyncConfigFilePath,
+} from "#app/config/sync.js";
 
 import { removePathAtomically } from "./filesystem.js";
 import { buildLocalSnapshot, type SnapshotNode } from "./local-snapshot.js";
@@ -11,15 +14,15 @@ import {
   writeArtifactsToDirectory,
 } from "./repo-artifacts.js";
 import {
+  createSyncPaths,
   type EffectiveSyncConfig,
   ensureSyncRepository,
   loadSyncConfig,
-  type SyncContext,
 } from "./runtime.js";
 
 export type SyncPushRequest = Readonly<{
   dryRun: boolean;
-  machine?: string;
+  profile?: string;
 }>;
 
 export type SyncPushResult = Readonly<{
@@ -75,7 +78,7 @@ const buildPushCounts = (snapshot: ReadonlyMap<string, SnapshotNode>) => {
 
 export const buildPushPlan = async (
   config: EffectiveSyncConfig,
-  context: SyncContext,
+  syncDirectory: string,
 ): Promise<PushPlan> => {
   const snapshot = await buildLocalSnapshot(config);
   const artifacts = await buildRepoArtifacts(snapshot, config);
@@ -85,7 +88,7 @@ export const buildPushPlan = async (
     }),
   );
   const existingArtifactKeys = await collectExistingArtifactKeys(
-    context.paths.syncDirectory,
+    syncDirectory,
     config,
   );
   const deletedArtifactCount = [...existingArtifactKeys].filter((key) => {
@@ -118,33 +121,38 @@ export const buildPushPlanPreview = (plan: PushPlan) => {
 
 export const buildPushResultFromPlan = (
   plan: PushPlan,
-  context: SyncContext,
+  syncDirectory: string,
   dryRun: boolean,
 ): SyncPushResult => {
+  const configPath = resolveSyncConfigFilePath(syncDirectory);
   return {
-    configPath: context.paths.configPath,
+    configPath,
     deletedArtifactCount: plan.deletedArtifactCount,
     dryRun,
-    syncDirectory: context.paths.syncDirectory,
+    syncDirectory,
     ...plan.counts,
   };
 };
 
 export const pushSync = async (
   request: SyncPushRequest,
-  context: SyncContext,
+  environment: NodeJS.ProcessEnv,
 ): Promise<SyncPushResult> => {
-  await ensureSyncRepository(context);
+  const { syncDirectory } = createSyncPaths(environment);
 
-  const { effectiveConfig: config } = await loadSyncConfig(context, {
-    ...(request.machine === undefined ? {} : { machine: request.machine }),
-  });
-  const plan = await buildPushPlan(config, context);
+  await ensureSyncRepository(syncDirectory);
+
+  const { effectiveConfig: config } = await loadSyncConfig(
+    syncDirectory,
+    environment,
+    {
+      ...(request.profile === undefined ? {} : { profile: request.profile }),
+    },
+  );
+  const plan = await buildPushPlan(config, syncDirectory);
 
   if (!request.dryRun) {
-    const artifactsDirectory = resolveSyncArtifactsDirectoryPath(
-      context.paths.syncDirectory,
-    );
+    const artifactsDirectory = resolveSyncArtifactsDirectoryPath(syncDirectory);
     const artifacts = await buildRepoArtifacts(plan.snapshot, config);
 
     for (const staleKey of [...plan.existingArtifactKeys].filter((key) => {
@@ -162,5 +170,5 @@ export const pushSync = async (
     await writeArtifactsToDirectory(artifactsDirectory, artifacts, config.age);
   }
 
-  return buildPushResultFromPlan(plan, context, request.dryRun);
+  return buildPushResultFromPlan(plan, syncDirectory, request.dryRun);
 };

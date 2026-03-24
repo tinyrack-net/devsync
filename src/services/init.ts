@@ -25,9 +25,9 @@ import { DevsyncError, wrapUnknownError } from "./error.js";
 import { pathExists, writeTextFileAtomically } from "./filesystem.js";
 import { ensureRepository, initializeRepository } from "./git.js";
 import {
+  createSyncPaths,
   ensureSyncRepository,
   resolveAgeFromSyncConfig,
-  type SyncContext,
 } from "./runtime.js";
 
 export type SyncInitRequest = Readonly<{
@@ -60,13 +60,13 @@ const normalizeRecipients = (recipients: readonly string[]) => {
 
 const resolveInitAgeBootstrap = async (
   request: SyncInitRequest,
-  context: Pick<SyncContext, "environment">,
+  environment: NodeJS.ProcessEnv,
 ) => {
   const configuredIdentityFile =
     request.identityFile?.trim() || defaultSyncIdentityFile;
   const identityFile = resolveConfiguredAbsolutePath(
     configuredIdentityFile,
-    context.environment,
+    environment,
   );
   const explicitRecipients = normalizeRecipients(request.recipients);
 
@@ -197,19 +197,19 @@ const buildAlreadyInitializedResult = (
 
 export const initializeSync = async (
   request: SyncInitRequest,
-  context: SyncContext,
+  environment: NodeJS.ProcessEnv,
 ): Promise<SyncInitResult> => {
-  const syncDirectory = context.paths.syncDirectory;
-  const configPath = context.paths.configPath;
+  const { syncDirectory, configPath, globalConfigPath } =
+    createSyncPaths(environment);
   const configExists = await pathExists(configPath);
 
   if (configExists) {
-    await ensureSyncRepository(context);
+    await ensureSyncRepository(syncDirectory);
 
-    const config = await readSyncConfig(syncDirectory, context.environment);
-    assertInitRequestMatchesConfig(config.age, request, context.environment);
+    const config = await readSyncConfig(syncDirectory, environment);
+    assertInitRequestMatchesConfig(config.age, request, environment);
 
-    return buildAlreadyInitializedResult(config, context.environment, {
+    return buildAlreadyInitializedResult(config, environment, {
       configPath,
       gitAction: "existing",
       syncDirectory,
@@ -282,10 +282,10 @@ export const initializeSync = async (
   });
 
   if (await pathExists(configPath)) {
-    const config = await readSyncConfig(syncDirectory, context.environment);
-    assertInitRequestMatchesConfig(config.age, request, context.environment);
+    const config = await readSyncConfig(syncDirectory, environment);
+    assertInitRequestMatchesConfig(config.age, request, environment);
 
-    return buildAlreadyInitializedResult(config, context.environment, {
+    return buildAlreadyInitializedResult(config, environment, {
       configPath,
       gitAction,
       gitSource,
@@ -293,19 +293,17 @@ export const initializeSync = async (
     });
   }
 
-  const ageBootstrap = await resolveInitAgeBootstrap(request, context);
+  const ageBootstrap = await resolveInitAgeBootstrap(request, environment);
 
   // Write global settings.json (without age)
-  const existingGlobalConfig = await readGlobalDevsyncConfig(
-    context.environment,
-  );
+  const existingGlobalConfig = await readGlobalDevsyncConfig(environment);
   const globalConfigToWrite: GlobalDevsyncConfig = {
-    activeMachine: existingGlobalConfig?.activeMachine ?? "default",
+    activeProfile: existingGlobalConfig?.activeProfile ?? "default",
     version: 3,
   };
-  await mkdir(dirname(context.paths.globalConfigPath), { recursive: true });
+  await mkdir(dirname(globalConfigPath), { recursive: true });
   await writeTextFileAtomically(
-    context.paths.globalConfigPath,
+    globalConfigPath,
     formatGlobalDevsyncConfig(globalConfigToWrite),
   );
 
@@ -315,7 +313,7 @@ export const initializeSync = async (
     recipients: [...new Set(ageBootstrap.recipients.map((r) => r.trim()))],
   });
 
-  parseSyncConfig(initialConfig, context.environment);
+  parseSyncConfig(initialConfig, environment);
   await writeFile(configPath, formatSyncConfig(initialConfig), "utf8");
 
   return {
@@ -327,7 +325,7 @@ export const initializeSync = async (
     generatedIdentity: ageBootstrap.generatedIdentity,
     identityFile: resolveConfiguredAbsolutePath(
       ageBootstrap.configuredIdentityFile,
-      context.environment,
+      environment,
     ),
     recipientCount: ageBootstrap.recipients.length,
     syncDirectory,

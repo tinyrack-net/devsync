@@ -91,13 +91,10 @@ export const tryNormalizeRepoPathInput = (value: string) => {
 export const resolveTrackedEntry = (
   target: string,
   entries: readonly ResolvedSyncConfigEntry[],
-  context: Readonly<{ cwd: string; environment: NodeJS.ProcessEnv }>,
+  environment: NodeJS.ProcessEnv,
+  cwd: string,
 ): ResolvedSyncConfigEntry | undefined => {
-  const resolvedTargetPath = resolveCommandTargetPath(
-    target,
-    context.environment,
-    context.cwd,
-  );
+  const resolvedTargetPath = resolveCommandTargetPath(target, environment, cwd);
   const byLocalPath = entries.filter(
     (entry) => entry.localPath === resolvedTargetPath,
   );

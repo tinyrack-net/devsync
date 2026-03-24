@@ -4,19 +4,19 @@ import { describe, expect, it } from "vitest";
 
 import { createTemporaryDirectory } from "#app/test/helpers/sync-fixture.js";
 import {
-  normalizeSyncMachineName,
+  normalizeSyncProfileName,
   parseSyncConfig,
   resolveSyncRule,
 } from "./sync.js";
 
 describe("sync config", () => {
-  it("allows all alphanumeric machine names", () => {
-    expect(normalizeSyncMachineName("work")).toBe("work");
-    expect(normalizeSyncMachineName("default")).toBe("default");
-    expect(normalizeSyncMachineName("personal")).toBe("personal");
+  it("allows all alphanumeric profile names", () => {
+    expect(normalizeSyncProfileName("work")).toBe("work");
+    expect(normalizeSyncProfileName("default")).toBe("default");
+    expect(normalizeSyncProfileName("personal")).toBe("personal");
   });
 
-  it("parses v5 entries with flat machines", async () => {
+  it("parses v5 entries with flat profiles", async () => {
     const workspace = await createTemporaryDirectory("devsync-sync-config-");
     const homeDirectory = join(workspace, "home");
 
@@ -30,7 +30,7 @@ describe("sync config", () => {
           {
             kind: "file",
             localPath: { default: "~/.config/zsh/secrets.zsh" },
-            machines: ["default", "work"],
+            profiles: ["default", "work"],
             mode: "secret",
           },
         ],
@@ -44,15 +44,15 @@ describe("sync config", () => {
     expect(config.version).toBe(5);
     expect(config.entries).toHaveLength(2);
     expect(resolveSyncRule(config, ".config/zsh/secrets.zsh")).toEqual({
-      machine: "default",
+      profile: "default",
       mode: "secret",
     });
     expect(resolveSyncRule(config, ".config/zsh/secrets.zsh", "work")).toEqual({
-      machine: "work",
+      profile: "work",
       mode: "secret",
     });
     expect(resolveSyncRule(config, ".config/zsh/other.zsh", "work")).toEqual({
-      machine: "default",
+      profile: "default",
       mode: "normal",
     });
 
@@ -61,7 +61,7 @@ describe("sync config", () => {
     ).toBeUndefined();
   });
 
-  it("parses v5 file entries with mode and machines", async () => {
+  it("parses v5 file entries with mode and profiles", async () => {
     const workspace = await createTemporaryDirectory("devsync-sync-config-");
     const homeDirectory = join(workspace, "home");
 
@@ -71,7 +71,7 @@ describe("sync config", () => {
           {
             kind: "file",
             localPath: { default: "~/.gitconfig" },
-            machines: ["default", "work"],
+            profiles: ["default", "work"],
             mode: "secret",
           },
         ],
@@ -83,13 +83,13 @@ describe("sync config", () => {
     );
 
     expect(config.entries).toHaveLength(1);
-    expect(config.entries[0]?.machines).toEqual(["default", "work"]);
+    expect(config.entries[0]?.profiles).toEqual(["default", "work"]);
     expect(resolveSyncRule(config, ".gitconfig", "work")).toEqual({
-      machine: "work",
+      profile: "work",
       mode: "secret",
     });
     expect(resolveSyncRule(config, ".gitconfig")).toEqual({
-      machine: "default",
+      profile: "default",
       mode: "secret",
     });
   });
@@ -224,7 +224,7 @@ describe("sync config", () => {
     expect(child?.modeExplicit).toBe(false);
   });
 
-  it("child inherits machines from parent directory", async () => {
+  it("child inherits profiles from parent directory", async () => {
     const workspace = await createTemporaryDirectory("devsync-sync-config-");
     const homeDirectory = join(workspace, "home");
 
@@ -235,7 +235,7 @@ describe("sync config", () => {
           {
             kind: "directory",
             localPath: { default: "~/.config/zsh" },
-            machines: ["vivident", "default"],
+            profiles: ["vivident", "default"],
           },
           {
             kind: "file",
@@ -249,8 +249,8 @@ describe("sync config", () => {
     const child = config.entries.find(
       (e) => e.repoPath === ".config/zsh/secrets.zsh",
     );
-    expect(child?.machines).toEqual(["vivident", "default"]);
-    expect(child?.machinesExplicit).toBe(false);
+    expect(child?.profiles).toEqual(["vivident", "default"]);
+    expect(child?.profilesExplicit).toBe(false);
   });
 
   it("explicit child mode overrides parent", async () => {
@@ -294,7 +294,7 @@ describe("sync config", () => {
           {
             kind: "directory",
             localPath: { default: "~/.config" },
-            machines: ["vivident"],
+            profiles: ["vivident"],
             mode: "secret",
           },
           {
@@ -315,9 +315,9 @@ describe("sync config", () => {
       (e) => e.repoPath === ".config/zsh/secrets.zsh",
     );
 
-    expect(mid?.machines).toEqual(["vivident"]);
+    expect(mid?.profiles).toEqual(["vivident"]);
     expect(mid?.mode).toBe("secret");
-    expect(leaf?.machines).toEqual(["vivident"]);
+    expect(leaf?.profiles).toEqual(["vivident"]);
     expect(leaf?.mode).toBe("secret");
   });
 
@@ -336,7 +336,7 @@ describe("sync config", () => {
           {
             kind: "directory",
             localPath: { default: "~/.config/zsh" },
-            machines: ["vivident"],
+            profiles: ["vivident"],
             mode: "secret",
           },
         ],
@@ -347,7 +347,7 @@ describe("sync config", () => {
     const child = config.entries.find(
       (e) => e.repoPath === ".config/zsh/secrets.zsh",
     );
-    expect(child?.machines).toEqual(["vivident"]);
+    expect(child?.profiles).toEqual(["vivident"]);
     expect(child?.mode).toBe("secret");
   });
 
@@ -368,7 +368,7 @@ describe("sync config", () => {
       { HOME: homeDirectory },
     );
 
-    expect(config.entries[0]?.machines).toEqual([]);
+    expect(config.entries[0]?.profiles).toEqual([]);
     expect(config.entries[0]?.mode).toBe("normal");
   });
 
@@ -542,7 +542,7 @@ describe("sync config", () => {
     ).toThrowError("Sync configuration is invalid.");
   });
 
-  it("treats machines as an allowlist", async () => {
+  it("treats profiles as an allowlist", async () => {
     const workspace = await createTemporaryDirectory("devsync-sync-config-");
     const homeDirectory = join(workspace, "home");
 
@@ -556,13 +556,13 @@ describe("sync config", () => {
           {
             kind: "file",
             localPath: { default: "~/.ssh/config" },
-            machines: ["vivident"],
+            profiles: ["vivident"],
             mode: "secret",
           },
           {
             kind: "file",
             localPath: { default: "~/.npmrc" },
-            machines: ["default", "work"],
+            profiles: ["default", "work"],
           },
         ],
         version: 5,
@@ -572,31 +572,31 @@ describe("sync config", () => {
       },
     );
 
-    // No machines specified → syncs on all machines using default namespace
+    // No profiles specified → syncs on all profiles using default namespace
     expect(resolveSyncRule(config, ".gitconfig")).toEqual({
-      machine: "default",
+      profile: "default",
       mode: "normal",
     });
     expect(resolveSyncRule(config, ".gitconfig", "vivident")).toEqual({
-      machine: "default",
+      profile: "default",
       mode: "normal",
     });
 
-    // machines: ["vivident"] → only vivident
+    // profiles: ["vivident"] → only vivident
     expect(resolveSyncRule(config, ".ssh/config", "vivident")).toEqual({
-      machine: "vivident",
+      profile: "vivident",
       mode: "secret",
     });
     expect(resolveSyncRule(config, ".ssh/config")).toBeUndefined();
     expect(resolveSyncRule(config, ".ssh/config", "work")).toBeUndefined();
 
-    // machines: ["default", "work"] → default and work only
+    // profiles: ["default", "work"] → default and work only
     expect(resolveSyncRule(config, ".npmrc")).toEqual({
-      machine: "default",
+      profile: "default",
       mode: "normal",
     });
     expect(resolveSyncRule(config, ".npmrc", "work")).toEqual({
-      machine: "work",
+      profile: "work",
       mode: "normal",
     });
     expect(resolveSyncRule(config, ".npmrc", "vivident")).toBeUndefined();

@@ -24,7 +24,7 @@ import {
   resolveArtifactRelativePath,
   resolveEntryArtifactPath,
 } from "./repo-artifacts.js";
-import { ensureSyncRepository, type SyncContext } from "./runtime.js";
+import { createSyncPaths, ensureSyncRepository } from "./runtime.js";
 
 export type SyncForgetRequest = Readonly<{
   target: string;
@@ -87,13 +87,13 @@ const collectEntryArtifactCounts = async (
   };
   const namespaces = collectArtifactNamespaces([entry]);
 
-  for (const machine of namespaces) {
+  for (const profile of namespaces) {
     await collectRepoArtifactCounts(
-      resolveEntryArtifactPath(artifactsRoot, entry, machine),
+      resolveEntryArtifactPath(artifactsRoot, entry, profile),
       counts,
       resolveArtifactRelativePath({
         category: "plain",
-        machine,
+        profile,
         repoPath: entry.repoPath,
       }),
     );
@@ -101,7 +101,7 @@ const collectEntryArtifactCounts = async (
     if (entry.kind !== "directory") {
       const secretRelativePath = resolveArtifactRelativePath({
         category: "secret",
-        machine,
+        profile,
         repoPath: entry.repoPath,
       });
 
@@ -158,8 +158,8 @@ const removeTrackedEntryArtifacts = async (
   const artifactsRoot = resolveSyncArtifactsDirectoryPath(syncDirectory);
   const namespaces = collectArtifactNamespaces([entry]);
 
-  for (const machine of namespaces) {
-    const plainPath = resolveEntryArtifactPath(artifactsRoot, entry, machine);
+  for (const profile of namespaces) {
+    const plainPath = resolveEntryArtifactPath(artifactsRoot, entry, profile);
 
     await removePathAtomically(plainPath);
     await pruneEmptyParentDirectories(dirname(plainPath), artifactsRoot);
@@ -169,7 +169,7 @@ const removeTrackedEntryArtifacts = async (
         artifactsRoot,
         ...resolveArtifactRelativePath({
           category: "secret",
-          machine,
+          profile,
           repoPath: entry.repoPath,
         }).split("/"),
       );
@@ -182,7 +182,8 @@ const removeTrackedEntryArtifacts = async (
 
 export const forgetSyncTarget = async (
   request: SyncForgetRequest,
-  context: SyncContext,
+  environment: NodeJS.ProcessEnv,
+  cwd: string,
 ): Promise<SyncForgetResult> => {
   const target = request.target.trim();
 
@@ -190,20 +191,19 @@ export const forgetSyncTarget = async (
     throw new DevsyncError("Target path is required.");
   }
 
-  await ensureSyncRepository(context);
+  const { syncDirectory, configPath } = createSyncPaths(environment);
 
-  const config = await readSyncConfig(
-    context.paths.syncDirectory,
-    context.environment,
-  );
-  const entry = resolveTrackedEntry(target, config.entries, context);
+  await ensureSyncRepository(syncDirectory);
+
+  const config = await readSyncConfig(syncDirectory, environment);
+  const entry = resolveTrackedEntry(target, config.entries, environment, cwd);
 
   if (entry === undefined) {
     throw new DevsyncError(`No tracked sync entry matches: ${target}`);
   }
 
   const { plainArtifactCount, secretArtifactCount } =
-    await collectEntryArtifactCounts(context.paths.syncDirectory, entry);
+    await collectEntryArtifactCounts(syncDirectory, entry);
   const nextConfig = createSyncConfigDocument({
     ...config,
     entries: config.entries.filter((configEntry) => {
@@ -211,19 +211,15 @@ export const forgetSyncTarget = async (
     }),
   });
 
-  await writeValidatedSyncConfig(
-    context.paths.syncDirectory,
-    nextConfig,
-    context.environment,
-  );
-  await removeTrackedEntryArtifacts(context.paths.syncDirectory, entry);
+  await writeValidatedSyncConfig(syncDirectory, nextConfig, environment);
+  await removeTrackedEntryArtifacts(syncDirectory, entry);
 
   return {
-    configPath: context.paths.configPath,
+    configPath,
     localPath: entry.localPath,
     plainArtifactCount,
     repoPath: entry.repoPath,
     secretArtifactCount,
-    syncDirectory: context.paths.syncDirectory,
+    syncDirectory,
   };
 };

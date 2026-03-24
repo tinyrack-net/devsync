@@ -1,4 +1,8 @@
-import type { SyncConfigEntryKind, SyncMode } from "#app/config/sync.js";
+import {
+  resolveSyncConfigFilePath,
+  type SyncConfigEntryKind,
+  type SyncMode,
+} from "#app/config/sync.js";
 
 import {
   buildPullPlan,
@@ -11,22 +15,22 @@ import {
   buildPushResultFromPlan,
 } from "./push.js";
 import {
+  createSyncPaths,
   ensureSyncRepository,
   loadSyncConfig,
-  type SyncContext,
 } from "./runtime.js";
 
 export type SyncStatusEntry = Readonly<{
   kind: SyncConfigEntryKind;
   localPath: string;
-  machines: readonly string[];
+  profiles: readonly string[];
   mode: SyncMode;
   name: string;
   repoPath: string;
 }>;
 
 export type SyncStatusResult = Readonly<{
-  activeMachine?: string;
+  activeProfile?: string;
   configPath: string;
   entries: readonly SyncStatusEntry[];
   entryCount: number;
@@ -41,43 +45,47 @@ export type SyncStatusResult = Readonly<{
 }>;
 
 export const getSyncStatus = async (
-  context: SyncContext,
+  environment: NodeJS.ProcessEnv,
   options: Readonly<{
-    machine?: string;
+    profile?: string;
   }> = {},
 ): Promise<SyncStatusResult> => {
-  await ensureSyncRepository(context);
+  const { syncDirectory } = createSyncPaths(environment);
+  const configPath = resolveSyncConfigFilePath(syncDirectory);
+
+  await ensureSyncRepository(syncDirectory);
 
   const { effectiveConfig, fullConfig } = await loadSyncConfig(
-    context,
+    syncDirectory,
+    environment,
     options,
   );
-  const pushPlan = await buildPushPlan(effectiveConfig, context);
-  const pullPlan = await buildPullPlan(effectiveConfig, context);
+  const pushPlan = await buildPushPlan(effectiveConfig, syncDirectory);
+  const pullPlan = await buildPullPlan(effectiveConfig, syncDirectory);
 
   return {
-    ...(effectiveConfig.activeMachine === undefined
+    ...(effectiveConfig.activeProfile === undefined
       ? {}
-      : { activeMachine: effectiveConfig.activeMachine }),
-    configPath: context.paths.configPath,
+      : { activeProfile: effectiveConfig.activeProfile }),
+    configPath,
     entries: fullConfig.entries.map((entry) => ({
       kind: entry.kind,
       localPath: entry.localPath,
-      machines: entry.machines,
+      profiles: entry.profiles,
       mode: entry.mode,
       name: entry.name,
       repoPath: entry.repoPath,
     })),
     entryCount: fullConfig.entries.length,
     pull: {
-      ...buildPullResultFromPlan(pullPlan, context, true),
+      ...buildPullResultFromPlan(pullPlan, syncDirectory, true),
       preview: buildPullPlanPreview(pullPlan),
     },
     push: {
-      ...buildPushResultFromPlan(pushPlan, context, true),
+      ...buildPushResultFromPlan(pushPlan, syncDirectory, true),
       preview: buildPushPlanPreview(pushPlan),
     },
     recipientCount: effectiveConfig.age.recipients.length,
-    syncDirectory: context.paths.syncDirectory,
+    syncDirectory,
   };
 };

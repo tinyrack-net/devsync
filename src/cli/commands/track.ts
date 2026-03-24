@@ -4,8 +4,7 @@ import { BaseCommand } from "#app/cli/base-command.js";
 import { formatSyncAddResult, formatSyncSetResult } from "#app/lib/output.js";
 import { trackSyncTarget } from "#app/services/add.js";
 import { DevsyncError } from "#app/services/error.js";
-import { assignSyncMachines } from "#app/services/machine.js";
-import { createSyncContext } from "#app/services/runtime.js";
+import { assignSyncProfiles } from "#app/services/profile.js";
 import { setSyncTargetMode } from "#app/services/set.js";
 
 export default class SyncTrack extends BaseCommand {
@@ -19,8 +18,8 @@ export default class SyncTrack extends BaseCommand {
     "<%= config.bin %> <%= command.id %> ~/.gitconfig",
     "<%= config.bin %> <%= command.id %> ~/.gitconfig ~/.zshrc ~/.config/nvim",
     "<%= config.bin %> <%= command.id %> ~/.ssh/config --mode secret",
-    "<%= config.bin %> <%= command.id %> ~/.ssh/config --mode secret --machine vivident",
-    "<%= config.bin %> <%= command.id %> ~/.gitconfig --machine ''",
+    "<%= config.bin %> <%= command.id %> ~/.ssh/config --mode secret --profile vivident",
+    "<%= config.bin %> <%= command.id %> ~/.gitconfig --profile ''",
     "<%= config.bin %> <%= command.id %> ./.zshrc",
     "<%= config.bin %> <%= command.id %> ~/.config/mytool/cache --mode ignore",
     "<%= config.bin %> <%= command.id %> .config/mytool/token.json --mode secret",
@@ -37,11 +36,11 @@ export default class SyncTrack extends BaseCommand {
   };
 
   public static override flags = {
-    machine: Flags.string({
+    profile: Flags.string({
       multiple: true,
-      summary: "Restrict syncing to specific machines",
+      summary: "Restrict syncing to specific profiles",
       description:
-        "Assign one or more machine names to the tracked entries. When set, the entry is only synced on the listed machines.",
+        "Assign one or more profile names to the tracked entries. When set, the entry is only synced on the listed profiles.",
     }),
     mode: Flags.string({
       default: "normal",
@@ -56,27 +55,29 @@ export default class SyncTrack extends BaseCommand {
     const { argv, flags } = await this.parse(SyncTrack);
     const targets = argv as string[];
     const mode = flags.mode as "ignore" | "normal" | "secret";
-    const machines = flags.machine ?? [];
+    const profiles = flags.profile ?? [];
 
     if (targets.length === 0) {
       this.error("At least one target path is required.");
     }
 
-    const context = createSyncContext();
+    const environment = process.env;
+    const cwd = process.cwd();
     const results: string[] = [];
 
     for (const target of targets) {
       try {
         const result = await trackSyncTarget(
           {
-            machines: machines.length > 0 ? machines : undefined,
+            profiles: profiles.length > 0 ? profiles : undefined,
             mode,
             target,
           },
-          context,
+          environment,
+          cwd,
         );
 
-        results.push(formatSyncAddResult(result));
+        results.push(formatSyncAddResult(result, { verbose: flags.verbose }));
       } catch (error: unknown) {
         if (
           error instanceof DevsyncError &&
@@ -87,18 +88,22 @@ export default class SyncTrack extends BaseCommand {
               state: mode,
               target,
             },
-            context,
+            environment,
+            cwd,
           );
 
-          if (machines.length > 0) {
-            const isMachineClear = machines.length === 1 && machines[0] === "";
-            await assignSyncMachines(
-              { machines: isMachineClear ? [] : machines, target },
-              context,
+          if (profiles.length > 0) {
+            const isProfileClear = profiles.length === 1 && profiles[0] === "";
+            await assignSyncProfiles(
+              { profiles: isProfileClear ? [] : profiles, target },
+              environment,
+              cwd,
             );
           }
 
-          results.push(formatSyncSetResult(setResult));
+          results.push(
+            formatSyncSetResult(setResult, { verbose: flags.verbose }),
+          );
         } else {
           throw error;
         }

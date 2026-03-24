@@ -7,7 +7,7 @@ import {
   type ResolvedSyncConfigEntry,
   resolveSyncArtifactsDirectoryPath,
   resolveSyncRule,
-  syncDefaultMachine,
+  syncDefaultProfile,
   syncSecretArtifactSuffix,
 } from "#app/config/sync.js";
 import { buildDirectoryKey } from "#app/lib/path.js";
@@ -25,14 +25,14 @@ import type { EffectiveSyncConfig } from "./runtime.js";
 type ArtifactConfig = EffectiveSyncConfig;
 
 export const collectArtifactNamespaces = (
-  entries: readonly Pick<ResolvedSyncConfigEntry, "machines">[],
+  entries: readonly Pick<ResolvedSyncConfigEntry, "profiles">[],
 ) => {
   const namespaces = new Set<string>();
-  namespaces.add(syncDefaultMachine);
+  namespaces.add(syncDefaultProfile);
 
   for (const entry of entries) {
-    for (const machine of entry.machines) {
-      namespaces.add(machine);
+    for (const profile of entry.profiles) {
+      namespaces.add(profile);
     }
   }
 
@@ -43,28 +43,28 @@ export type RepoArtifact =
   | Readonly<{
       category: "plain";
       kind: "directory";
-      machine: string;
+      profile: string;
       repoPath: string;
     }>
   | Readonly<{
       category: "plain";
       kind: "file";
       repoPath: string;
-      machine: string;
+      profile: string;
       contents: Uint8Array;
       executable: boolean;
     }>
   | Readonly<{
       category: "plain";
       kind: "symlink";
-      machine: string;
+      profile: string;
       repoPath: string;
       linkTarget: string;
     }>
   | Readonly<{
       category: "secret";
       kind: "file";
-      machine: string;
+      profile: string;
       repoPath: string;
       contents: Uint8Array;
       executable: boolean;
@@ -106,13 +106,13 @@ export const assertStorageSafeRepoPath = (repoPath: string) => {
 };
 
 export const resolveArtifactRelativePath = (
-  artifact: Pick<RepoArtifact, "category" | "machine" | "repoPath">,
+  artifact: Pick<RepoArtifact, "category" | "profile" | "repoPath">,
 ) => {
-  const machineRelativePath = `${artifact.machine}/${artifact.repoPath}`;
+  const profileRelativePath = `${artifact.profile}/${artifact.repoPath}`;
 
   return artifact.category === "secret"
-    ? `${machineRelativePath}${syncSecretArtifactSuffix}`
-    : machineRelativePath;
+    ? `${profileRelativePath}${syncSecretArtifactSuffix}`
+    : profileRelativePath;
 };
 
 export const parseArtifactRelativePath = (relativePath: string) => {
@@ -129,10 +129,10 @@ export const parseArtifactRelativePath = (relativePath: string) => {
     });
   }
 
-  const [machine, ...repoPathSegments] = segments;
+  const [profile, ...repoPathSegments] = segments;
 
   return {
-    machine,
+    profile,
     repoPath: repoPathSegments.join("/"),
     secret,
   };
@@ -140,11 +140,11 @@ export const parseArtifactRelativePath = (relativePath: string) => {
 
 export const resolveEntryArtifactRelativePath = (
   entry: Pick<ResolvedSyncConfigEntry, "repoPath">,
-  machine: string,
+  profile: string,
 ) => {
   return resolveArtifactRelativePath({
     category: "plain",
-    machine,
+    profile,
     repoPath: entry.repoPath,
   });
 };
@@ -152,11 +152,11 @@ export const resolveEntryArtifactRelativePath = (
 export const resolveEntryArtifactPath = (
   artifactsDirectory: string,
   entry: Pick<ResolvedSyncConfigEntry, "repoPath">,
-  machine: string,
+  profile: string,
 ) => {
   return join(
     artifactsDirectory,
-    ...resolveEntryArtifactRelativePath(entry, machine).split("/"),
+    ...resolveEntryArtifactRelativePath(entry, profile).split("/"),
   );
 };
 
@@ -190,7 +190,7 @@ export const buildRepoArtifacts = async (
     const resolvedRule = resolveSyncRule(
       config,
       repoPath,
-      config.activeMachine,
+      config.activeProfile,
     );
 
     if (
@@ -205,7 +205,7 @@ export const buildRepoArtifacts = async (
       addArtifact({
         category: "plain",
         kind: "directory",
-        machine: resolvedRule.machine,
+        profile: resolvedRule.profile,
         repoPath,
       });
       continue;
@@ -216,7 +216,7 @@ export const buildRepoArtifacts = async (
         category: "plain",
         kind: "symlink",
         linkTarget: node.linkTarget,
-        machine: resolvedRule.machine,
+        profile: resolvedRule.profile,
         repoPath,
       });
       continue;
@@ -228,7 +228,7 @@ export const buildRepoArtifacts = async (
         contents: node.contents,
         executable: node.executable,
         kind: "file",
-        machine: resolvedRule.machine,
+        profile: resolvedRule.profile,
         repoPath,
       });
       continue;
@@ -239,7 +239,7 @@ export const buildRepoArtifacts = async (
       contents: node.contents,
       executable: node.executable,
       kind: "file",
-      machine: resolvedRule.machine,
+      profile: resolvedRule.profile,
       repoPath,
     });
   }
@@ -310,10 +310,10 @@ export const collectExistingArtifactKeys = async (
     const rule = resolveSyncRule(
       config,
       artifact.repoPath,
-      config.activeMachine,
+      config.activeProfile,
     );
 
-    if (rule === undefined || rule.machine !== artifact.machine) {
+    if (rule === undefined || rule.profile !== artifact.profile) {
       keys.delete(key);
     }
   }
@@ -323,7 +323,7 @@ export const collectExistingArtifactKeys = async (
       continue;
     }
 
-    const rule = resolveSyncRule(config, entry.repoPath, config.activeMachine);
+    const rule = resolveSyncRule(config, entry.repoPath, config.activeProfile);
 
     if (rule === undefined) {
       continue;
@@ -331,7 +331,7 @@ export const collectExistingArtifactKeys = async (
 
     const relativePath = resolveArtifactRelativePath({
       category: "plain",
-      machine: rule.machine,
+      profile: rule.profile,
       repoPath: entry.repoPath,
     });
     const path = join(artifactsDirectory, ...relativePath.split("/"));

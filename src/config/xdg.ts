@@ -16,7 +16,7 @@ const readTrimmedEnvironmentValue = (
   return trimmedValue === "" ? undefined : trimmedValue;
 };
 
-const bracedXdgConfigHomeToken = "$" + "{XDG_CONFIG_HOME}";
+const bracedXdgConfigHomeToken = "${XDG_CONFIG_HOME}";
 const bracedXdgConfigHomePrefix = `${bracedXdgConfigHomeToken}/`;
 
 export const resolveHomeDirectory = (

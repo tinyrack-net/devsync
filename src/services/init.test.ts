@@ -5,7 +5,6 @@ import { afterEach, describe, expect, it } from "vitest";
 
 import { DevsyncError } from "#app/services/error.js";
 import { initializeSync } from "#app/services/init.js";
-import { createSyncContext } from "#app/services/runtime.js";
 import {
   createAgeKeyPair,
   createTemporaryDirectory,
@@ -60,9 +59,7 @@ describe("init service", () => {
         recipients: [ageKeys.recipient],
         repository: sourceRepository,
       },
-      createSyncContext({
-        environment: createEnvironment(homeDirectory, xdgConfigHome),
-      }),
+      createEnvironment(homeDirectory, xdgConfigHome),
     );
 
     expect(result.gitAction).toBe("cloned");
@@ -86,15 +83,15 @@ describe("init service", () => {
     await mkdir(syncDirectory, { recursive: true });
     await writeFile(join(syncDirectory, "placeholder.txt"), "keep\n", "utf8");
 
+    const environment = createEnvironment(homeDirectory, xdgConfigHome);
+
     await expect(
       initializeSync(
         {
           identityFile: "$XDG_CONFIG_HOME/devsync/age/keys.txt",
           recipients: [ageKeys.recipient],
         },
-        createSyncContext({
-          environment: createEnvironment(homeDirectory, xdgConfigHome),
-        }),
+        environment,
       ),
     ).rejects.toThrowError(DevsyncError);
     await expect(
@@ -103,9 +100,7 @@ describe("init service", () => {
           identityFile: "$XDG_CONFIG_HOME/devsync/age/keys.txt",
           recipients: [ageKeys.recipient],
         },
-        createSyncContext({
-          environment: createEnvironment(homeDirectory, xdgConfigHome),
-        }),
+        environment,
       ),
     ).rejects.toThrowError(/Sync directory already exists and is not empty/u);
     await expect(
@@ -114,9 +109,7 @@ describe("init service", () => {
           identityFile: "$XDG_CONFIG_HOME/devsync/age/keys.txt",
           recipients: [ageKeys.recipient],
         },
-        createSyncContext({
-          environment: createEnvironment(homeDirectory, xdgConfigHome),
-        }),
+        environment,
       ),
     ).rejects.toMatchObject({
       details: expect.arrayContaining([`Sync directory: ${syncDirectory}`]),
@@ -131,16 +124,14 @@ describe("init service", () => {
 
     await writeIdentityFile(xdgConfigHome, ageKeys.identity);
 
-    const context = createSyncContext({
-      environment: createEnvironment(homeDirectory, xdgConfigHome),
-    });
+    const environment = createEnvironment(homeDirectory, xdgConfigHome);
 
     await initializeSync(
       {
         identityFile: "$XDG_CONFIG_HOME/devsync/age/keys.txt",
         recipients: [ageKeys.recipient],
       },
-      context,
+      environment,
     );
 
     await expect(
@@ -149,7 +140,7 @@ describe("init service", () => {
           identityFile: "$XDG_CONFIG_HOME/devsync/age/keys.txt",
           recipients: ["age1differentrecipient"],
         },
-        context,
+        environment,
       ),
     ).rejects.toThrowError(/different age recipients/u);
   });

@@ -22,7 +22,7 @@ import {
   tryBuildRepoPathWithinRoot,
   tryNormalizeRepoPathInput,
 } from "./paths.js";
-import { ensureSyncRepository, type SyncContext } from "./runtime.js";
+import { createSyncPaths, ensureSyncRepository } from "./runtime.js";
 
 export type SyncSetRequest = Readonly<{
   state: SyncMode;
@@ -54,7 +54,9 @@ const computeLocalPath = (entry: ResolvedSyncConfigEntry, repoPath: string) => {
 export const resolveSetTarget = async (
   target: string,
   config: Awaited<ReturnType<typeof readSyncConfig>>,
-  context: Pick<SyncContext, "cwd" | "environment" | "paths">,
+  environment: NodeJS.ProcessEnv,
+  cwd: string,
+  homeDirectory: string,
 ) => {
   const trimmedTarget = target.trim();
 
@@ -65,12 +67,11 @@ export const resolveSetTarget = async (
     });
   }
 
-  const homeDirectory = context.paths.homeDirectory;
   const explicit = isExplicitLocalPath(trimmedTarget);
   const localTargetPath = resolveCommandTargetPath(
     trimmedTarget,
-    context.environment,
-    context.cwd,
+    environment,
+    cwd,
   );
   const localRepoPath = explicit
     ? buildRepoPathWithinRoot(localTargetPath, homeDirectory, "Sync set target")
@@ -193,27 +194,34 @@ export const resolveSetTarget = async (
 
 export const setSyncTargetMode = async (
   request: SyncSetRequest,
-  context: SyncContext,
+  environment: NodeJS.ProcessEnv,
+  cwd: string,
 ): Promise<SyncSetResult> => {
-  await ensureSyncRepository(context);
+  const { syncDirectory, configPath, homeDirectory } =
+    createSyncPaths(environment);
 
-  const config = await readSyncConfig(
-    context.paths.syncDirectory,
-    context.environment,
+  await ensureSyncRepository(syncDirectory);
+
+  const config = await readSyncConfig(syncDirectory, environment);
+  const target = await resolveSetTarget(
+    request.target,
+    config,
+    environment,
+    cwd,
+    homeDirectory,
   );
-  const target = await resolveSetTarget(request.target, config, context);
 
   const buildResult = (
     action: SyncSetAction,
     extras?: Partial<SyncSetResult>,
   ): SyncSetResult => ({
     action,
-    configPath: context.paths.configPath,
+    configPath,
     entryRepoPath: target.entry.repoPath,
     localPath: target.localPath,
     mode: request.state,
     repoPath: target.repoPath,
-    syncDirectory: context.paths.syncDirectory,
+    syncDirectory,
     ...extras,
   });
 
@@ -235,11 +243,7 @@ export const setSyncTargetMode = async (
     });
 
     if (action !== "unchanged") {
-      await writeValidatedSyncConfig(
-        context.paths.syncDirectory,
-        nextConfig,
-        context.environment,
-      );
+      await writeValidatedSyncConfig(syncDirectory, nextConfig, environment);
     }
 
     return buildResult(action);
@@ -269,11 +273,7 @@ export const setSyncTargetMode = async (
       }),
     });
 
-    await writeValidatedSyncConfig(
-      context.paths.syncDirectory,
-      nextConfig,
-      context.environment,
-    );
+    await writeValidatedSyncConfig(syncDirectory, nextConfig, environment);
 
     return buildResult("updated");
   }
@@ -286,8 +286,8 @@ export const setSyncTargetMode = async (
     configuredLocalPath: childConfiguredLocalPath,
     kind: childKind,
     localPath: target.localPath,
-    machines: [],
-    machinesExplicit: false,
+    profiles: [],
+    profilesExplicit: false,
     mode: request.state,
     modeExplicit: true,
     name: childRepoPath,
@@ -299,11 +299,7 @@ export const setSyncTargetMode = async (
     entries: [...config.entries, newEntry],
   });
 
-  await writeValidatedSyncConfig(
-    context.paths.syncDirectory,
-    nextConfig,
-    context.environment,
-  );
+  await writeValidatedSyncConfig(syncDirectory, nextConfig, environment);
 
   return buildResult("added");
 };

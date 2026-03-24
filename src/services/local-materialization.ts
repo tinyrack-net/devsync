@@ -21,7 +21,7 @@ import type { FileLikeSnapshotNode, SnapshotNode } from "./local-snapshot.js";
 
 type MaterializationConfig = ResolvedSyncConfig &
   Readonly<{
-    activeMachine?: string;
+    activeProfile?: string;
   }>;
 
 type EntryMaterialization =
@@ -57,7 +57,7 @@ const copyIgnoredLocalNodesToDirectory = async (
   const directoryMode = resolveManagedSyncMode(
     config,
     repoPathPrefix,
-    config.activeMachine,
+    config.activeProfile,
   );
 
   if (directoryMode === "ignore") {
@@ -82,7 +82,7 @@ const copyIgnoredLocalNodesToDirectory = async (
     }
 
     if (
-      resolveManagedSyncMode(config, repoPath, config.activeMachine) !==
+      resolveManagedSyncMode(config, repoPath, config.activeProfile) !==
       "ignore"
     ) {
       continue;
@@ -303,7 +303,7 @@ const collectIgnoredLocalKeys = async (
     return false;
   }
 
-  const mode = resolveManagedSyncMode(config, repoPath, config.activeMachine);
+  const mode = resolveManagedSyncMode(config, repoPath, config.activeProfile);
 
   if (!stats.isDirectory()) {
     if (mode !== "ignore") {
@@ -362,7 +362,7 @@ export const applyEntryMaterialization = async (
 ) => {
   if (
     entry.kind === "file" &&
-    resolveManagedSyncMode(config, entry.repoPath, config.activeMachine) ===
+    resolveManagedSyncMode(config, entry.repoPath, config.activeProfile) ===
       "ignore"
   ) {
     return;

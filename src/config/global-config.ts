@@ -8,13 +8,13 @@ import {
 import { ensureTrailingNewline } from "#app/lib/string.js";
 import { formatInputIssues } from "#app/lib/validation.js";
 import { DevsyncError } from "#app/services/error.js";
-import { normalizeSyncMachineName } from "./sync.js";
+import { normalizeSyncProfileName } from "./sync.js";
 
 const optionalTrimmedStringSchema = z.string().trim().min(1).optional();
 
 const globalConfigSchemaV2 = z
   .object({
-    activeMachine: optionalTrimmedStringSchema,
+    activeProfile: optionalTrimmedStringSchema,
     age: z.unknown().optional(),
     version: z.literal(2),
   })
@@ -22,7 +22,7 @@ const globalConfigSchemaV2 = z
 
 const globalConfigSchemaV3 = z
   .object({
-    activeMachine: optionalTrimmedStringSchema,
+    activeProfile: optionalTrimmedStringSchema,
     version: z.literal(3),
   })
   .strict();
@@ -33,17 +33,17 @@ const globalConfigSchema = z.union([
 ]);
 
 export type GlobalDevsyncConfig = Readonly<{
-  activeMachine?: string;
+  activeProfile?: string;
   version: 2 | 3;
 }>;
 
-export type ActiveMachineSelection = Readonly<
+export type ActiveProfileSelection = Readonly<
   | {
-      machine?: undefined;
+      profile?: undefined;
       mode: "none";
     }
   | {
-      machine: string;
+      profile: string;
       mode: "single";
     }
 >;
@@ -77,10 +77,10 @@ export const parseGlobalDevsyncConfig = (
   }
 
   return {
-    ...(result.data.activeMachine === undefined
+    ...(result.data.activeProfile === undefined
       ? {}
       : {
-          activeMachine: normalizeSyncMachineName(result.data.activeMachine),
+          activeProfile: normalizeSyncProfileName(result.data.activeProfile),
         }),
     version: result.data.version,
   };
@@ -129,26 +129,26 @@ export const readGlobalDevsyncConfig = async (
   }
 };
 
-export const resolveActiveMachineSelection = (
+export const resolveActiveProfileSelection = (
   config: GlobalDevsyncConfig | undefined,
-): ActiveMachineSelection => {
-  if (config?.activeMachine === undefined) {
+): ActiveProfileSelection => {
+  if (config?.activeProfile === undefined) {
     return {
       mode: "none",
     };
   }
 
   return {
-    machine: config.activeMachine,
+    profile: config.activeProfile,
     mode: "single",
   };
 };
 
-export const isMachineActive = (
-  selection: ActiveMachineSelection,
-  machine: string | undefined,
+export const isProfileActive = (
+  selection: ActiveProfileSelection,
+  profile: string | undefined,
 ) => {
-  if (machine === undefined) {
+  if (profile === undefined) {
     return true;
   }
 
@@ -156,5 +156,5 @@ export const isMachineActive = (
     return false;
   }
 
-  return selection.machine === machine;
+  return selection.profile === profile;
 };

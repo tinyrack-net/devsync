@@ -3,7 +3,6 @@ import { Args, Flags } from "@oclif/core";
 import { BaseCommand } from "#app/cli/base-command.js";
 import { formatSyncInitResult } from "#app/lib/output.js";
 import { initializeSync } from "#app/services/init.js";
-import { createSyncContext } from "#app/services/runtime.js";
 
 export default class SyncInit extends BaseCommand {
   public static override summary = "Initialize the git-backed sync directory";
@@ -49,8 +48,9 @@ export default class SyncInit extends BaseCommand {
           recipients: flags.recipient ?? [],
           repository: args.repository,
         },
-        createSyncContext(),
+        process.env,
       ),
+      { verbose: flags.verbose },
     );
 
     this.print(output);

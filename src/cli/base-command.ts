@@ -1,4 +1,4 @@
-import { Command } from "@oclif/core";
+import { Command, Flags } from "@oclif/core";
 
 import {
   formatErrorMessage,
@@ -19,6 +19,13 @@ const resolveExitCode = (error: CommandError) => {
 };
 
 export abstract class BaseCommand extends Command {
+  public static override baseFlags = {
+    verbose: Flags.boolean({
+      default: false,
+      summary: "Show detailed output including file paths",
+    }),
+  };
+
   protected print(output: string) {
     writeStdout(output);
   }

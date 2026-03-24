@@ -3,7 +3,6 @@ import { Flags } from "@oclif/core";
 import { BaseCommand } from "#app/cli/base-command.js";
 import { formatSyncPushResult } from "#app/lib/output.js";
 import { pushSync } from "#app/services/push.js";
-import { createSyncContext } from "#app/services/runtime.js";
 
 export default class SyncPush extends BaseCommand {
   public static override summary =
@@ -15,7 +14,7 @@ export default class SyncPush extends BaseCommand {
   public static override examples = [
     "<%= config.bin %> <%= command.id %>",
     "<%= config.bin %> <%= command.id %> --dry-run",
-    "<%= config.bin %> <%= command.id %> --machine work",
+    "<%= config.bin %> <%= command.id %> --profile work",
   ];
 
   public static override flags = {
@@ -25,10 +24,10 @@ export default class SyncPush extends BaseCommand {
       description:
         "Show which repository files devsync would create, update, or remove without writing any changes into the sync repository.",
     }),
-    machine: Flags.string({
-      summary: "Use a specific machine layer for this command",
+    profile: Flags.string({
+      summary: "Use a specific profile layer for this command",
       description:
-        "Override the persisted active machine for this push operation only.",
+        "Override the persisted active profile for this push operation only.",
     }),
   };
 
@@ -38,10 +37,11 @@ export default class SyncPush extends BaseCommand {
       await pushSync(
         {
           dryRun: flags["dry-run"],
-          machine: flags.machine,
+          profile: flags.profile,
         },
-        createSyncContext(),
+        process.env,
       ),
+      { verbose: flags.verbose },
     );
 
     this.print(output);

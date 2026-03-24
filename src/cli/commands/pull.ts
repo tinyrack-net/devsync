@@ -3,7 +3,6 @@ import { Flags } from "@oclif/core";
 import { BaseCommand } from "#app/cli/base-command.js";
 import { formatSyncPullResult } from "#app/lib/output.js";
 import { pullSync } from "#app/services/pull.js";
-import { createSyncContext } from "#app/services/runtime.js";
 
 export default class SyncPull extends BaseCommand {
   public static override summary =
@@ -15,7 +14,7 @@ export default class SyncPull extends BaseCommand {
   public static override examples = [
     "<%= config.bin %> <%= command.id %>",
     "<%= config.bin %> <%= command.id %> --dry-run",
-    "<%= config.bin %> <%= command.id %> --machine work",
+    "<%= config.bin %> <%= command.id %> --profile work",
   ];
 
   public static override flags = {
@@ -23,12 +22,12 @@ export default class SyncPull extends BaseCommand {
       default: false,
       summary: "Preview local file updates only",
       description:
-        "Show which local files and directories devsync would create, update, or remove without touching the working machine state.",
+        "Show which local files and directories devsync would create, update, or remove without touching the local state.",
     }),
-    machine: Flags.string({
-      summary: "Use a specific machine layer for this command",
+    profile: Flags.string({
+      summary: "Use a specific profile layer for this command",
       description:
-        "Override the persisted active machine for this pull operation only.",
+        "Override the persisted active profile for this pull operation only.",
     }),
   };
 
@@ -38,10 +37,11 @@ export default class SyncPull extends BaseCommand {
       await pullSync(
         {
           dryRun: flags["dry-run"],
-          machine: flags.machine,
+          profile: flags.profile,
         },
-        createSyncContext(),
+        process.env,
       ),
+      { verbose: flags.verbose },
     );
 
     this.print(output);
