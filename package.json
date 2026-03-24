@@ -57,10 +57,10 @@
     "node": ">=24"
   },
   "scripts": {
+    "dev": "tsc -p tsconfig.build.json --watch",
     "build": "tsc -p tsconfig.build.json",
     "clean": "rm -rf dist",
     "prebuild": "rm -rf dist",
-    "dev": "tsc -p tsconfig.build.json --watch",
     "start": "node dist/index.js",
     "prepack": "npm run build",
     "typecheck": "tsc -p tsconfig.json",
