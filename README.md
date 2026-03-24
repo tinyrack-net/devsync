@@ -1,26 +1,27 @@
 # devsync
 
-`devsync` is a cross-platform CLI for managing the configuration files in your home directory with git and syncing them across multiple machines.
+`devsync` is a cross-platform CLI for managing the configuration files in your home directory with git and syncing them across multiple devices.
 
-Instead of treating the repository as the source of truth, `devsync` treats your actual local config as the truth. You choose files and directories under `HOME`, `devsync` mirrors them into a git-backed sync repository, and later restores that repository onto another machine when you need it.
+Instead of treating the repository as the source of truth, `devsync` treats your actual local config as the truth. You choose files and directories under `HOME`, `devsync` mirrors them into a git-backed sync repository, and later restores that repository onto another device when you need it.
 
 ## 1. Purpose and how it differs
 
-Most dotfiles tools start from the repository and ask you to shape your local machine around it.
+Most dotfiles tools start from the repository and ask you to shape your local system around it.
 
 `devsync` takes the opposite approach:
 
 - Your real config under `HOME` is the source of truth.
 - The git repository is a sync artifact, not the primary authoring location.
-- `push` captures your current machine state into the repository.
-- `pull` applies the repository back onto another machine.
+- `push` captures your current local state into the repository.
+- `pull` applies the repository back onto another device.
 
 That makes `devsync` a good fit when you want to:
 
 - manage existing dotfiles and app configs without reorganizing your home directory,
-- keep machine-specific config workflows intact,
+- keep profile-specific config workflows intact,
 - sync plain files and encrypted secrets together,
-- use normal git remotes as the transport layer between PCs.
+- use normal git remotes as the transport layer between PCs,
+- handle platform-specific paths across Windows, macOS, and Linux.
 
 Core capabilities:
 
@@ -28,6 +29,8 @@ Core capabilities:
 - store synced artifacts in `~/.config/devsync/sync`,
 - mark paths as `normal`, `secret`, or `ignore`,
 - encrypt secret artifacts with `age`,
+- assign entries to profiles so different machines sync different subsets,
+- support platform-specific local paths per entry,
 - preview both directions with `status`, `push --dry-run`, and `pull --dry-run`.
 
 ## 2. Installation
@@ -71,9 +74,9 @@ devsync init
 Track a few configs:
 
 ```bash
-devsync add ~/.gitconfig
-devsync add ~/.zshrc
-devsync add ~/.config/mytool --secret
+devsync track ~/.gitconfig
+devsync track ~/.zshrc
+devsync track ~/.config/mytool --mode secret
 ```
 
 Review what would be captured:
@@ -92,14 +95,13 @@ devsync push
 Open the sync repository and publish it with git:
 
 ```bash
-devsync cd
-git status
+cd "$(devsync dir)"
 git add .
 git commit -m "Update synced config"
 git push
 ```
 
-On another machine, clone and restore from the same repo:
+On another device, clone and restore from the same repo:
 
 ```bash
 devsync init https://example.com/my-sync-repo.git
@@ -118,7 +120,7 @@ Notes:
 
 ### How tracking works
 
-- You add files or directories that live under your home directory.
+- You track files or directories that live under your home directory.
 - `devsync` mirrors them into `~/.config/devsync/sync/default/<repoPath>` for the default profile, or `~/.config/devsync/sync/<profile>/<repoPath>` for a named profile.
 - Plain artifacts are stored as-is.
 - Secret artifacts are stored with the `.devsync.secret` suffix.
@@ -138,57 +140,80 @@ Each tracked path can use one of three modes:
 - `secret`: encrypt before storing in the repo
 - `ignore`: skip during push and pull
 
-You can apply modes to tracked roots or nested paths inside tracked directories.
-
-Profile-specific behavior inherits the tracked root mode and only changes nested paths inside tracked directories.
-
-Examples:
+Set modes when tracking, or update them later:
 
 ```bash
-devsync set secret ~/.config/mytool/token.json
-devsync set ignore ~/.config/mytool/cache --recursive
-devsync set normal ~/.config/mytool/public.json
-devsync set secret ~/.config/mytool/token.json --profile work
+devsync track ~/.config/mytool --mode secret
+devsync track ~/.config/mytool/cache --mode ignore
+devsync track ~/.config/mytool/public.json --mode normal
 ```
 
-### Profile-specific overrides
+Child entries inside a tracked directory inherit the parent mode unless explicitly overridden.
 
-- Track the root once without `--profile`.
-- Use `devsync set --profile <name>` only for child paths inside tracked directories.
-- Profile-specific rules inherit the parent root mode and only override nested paths.
-- Named profile artifacts are stored under `<profile>/<repoPath>`.
-- `default` is reserved for the base layout and cannot be used as a named profile.
-- Standalone profiled roots and profiled file entries are not supported.
+### Profiles
 
-Example `config.json`:
+Profiles let you sync different subsets of entries on different machines. Each entry can be assigned to one or more profiles. When a profile is active, only entries assigned to that profile (plus entries with no profile restriction) are synced.
+
+```bash
+devsync track ~/.ssh/config --mode secret --profile work
+devsync track ~/.gitconfig --profile work --profile personal
+devsync track ~/.zshrc
+devsync profile use work
+devsync profile list
+```
+
+Key behaviors:
+
+- Entries without `--profile` are synced on all profiles (including when no profile is active).
+- Entries with `--profile` are only synced when one of the listed profiles is active.
+- Pass `--profile ''` to clear profile restrictions from an entry.
+- The `default` profile namespace is reserved for entries with no profile restriction.
+- Commands like `push`, `pull`, and `status` accept `--profile` to override the active profile for a single operation.
+
+### Platform-specific paths
+
+Entries can specify different local paths per platform, so the same sync config works across Windows, macOS, and Linux:
+
+Example `manifest.json`:
 
 ```json
 {
-  "version": 1,
+  "version": 6,
   "age": {
     "identityFile": "$XDG_CONFIG_HOME/devsync/age/keys.txt",
     "recipients": ["age1example..."]
   },
   "entries": [
     {
+      "kind": "file",
+      "localPath": {
+        "default": "~/.gitconfig",
+        "win": "%USERPROFILE%/.gitconfig"
+      },
+      "mode": "normal"
+    },
+    {
       "kind": "directory",
-      "localPath": "~/.config/mytool",
+      "localPath": {
+        "default": "~/.config/mytool",
+        "win": "%APPDATA%/mytool"
+      },
       "mode": "normal",
-      "overrides": {
-        "cache/": "ignore"
+      "profiles": ["work"]
+    },
+    {
+      "kind": "file",
+      "localPath": {
+        "default": "~/.config/mytool/token.json"
       },
-      "profiles": {
-        "work": {
-          "overrides": {
-            "token.json": "secret"
-          }
-        }
-      },
-      "repoPath": ".config/mytool"
+      "mode": "secret",
+      "profiles": ["work"]
     }
   ]
 }
 ```
+
+The `localPath` object supports `default`, `win`, `mac`, and `linux` keys. The `default` key is required and is used as a fallback when no platform-specific path is set for the current OS.
 
 ### Common workflow
 
@@ -204,7 +229,7 @@ Capture local config into the repository:
 devsync push
 ```
 
-Restore repository state onto the machine:
+Restore repository state locally:
 
 ```bash
 devsync pull
@@ -215,6 +240,14 @@ Use dry runs when you want to review first:
 ```bash
 devsync push --dry-run
 devsync pull --dry-run
+```
+
+Override the active profile for a single operation:
+
+```bash
+devsync push --profile work
+devsync pull --profile personal
+devsync status --profile work
 ```
 
 ### Command reference
@@ -229,47 +262,31 @@ devsync init https://example.com/my-sync-repo.git
 devsync init --identity "$XDG_CONFIG_HOME/devsync/age/keys.txt" --recipient age1...
 ```
 
-#### `add`
+#### `track`
 
 Track a file or directory under your home directory.
 
 ```bash
-devsync add ~/.gitconfig
-devsync add ~/.config/mytool
-devsync add ~/.config/mytool --secret
+devsync track ~/.gitconfig
+devsync track ~/.gitconfig ~/.zshrc ~/.config/nvim
+devsync track ~/.ssh/config --mode secret
+devsync track ~/.ssh/config --mode secret --profile work
+devsync track ~/.config/mytool/cache --mode ignore
 ```
 
-`add --profile` is not supported for tracked roots. Track the root first, then use `set --profile` for child overrides.
+If the target is already tracked, its mode is updated. Targets may also be repository paths inside a tracked directory to create child entries with a specific mode.
 
-#### `set`
+#### `untrack`
 
-Change the sync mode for a tracked root, child path, or subtree.
+Remove a tracked entry from the sync config.
 
 ```bash
-devsync set secret ~/.config/mytool/token.json
-devsync set ignore ~/.config/mytool/cache --recursive
-devsync set secret ~/.config/mytool/token.json --profile work
+devsync untrack ~/.gitconfig
+devsync untrack ~/.config/mytool
+devsync untrack .config/mytool/token.json
 ```
 
-With `--profile`, the target must be a child path inside a tracked directory, and `default` cannot be used as the profile name. Profile-specific root mode changes are not supported.
-
-#### `forget`
-
-Remove a tracked path or nested override from config.
-
-```bash
-devsync forget ~/.gitconfig
-devsync forget ~/.config/mytool
-devsync forget .config/mytool/token.json --profile work
-```
-
-#### `list`
-
-Show tracked entries, default modes, root overrides, and profile-specific child overrides.
-
-```bash
-devsync list
-```
+This only updates the sync config; actual file changes happen on the next push or pull.
 
 #### `status`
 
@@ -277,6 +294,7 @@ Preview planned push and pull changes.
 
 ```bash
 devsync status
+devsync status --profile work
 ```
 
 #### `doctor`
@@ -294,24 +312,45 @@ Write local state into the sync repository.
 ```bash
 devsync push
 devsync push --dry-run
+devsync push --profile work
 ```
 
 #### `pull`
 
-Apply repository state back onto the local machine.
+Apply repository state back onto local paths.
 
 ```bash
 devsync pull
 devsync pull --dry-run
+devsync pull --profile work
 ```
 
-#### `cd`
+#### `profile list`
 
-Open the sync repository in your shell, or print its path.
+Show configured profiles and which one is active.
 
 ```bash
-devsync cd
-devsync cd --print
+devsync profile list
+```
+
+#### `profile use`
+
+Set or clear the active sync profile.
+
+```bash
+devsync profile use work
+devsync profile use
+```
+
+Omit the profile name to clear the active profile.
+
+#### `dir`
+
+Print the sync repository path.
+
+```bash
+devsync dir
+cd "$(devsync dir)"
 ```
 
 For flag-level details, use built-in help:
@@ -319,8 +358,7 @@ For flag-level details, use built-in help:
 ```bash
 devsync --help
 devsync init --help
-devsync add --help
-devsync set --help
+devsync track --help
 ```
 
 ## Development
