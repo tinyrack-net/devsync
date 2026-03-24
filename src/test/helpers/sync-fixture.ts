@@ -44,7 +44,7 @@ export const runGit = async (args: readonly string[], cwd?: string) => {
 // biome-ignore lint/suspicious/noControlCharactersInRegex: stripping ANSI escape sequences
 const ansiPattern = /\x1b\[[0-9;]*m/g;
 
-export const stripAnsi = (value: string) => value.replaceAll(ansiPattern, "");
+export const stripAnsi = (value: string) => value.replace(ansiPattern, "");
 
 export const writeJsonFile = async (path: string, value: unknown) => {
   await mkdir(dirname(path), { recursive: true });

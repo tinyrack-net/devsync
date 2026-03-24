@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
 
 import type { ResolvedSyncConfig } from "#app/config/sync.js";
-import { buildEffectiveSyncConfig, type ResolvedAgeConfig } from "./runtime.js";
+import { buildEffectiveSyncConfig, type RuntimeAgeConfig } from "./runtime.js";
 
-const testAge: ResolvedAgeConfig = {
+const testAge: RuntimeAgeConfig = {
   configuredIdentityFile: "$XDG_CONFIG_HOME/devsync/age/keys.txt",
   identityFile: "/tmp/keys.txt",
   recipients: ["age1example"],
@@ -21,7 +21,6 @@ describe("sync runtime", () => {
           profilesExplicit: true,
           mode: "normal",
           modeExplicit: false,
-          name: ".config/zsh",
           repoPath: ".config/zsh",
         },
       ],
@@ -58,7 +57,6 @@ describe("sync runtime", () => {
           profilesExplicit: true,
           mode: "secret",
           modeExplicit: true,
-          name: ".gitconfig",
           repoPath: ".gitconfig",
         },
       ],

@@ -8,10 +8,10 @@ import {
 import { buildRepositorySnapshot } from "./repo-snapshot.js";
 
 import {
-  createSyncPaths,
   type EffectiveSyncConfig,
   ensureSyncRepository,
   loadSyncConfig,
+  resolveSyncPaths,
 } from "./runtime.js";
 
 export type SyncPullRequest = Readonly<{
@@ -109,7 +109,7 @@ export const pullSync = async (
   request: SyncPullRequest,
   environment: NodeJS.ProcessEnv,
 ): Promise<SyncPullResult> => {
-  const { syncDirectory } = createSyncPaths(environment);
+  const { syncDirectory } = resolveSyncPaths(environment);
 
   await ensureSyncRepository(syncDirectory);
 

@@ -7,10 +7,10 @@ import {
 } from "#app/config/global-config.js";
 import {
   type ResolvedSyncConfig,
-  type ResolvedSyncConfigAge,
   readSyncConfig,
   resolveSyncArtifactsDirectoryPath,
   resolveSyncConfigFilePath,
+  type SyncAgeConfig,
   syncDefaultProfile,
 } from "#app/config/sync.js";
 import {
@@ -22,7 +22,7 @@ import {
 import { DevsyncError } from "./error.js";
 import { ensureGitRepository } from "./git.js";
 
-export type ResolvedAgeConfig = Readonly<{
+export type RuntimeAgeConfig = Readonly<{
   configuredIdentityFile: string;
   identityFile: string;
   recipients: readonly string[];
@@ -39,7 +39,7 @@ export type SyncPaths = Readonly<{
 export type EffectiveSyncConfig = ResolvedSyncConfig &
   Readonly<{
     activeProfile?: string;
-    age: ResolvedAgeConfig;
+    age: RuntimeAgeConfig;
   }>;
 
 export type LoadedSyncConfig = Readonly<{
@@ -48,7 +48,7 @@ export type LoadedSyncConfig = Readonly<{
   globalConfig?: GlobalDevsyncConfig;
 }>;
 
-export const createSyncPaths = (
+export const resolveSyncPaths = (
   environment: NodeJS.ProcessEnv = process.env,
 ): SyncPaths => {
   const syncDirectory = resolveDevsyncSyncDirectory(environment);
@@ -67,9 +67,9 @@ export const ensureSyncRepository = async (syncDirectory: string) => {
 };
 
 export const resolveAgeFromSyncConfig = (
-  age: ResolvedSyncConfigAge,
+  age: SyncAgeConfig,
   environment: NodeJS.ProcessEnv,
-): ResolvedAgeConfig => {
+): RuntimeAgeConfig => {
   return {
     configuredIdentityFile: age.identityFile,
     identityFile: resolveConfiguredIdentityFile(age.identityFile, environment),
@@ -80,7 +80,7 @@ export const resolveAgeFromSyncConfig = (
 export const buildEffectiveSyncConfig = (
   fullConfig: ResolvedSyncConfig,
   selection: ActiveProfileSelection,
-  age: ResolvedAgeConfig,
+  age: RuntimeAgeConfig,
 ): EffectiveSyncConfig => {
   const activeProfile =
     selection.mode === "single" ? selection.profile : undefined;

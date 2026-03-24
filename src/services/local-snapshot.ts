@@ -158,7 +158,7 @@ export const buildLocalSnapshot = async (config: SnapshotConfig) => {
 
       if (stats.isDirectory()) {
         throw new DevsyncError(
-          `Sync entry ${entry.name} expects a file, but found a directory: ${entry.localPath}`,
+          `Sync entry ${entry.repoPath} expects a file, but found a directory: ${entry.localPath}`,
         );
       }
 
@@ -174,7 +174,7 @@ export const buildLocalSnapshot = async (config: SnapshotConfig) => {
 
     if (!stats.isDirectory()) {
       throw new DevsyncError(
-        `Sync entry ${entry.name} expects a directory: ${entry.localPath}`,
+        `Sync entry ${entry.repoPath} expects a directory: ${entry.localPath}`,
       );
     }
 

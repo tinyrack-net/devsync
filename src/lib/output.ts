@@ -83,14 +83,14 @@ const stripTrailingPeriod = (value: string) => {
   return value.endsWith(".") ? value.slice(0, -1) : value;
 };
 
-const normalizeDoctorCheckName = (name: string) => {
-  switch (name) {
+const normalizeDoctorCheckId = (checkId: string) => {
+  switch (checkId) {
     case "age":
       return "identity";
     case "local-paths":
       return "local";
     default:
-      return name;
+      return checkId;
   }
 };
 
@@ -148,7 +148,7 @@ const formatDoctorCheck = (
         ? "warn"
         : "success";
 
-  return `${OUTPUT_INDENT}${toneStyle(tone)(toneIcon(tone))} ${style.detail(normalizeDoctorCheckName(check.name).padEnd(labelWidth))} ${style.value(stripTrailingPeriod(check.detail))}`;
+  return `${OUTPUT_INDENT}${toneStyle(tone)(toneIcon(tone))} ${style.detail(normalizeDoctorCheckId(check.checkId).padEnd(labelWidth))} ${style.value(stripTrailingPeriod(check.detail))}`;
 };
 
 const formatStatusEntry = (
@@ -417,7 +417,7 @@ export const formatSyncDoctorResult = (
   options: FormatterOptions = {},
 ) => {
   const labelWidth = result.checks.reduce((width, check) => {
-    return Math.max(width, normalizeDoctorCheckName(check.name).length);
+    return Math.max(width, normalizeDoctorCheckId(check.checkId).length);
   }, 0);
 
   return output(
@@ -472,7 +472,7 @@ export const formatSyncProfileUpdateResult = (
 ) => {
   return output(
     heading(
-      result.mode === "use"
+      result.action === "use"
         ? `Updated active profile to ${result.activeProfile}`
         : "Cleared active profile",
       "success",

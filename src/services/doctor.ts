@@ -3,17 +3,17 @@ import { resolveSyncConfigFilePath } from "#app/config/sync.js";
 import { pathExists } from "./filesystem.js";
 import { ensureRepository } from "./git.js";
 import {
-  createSyncPaths,
   type EffectiveSyncConfig,
   loadSyncConfig,
+  resolveSyncPaths,
 } from "./runtime.js";
 
 export type DoctorCheckLevel = "fail" | "ok" | "warn";
 
 export type DoctorCheck = Readonly<{
+  checkId: string;
   detail: string;
   level: DoctorCheckLevel;
-  name: string;
 }>;
 
 export type SyncDoctorResult = Readonly<{
@@ -24,28 +24,28 @@ export type SyncDoctorResult = Readonly<{
   syncDirectory: string;
 }>;
 
-const ok = (name: string, detail: string): DoctorCheck => ({
+const ok = (checkId: string, detail: string): DoctorCheck => ({
+  checkId,
   detail,
   level: "ok",
-  name,
 });
 
-const warn = (name: string, detail: string): DoctorCheck => ({
+const warn = (checkId: string, detail: string): DoctorCheck => ({
+  checkId,
   detail,
   level: "warn",
-  name,
 });
 
-const fail = (name: string, detail: string): DoctorCheck => ({
+const fail = (checkId: string, detail: string): DoctorCheck => ({
+  checkId,
   detail,
   level: "fail",
-  name,
 });
 
 export const runSyncDoctor = async (
   environment: NodeJS.ProcessEnv,
 ): Promise<SyncDoctorResult> => {
-  const { syncDirectory } = createSyncPaths(environment);
+  const { syncDirectory } = resolveSyncPaths(environment);
   const configPath = resolveSyncConfigFilePath(syncDirectory);
   const checks: DoctorCheck[] = [];
 

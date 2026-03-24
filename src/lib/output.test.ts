@@ -9,7 +9,7 @@ import {
 
 // biome-ignore lint/suspicious/noControlCharactersInRegex: stripping ANSI escape sequences
 const ansiPattern = /\x1b\[[0-9;]*m/g;
-const stripAnsi = (value: string) => value.replaceAll(ansiPattern, "");
+const stripAnsi = (value: string) => value.replace(ansiPattern, "");
 
 describe("output", () => {
   it("formats profile list and update results", () => {
@@ -17,7 +17,7 @@ describe("output", () => {
       stripAnsi(
         formatSyncProfileListResult({
           activeProfile: "work",
-          activeProfilesMode: "single",
+          activeProfileMode: "single",
           assignments: [],
           availableProfiles: ["personal", "work"],
           globalConfigExists: true,
@@ -31,9 +31,9 @@ describe("output", () => {
       stripAnsi(
         formatSyncProfileUpdateResult({
           activeProfile: "work",
+          action: "use",
           globalConfigPath: "/tmp/config.json",
           profile: "work",
-          mode: "use",
           syncDirectory: "/tmp/sync",
         }),
       ),
@@ -42,8 +42,8 @@ describe("output", () => {
     expect(
       stripAnsi(
         formatSyncProfileUpdateResult({
+          action: "clear",
           globalConfigPath: "/tmp/config.json",
-          mode: "clear",
           syncDirectory: "/tmp/sync",
         }),
       ),

@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import {
   detectCurrentPlatformKey,
-  getDefaultLocalPath,
+  resolveDefaultLocalPath,
   resolveLocalPathForPlatform,
 } from "#app/config/platform.js";
 
@@ -82,10 +82,10 @@ describe("resolveLocalPathForPlatform", () => {
   });
 });
 
-describe("getDefaultLocalPath", () => {
+describe("resolveDefaultLocalPath", () => {
   it("returns default from object", () => {
     expect(
-      getDefaultLocalPath({
+      resolveDefaultLocalPath({
         default: "~/.config/app",
         linux: "$XDG_CONFIG_HOME/app",
       }),

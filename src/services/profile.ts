@@ -15,7 +15,7 @@ import {
 import { DevsyncError } from "./error.js";
 import { writeTextFileAtomically } from "./filesystem.js";
 import { resolveTrackedEntry } from "./paths.js";
-import { createSyncPaths, ensureSyncRepository } from "./runtime.js";
+import { ensureSyncRepository, resolveSyncPaths } from "./runtime.js";
 
 export type SyncProfileAssignment = Readonly<{
   entryLocalPath: string;
@@ -25,7 +25,7 @@ export type SyncProfileAssignment = Readonly<{
 
 export type SyncProfileListResult = Readonly<{
   activeProfile?: string;
-  activeProfilesMode: "none" | "single";
+  activeProfileMode: "none" | "single";
   assignments: readonly SyncProfileAssignment[];
   availableProfiles: readonly string[];
   globalConfigExists: boolean;
@@ -35,8 +35,8 @@ export type SyncProfileListResult = Readonly<{
 
 export type SyncProfileUpdateResult = Readonly<{
   activeProfile?: string;
+  action: "clear" | "use";
   globalConfigPath: string;
-  mode: "clear" | "use";
   profile?: string;
   syncDirectory: string;
   warning?: string;
@@ -58,7 +58,7 @@ type SyncProfileAssignResult = Readonly<{
 export const listSyncProfiles = async (
   environment: NodeJS.ProcessEnv,
 ): Promise<SyncProfileListResult> => {
-  const { syncDirectory, globalConfigPath } = createSyncPaths(environment);
+  const { syncDirectory, globalConfigPath } = resolveSyncPaths(environment);
 
   await ensureSyncRepository(syncDirectory);
 
@@ -71,7 +71,7 @@ export const listSyncProfiles = async (
     ...(globalConfig?.activeProfile === undefined
       ? {}
       : { activeProfile: globalConfig.activeProfile }),
-    activeProfilesMode:
+    activeProfileMode:
       globalConfig?.activeProfile === undefined ? "none" : "single",
     assignments: syncConfig.entries
       .filter((entry) => entry.profilesExplicit && entry.profiles.length > 0)
@@ -95,7 +95,7 @@ export const useSyncProfile = async (
   environment: NodeJS.ProcessEnv,
 ): Promise<SyncProfileUpdateResult> => {
   const normalizedProfile = normalizeSyncProfileName(profile);
-  const { syncDirectory, globalConfigPath } = createSyncPaths(environment);
+  const { syncDirectory, globalConfigPath } = resolveSyncPaths(environment);
 
   await ensureSyncRepository(syncDirectory);
 
@@ -116,7 +116,7 @@ export const useSyncProfile = async (
   return {
     activeProfile: normalizedProfile,
     globalConfigPath,
-    mode: "use",
+    action: "use",
     profile: normalizedProfile,
     syncDirectory,
     ...(warning !== undefined ? { warning } : {}),
@@ -126,7 +126,7 @@ export const useSyncProfile = async (
 export const clearSyncProfiles = async (
   environment: NodeJS.ProcessEnv,
 ): Promise<SyncProfileUpdateResult> => {
-  const { syncDirectory, globalConfigPath } = createSyncPaths(environment);
+  const { syncDirectory, globalConfigPath } = resolveSyncPaths(environment);
 
   await ensureSyncRepository(syncDirectory);
 
@@ -137,7 +137,7 @@ export const clearSyncProfiles = async (
 
   return {
     globalConfigPath,
-    mode: "clear",
+    action: "clear",
     syncDirectory,
   };
 };
@@ -156,7 +156,7 @@ export const assignSyncProfiles = async (
     });
   }
 
-  const { syncDirectory, configPath } = createSyncPaths(environment);
+  const { syncDirectory, configPath } = resolveSyncPaths(environment);
 
   await ensureSyncRepository(syncDirectory);
 

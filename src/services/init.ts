@@ -11,9 +11,9 @@ import {
   createInitialSyncConfig,
   formatSyncConfig,
   parseSyncConfig,
-  type ResolvedSyncConfigAge,
   readSyncConfig,
   resolveSyncArtifactsDirectoryPath,
+  type SyncAgeConfig,
 } from "#app/config/sync.js";
 import { resolveConfiguredAbsolutePath } from "#app/config/xdg.js";
 
@@ -25,9 +25,9 @@ import { DevsyncError, wrapUnknownError } from "./error.js";
 import { pathExists, writeTextFileAtomically } from "./filesystem.js";
 import { ensureRepository, initializeRepository } from "./git.js";
 import {
-  createSyncPaths,
   ensureSyncRepository,
   resolveAgeFromSyncConfig,
+  resolveSyncPaths,
 } from "./runtime.js";
 
 export type SyncInitRequest = Readonly<{
@@ -108,7 +108,7 @@ const resolveInitAgeBootstrap = async (
 };
 
 const assertInitRequestMatchesConfig = (
-  age: ResolvedSyncConfigAge | undefined,
+  age: SyncAgeConfig | undefined,
   request: SyncInitRequest,
   environment: NodeJS.ProcessEnv,
 ) => {
@@ -200,7 +200,7 @@ export const initializeSync = async (
   environment: NodeJS.ProcessEnv,
 ): Promise<SyncInitResult> => {
   const { syncDirectory, configPath, globalConfigPath } =
-    createSyncPaths(environment);
+    resolveSyncPaths(environment);
   const configExists = await pathExists(configPath);
 
   if (configExists) {

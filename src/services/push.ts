@@ -14,10 +14,10 @@ import {
   writeArtifactsToDirectory,
 } from "./repo-artifacts.js";
 import {
-  createSyncPaths,
   type EffectiveSyncConfig,
   ensureSyncRepository,
   loadSyncConfig,
+  resolveSyncPaths,
 } from "./runtime.js";
 
 export type SyncPushRequest = Readonly<{
@@ -138,7 +138,7 @@ export const pushSync = async (
   request: SyncPushRequest,
   environment: NodeJS.ProcessEnv,
 ): Promise<SyncPushResult> => {
-  const { syncDirectory } = createSyncPaths(environment);
+  const { syncDirectory } = resolveSyncPaths(environment);
 
   await ensureSyncRepository(syncDirectory);
 

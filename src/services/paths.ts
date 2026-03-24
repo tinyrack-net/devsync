@@ -1,6 +1,6 @@
 import { isAbsolute, relative, resolve } from "node:path";
 
-import type { ConfiguredLocalPath } from "#app/config/platform.js";
+import type { PlatformLocalPath } from "#app/config/platform.js";
 import {
   normalizeSyncRepoPath,
   type ResolvedSyncConfigEntry,
@@ -8,13 +8,6 @@ import {
 import { expandHomePath } from "#app/config/xdg.js";
 
 import { isExplicitLocalPath } from "#app/lib/path.js";
-
-export {
-  buildDirectoryKey,
-  doPathsOverlap,
-  isExplicitLocalPath,
-  isPathEqualOrNested,
-} from "#app/lib/path.js";
 
 import { DevsyncError } from "./error.js";
 
@@ -64,7 +57,7 @@ export const buildRepoPathWithinRoot = (
 
 export const buildConfiguredHomeLocalPath = (
   repoPath: string,
-): ConfiguredLocalPath => {
+): PlatformLocalPath => {
   return { default: `~/${repoPath}` };
 };
 

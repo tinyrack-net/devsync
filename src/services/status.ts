@@ -15,9 +15,9 @@ import {
   buildPushResultFromPlan,
 } from "./push.js";
 import {
-  createSyncPaths,
   ensureSyncRepository,
   loadSyncConfig,
+  resolveSyncPaths,
 } from "./runtime.js";
 
 export type SyncStatusEntry = Readonly<{
@@ -25,7 +25,6 @@ export type SyncStatusEntry = Readonly<{
   localPath: string;
   profiles: readonly string[];
   mode: SyncMode;
-  name: string;
   repoPath: string;
 }>;
 
@@ -50,7 +49,7 @@ export const getSyncStatus = async (
     profile?: string;
   }> = {},
 ): Promise<SyncStatusResult> => {
-  const { syncDirectory } = createSyncPaths(environment);
+  const { syncDirectory } = resolveSyncPaths(environment);
   const configPath = resolveSyncConfigFilePath(syncDirectory);
 
   await ensureSyncRepository(syncDirectory);
@@ -73,7 +72,6 @@ export const getSyncStatus = async (
       localPath: entry.localPath,
       profiles: entry.profiles,
       mode: entry.mode,
-      name: entry.name,
       repoPath: entry.repoPath,
     })),
     entryCount: fullConfig.entries.length,

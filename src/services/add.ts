@@ -6,7 +6,7 @@ import {
   type SyncConfigEntryKind,
   type SyncMode,
 } from "#app/config/sync.js";
-
+import { doPathsOverlap } from "#app/lib/path.js";
 import {
   createSyncConfigDocument,
   writeValidatedSyncConfig,
@@ -16,10 +16,9 @@ import { getPathStats } from "./filesystem.js";
 import {
   buildConfiguredHomeLocalPath,
   buildRepoPathWithinRoot,
-  doPathsOverlap,
   resolveCommandTargetPath,
 } from "./paths.js";
-import { createSyncPaths, ensureSyncRepository } from "./runtime.js";
+import { ensureSyncRepository, resolveSyncPaths } from "./runtime.js";
 
 export type SyncAddRequest = Readonly<{
   profiles?: readonly string[];
@@ -115,7 +114,6 @@ const buildAddEntryCandidate = async (
     profilesExplicit: input.profiles !== undefined,
     mode: input.mode,
     modeExplicit: true,
-    name: repoPath,
     repoPath,
   } satisfies ResolvedSyncConfigEntry;
 };
@@ -135,7 +133,7 @@ export const trackSyncTarget = async (
   }
 
   const { syncDirectory, configPath, homeDirectory } =
-    createSyncPaths(environment);
+    resolveSyncPaths(environment);
 
   await ensureSyncRepository(syncDirectory);
 

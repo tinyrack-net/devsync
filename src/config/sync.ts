@@ -2,9 +2,9 @@ import { readFile } from "node:fs/promises";
 import { isAbsolute, join, posix, relative, sep } from "node:path";
 
 import { z } from "zod";
-import type { ConfiguredLocalPath } from "#app/config/platform.js";
+import type { PlatformLocalPath } from "#app/config/platform.js";
 import {
-  getDefaultLocalPath,
+  resolveDefaultLocalPath,
   resolveLocalPathForPlatform,
 } from "#app/config/platform.js";
 import {
@@ -84,24 +84,23 @@ export type SyncMode = (typeof syncModes)[number];
 export type SyncConfig = z.infer<typeof syncConfigSchema>;
 
 export type ResolvedSyncConfigEntry = Readonly<{
-  configuredLocalPath: ConfiguredLocalPath;
+  configuredLocalPath: PlatformLocalPath;
   kind: SyncConfigEntryKind;
   localPath: string;
   profiles: readonly string[];
   profilesExplicit: boolean;
   mode: SyncMode;
   modeExplicit: boolean;
-  name: string;
   repoPath: string;
 }>;
 
-export type ResolvedSyncConfigAge = Readonly<{
+export type SyncAgeConfig = Readonly<{
   identityFile: string;
   recipients: readonly string[];
 }>;
 
 export type ResolvedSyncConfig = Readonly<{
-  age?: ResolvedSyncConfigAge;
+  age?: SyncAgeConfig;
   entries: readonly ResolvedSyncConfigEntry[];
   version: 5 | 6;
 }>;
@@ -237,7 +236,7 @@ export const resolveEntryRelativeRepoPath = (
 };
 
 const resolveSyncEntryLocalPath = (
-  value: ConfiguredLocalPath,
+  value: PlatformLocalPath,
   environment: NodeJS.ProcessEnv,
 ) => {
   const homeDirectory = resolveHomeDirectory(environment);
@@ -292,11 +291,11 @@ const resolveSyncEntryLocalPath = (
 };
 
 export const deriveRepoPathFromLocalPath = (
-  localPath: ConfiguredLocalPath,
+  localPath: PlatformLocalPath,
   environment: NodeJS.ProcessEnv,
 ) => {
   const homeDirectory = resolveHomeDirectory(environment);
-  const defaultPath = getDefaultLocalPath(localPath);
+  const defaultPath = resolveDefaultLocalPath(localPath);
   const resolvedDefaultPath = resolveHomeConfiguredAbsolutePath(
     defaultPath,
     environment,
@@ -338,8 +337,8 @@ const validatePathOverlaps = (
           {
             code: "DUPLICATE_PATHS",
             details: [
-              `${currentEntry.name}: ${currentValue}`,
-              `${otherEntry.name}: ${otherValue}`,
+              `${currentEntry.repoPath}: ${currentValue}`,
+              `${otherEntry.repoPath}: ${otherValue}`,
             ],
             hint: "Remove the duplicate entry from manifest.json.",
           },
@@ -367,8 +366,8 @@ const validatePathOverlaps = (
           {
             code: "OVERLAPPING_PATHS",
             details: [
-              `${currentEntry.name}: ${currentValue}`,
-              `${otherEntry.name}: ${otherValue}`,
+              `${currentEntry.repoPath}: ${currentValue}`,
+              `${otherEntry.repoPath}: ${otherValue}`,
             ],
             hint: "Split overlapping entries so each tracked root owns a distinct path.",
           },
@@ -488,7 +487,6 @@ export const parseSyncConfig = (
       profilesExplicit: entry.profiles !== undefined,
       mode,
       modeExplicit: entry.mode !== undefined,
-      name: repoPath,
       repoPath,
     } satisfies ResolvedSyncConfigEntry;
   });

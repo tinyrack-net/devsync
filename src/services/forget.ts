@@ -6,7 +6,7 @@ import {
   readSyncConfig,
   resolveSyncArtifactsDirectoryPath,
 } from "#app/config/sync.js";
-
+import { isPathEqualOrNested } from "#app/lib/path.js";
 import {
   createSyncConfigDocument,
   writeValidatedSyncConfig,
@@ -17,14 +17,14 @@ import {
   listDirectoryEntries,
   removePathAtomically,
 } from "./filesystem.js";
-import { isPathEqualOrNested, resolveTrackedEntry } from "./paths.js";
+import { resolveTrackedEntry } from "./paths.js";
 import {
   collectArtifactNamespaces,
   isSecretArtifactPath,
   resolveArtifactRelativePath,
   resolveEntryArtifactPath,
 } from "./repo-artifacts.js";
-import { createSyncPaths, ensureSyncRepository } from "./runtime.js";
+import { ensureSyncRepository, resolveSyncPaths } from "./runtime.js";
 
 export type SyncForgetRequest = Readonly<{
   target: string;
@@ -191,7 +191,7 @@ export const forgetSyncTarget = async (
     throw new DevsyncError("Target path is required.");
   }
 
-  const { syncDirectory, configPath } = createSyncPaths(environment);
+  const { syncDirectory, configPath } = resolveSyncPaths(environment);
 
   await ensureSyncRepository(syncDirectory);
 

@@ -2,7 +2,7 @@ import { platform } from "node:os";
 
 export type PlatformKey = "win" | "mac" | "linux";
 
-export type ConfiguredLocalPath = Readonly<{
+export type PlatformLocalPath = Readonly<{
   default: string;
   win?: string;
   mac?: string;
@@ -21,7 +21,7 @@ export const detectCurrentPlatformKey = (): PlatformKey => {
 };
 
 export const resolveLocalPathForPlatform = (
-  localPath: ConfiguredLocalPath,
+  localPath: PlatformLocalPath,
   platformKey?: PlatformKey,
 ): string => {
   const key = platformKey ?? detectCurrentPlatformKey();
@@ -29,6 +29,8 @@ export const resolveLocalPathForPlatform = (
   return localPath[key] ?? localPath.default;
 };
 
-export const getDefaultLocalPath = (localPath: ConfiguredLocalPath): string => {
+export const resolveDefaultLocalPath = (
+  localPath: PlatformLocalPath,
+): string => {
   return localPath.default;
 };
