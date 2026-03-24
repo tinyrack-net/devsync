@@ -17,8 +17,6 @@ import { basename, dirname, join } from "node:path";
 
 import { buildExecutableMode, isExecutableMode } from "#app/lib/file-mode.js";
 
-export { buildExecutableMode, isExecutableMode } from "#app/lib/file-mode.js";
-
 import { DevsyncError } from "./error.js";
 
 export const pathExists = async (path: string) => {
