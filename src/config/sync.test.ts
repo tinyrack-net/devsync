@@ -25,11 +25,11 @@ describe("sync config", () => {
         entries: [
           {
             kind: "directory",
-            localPath: "~/.config/zsh",
+            localPath: { default: "~/.config/zsh" },
           },
           {
             kind: "file",
-            localPath: "~/.config/zsh/secrets.zsh",
+            localPath: { default: "~/.config/zsh/secrets.zsh" },
             machines: ["default", "work"],
             mode: "secret",
           },
@@ -70,7 +70,7 @@ describe("sync config", () => {
         entries: [
           {
             kind: "file",
-            localPath: "~/.gitconfig",
+            localPath: { default: "~/.gitconfig" },
             machines: ["default", "work"],
             mode: "secret",
           },
@@ -103,16 +103,16 @@ describe("sync config", () => {
         entries: [
           {
             kind: "directory",
-            localPath: "~/.config/zsh",
+            localPath: { default: "~/.config/zsh" },
           },
           {
             kind: "file",
-            localPath: "~/.config/zsh/secrets.zsh",
+            localPath: { default: "~/.config/zsh/secrets.zsh" },
             mode: "secret",
           },
           {
             kind: "directory",
-            localPath: "~/.config/zsh/cache",
+            localPath: { default: "~/.config/zsh/cache" },
             mode: "ignore",
           },
         ],
@@ -159,8 +159,8 @@ describe("sync config", () => {
       parseSyncConfig(
         {
           entries: [
-            { kind: "file", localPath: "~/.gitconfig" },
-            { kind: "file", localPath: "~/.gitconfig" },
+            { kind: "file", localPath: { default: "~/.gitconfig" } },
+            { kind: "file", localPath: { default: "~/.gitconfig" } },
           ],
           version: 5,
         },
@@ -178,10 +178,10 @@ describe("sync config", () => {
     const config = parseSyncConfig(
       {
         entries: [
-          { kind: "directory", localPath: "~/.config/zsh" },
+          { kind: "directory", localPath: { default: "~/.config/zsh" } },
           {
             kind: "file",
-            localPath: "~/.config/zsh/secrets.zsh",
+            localPath: { default: "~/.config/zsh/secrets.zsh" },
             mode: "secret",
           },
         ],
@@ -203,8 +203,15 @@ describe("sync config", () => {
       {
         version: 5,
         entries: [
-          { kind: "directory", localPath: "~/.config/zsh", mode: "secret" },
-          { kind: "file", localPath: "~/.config/zsh/aliases.zsh" },
+          {
+            kind: "directory",
+            localPath: { default: "~/.config/zsh" },
+            mode: "secret",
+          },
+          {
+            kind: "file",
+            localPath: { default: "~/.config/zsh/aliases.zsh" },
+          },
         ],
       },
       { HOME: homeDirectory },
@@ -227,10 +234,13 @@ describe("sync config", () => {
         entries: [
           {
             kind: "directory",
-            localPath: "~/.config/zsh",
+            localPath: { default: "~/.config/zsh" },
             machines: ["vivident", "default"],
           },
-          { kind: "file", localPath: "~/.config/zsh/secrets.zsh" },
+          {
+            kind: "file",
+            localPath: { default: "~/.config/zsh/secrets.zsh" },
+          },
         ],
       },
       { HOME: homeDirectory },
@@ -251,10 +261,14 @@ describe("sync config", () => {
       {
         version: 5,
         entries: [
-          { kind: "directory", localPath: "~/.config/zsh", mode: "secret" },
+          {
+            kind: "directory",
+            localPath: { default: "~/.config/zsh" },
+            mode: "secret",
+          },
           {
             kind: "file",
-            localPath: "~/.config/zsh/aliases.zsh",
+            localPath: { default: "~/.config/zsh/aliases.zsh" },
             mode: "normal",
           },
         ],
@@ -279,12 +293,18 @@ describe("sync config", () => {
         entries: [
           {
             kind: "directory",
-            localPath: "~/.config",
+            localPath: { default: "~/.config" },
             machines: ["vivident"],
             mode: "secret",
           },
-          { kind: "directory", localPath: "~/.config/zsh" },
-          { kind: "file", localPath: "~/.config/zsh/secrets.zsh" },
+          {
+            kind: "directory",
+            localPath: { default: "~/.config/zsh" },
+          },
+          {
+            kind: "file",
+            localPath: { default: "~/.config/zsh/secrets.zsh" },
+          },
         ],
       },
       { HOME: homeDirectory },
@@ -309,10 +329,13 @@ describe("sync config", () => {
       {
         version: 5,
         entries: [
-          { kind: "file", localPath: "~/.config/zsh/secrets.zsh" },
+          {
+            kind: "file",
+            localPath: { default: "~/.config/zsh/secrets.zsh" },
+          },
           {
             kind: "directory",
-            localPath: "~/.config/zsh",
+            localPath: { default: "~/.config/zsh" },
             machines: ["vivident"],
             mode: "secret",
           },
@@ -335,13 +358,188 @@ describe("sync config", () => {
     const config = parseSyncConfig(
       {
         version: 5,
-        entries: [{ kind: "file", localPath: "~/.gitconfig" }],
+        entries: [
+          {
+            kind: "file",
+            localPath: { default: "~/.gitconfig" },
+          },
+        ],
       },
       { HOME: homeDirectory },
     );
 
     expect(config.entries[0]?.machines).toEqual([]);
     expect(config.entries[0]?.mode).toBe("normal");
+  });
+
+  it("parses entries with object localPath format", async () => {
+    const workspace = await createTemporaryDirectory("devsync-sync-config-");
+    const homeDirectory = join(workspace, "home");
+
+    const config = parseSyncConfig(
+      {
+        entries: [
+          {
+            kind: "directory",
+            localPath: {
+              default: "~/.config/app",
+              linux: "$XDG_CONFIG_HOME/app",
+            },
+          },
+        ],
+        version: 5,
+      },
+      {
+        HOME: homeDirectory,
+        XDG_CONFIG_HOME: join(homeDirectory, ".config"),
+      },
+    );
+
+    expect(config.entries).toHaveLength(1);
+    expect(config.entries[0]?.repoPath).toBe(".config/app");
+    expect(config.entries[0]?.configuredLocalPath).toEqual({
+      default: "~/.config/app",
+      linux: "$XDG_CONFIG_HOME/app",
+    });
+  });
+
+  it("derives repoPath from default path regardless of platform overrides", async () => {
+    const workspace = await createTemporaryDirectory("devsync-sync-config-");
+    const homeDirectory = join(workspace, "home");
+
+    const config = parseSyncConfig(
+      {
+        entries: [
+          {
+            kind: "file",
+            localPath: {
+              default: "~/.config/tool/settings.json",
+              mac: "~/Library/Application Support/tool/settings.json",
+            },
+          },
+        ],
+        version: 5,
+      },
+      {
+        HOME: homeDirectory,
+      },
+    );
+
+    expect(config.entries[0]?.repoPath).toBe(".config/tool/settings.json");
+  });
+
+  it("parses entries with default-only object localPath", async () => {
+    const workspace = await createTemporaryDirectory("devsync-sync-config-");
+    const homeDirectory = join(workspace, "home");
+
+    const config = parseSyncConfig(
+      {
+        entries: [
+          {
+            kind: "file",
+            localPath: { default: "~/.gitconfig" },
+          },
+        ],
+        version: 5,
+      },
+      {
+        HOME: homeDirectory,
+      },
+    );
+
+    expect(config.entries).toHaveLength(1);
+    expect(config.entries[0]?.repoPath).toBe(".gitconfig");
+  });
+
+  it("resolves localPath using linux platform override", async () => {
+    const workspace = await createTemporaryDirectory("devsync-sync-config-");
+    const homeDirectory = join(workspace, "home");
+    const xdgConfigHome = join(homeDirectory, ".config");
+
+    const config = parseSyncConfig(
+      {
+        entries: [
+          {
+            kind: "directory",
+            localPath: {
+              default: "~/.config/app",
+              linux: "$XDG_CONFIG_HOME/app",
+            },
+          },
+        ],
+        version: 5,
+      },
+      {
+        HOME: homeDirectory,
+        XDG_CONFIG_HOME: xdgConfigHome,
+      },
+    );
+
+    expect(config.entries[0]?.localPath).toBe(join(xdgConfigHome, "app"));
+  });
+
+  it("rejects unknown keys in localPath object", async () => {
+    const workspace = await createTemporaryDirectory("devsync-sync-config-");
+    const homeDirectory = join(workspace, "home");
+
+    expect(() =>
+      parseSyncConfig(
+        {
+          entries: [
+            {
+              kind: "file",
+              localPath: {
+                default: "~/.gitconfig",
+                unknownKey: "value",
+              },
+            },
+          ],
+          version: 5,
+        },
+        {
+          HOME: homeDirectory,
+        },
+      ),
+    ).toThrowError("Sync configuration is invalid.");
+  });
+
+  it("rejects localPath object missing default field", async () => {
+    const workspace = await createTemporaryDirectory("devsync-sync-config-");
+    const homeDirectory = join(workspace, "home");
+
+    expect(() =>
+      parseSyncConfig(
+        {
+          entries: [
+            {
+              kind: "file",
+              localPath: { linux: "~/.gitconfig" },
+            },
+          ],
+          version: 5,
+        },
+        {
+          HOME: homeDirectory,
+        },
+      ),
+    ).toThrowError("Sync configuration is invalid.");
+  });
+
+  it("rejects string localPath format", async () => {
+    const workspace = await createTemporaryDirectory("devsync-sync-config-");
+    const homeDirectory = join(workspace, "home");
+
+    expect(() =>
+      parseSyncConfig(
+        {
+          entries: [{ kind: "file", localPath: "~/.gitconfig" }],
+          version: 5,
+        },
+        {
+          HOME: homeDirectory,
+        },
+      ),
+    ).toThrowError("Sync configuration is invalid.");
   });
 
   it("treats machines as an allowlist", async () => {
@@ -353,17 +551,17 @@ describe("sync config", () => {
         entries: [
           {
             kind: "file",
-            localPath: "~/.gitconfig",
+            localPath: { default: "~/.gitconfig" },
           },
           {
             kind: "file",
-            localPath: "~/.ssh/config",
+            localPath: { default: "~/.ssh/config" },
             machines: ["vivident"],
             mode: "secret",
           },
           {
             kind: "file",
-            localPath: "~/.npmrc",
+            localPath: { default: "~/.npmrc" },
             machines: ["default", "work"],
           },
         ],

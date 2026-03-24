@@ -1,5 +1,6 @@
 import { isAbsolute, relative, resolve } from "node:path";
 
+import type { ConfiguredLocalPath } from "#app/config/platform.js";
 import {
   normalizeSyncRepoPath,
   type ResolvedSyncConfigEntry,
@@ -61,8 +62,10 @@ export const buildRepoPathWithinRoot = (
   return normalizeSyncRepoPath(relativePath);
 };
 
-export const buildConfiguredHomeLocalPath = (repoPath: string) => {
-  return `~/${repoPath}`;
+export const buildConfiguredHomeLocalPath = (
+  repoPath: string,
+): ConfiguredLocalPath => {
+  return { default: `~/${repoPath}` };
 };
 
 export const tryBuildRepoPathWithinRoot = (

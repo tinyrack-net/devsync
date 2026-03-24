@@ -161,7 +161,7 @@ describe("sync CLI e2e", () => {
     ) as {
       entries: Array<{
         kind: string;
-        localPath: string;
+        localPath: { default: string };
         mode?: string;
       }>;
     };
@@ -173,17 +173,17 @@ describe("sync CLI e2e", () => {
     expect(configAfterSet.entries).toMatchObject([
       {
         kind: "directory",
-        localPath: "~/.config/mytool",
+        localPath: { default: "~/.config/mytool" },
         mode: "secret",
       },
       {
         kind: "directory",
-        localPath: "~/.config/mytool/cache",
+        localPath: { default: "~/.config/mytool/cache" },
         mode: "ignore",
       },
       {
         kind: "file",
-        localPath: "~/.config/mytool/public.json",
+        localPath: { default: "~/.config/mytool/public.json" },
       },
     ]);
 

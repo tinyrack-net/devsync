@@ -2,10 +2,16 @@ import { readFile } from "node:fs/promises";
 import { isAbsolute, join, posix, relative, sep } from "node:path";
 
 import { z } from "zod";
+import type { ConfiguredLocalPath } from "#app/config/platform.js";
+import {
+  getDefaultLocalPath,
+  resolveLocalPathForPlatform,
+} from "#app/config/platform.js";
 import {
   resolveDevsyncSyncDirectory,
   resolveHomeConfiguredAbsolutePath,
   resolveHomeDirectory,
+  resolvePlatformConfiguredAbsolutePath,
 } from "#app/config/xdg.js";
 import { doPathsOverlap } from "#app/lib/path.js";
 import { ensureTrailingNewline } from "#app/lib/string.js";
@@ -27,10 +33,21 @@ const syncMachineNameArraySchema = z
   .array(requiredTrimmedStringSchema)
   .min(1, "At least one machine must be specified.");
 
+const platformLocalPathSchema = z
+  .object({
+    default: requiredTrimmedStringSchema,
+    win: requiredTrimmedStringSchema.optional(),
+    mac: requiredTrimmedStringSchema.optional(),
+    linux: requiredTrimmedStringSchema.optional(),
+  })
+  .strict();
+
+const localPathSchema = platformLocalPathSchema;
+
 const syncConfigEntrySchema = z
   .object({
     kind: z.enum(syncEntryKinds),
-    localPath: requiredTrimmedStringSchema,
+    localPath: localPathSchema,
     machines: syncMachineNameArraySchema.optional(),
     mode: z.enum(syncModes).optional(),
   })
@@ -67,7 +84,7 @@ export type SyncMode = (typeof syncModes)[number];
 export type SyncConfig = z.infer<typeof syncConfigSchema>;
 
 export type ResolvedSyncConfigEntry = Readonly<{
-  configuredLocalPath: string;
+  configuredLocalPath: ConfiguredLocalPath;
   kind: SyncConfigEntryKind;
   localPath: string;
   machines: readonly string[];
@@ -220,19 +237,23 @@ export const resolveEntryRelativeRepoPath = (
 };
 
 const resolveSyncEntryLocalPath = (
-  value: string,
+  value: ConfiguredLocalPath,
   environment: NodeJS.ProcessEnv,
 ) => {
   const homeDirectory = resolveHomeDirectory(environment);
+  const platformPath = resolveLocalPathForPlatform(value);
   let resolvedLocalPath: string;
 
   try {
-    resolvedLocalPath = resolveHomeConfiguredAbsolutePath(value, environment);
+    resolvedLocalPath = resolvePlatformConfiguredAbsolutePath(
+      platformPath,
+      environment,
+    );
   } catch (error: unknown) {
     throw new DevsyncError(
       error instanceof Error
         ? error.message
-        : `Invalid sync entry local path: ${value}`,
+        : `Invalid sync entry local path: ${platformPath}`,
     );
   }
 
@@ -244,7 +265,7 @@ const resolveSyncEntryLocalPath = (
       {
         code: "ENTRY_ROOT_DISALLOWED",
         details: [
-          `Configured path: ${value}`,
+          `Configured path: ${platformPath}`,
           `Home directory: ${homeDirectory}`,
         ],
         hint: "Track a file or subdirectory inside HOME instead.",
@@ -260,7 +281,7 @@ const resolveSyncEntryLocalPath = (
     throw new DevsyncError("Sync entry local path must stay inside HOME.", {
       code: "ENTRY_OUTSIDE_HOME",
       details: [
-        `Configured path: ${value}`,
+        `Configured path: ${platformPath}`,
         `Home directory: ${homeDirectory}`,
       ],
       hint: "Use a path under HOME, such as '~/...'.",
@@ -271,12 +292,16 @@ const resolveSyncEntryLocalPath = (
 };
 
 export const deriveRepoPathFromLocalPath = (
-  localPath: string,
+  localPath: ConfiguredLocalPath,
   environment: NodeJS.ProcessEnv,
 ) => {
   const homeDirectory = resolveHomeDirectory(environment);
-  const resolvedLocalPath = resolveSyncEntryLocalPath(localPath, environment);
-  const relativePath = relative(homeDirectory, resolvedLocalPath);
+  const defaultPath = getDefaultLocalPath(localPath);
+  const resolvedDefaultPath = resolveHomeConfiguredAbsolutePath(
+    defaultPath,
+    environment,
+  );
+  const relativePath = relative(homeDirectory, resolvedDefaultPath);
 
   return normalizeSyncRepoPath(relativePath.replaceAll("\\", "/"));
 };

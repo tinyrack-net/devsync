@@ -1,3 +1,4 @@
+import { getDefaultLocalPath } from "#app/config/platform.js";
 import {
   formatSyncConfig,
   parseSyncConfig,
@@ -12,7 +13,9 @@ export const sortSyncConfigEntries = (
   entries: readonly SyncConfig["entries"][number][],
 ) => {
   return [...entries].sort((left, right) => {
-    return left.localPath.localeCompare(right.localPath);
+    return getDefaultLocalPath(left.localPath).localeCompare(
+      getDefaultLocalPath(right.localPath),
+    );
   });
 };
 

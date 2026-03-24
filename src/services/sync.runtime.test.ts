@@ -14,7 +14,7 @@ describe("sync runtime", () => {
     const config = {
       entries: [
         {
-          configuredLocalPath: "~/.config/zsh",
+          configuredLocalPath: { default: "~/.config/zsh" },
           kind: "directory",
           localPath: "/tmp/home/.config/zsh",
           machines: ["default", "work"],
@@ -51,7 +51,7 @@ describe("sync runtime", () => {
     const config = {
       entries: [
         {
-          configuredLocalPath: "~/.gitconfig",
+          configuredLocalPath: { default: "~/.gitconfig" },
           kind: "file",
           localPath: "/tmp/home/.gitconfig",
           machines: ["default", "work"],

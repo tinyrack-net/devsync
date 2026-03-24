@@ -128,6 +128,49 @@ export const resolveConfiguredAbsolutePath = (
   return resolve(expandedValue);
 };
 
+export const expandWindowsEnvVars = (
+  value: string,
+  environment: NodeJS.ProcessEnv = process.env,
+): string => {
+  return value.replace(/%([^%]+)%/g, (_match, varName: string) => {
+    const envValue = readTrimmedEnvironmentValue(environment, varName);
+
+    if (envValue === undefined) {
+      throw new Error(`Environment variable %${varName}% is not defined.`);
+    }
+
+    return envValue;
+  });
+};
+
+export const expandPlatformConfiguredPath = (
+  value: string,
+  environment: NodeJS.ProcessEnv = process.env,
+): string => {
+  let expanded = value.trim();
+
+  if (expanded.includes("%")) {
+    expanded = expandWindowsEnvVars(expanded, environment);
+  }
+
+  return expandConfiguredPath(expanded, environment);
+};
+
+export const resolvePlatformConfiguredAbsolutePath = (
+  value: string,
+  environment: NodeJS.ProcessEnv = process.env,
+) => {
+  const expandedValue = expandPlatformConfiguredPath(value, environment);
+
+  if (!isAbsolute(expandedValue)) {
+    throw new Error(
+      `Configured path must be absolute or start with ~, $XDG_CONFIG_HOME, or %ENV_VAR%: ${value}`,
+    );
+  }
+
+  return resolve(expandedValue);
+};
+
 export const resolveHomeConfiguredAbsolutePath = (
   value: string,
   environment: NodeJS.ProcessEnv = process.env,

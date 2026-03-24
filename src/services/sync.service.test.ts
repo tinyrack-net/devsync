@@ -109,12 +109,12 @@ describe("sync service", () => {
     expect(config.entries).toEqual([
       {
         kind: "directory",
-        localPath: "~/.config/zsh",
+        localPath: { default: "~/.config/zsh" },
         mode: "normal",
       },
       {
         kind: "file",
-        localPath: "~/.gitconfig-work",
+        localPath: { default: "~/.gitconfig-work" },
         mode: "secret",
       },
     ]);
@@ -264,9 +264,14 @@ describe("sync service", () => {
         join(xdgConfigHome, "devsync", "sync", "manifest.json"),
         "utf8",
       ),
-    ) as { entries: Array<{ localPath: string; mode?: string }> };
+    ) as {
+      entries: Array<{
+        localPath: { default: string };
+        mode?: string;
+      }>;
+    };
     const secretEntry = configAfterModeChange.entries.find(
-      (entry) => entry.localPath === "~/.config/zsh/secrets.zsh",
+      (entry) => entry.localPath.default === "~/.config/zsh/secrets.zsh",
     );
 
     expect(secretEntry?.mode).toBe("normal");

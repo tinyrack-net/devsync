@@ -28,9 +28,9 @@ describe("path helpers", () => {
         "Sync target",
       ),
     ).toBe(".config/tool/settings.json");
-    expect(buildConfiguredHomeLocalPath(".config/tool/settings.json")).toBe(
-      "~/.config/tool/settings.json",
-    );
+    expect(buildConfiguredHomeLocalPath(".config/tool/settings.json")).toEqual({
+      default: "~/.config/tool/settings.json",
+    });
   });
 
   it("rejects root and out-of-root repository paths", () => {

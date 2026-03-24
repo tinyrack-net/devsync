@@ -4,10 +4,13 @@ import { describe, expect, it } from "vitest";
 import {
   expandConfiguredPath,
   expandHomePath,
+  expandPlatformConfiguredPath,
+  expandWindowsEnvVars,
   resolveConfiguredAbsolutePath,
   resolveDevsyncConfigDirectory,
   resolveHomeConfiguredAbsolutePath,
   resolveHomeDirectory,
+  resolvePlatformConfiguredAbsolutePath,
   resolveXdgConfigHome,
 } from "#app/config/xdg.js";
 
@@ -120,5 +123,92 @@ describe("resolveHomeConfiguredAbsolutePath", () => {
     expect(() => resolveHomeConfiguredAbsolutePath("relative/path")).toThrow(
       /must be absolute/u,
     );
+  });
+});
+
+describe("expandWindowsEnvVars", () => {
+  it("expands %LOCALAPPDATA% variable", () => {
+    expect(
+      expandWindowsEnvVars("%LOCALAPPDATA%/app/config", {
+        LOCALAPPDATA: "C:\\Users\\test\\AppData\\Local",
+      }),
+    ).toBe("C:\\Users\\test\\AppData\\Local/app/config");
+  });
+
+  it("expands multiple variables", () => {
+    expect(
+      expandWindowsEnvVars("%DRIVE%/%FOLDER%", {
+        DRIVE: "C:",
+        FOLDER: "Users",
+      }),
+    ).toBe("C:/Users");
+  });
+
+  it("throws when variable is not defined", () => {
+    expect(() => expandWindowsEnvVars("%MISSING_VAR%/path", {})).toThrow(
+      /%MISSING_VAR%/u,
+    );
+  });
+
+  it("returns string unchanged when no % tokens present", () => {
+    expect(expandWindowsEnvVars("~/.config/app", {})).toBe("~/.config/app");
+  });
+
+  it("handles empty %% token without matching", () => {
+    expect(expandWindowsEnvVars("%%", {})).toBe("%%");
+  });
+
+  it("throws for variable with whitespace-only value", () => {
+    expect(() => expandWindowsEnvVars("%VAR%/path", { VAR: "  " })).toThrow(
+      /%VAR%/u,
+    );
+  });
+});
+
+describe("expandPlatformConfiguredPath", () => {
+  it("expands %LOCALAPPDATA% then resolves", () => {
+    expect(
+      expandPlatformConfiguredPath("%LOCALAPPDATA%/app", {
+        LOCALAPPDATA: "/tmp/appdata",
+      }),
+    ).toBe("/tmp/appdata/app");
+  });
+
+  it("expands ~ paths", () => {
+    expect(
+      expandPlatformConfiguredPath("~/.config/app", { HOME: "/tmp/home" }),
+    ).toBe(resolve("/tmp/home", ".config", "app"));
+  });
+
+  it("expands $XDG_CONFIG_HOME paths", () => {
+    expect(
+      expandPlatformConfiguredPath("$XDG_CONFIG_HOME/app", {
+        XDG_CONFIG_HOME: "/custom/config",
+      }),
+    ).toBe(resolve("/custom/config", "app"));
+  });
+});
+
+describe("resolvePlatformConfiguredAbsolutePath", () => {
+  it("resolves %LOCALAPPDATA% paths", () => {
+    expect(
+      resolvePlatformConfiguredAbsolutePath("%LOCALAPPDATA%/app", {
+        LOCALAPPDATA: "/tmp/appdata",
+      }),
+    ).toBe(resolve("/tmp/appdata", "app"));
+  });
+
+  it("resolves ~ paths", () => {
+    expect(
+      resolvePlatformConfiguredAbsolutePath("~/.config/app", {
+        HOME: "/tmp/home",
+      }),
+    ).toBe(resolve("/tmp/home", ".config", "app"));
+  });
+
+  it("throws for relative paths", () => {
+    expect(() =>
+      resolvePlatformConfiguredAbsolutePath("relative/path", {}),
+    ).toThrow(/must be absolute/u);
   });
 });

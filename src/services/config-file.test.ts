@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 
-import { createSyncConfigDocument } from "./config-file.js";
+import {
+  createSyncConfigDocument,
+  sortSyncConfigEntries,
+} from "./config-file.js";
 
 describe("config-file", () => {
   it("writes v6 directory entries", () => {
@@ -8,7 +11,7 @@ describe("config-file", () => {
       createSyncConfigDocument({
         entries: [
           {
-            configuredLocalPath: "~/.config/zsh",
+            configuredLocalPath: { default: "~/.config/zsh" },
             kind: "directory",
             localPath: "/tmp/home/.config/zsh",
             machines: [],
@@ -25,7 +28,7 @@ describe("config-file", () => {
       entries: [
         {
           kind: "directory",
-          localPath: "~/.config/zsh",
+          localPath: { default: "~/.config/zsh" },
         },
       ],
       version: 6,
@@ -37,7 +40,7 @@ describe("config-file", () => {
       createSyncConfigDocument({
         entries: [
           {
-            configuredLocalPath: "~/.gitconfig",
+            configuredLocalPath: { default: "~/.gitconfig" },
             kind: "file",
             localPath: "/tmp/home/.gitconfig",
             machines: ["default", "work"],
@@ -54,7 +57,7 @@ describe("config-file", () => {
       entries: [
         {
           kind: "file",
-          localPath: "~/.gitconfig",
+          localPath: { default: "~/.gitconfig" },
           machines: ["default", "work"],
           mode: "secret",
         },
@@ -68,7 +71,7 @@ describe("config-file", () => {
       createSyncConfigDocument({
         entries: [
           {
-            configuredLocalPath: "~/.bashrc",
+            configuredLocalPath: { default: "~/.bashrc" },
             kind: "file",
             localPath: "/tmp/home/.bashrc",
             machines: [],
@@ -85,11 +88,28 @@ describe("config-file", () => {
       entries: [
         {
           kind: "file",
-          localPath: "~/.bashrc",
+          localPath: { default: "~/.bashrc" },
         },
       ],
       version: 6,
     });
+  });
+
+  it("sorts entries by default path", () => {
+    const sorted = sortSyncConfigEntries([
+      { kind: "file", localPath: { default: "~/.zshrc" } },
+      {
+        kind: "directory",
+        localPath: { default: "~/.config/app", linux: "$XDG_CONFIG_HOME/app" },
+      },
+      { kind: "file", localPath: { default: "~/.bashrc" } },
+    ]);
+
+    expect(sorted.map((e) => e.localPath)).toEqual([
+      { default: "~/.bashrc" },
+      { default: "~/.config/app", linux: "$XDG_CONFIG_HOME/app" },
+      { default: "~/.zshrc" },
+    ]);
   });
 
   it("writes explicit mode even when normal", () => {
@@ -97,7 +117,7 @@ describe("config-file", () => {
       createSyncConfigDocument({
         entries: [
           {
-            configuredLocalPath: "~/.bashrc",
+            configuredLocalPath: { default: "~/.bashrc" },
             kind: "file",
             localPath: "/tmp/home/.bashrc",
             machines: [],
@@ -114,7 +134,7 @@ describe("config-file", () => {
       entries: [
         {
           kind: "file",
-          localPath: "~/.bashrc",
+          localPath: { default: "~/.bashrc" },
           mode: "normal",
         },
       ],
