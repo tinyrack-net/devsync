@@ -7,7 +7,7 @@ import {
   resolveEntryRelativeRepoPath,
   type SyncMode,
 } from "#app/config/sync.js";
-
+import { isExplicitLocalPath } from "#app/lib/path.js";
 import {
   createSyncConfigDocument,
   writeValidatedSyncConfig,
@@ -17,15 +17,14 @@ import { getPathStats } from "./filesystem.js";
 import {
   buildConfiguredHomeLocalPath,
   buildRepoPathWithinRoot,
-  isExplicitLocalPath,
   resolveCommandTargetPath,
   tryBuildRepoPathWithinRoot,
   tryNormalizeRepoPathInput,
 } from "./paths.js";
-import { createSyncPaths, ensureSyncRepository } from "./runtime.js";
+import { ensureSyncRepository, resolveSyncPaths } from "./runtime.js";
 
 export type SyncSetRequest = Readonly<{
-  state: SyncMode;
+  mode: SyncMode;
   target: string;
 }>;
 
@@ -198,7 +197,7 @@ export const setSyncTargetMode = async (
   cwd: string,
 ): Promise<SyncSetResult> => {
   const { syncDirectory, configPath, homeDirectory } =
-    createSyncPaths(environment);
+    resolveSyncPaths(environment);
 
   await ensureSyncRepository(syncDirectory);
 
@@ -219,15 +218,14 @@ export const setSyncTargetMode = async (
     configPath,
     entryRepoPath: target.entry.repoPath,
     localPath: target.localPath,
-    mode: request.state,
+    mode: request.mode,
     repoPath: target.repoPath,
     syncDirectory,
     ...extras,
   });
 
   if (target.relativePath === "") {
-    const action =
-      target.entry.mode === request.state ? "unchanged" : "updated";
+    const action = target.entry.mode === request.mode ? "unchanged" : "updated";
     const nextConfig = createSyncConfigDocument({
       ...config,
       entries: config.entries.map((entry) => {
@@ -237,7 +235,7 @@ export const setSyncTargetMode = async (
 
         return {
           ...entry,
-          mode: request.state,
+          mode: request.mode,
         };
       }),
     });
@@ -258,7 +256,7 @@ export const setSyncTargetMode = async (
   );
 
   if (existingChild !== undefined) {
-    if (existingChild.mode === request.state) {
+    if (existingChild.mode === request.mode) {
       return buildResult("unchanged", { reason: "already-set" });
     }
 
@@ -269,7 +267,7 @@ export const setSyncTargetMode = async (
           return entry;
         }
 
-        return { ...entry, mode: request.state };
+        return { ...entry, mode: request.mode };
       }),
     });
 
@@ -278,7 +276,7 @@ export const setSyncTargetMode = async (
     return buildResult("updated");
   }
 
-  if (request.state === target.entry.mode) {
+  if (request.mode === target.entry.mode) {
     return buildResult("unchanged");
   }
 
@@ -288,9 +286,8 @@ export const setSyncTargetMode = async (
     localPath: target.localPath,
     profiles: [],
     profilesExplicit: false,
-    mode: request.state,
+    mode: request.mode,
     modeExplicit: true,
-    name: childRepoPath,
     repoPath: childRepoPath,
   };
 

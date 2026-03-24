@@ -154,7 +154,7 @@ describe("sync service", () => {
     );
     await setSyncTargetMode(
       {
-        state: "secret",
+        mode: "secret",
         target: join(sharedDirectory, "secrets.zsh"),
       },
       environment,
@@ -162,12 +162,12 @@ describe("sync service", () => {
     );
 
     expect(await useSyncProfile("work", environment)).toMatchObject({
+      action: "use",
       activeProfile: "work",
       profile: "work",
-      mode: "use",
     });
     expect(await clearSyncProfiles(environment)).toMatchObject({
-      mode: "clear",
+      action: "clear",
     });
   });
 
@@ -205,7 +205,7 @@ describe("sync service", () => {
     );
     await setSyncTargetMode(
       {
-        state: "secret",
+        mode: "secret",
         target: secretsFile,
       },
       environment,
@@ -255,7 +255,7 @@ describe("sync service", () => {
 
     await setSyncTargetMode(
       {
-        state: "normal",
+        mode: "normal",
         target: secretsFile,
       },
       environment,

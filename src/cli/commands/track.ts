@@ -85,7 +85,7 @@ export default class SyncTrack extends BaseCommand {
         ) {
           const setResult = await setSyncTargetMode(
             {
-              state: mode,
+              mode,
               target,
             },
             environment,

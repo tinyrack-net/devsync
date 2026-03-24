@@ -79,7 +79,7 @@ describe("sync dry runs", () => {
     );
     await setSyncTargetMode(
       {
-        state: "secret",
+        mode: "secret",
         target: secretFile,
       },
       environment,
