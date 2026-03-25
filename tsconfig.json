@@ -4,7 +4,6 @@
     "lib": ["ESNext", "DOM"],
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
-    "ignoreDeprecations": "6.0",
     "baseUrl": ".",
     "paths": {
       "#app/*.js": ["./src/*.ts"]
