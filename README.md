@@ -178,7 +178,7 @@ Example `manifest.json`:
 
 ```json
 {
-  "version": 6,
+  "version": 7,
   "age": {
     "identityFile": "$XDG_CONFIG_HOME/devsync/age/keys.txt",
     "recipients": ["age1example..."]
@@ -190,7 +190,9 @@ Example `manifest.json`:
         "default": "~/.gitconfig",
         "win": "%USERPROFILE%/.gitconfig"
       },
-      "mode": "normal"
+      "mode": {
+        "default": "normal"
+      }
     },
     {
       "kind": "directory",
@@ -198,7 +200,10 @@ Example `manifest.json`:
         "default": "~/.config/mytool",
         "win": "%APPDATA%/mytool"
       },
-      "mode": "normal",
+      "mode": {
+        "default": "normal",
+        "win": "ignore"
+      },
       "profiles": ["work"]
     },
     {
@@ -206,7 +211,9 @@ Example `manifest.json`:
       "localPath": {
         "default": "~/.config/mytool/token.json"
       },
-      "mode": "secret",
+      "mode": {
+        "default": "secret"
+      },
       "profiles": ["work"]
     }
   ]
@@ -214,6 +221,7 @@ Example `manifest.json`:
 ```
 
 The `localPath` object supports `default`, `win`, `mac`, and `linux` keys. The `default` key is required and is used as a fallback when no platform-specific path is set for the current OS.
+The `mode` object uses the same shape. `mode.default` is required, OS-specific keys are optional, and an explicit child `mode` replaces the parent's full mode policy instead of merging platform overrides.
 
 ### Common workflow
 
