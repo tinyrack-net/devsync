@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
   detectCurrentPlatformKey,
@@ -9,7 +9,16 @@ import {
 vi.mock("node:os", async (importOriginal) => {
   const actual = await importOriginal<typeof import("node:os")>();
 
-  return { ...actual, platform: vi.fn(() => "linux") };
+  return {
+    ...actual,
+    platform: vi.fn(() => "linux"),
+    release: vi.fn(() => "6.6.0"),
+  };
+});
+
+afterEach(() => {
+  vi.restoreAllMocks();
+  vi.unstubAllEnvs();
 });
 
 describe("detectCurrentPlatformKey", () => {
@@ -32,6 +41,14 @@ describe("detectCurrentPlatformKey", () => {
     vi.mocked(os.platform).mockReturnValue("linux");
 
     expect(detectCurrentPlatformKey()).toBe("linux");
+  });
+
+  it("maps linux with WSL markers to wsl", async () => {
+    const os = await import("node:os");
+    vi.mocked(os.platform).mockReturnValue("linux");
+    vi.mocked(os.release).mockReturnValue("6.6.87.2-microsoft-standard-WSL2");
+
+    expect(detectCurrentPlatformKey()).toBe("wsl");
   });
 
   it("maps unknown platforms to linux", async () => {
@@ -79,6 +96,29 @@ describe("resolveLocalPathForPlatform", () => {
       "~/.config/app",
     );
     expect(resolveLocalPathForPlatform(localPath, "win")).toBe("~/.config/app");
+  });
+
+  it("prefers wsl and falls back to linux on WSL", () => {
+    expect(
+      resolveLocalPathForPlatform(
+        {
+          default: "~/.config/app",
+          linux: "$XDG_CONFIG_HOME/app-linux",
+          wsl: "$XDG_CONFIG_HOME/app-wsl",
+        },
+        "wsl",
+      ),
+    ).toBe("$XDG_CONFIG_HOME/app-wsl");
+
+    expect(
+      resolveLocalPathForPlatform(
+        {
+          default: "~/.config/app",
+          linux: "$XDG_CONFIG_HOME/app-linux",
+        },
+        "wsl",
+      ),
+    ).toBe("$XDG_CONFIG_HOME/app-linux");
   });
 });
 

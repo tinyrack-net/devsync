@@ -47,6 +47,15 @@ const buildDefaultPlatformMode = (mode: SyncMode): PlatformSyncMode => ({
   default: mode,
 });
 
+const hasPlatformSpecificModeOverride = (configuredMode: PlatformSyncMode) => {
+  return (
+    configuredMode.win !== undefined ||
+    configuredMode.mac !== undefined ||
+    configuredMode.linux !== undefined ||
+    configuredMode.wsl !== undefined
+  );
+};
+
 const computeLocalPath = (entry: ResolvedSyncConfigEntry, repoPath: string) => {
   const relativePath = resolveEntryRelativeRepoPath(entry, repoPath);
   if (relativePath === undefined || relativePath === "") {
@@ -234,9 +243,7 @@ export const setSyncTargetMode = async (
     const action =
       target.entry.mode === request.mode &&
       target.entry.configuredMode.default === request.mode &&
-      target.entry.configuredMode.win === undefined &&
-      target.entry.configuredMode.mac === undefined &&
-      target.entry.configuredMode.linux === undefined
+      !hasPlatformSpecificModeOverride(target.entry.configuredMode)
         ? "unchanged"
         : "updated";
     const nextConfig = createSyncConfigDocument({
@@ -273,9 +280,7 @@ export const setSyncTargetMode = async (
     if (
       existingChild.mode === request.mode &&
       existingChild.configuredMode.default === request.mode &&
-      existingChild.configuredMode.win === undefined &&
-      existingChild.configuredMode.mac === undefined &&
-      existingChild.configuredMode.linux === undefined
+      !hasPlatformSpecificModeOverride(existingChild.configuredMode)
     ) {
       return buildResult("unchanged", { reason: "already-set" });
     }

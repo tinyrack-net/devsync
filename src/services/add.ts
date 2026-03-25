@@ -43,6 +43,15 @@ const buildDefaultPlatformMode = (mode: SyncMode): PlatformSyncMode => ({
   default: mode,
 });
 
+const hasPlatformSpecificModeOverride = (configuredMode: PlatformSyncMode) => {
+  return (
+    configuredMode.win !== undefined ||
+    configuredMode.mac !== undefined ||
+    configuredMode.linux !== undefined ||
+    configuredMode.wsl !== undefined
+  );
+};
+
 const buildAddEntryCandidate = async (
   targetPath: string,
   syncDirectory: string,
@@ -213,9 +222,8 @@ export const trackSyncTarget = async (
   const modeChanged =
     existingEntry?.mode !== request.mode ||
     existingEntry?.configuredMode.default !== requestedConfiguredMode.default ||
-    existingEntry?.configuredMode.win !== undefined ||
-    existingEntry?.configuredMode.mac !== undefined ||
-    existingEntry?.configuredMode.linux !== undefined;
+    (existingEntry !== undefined &&
+      hasPlatformSpecificModeOverride(existingEntry.configuredMode));
   const profilesChanged =
     effectiveProfiles !== undefined &&
     (existingEntry?.profiles.length !== candidate.profiles.length ||

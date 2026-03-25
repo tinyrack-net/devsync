@@ -12,6 +12,7 @@ import {
 
 afterEach(() => {
   vi.restoreAllMocks();
+  vi.unstubAllEnvs();
 });
 
 const forcePlatform = (platformKey: platformConfig.PlatformKey) => {
@@ -558,6 +559,68 @@ describe("sync config", () => {
     expect(config.entries[0]?.localPath).toBe(join(xdgConfigHome, "app"));
   });
 
+  it("resolves localPath using WSL override before linux", async () => {
+    forcePlatform("wsl");
+    const workspace = await createTemporaryDirectory("devsync-sync-config-");
+    const homeDirectory = join(workspace, "home");
+    const xdgConfigHome = join(homeDirectory, ".config");
+
+    const config = parseSyncConfig(
+      {
+        entries: [
+          {
+            kind: "directory",
+            localPath: {
+              default: "~/.config/app",
+              linux: "$XDG_CONFIG_HOME/app-linux",
+              wsl: "$XDG_CONFIG_HOME/app-wsl",
+            },
+          },
+        ],
+        version: 7,
+      },
+      {
+        HOME: homeDirectory,
+        XDG_CONFIG_HOME: xdgConfigHome,
+      },
+    );
+
+    expect(config.entries[0]?.localPath).toBe(join(xdgConfigHome, "app-wsl"));
+    expect(config.entries[0]?.configuredLocalPath).toEqual({
+      default: "~/.config/app",
+      linux: "$XDG_CONFIG_HOME/app-linux",
+      wsl: "$XDG_CONFIG_HOME/app-wsl",
+    });
+  });
+
+  it("falls back to linux localPath on WSL when wsl is omitted", async () => {
+    forcePlatform("wsl");
+    const workspace = await createTemporaryDirectory("devsync-sync-config-");
+    const homeDirectory = join(workspace, "home");
+    const xdgConfigHome = join(homeDirectory, ".config");
+
+    const config = parseSyncConfig(
+      {
+        entries: [
+          {
+            kind: "directory",
+            localPath: {
+              default: "~/.config/app",
+              linux: "$XDG_CONFIG_HOME/app",
+            },
+          },
+        ],
+        version: 7,
+      },
+      {
+        HOME: homeDirectory,
+        XDG_CONFIG_HOME: xdgConfigHome,
+      },
+    );
+
+    expect(config.entries[0]?.localPath).toBe(join(xdgConfigHome, "app"));
+  });
+
   it("resolves platform-specific modes for the current OS", async () => {
     forcePlatform("mac");
     const workspace = await createTemporaryDirectory("devsync-sync-config-");
@@ -585,6 +648,141 @@ describe("sync config", () => {
       win: "ignore",
     });
     expect(config.entries[0]?.mode).toBe("secret");
+  });
+
+  it("resolves WSL-specific mode before linux", async () => {
+    forcePlatform("wsl");
+    const workspace = await createTemporaryDirectory("devsync-sync-config-");
+    const homeDirectory = join(workspace, "home");
+
+    const config = parseSyncConfig(
+      {
+        entries: [
+          {
+            kind: "file",
+            localPath: { default: "~/.gitconfig" },
+            mode: {
+              default: "normal",
+              linux: "ignore",
+              wsl: "secret",
+            },
+          },
+        ],
+        version: 7,
+      },
+      {
+        HOME: homeDirectory,
+      },
+    );
+
+    expect(config.entries[0]?.configuredMode).toEqual({
+      default: "normal",
+      linux: "ignore",
+      wsl: "secret",
+    });
+    expect(config.entries[0]?.mode).toBe("secret");
+  });
+
+  it("falls back to linux mode on WSL when wsl is omitted", async () => {
+    forcePlatform("wsl");
+    const workspace = await createTemporaryDirectory("devsync-sync-config-");
+    const homeDirectory = join(workspace, "home");
+
+    const config = parseSyncConfig(
+      {
+        entries: [
+          {
+            kind: "file",
+            localPath: { default: "~/.gitconfig" },
+            mode: {
+              default: "normal",
+              linux: "ignore",
+            },
+          },
+        ],
+        version: 7,
+      },
+      {
+        HOME: homeDirectory,
+      },
+    );
+
+    expect(config.entries[0]?.mode).toBe("ignore");
+  });
+
+  it("inherits WSL mode policy from parent when child mode is omitted", async () => {
+    forcePlatform("wsl");
+    const workspace = await createTemporaryDirectory("devsync-sync-config-");
+    const homeDirectory = join(workspace, "home");
+
+    const config = parseSyncConfig(
+      {
+        version: 7,
+        entries: [
+          {
+            kind: "directory",
+            localPath: { default: "~/.config/zsh" },
+            mode: {
+              default: "normal",
+              linux: "ignore",
+              wsl: "secret",
+            },
+          },
+          {
+            kind: "file",
+            localPath: { default: "~/.config/zsh/aliases.zsh" },
+          },
+        ],
+      },
+      { HOME: homeDirectory },
+    );
+
+    const child = config.entries.find(
+      (e) => e.repoPath === ".config/zsh/aliases.zsh",
+    );
+
+    expect(child?.configuredMode).toEqual({
+      default: "normal",
+      linux: "ignore",
+      wsl: "secret",
+    });
+    expect(child?.mode).toBe("secret");
+  });
+
+  it("does not merge parent WSL overrides into explicit child mode", async () => {
+    forcePlatform("wsl");
+    const workspace = await createTemporaryDirectory("devsync-sync-config-");
+    const homeDirectory = join(workspace, "home");
+
+    const config = parseSyncConfig(
+      {
+        version: 7,
+        entries: [
+          {
+            kind: "directory",
+            localPath: { default: "~/.config/zsh" },
+            mode: {
+              default: "normal",
+              linux: "ignore",
+              wsl: "secret",
+            },
+          },
+          {
+            kind: "file",
+            localPath: { default: "~/.config/zsh/aliases.zsh" },
+            mode: { default: "secret" },
+          },
+        ],
+      },
+      { HOME: homeDirectory },
+    );
+
+    const child = config.entries.find(
+      (e) => e.repoPath === ".config/zsh/aliases.zsh",
+    );
+
+    expect(child?.configuredMode).toEqual({ default: "secret" });
+    expect(child?.mode).toBe("secret");
   });
 
   it("rejects string mode format", async () => {

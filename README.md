@@ -179,7 +179,7 @@ Key behaviors:
 
 ### Platform-specific paths
 
-Entries can specify different local paths per platform, so the same sync config works across Windows, macOS, and Linux:
+Entries can specify different local paths per platform, so the same sync config works across Windows, macOS, Linux, and WSL:
 
 Example `manifest.json`:
 
@@ -227,8 +227,8 @@ Example `manifest.json`:
 }
 ```
 
-The `localPath` object supports `default`, `win`, `mac`, and `linux` keys. The `default` key is required and is used as a fallback when no platform-specific path is set for the current OS.
-The `mode` object uses the same shape. `mode.default` is required, OS-specific keys are optional, and an explicit child `mode` replaces the parent's full mode policy instead of merging platform overrides.
+The `localPath` object supports `default`, `win`, `mac`, `linux`, and `wsl` keys. The `default` key is required. On WSL, `wsl` is used first, then `linux`, then `default`.
+The `mode` object uses the same shape. `mode.default` is required, OS-specific keys are optional, and on WSL the fallback order is `wsl -> linux -> default`. An explicit child `mode` replaces the parent's full mode policy instead of merging platform overrides.
 
 ### Common workflow
 

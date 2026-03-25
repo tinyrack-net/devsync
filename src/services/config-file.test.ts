@@ -149,10 +149,16 @@ describe("config-file", () => {
           {
             configuredMode: {
               default: "normal",
+              linux: "ignore",
               mac: "secret",
               win: "ignore",
+              wsl: "secret",
             },
-            configuredLocalPath: { default: "~/.gitconfig" },
+            configuredLocalPath: {
+              default: "~/.gitconfig",
+              linux: "~/.config/git/config",
+              wsl: "~/.config/git/config-wsl",
+            },
             kind: "file",
             localPath: "/tmp/home/.gitconfig",
             profiles: [],
@@ -168,11 +174,17 @@ describe("config-file", () => {
       entries: [
         {
           kind: "file",
-          localPath: { default: "~/.gitconfig" },
+          localPath: {
+            default: "~/.gitconfig",
+            linux: "~/.config/git/config",
+            wsl: "~/.config/git/config-wsl",
+          },
           mode: {
             default: "normal",
+            linux: "ignore",
             mac: "secret",
             win: "ignore",
+            wsl: "secret",
           },
         },
       ],

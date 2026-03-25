@@ -41,6 +41,7 @@ const platformLocalPathSchema = z
     win: requiredTrimmedStringSchema.optional(),
     mac: requiredTrimmedStringSchema.optional(),
     linux: requiredTrimmedStringSchema.optional(),
+    wsl: requiredTrimmedStringSchema.optional(),
   })
   .strict();
 
@@ -51,6 +52,7 @@ const platformSyncModeSchema = z
     win: z.enum(syncModes).optional(),
     mac: z.enum(syncModes).optional(),
     linux: z.enum(syncModes).optional(),
+    wsl: z.enum(syncModes).optional(),
   })
   .strict();
 
@@ -118,6 +120,10 @@ const resolveSyncModeForPlatform = (
   configuredMode: PlatformSyncMode,
   platformKey: PlatformKey,
 ): SyncMode => {
+  if (platformKey === "wsl") {
+    return configuredMode.wsl ?? configuredMode.linux ?? configuredMode.default;
+  }
+
   return configuredMode[platformKey] ?? configuredMode.default;
 };
 
@@ -252,9 +258,14 @@ export const resolveEntryRelativeRepoPath = (
 const resolveSyncEntryLocalPath = (
   value: PlatformLocalPath,
   environment: NodeJS.ProcessEnv,
+  platformKey: PlatformKey,
 ) => {
   const homeDirectory = resolveHomeDirectory(environment);
-  const platformPath = resolveLocalPathForPlatform(value);
+  const platformPath = resolveLocalPathForPlatform(
+    value,
+    platformKey,
+    environment,
+  );
   let resolvedLocalPath: string;
 
   try {
@@ -484,7 +495,7 @@ export const parseSyncConfig = (
   input: unknown,
   environment: NodeJS.ProcessEnv = process.env,
 ): ResolvedSyncConfig => {
-  const platformKey = detectCurrentPlatformKey();
+  const platformKey = detectCurrentPlatformKey(environment);
   const result = syncConfigSchema.safeParse(input);
 
   if (!result.success) {
@@ -499,6 +510,7 @@ export const parseSyncConfig = (
     const resolvedLocalPath = resolveSyncEntryLocalPath(
       entry.localPath,
       environment,
+      platformKey,
     );
     const repoPath = deriveRepoPathFromLocalPath(entry.localPath, environment);
     const profiles = buildNormalizedProfiles(entry);

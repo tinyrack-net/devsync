@@ -120,6 +120,74 @@ describe("sync service", () => {
     ]);
   });
 
+  it("collapses redundant WSL mode overrides when tracking an existing root", async () => {
+    const workspace = await createWorkspace();
+    const homeDirectory = join(workspace, "home");
+    const xdgConfigHome = join(workspace, "xdg");
+    const bundleDirectory = join(homeDirectory, ".config", "mytool");
+    const ageKeys = await createAgeKeyPair();
+    const environment = {
+      ...createSyncEnvironment(homeDirectory, xdgConfigHome),
+      WSL_DISTRO_NAME: "Ubuntu",
+    };
+    const cwd = homeDirectory;
+
+    await writeIdentityFile(xdgConfigHome, ageKeys.identity);
+    await mkdir(bundleDirectory, { recursive: true });
+
+    await initializeSync(
+      {
+        identityFile: "$XDG_CONFIG_HOME/devsync/age/keys.txt",
+        recipients: [ageKeys.recipient],
+      },
+      environment,
+    );
+    await writeFile(
+      join(xdgConfigHome, "devsync", "sync", "manifest.json"),
+      JSON.stringify(
+        {
+          version: 7,
+          age: {
+            identityFile: "$XDG_CONFIG_HOME/devsync/age/keys.txt",
+            recipients: [ageKeys.recipient],
+          },
+          entries: [
+            {
+              kind: "directory",
+              localPath: { default: "~/.config/mytool" },
+              mode: { default: "secret", wsl: "secret" },
+            },
+          ],
+        },
+        null,
+        2,
+      ),
+      "utf8",
+    );
+
+    const result = await trackSyncTarget(
+      {
+        mode: "secret",
+        target: bundleDirectory,
+      },
+      environment,
+      cwd,
+    );
+
+    const config = JSON.parse(
+      await readFile(
+        join(xdgConfigHome, "devsync", "sync", "manifest.json"),
+        "utf8",
+      ),
+    ) as {
+      entries: Array<{ mode?: { default: string; wsl?: string } }>;
+    };
+
+    expect(result.alreadyTracked).toBe(true);
+    expect(result.changed).toBe(true);
+    expect(config.entries[0]?.mode).toEqual({ default: "secret" });
+  });
+
   it("manages the active profile through the global config", async () => {
     const workspace = await createWorkspace();
     const homeDirectory = join(workspace, "home");
@@ -169,6 +237,74 @@ describe("sync service", () => {
     expect(await clearSyncProfiles(environment)).toMatchObject({
       action: "clear",
     });
+  });
+
+  it("collapses redundant WSL mode overrides when updating an existing entry mode", async () => {
+    const workspace = await createWorkspace();
+    const homeDirectory = join(workspace, "home");
+    const xdgConfigHome = join(workspace, "xdg");
+    const gitconfig = join(homeDirectory, ".gitconfig");
+    const ageKeys = await createAgeKeyPair();
+    const environment = {
+      ...createSyncEnvironment(homeDirectory, xdgConfigHome),
+      WSL_DISTRO_NAME: "Ubuntu",
+    };
+    const cwd = homeDirectory;
+
+    await writeIdentityFile(xdgConfigHome, ageKeys.identity);
+    await mkdir(homeDirectory, { recursive: true });
+    await writeFile(gitconfig, "[user]\nname=test\n");
+
+    await initializeSync(
+      {
+        identityFile: "$XDG_CONFIG_HOME/devsync/age/keys.txt",
+        recipients: [ageKeys.recipient],
+      },
+      environment,
+    );
+    await writeFile(
+      join(xdgConfigHome, "devsync", "sync", "manifest.json"),
+      JSON.stringify(
+        {
+          version: 7,
+          age: {
+            identityFile: "$XDG_CONFIG_HOME/devsync/age/keys.txt",
+            recipients: [ageKeys.recipient],
+          },
+          entries: [
+            {
+              kind: "file",
+              localPath: { default: "~/.gitconfig" },
+              mode: { default: "secret", wsl: "secret" },
+            },
+          ],
+        },
+        null,
+        2,
+      ),
+      "utf8",
+    );
+
+    const result = await setSyncTargetMode(
+      {
+        mode: "secret",
+        target: gitconfig,
+      },
+      environment,
+      cwd,
+    );
+
+    const config = JSON.parse(
+      await readFile(
+        join(xdgConfigHome, "devsync", "sync", "manifest.json"),
+        "utf8",
+      ),
+    ) as {
+      entries: Array<{ mode?: { default: string; wsl?: string } }>;
+    };
+
+    expect(result.action).toBe("updated");
+    expect(config.entries[0]?.mode).toEqual({ default: "secret" });
   });
 
   it("pushes and pulls with the active profile", async () => {
