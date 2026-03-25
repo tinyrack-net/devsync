@@ -24,6 +24,15 @@ import type { EffectiveSyncConfig } from "./runtime.js";
 
 type ArtifactConfig = EffectiveSyncConfig;
 
+const isActiveArtifactRule = (
+  rule: ReturnType<typeof resolveSyncRule> | undefined,
+  profile: string,
+) => {
+  return (
+    rule !== undefined && rule.mode !== "ignore" && rule.profile === profile
+  );
+};
+
 export const collectArtifactNamespaces = (
   entries: readonly Pick<ResolvedSyncConfigEntry, "profiles">[],
 ) => {
@@ -313,7 +322,7 @@ export const collectExistingArtifactKeys = async (
       config.activeProfile,
     );
 
-    if (rule === undefined || rule.profile !== artifact.profile) {
+    if (!isActiveArtifactRule(rule, artifact.profile)) {
       keys.delete(key);
     }
   }
@@ -325,7 +334,7 @@ export const collectExistingArtifactKeys = async (
 
     const rule = resolveSyncRule(config, entry.repoPath, config.activeProfile);
 
-    if (rule === undefined) {
+    if (rule === undefined || rule.mode === "ignore") {
       continue;
     }
 

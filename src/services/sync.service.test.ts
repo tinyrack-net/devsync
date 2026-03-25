@@ -1,7 +1,8 @@
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import * as platformConfig from "#app/config/platform.js";
 import {
   createAgeKeyPair,
   createTemporaryDirectory,
@@ -40,6 +41,8 @@ const createSyncEnvironment = (
 };
 
 afterEach(async () => {
+  vi.restoreAllMocks();
+
   while (temporaryDirectories.length > 0) {
     const directory = temporaryDirectories.pop();
 
@@ -414,6 +417,177 @@ describe("sync service", () => {
     );
 
     expect(secretEntry?.mode).toEqual({ default: "normal" });
+  });
+
+  it("skips Windows-ignored secret artifacts during pull", async () => {
+    const workspace = await createWorkspace();
+    const homeDirectory = join(workspace, "home");
+    const xdgConfigHome = join(workspace, "xdg");
+    const zshDirectory = join(homeDirectory, ".config", "zsh");
+    const secretsFile = join(zshDirectory, "secrets.zsh");
+    const ageKeys = await createAgeKeyPair();
+    const environment = createSyncEnvironment(homeDirectory, xdgConfigHome);
+    const platformSpy = vi.spyOn(platformConfig, "detectCurrentPlatformKey");
+
+    await writeIdentityFile(xdgConfigHome, ageKeys.identity);
+    await mkdir(zshDirectory, { recursive: true });
+    await writeFile(secretsFile, "export TOKEN=linux\n");
+
+    await initializeSync(
+      {
+        identityFile: "$XDG_CONFIG_HOME/devsync/age/keys.txt",
+        recipients: [ageKeys.recipient],
+      },
+      environment,
+    );
+    await writeFile(
+      join(xdgConfigHome, "devsync", "sync", "manifest.json"),
+      JSON.stringify(
+        {
+          version: 7,
+          age: {
+            identityFile: "$XDG_CONFIG_HOME/devsync/age/keys.txt",
+            recipients: [ageKeys.recipient],
+          },
+          entries: [
+            {
+              kind: "directory",
+              localPath: { default: "~/.config/zsh" },
+              mode: { default: "normal", win: "ignore" },
+            },
+            {
+              kind: "file",
+              localPath: { default: "~/.config/zsh/secrets.zsh" },
+              mode: { default: "secret", win: "ignore" },
+            },
+          ],
+        },
+        null,
+        2,
+      ),
+      "utf8",
+    );
+
+    platformSpy.mockReturnValue("linux");
+    await pushSync(
+      {
+        dryRun: false,
+      },
+      environment,
+    );
+
+    const secretArtifact = join(
+      xdgConfigHome,
+      "devsync",
+      "sync",
+      "default",
+      ".config",
+      "zsh",
+      "secrets.zsh.devsync.secret",
+    );
+    expect(await readFile(secretArtifact, "utf8")).toContain(
+      "BEGIN AGE ENCRYPTED FILE",
+    );
+
+    await writeFile(secretsFile, "local-change\n");
+
+    platformSpy.mockReturnValue("win");
+    await expect(
+      pullSync(
+        {
+          dryRun: false,
+        },
+        environment,
+      ),
+    ).resolves.toMatchObject({
+      decryptedFileCount: 0,
+    });
+
+    expect(await readFile(secretsFile, "utf8")).toBe("local-change\n");
+  });
+
+  it("does not delete Windows-ignored artifacts during push", async () => {
+    const workspace = await createWorkspace();
+    const homeDirectory = join(workspace, "home");
+    const xdgConfigHome = join(workspace, "xdg");
+    const zshDirectory = join(homeDirectory, ".config", "zsh");
+    const secretsFile = join(zshDirectory, "secrets.zsh");
+    const ageKeys = await createAgeKeyPair();
+    const environment = createSyncEnvironment(homeDirectory, xdgConfigHome);
+    const platformSpy = vi.spyOn(platformConfig, "detectCurrentPlatformKey");
+
+    await writeIdentityFile(xdgConfigHome, ageKeys.identity);
+    await mkdir(zshDirectory, { recursive: true });
+    await writeFile(secretsFile, "export TOKEN=linux\n");
+
+    await initializeSync(
+      {
+        identityFile: "$XDG_CONFIG_HOME/devsync/age/keys.txt",
+        recipients: [ageKeys.recipient],
+      },
+      environment,
+    );
+    await writeFile(
+      join(xdgConfigHome, "devsync", "sync", "manifest.json"),
+      JSON.stringify(
+        {
+          version: 7,
+          age: {
+            identityFile: "$XDG_CONFIG_HOME/devsync/age/keys.txt",
+            recipients: [ageKeys.recipient],
+          },
+          entries: [
+            {
+              kind: "directory",
+              localPath: { default: "~/.config/zsh" },
+              mode: { default: "normal", win: "ignore" },
+            },
+            {
+              kind: "file",
+              localPath: { default: "~/.config/zsh/secrets.zsh" },
+              mode: { default: "secret", win: "ignore" },
+            },
+          ],
+        },
+        null,
+        2,
+      ),
+      "utf8",
+    );
+
+    platformSpy.mockReturnValue("linux");
+    await pushSync(
+      {
+        dryRun: false,
+      },
+      environment,
+    );
+
+    const secretArtifact = join(
+      xdgConfigHome,
+      "devsync",
+      "sync",
+      "default",
+      ".config",
+      "zsh",
+      "secrets.zsh.devsync.secret",
+    );
+    expect(await readFile(secretArtifact, "utf8")).toContain(
+      "BEGIN AGE ENCRYPTED FILE",
+    );
+
+    platformSpy.mockReturnValue("win");
+    const result = await pushSync(
+      {
+        dryRun: false,
+      },
+      environment,
+    );
+
+    expect(result.deletedArtifactCount).toBe(0);
+    expect(await readFile(secretArtifact, "utf8")).toContain(
+      "BEGIN AGE ENCRYPTED FILE",
+    );
   });
 
   it("assigns and unassigns profiles to entries", async () => {

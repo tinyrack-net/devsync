@@ -27,7 +27,7 @@ const isActiveStorageProfile = (
 ) => {
   const rule = resolveSyncRule(config, repoPath, config.activeProfile);
 
-  if (rule === undefined) {
+  if (rule === undefined || rule.mode === "ignore") {
     return false;
   }
 
@@ -75,6 +75,10 @@ const readArtifactLeaf = async (
         ],
       },
     );
+  }
+
+  if (rule.mode === "ignore") {
+    return;
   }
 
   if (artifact.secret) {
