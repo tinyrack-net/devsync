@@ -27,6 +27,9 @@ export const createSyncConfigDocument = (
       kind: entry.kind,
       localPath: entry.configuredLocalPath,
       ...(entry.modeExplicit ? { mode: entry.configuredMode } : {}),
+      ...(entry.permissionExplicit
+        ? { permission: entry.configuredPermission }
+        : {}),
       ...(entry.profilesExplicit ? { profiles: [...entry.profiles] } : {}),
     })),
   );

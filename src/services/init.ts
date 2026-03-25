@@ -251,6 +251,8 @@ export const initializeSync = async (
     const config = await readSyncConfig(syncDirectory, environment);
     assertInitRequestMatchesConfig(config.age, request, environment);
 
+    await resolveInitAgeBootstrap(request, environment, reporter);
+
     return buildAlreadyInitializedResult(config, environment, {
       configPath,
       gitAction: "existing",
@@ -341,6 +343,8 @@ export const initializeSync = async (
     reportPhase(reporter, "Loading the existing sync manifest...");
     const config = await readSyncConfig(syncDirectory, environment);
     assertInitRequestMatchesConfig(config.age, request, environment);
+
+    await resolveInitAgeBootstrap(request, environment, reporter);
 
     return buildAlreadyInitializedResult(config, environment, {
       configPath,

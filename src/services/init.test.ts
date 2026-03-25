@@ -3,6 +3,7 @@ import { join } from "node:path";
 
 import { afterEach, describe, expect, it } from "vitest";
 
+import { createInitialSyncConfig, formatSyncConfig } from "#app/config/sync.js";
 import type { ProgressReporter } from "#app/lib/progress.js";
 import { DevsyncError } from "#app/services/error.js";
 import { initializeSync } from "#app/services/init.js";
@@ -230,5 +231,89 @@ describe("init service", () => {
         environment,
       ),
     ).rejects.toThrowError(/different age recipients/u);
+  });
+
+  it("writes a supplied age private key when cloning a repo that already has manifest.json", async () => {
+    const workspace = await createWorkspace();
+    const homeDirectory = join(workspace, "home");
+    const xdgConfigHome = join(workspace, "xdg");
+    const sourceRepository = join(workspace, "remote-sync");
+    const ageKeys = await createAgeKeyPair();
+
+    await runGit(["init", "-b", "main", sourceRepository], workspace);
+
+    const manifest = createInitialSyncConfig({
+      identityFile: "$XDG_CONFIG_HOME/devsync/age/keys.txt",
+      recipients: [ageKeys.recipient],
+    });
+
+    await writeFile(
+      join(sourceRepository, "manifest.json"),
+      formatSyncConfig(manifest),
+      "utf8",
+    );
+    await runGit(["add", "manifest.json"], sourceRepository);
+    await runGit(
+      ["commit", "-m", "initial config", "--author", "test <test@test.com>"],
+      sourceRepository,
+    );
+
+    const result = await initializeSync(
+      {
+        ageIdentity: ageKeys.identity,
+        identityFile: "$XDG_CONFIG_HOME/devsync/age/keys.txt",
+        recipients: [],
+        repository: sourceRepository,
+      },
+      createEnvironment(homeDirectory, xdgConfigHome),
+    );
+
+    expect(result.alreadyInitialized).toBe(true);
+    expect(
+      await readFile(join(xdgConfigHome, "devsync", "age", "keys.txt"), "utf8"),
+    ).toBe(`${ageKeys.identity}\n`);
+  });
+
+  it("generates a new age identity when cloning a repo with manifest.json and no key is provided", async () => {
+    const workspace = await createWorkspace();
+    const homeDirectory = join(workspace, "home");
+    const xdgConfigHome = join(workspace, "xdg");
+    const sourceRepository = join(workspace, "remote-sync");
+    const ageKeys = await createAgeKeyPair();
+
+    await runGit(["init", "-b", "main", sourceRepository], workspace);
+
+    const manifest = createInitialSyncConfig({
+      identityFile: "$XDG_CONFIG_HOME/devsync/age/keys.txt",
+      recipients: [ageKeys.recipient],
+    });
+
+    await writeFile(
+      join(sourceRepository, "manifest.json"),
+      formatSyncConfig(manifest),
+      "utf8",
+    );
+    await runGit(["add", "manifest.json"], sourceRepository);
+    await runGit(
+      ["commit", "-m", "initial config", "--author", "test <test@test.com>"],
+      sourceRepository,
+    );
+
+    const result = await initializeSync(
+      {
+        generateAgeIdentity: true,
+        identityFile: "$XDG_CONFIG_HOME/devsync/age/keys.txt",
+        recipients: [],
+        repository: sourceRepository,
+      },
+      createEnvironment(homeDirectory, xdgConfigHome),
+    );
+
+    expect(result.alreadyInitialized).toBe(true);
+    const identityContent = await readFile(
+      join(xdgConfigHome, "devsync", "age", "keys.txt"),
+      "utf8",
+    );
+    expect(identityContent.trim()).toMatch(/^AGE-SECRET-KEY-/u);
   });
 });

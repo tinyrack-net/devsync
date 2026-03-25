@@ -15,6 +15,7 @@ import {
   resolveHomeDirectory,
   resolvePlatformConfiguredAbsolutePath,
 } from "#app/config/xdg.js";
+import { parsePermissionOctal } from "#app/lib/file-mode.js";
 import { doPathsOverlap } from "#app/lib/path.js";
 import { ensureTrailingNewline } from "#app/lib/string.js";
 import { formatInputIssues } from "#app/lib/validation.js";
@@ -56,12 +57,30 @@ const platformSyncModeSchema = z
   })
   .strict();
 
+const permissionOctalSchema = z
+  .string()
+  .regex(
+    /^0[0-7]{3}$/,
+    "Permission must be a 4-character octal string like '0600' or '0755'.",
+  );
+
+const platformPermissionSchema = z
+  .object({
+    default: permissionOctalSchema,
+    win: permissionOctalSchema.optional(),
+    mac: permissionOctalSchema.optional(),
+    linux: permissionOctalSchema.optional(),
+    wsl: permissionOctalSchema.optional(),
+  })
+  .strict();
+
 const syncConfigEntrySchema = z
   .object({
     kind: z.enum(syncEntryKinds),
     localPath: localPathSchema,
     profiles: syncProfileNameArraySchema.optional(),
     mode: platformSyncModeSchema.optional(),
+    permission: platformPermissionSchema.optional(),
   })
   .strict();
 
@@ -87,17 +106,21 @@ const syncConfigSchema = syncConfigSchemaV7;
 export type SyncConfigEntryKind = (typeof syncEntryKinds)[number];
 export type SyncMode = (typeof syncModes)[number];
 export type PlatformSyncMode = z.infer<typeof platformSyncModeSchema>;
+export type PlatformPermission = z.infer<typeof platformPermissionSchema>;
 export type SyncConfig = z.infer<typeof syncConfigSchema>;
 
 export type ResolvedSyncConfigEntry = Readonly<{
   configuredMode: PlatformSyncMode;
   configuredLocalPath: PlatformLocalPath;
+  configuredPermission?: PlatformPermission;
   kind: SyncConfigEntryKind;
   localPath: string;
   profiles: readonly string[];
   profilesExplicit: boolean;
   mode: SyncMode;
   modeExplicit: boolean;
+  permission?: number;
+  permissionExplicit: boolean;
   repoPath: string;
 }>;
 
@@ -125,6 +148,22 @@ const resolveSyncModeForPlatform = (
   }
 
   return configuredMode[platformKey] ?? configuredMode.default;
+};
+
+const resolveSyncPermissionForPlatform = (
+  configuredPermission: PlatformPermission,
+  platformKey: PlatformKey,
+): number => {
+  if (platformKey === "wsl") {
+    const raw =
+      configuredPermission.wsl ??
+      configuredPermission.linux ??
+      configuredPermission.default;
+    return parsePermissionOctal(raw);
+  }
+
+  const raw = configuredPermission[platformKey] ?? configuredPermission.default;
+  return parsePermissionOctal(raw);
 };
 
 export const normalizeSyncRepoPath = (value: string) => {
@@ -429,6 +468,12 @@ const buildConfiguredMode = (
   return entry.mode ?? defaultSyncMode;
 };
 
+const buildConfiguredPermission = (
+  entry: z.infer<typeof syncConfigEntrySchema>,
+): PlatformPermission | undefined => {
+  return entry.permission;
+};
+
 const findNearestParentEntry = (
   entries: ReadonlyMap<string, ResolvedSyncConfigEntry>,
   childRepoPath: string,
@@ -472,11 +517,21 @@ const applyEntryInheritance = (
         ? parent.profiles
         : entry.profiles;
 
+    const inheritedPermission =
+      !entry.permissionExplicit && parent !== undefined
+        ? parent.configuredPermission
+        : entry.configuredPermission;
+
     resolved.set(entry.repoPath, {
       ...entry,
       configuredMode: inheritedMode,
+      configuredPermission: inheritedPermission,
       profiles: inheritedProfiles,
       mode: resolveSyncModeForPlatform(inheritedMode, platformKey),
+      permission:
+        inheritedPermission !== undefined
+          ? resolveSyncPermissionForPlatform(inheritedPermission, platformKey)
+          : undefined,
     });
   }
 
@@ -515,16 +570,23 @@ export const parseSyncConfig = (
     const repoPath = deriveRepoPathFromLocalPath(entry.localPath, environment);
     const profiles = buildNormalizedProfiles(entry);
     const configuredMode = buildConfiguredMode(entry);
+    const configuredPermission = buildConfiguredPermission(entry);
 
     return {
       configuredMode,
       configuredLocalPath: entry.localPath,
+      configuredPermission,
       kind: entry.kind,
       localPath: resolvedLocalPath,
       profiles,
       profilesExplicit: entry.profiles !== undefined,
       mode: resolveSyncModeForPlatform(configuredMode, platformKey),
       modeExplicit: entry.mode !== undefined,
+      permission:
+        configuredPermission !== undefined
+          ? resolveSyncPermissionForPlatform(configuredPermission, platformKey)
+          : undefined,
+      permissionExplicit: entry.permission !== undefined,
       repoPath,
     } satisfies ResolvedSyncConfigEntry;
   });

@@ -872,6 +872,179 @@ describe("sync config", () => {
     ).toThrowError("Sync configuration is invalid.");
   });
 
+  it("parses entries with permission field", async () => {
+    const workspace = await createTemporaryDirectory("devsync-sync-config-");
+    const homeDirectory = join(workspace, "home");
+
+    const config = parseSyncConfig(
+      {
+        entries: [
+          {
+            kind: "file",
+            localPath: { default: "~/.ssh/id_rsa" },
+            mode: { default: "secret" },
+            permission: { default: "0600" },
+          },
+        ],
+        version: 7,
+      },
+      { HOME: homeDirectory },
+    );
+
+    expect(config.entries[0]?.permission).toBe(0o600);
+    expect(config.entries[0]?.permissionExplicit).toBe(true);
+    expect(config.entries[0]?.configuredPermission).toEqual({
+      default: "0600",
+    });
+  });
+
+  it("resolves platform-specific permission", async () => {
+    forcePlatform("mac");
+    const workspace = await createTemporaryDirectory("devsync-sync-config-");
+    const homeDirectory = join(workspace, "home");
+
+    const config = parseSyncConfig(
+      {
+        entries: [
+          {
+            kind: "file",
+            localPath: { default: "~/.ssh/id_rsa" },
+            permission: { default: "0600", mac: "0400" },
+          },
+        ],
+        version: 7,
+      },
+      { HOME: homeDirectory },
+    );
+
+    expect(config.entries[0]?.permission).toBe(0o400);
+    expect(config.entries[0]?.configuredPermission).toEqual({
+      default: "0600",
+      mac: "0400",
+    });
+  });
+
+  it("inherits permission from parent directory entry", async () => {
+    const workspace = await createTemporaryDirectory("devsync-sync-config-");
+    const homeDirectory = join(workspace, "home");
+
+    const config = parseSyncConfig(
+      {
+        version: 7,
+        entries: [
+          {
+            kind: "directory",
+            localPath: { default: "~/.ssh" },
+            permission: { default: "0600" },
+          },
+          {
+            kind: "file",
+            localPath: { default: "~/.ssh/config" },
+          },
+        ],
+      },
+      { HOME: homeDirectory },
+    );
+
+    const child = config.entries.find((e) => e.repoPath === ".ssh/config");
+    expect(child?.permission).toBe(0o600);
+    expect(child?.permissionExplicit).toBe(false);
+    expect(child?.configuredPermission).toEqual({ default: "0600" });
+  });
+
+  it("child explicit permission overrides parent permission", async () => {
+    const workspace = await createTemporaryDirectory("devsync-sync-config-");
+    const homeDirectory = join(workspace, "home");
+
+    const config = parseSyncConfig(
+      {
+        version: 7,
+        entries: [
+          {
+            kind: "directory",
+            localPath: { default: "~/.ssh" },
+            permission: { default: "0600" },
+          },
+          {
+            kind: "file",
+            localPath: { default: "~/.ssh/id_rsa.pub" },
+            permission: { default: "0644" },
+          },
+        ],
+      },
+      { HOME: homeDirectory },
+    );
+
+    const child = config.entries.find((e) => e.repoPath === ".ssh/id_rsa.pub");
+    expect(child?.permission).toBe(0o644);
+    expect(child?.permissionExplicit).toBe(true);
+  });
+
+  it("entries without permission have undefined permission", async () => {
+    const workspace = await createTemporaryDirectory("devsync-sync-config-");
+    const homeDirectory = join(workspace, "home");
+
+    const config = parseSyncConfig(
+      {
+        entries: [
+          {
+            kind: "file",
+            localPath: { default: "~/.gitconfig" },
+          },
+        ],
+        version: 7,
+      },
+      { HOME: homeDirectory },
+    );
+
+    expect(config.entries[0]?.permission).toBeUndefined();
+    expect(config.entries[0]?.permissionExplicit).toBe(false);
+    expect(config.entries[0]?.configuredPermission).toBeUndefined();
+  });
+
+  it("rejects invalid permission octal strings", async () => {
+    const workspace = await createTemporaryDirectory("devsync-sync-config-");
+    const homeDirectory = join(workspace, "home");
+
+    expect(() =>
+      parseSyncConfig(
+        {
+          entries: [
+            {
+              kind: "file",
+              localPath: { default: "~/.ssh/id_rsa" },
+              permission: { default: "600" },
+            },
+          ],
+          version: 7,
+        },
+        { HOME: homeDirectory },
+      ),
+    ).toThrowError("Sync configuration is invalid.");
+  });
+
+  it("resolves WSL permission with fallback to linux", async () => {
+    forcePlatform("wsl");
+    const workspace = await createTemporaryDirectory("devsync-sync-config-");
+    const homeDirectory = join(workspace, "home");
+
+    const config = parseSyncConfig(
+      {
+        entries: [
+          {
+            kind: "file",
+            localPath: { default: "~/.ssh/id_rsa" },
+            permission: { default: "0644", linux: "0600" },
+          },
+        ],
+        version: 7,
+      },
+      { HOME: homeDirectory },
+    );
+
+    expect(config.entries[0]?.permission).toBe(0o600);
+  });
+
   it("treats profiles as an allowlist", async () => {
     const workspace = await createTemporaryDirectory("devsync-sync-config-");
     const homeDirectory = join(workspace, "home");

@@ -59,10 +59,11 @@ export const writeFileNode = async (
     contents: string | Uint8Array;
     executable: boolean;
   }>,
+  fileMode?: number,
 ) => {
   await mkdir(dirname(path), { recursive: true });
   await writeFile(path, node.contents);
-  await chmod(path, buildExecutableMode(node.executable));
+  await chmod(path, fileMode ?? buildExecutableMode(node.executable));
 };
 
 export const writeSymlinkNode = async (path: string, linkTarget: string) => {

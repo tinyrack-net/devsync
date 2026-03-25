@@ -160,4 +160,42 @@ describe("filesystem helpers", () => {
     await writeTextFileAtomically(targetPath, "second\n");
     expect(await readFile(targetPath, "utf8")).toBe("second\n");
   });
+
+  it("applies explicit fileMode when provided to writeFileNode", async () => {
+    if (process.platform === "win32") {
+      return;
+    }
+
+    const workspace = await createWorkspace();
+    const filePath = join(workspace, "ssh", "id_rsa");
+
+    await writeFileNode(
+      filePath,
+      {
+        contents: "private-key-content\n",
+        executable: false,
+      },
+      0o600,
+    );
+
+    const stats = await lstat(filePath);
+    expect(stats.mode & 0o777).toBe(0o600);
+  });
+
+  it("falls back to executable mode when fileMode is not provided", async () => {
+    if (process.platform === "win32") {
+      return;
+    }
+
+    const workspace = await createWorkspace();
+    const filePath = join(workspace, "bin", "script.sh");
+
+    await writeFileNode(filePath, {
+      contents: "#!/bin/sh\n",
+      executable: true,
+    });
+
+    const stats = await lstat(filePath);
+    expect(stats.mode & 0o777).toBe(0o755);
+  });
 });
