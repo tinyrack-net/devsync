@@ -20,6 +20,7 @@ import { resolveConfiguredAbsolutePath } from "#app/config/xdg.js";
 import {
   createAgeIdentityFile,
   readAgeRecipientsFromIdentityFile,
+  writeAgeIdentityFile,
 } from "./crypto.js";
 import { DevsyncError, wrapUnknownError } from "./error.js";
 import { pathExists, writeTextFileAtomically } from "./filesystem.js";
@@ -31,6 +32,8 @@ import {
 } from "./runtime.js";
 
 export type SyncInitRequest = Readonly<{
+  ageIdentity?: string;
+  generateAgeIdentity?: boolean;
   identityFile?: string;
   recipients: readonly string[];
   repository?: string;
@@ -48,7 +51,7 @@ export type SyncInitResult = Readonly<{
   syncDirectory: string;
 }>;
 
-const defaultSyncIdentityFile = "$XDG_CONFIG_HOME/devsync/age/keys.txt";
+export const defaultSyncIdentityFile = "$XDG_CONFIG_HOME/devsync/age/keys.txt";
 
 const normalizeRecipients = (recipients: readonly string[]) => {
   return [
@@ -70,6 +73,19 @@ const resolveInitAgeBootstrap = async (
   );
   const explicitRecipients = normalizeRecipients(request.recipients);
 
+  if (request.ageIdentity !== undefined) {
+    const { recipient } = await writeAgeIdentityFile(
+      identityFile,
+      request.ageIdentity,
+    );
+
+    return {
+      configuredIdentityFile,
+      generatedIdentity: false,
+      recipients: normalizeRecipients([...explicitRecipients, recipient]),
+    };
+  }
+
   if (explicitRecipients.length === 0) {
     if (await pathExists(identityFile)) {
       return {
@@ -87,6 +103,16 @@ const resolveInitAgeBootstrap = async (
       configuredIdentityFile,
       generatedIdentity: true,
       recipients: [recipient],
+    };
+  }
+
+  if (request.generateAgeIdentity === true) {
+    const { recipient } = await createAgeIdentityFile(identityFile);
+
+    return {
+      configuredIdentityFile,
+      generatedIdentity: true,
+      recipients: normalizeRecipients([...explicitRecipients, recipient]),
     };
   }
 

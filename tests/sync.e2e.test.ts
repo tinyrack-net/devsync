@@ -28,12 +28,14 @@ const runCli = async (
   options?: Readonly<{
     cwd?: string;
     env?: NodeJS.ProcessEnv;
+    input?: string;
     reject?: boolean;
   }>,
 ) => {
   return execa(process.execPath, [cliPath, ...args], {
     cwd: options?.cwd,
     env: options?.env,
+    input: options?.input,
     reject: options?.reject,
   });
 };
@@ -65,6 +67,7 @@ describe("sync CLI e2e", () => {
     const xdgConfigHome = join(workspace, "xdg");
     const result = await runCli(["init"], {
       env: createSyncEnvironment(homeDirectory, xdgConfigHome),
+      input: "\n",
     });
 
     expect(stripAnsi(result.stdout)).toContain("Initialized sync directory");
@@ -102,6 +105,68 @@ describe("sync CLI e2e", () => {
       entries: [],
       version: 7,
     });
+  });
+
+  it("accepts a supplied age key during init without a precreated identity file", async () => {
+    const workspace = await createWorkspace();
+    const homeDirectory = join(workspace, "home");
+    const xdgConfigHome = join(workspace, "xdg");
+    const sourceRepository = join(workspace, "remote-sync");
+    const ageKeys = await createAgeKeyPair();
+
+    await execa("git", ["init", "-b", "main", sourceRepository], {
+      cwd: workspace,
+    });
+
+    const result = await runCli(
+      ["init", sourceRepository, "--key", ageKeys.identity],
+      {
+        env: createSyncEnvironment(homeDirectory, xdgConfigHome),
+      },
+    );
+
+    expect(stripAnsi(result.stdout)).toContain("Initialized sync directory");
+    expect(stripAnsi(result.stdout)).toContain(
+      "age       using existing identity",
+    );
+    expect(
+      await readFile(join(xdgConfigHome, "devsync", "age", "keys.txt"), "utf8"),
+    ).toBe(`${ageKeys.identity}\n`);
+  });
+
+  it("rejects an invalid supplied age key during init", async () => {
+    const workspace = await createWorkspace();
+    const homeDirectory = join(workspace, "home");
+    const xdgConfigHome = join(workspace, "xdg");
+    const result = await runCli(["init", "--key", "not-a-key"], {
+      env: createSyncEnvironment(homeDirectory, xdgConfigHome),
+      reject: false,
+    });
+
+    expect(result.exitCode).not.toBe(0);
+    expect(stripAnsi(result.stderr)).toContain("Invalid age private key");
+  });
+
+  it("reads the init age key from stdin when --key is omitted", async () => {
+    const workspace = await createWorkspace();
+    const homeDirectory = join(workspace, "home");
+    const xdgConfigHome = join(workspace, "xdg");
+    const sourceRepository = join(workspace, "remote-sync");
+    const ageKeys = await createAgeKeyPair();
+
+    await execa("git", ["init", "-b", "main", sourceRepository], {
+      cwd: workspace,
+    });
+
+    const result = await runCli(["init", sourceRepository], {
+      env: createSyncEnvironment(homeDirectory, xdgConfigHome),
+      input: `${ageKeys.identity}\n`,
+    });
+
+    expect(stripAnsi(result.stdout)).toContain("Initialized sync directory");
+    expect(
+      await readFile(join(xdgConfigHome, "devsync", "age", "keys.txt"), "utf8"),
+    ).toBe(`${ageKeys.identity}\n`);
   });
 
   it("prints the sync directory via dir command", async () => {

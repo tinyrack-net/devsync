@@ -71,6 +71,12 @@ Initialize a local sync repository:
 devsync init
 ```
 
+Provide an existing age private key during setup:
+
+```bash
+devsync init --key AGE-SECRET-KEY-...
+```
+
 Track a few configs:
 
 ```bash
@@ -115,6 +121,7 @@ Notes:
 - `push` updates the sync repository contents only; it does not create git commits or push to a remote.
 - `pull` updates local files only.
 - Secret paths are stored encrypted in the repository and require the configured `age` identity to decrypt on restore.
+- `init` prompts for an age private key when `--key` is omitted. Submit an empty response to generate a new identity automatically.
 
 ## 4. Detailed docs
 

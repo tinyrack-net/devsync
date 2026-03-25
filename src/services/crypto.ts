@@ -12,6 +12,29 @@ import {
 import { ensureTrailingNewline } from "#app/lib/string.js";
 import { DevsyncError, wrapUnknownError } from "#app/services/error.js";
 
+export const resolveAgeIdentity = async (identity: string) => {
+  const normalizedIdentity = identity.trim();
+
+  if (normalizedIdentity === "") {
+    throw new DevsyncError("Age private key cannot be empty.", {
+      code: "AGE_IDENTITY_INVALID",
+      hint: "Provide a valid age private key starting with 'AGE-SECRET-KEY-'.",
+    });
+  }
+
+  try {
+    return {
+      identity: normalizedIdentity,
+      recipient: await identityToRecipient(normalizedIdentity),
+    };
+  } catch (error: unknown) {
+    throw wrapUnknownError("Invalid age private key.", error, {
+      code: "AGE_IDENTITY_INVALID",
+      hint: "Provide a valid age private key starting with 'AGE-SECRET-KEY-'.",
+    });
+  }
+};
+
 export const readAgeIdentityLines = async (identityFile: string) => {
   const contents = await readFile(identityFile, "utf8");
   const identities = contents
@@ -73,6 +96,22 @@ export const createAgeIdentityFile = async (identityFile: string) => {
     identity,
     recipient,
   };
+};
+
+export const writeAgeIdentityFile = async (
+  identityFile: string,
+  identity: string,
+) => {
+  const resolvedIdentity = await resolveAgeIdentity(identity);
+
+  await mkdir(dirname(identityFile), { recursive: true });
+  await writeFile(
+    identityFile,
+    ensureTrailingNewline(resolvedIdentity.identity),
+    "utf8",
+  );
+
+  return resolvedIdentity;
 };
 
 export const encryptSecretFile = async (

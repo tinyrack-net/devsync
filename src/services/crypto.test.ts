@@ -9,6 +9,8 @@ import {
   encryptSecretFile,
   readAgeIdentityLines,
   readAgeRecipientsFromIdentityFile,
+  resolveAgeIdentity,
+  writeAgeIdentityFile,
 } from "#app/services/crypto.js";
 import {
   createAgeKeyPair,
@@ -91,6 +93,40 @@ describe("sync crypto helpers", () => {
     expect(await readAgeRecipientsFromIdentityFile(identityFile)).toEqual([
       result.recipient,
     ]);
+  });
+
+  it("validates and normalizes a supplied age identity", async () => {
+    const keyPair = await createAgeKeyPair();
+
+    await expect(
+      resolveAgeIdentity(`  ${keyPair.identity}  `),
+    ).resolves.toEqual({
+      identity: keyPair.identity,
+      recipient: keyPair.recipient,
+    });
+  });
+
+  it("rejects an invalid supplied age identity", async () => {
+    await expect(resolveAgeIdentity("not-a-key")).rejects.toThrowError(
+      /Invalid age private key/u,
+    );
+  });
+
+  it("writes a supplied identity file with a trailing newline", async () => {
+    const workspace = await createWorkspace();
+    const keyPair = await createAgeKeyPair();
+    const identityFile = join(workspace, "manual.txt");
+
+    const result = await writeAgeIdentityFile(
+      identityFile,
+      `  ${keyPair.identity}  `,
+    );
+
+    expect(result).toEqual({
+      identity: keyPair.identity,
+      recipient: keyPair.recipient,
+    });
+    expect(await readFile(identityFile, "utf8")).toBe(`${keyPair.identity}\n`);
   });
 
   it("round-trips secret payloads through age encryption", async () => {

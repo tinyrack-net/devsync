@@ -43,6 +43,62 @@ afterEach(async () => {
 });
 
 describe("init service", () => {
+  it("writes a supplied age private key during initialization", async () => {
+    const workspace = await createWorkspace();
+    const homeDirectory = join(workspace, "home");
+    const xdgConfigHome = join(workspace, "xdg");
+    const sourceRepository = join(workspace, "remote-sync");
+    const ageKeys = await createAgeKeyPair();
+    const extraRecipient = await createAgeKeyPair();
+
+    await runGit(["init", "-b", "main", sourceRepository], workspace);
+
+    const result = await initializeSync(
+      {
+        ageIdentity: `  ${ageKeys.identity}  `,
+        identityFile: "$XDG_CONFIG_HOME/devsync/age/keys.txt",
+        recipients: [ageKeys.recipient, extraRecipient.recipient],
+        repository: sourceRepository,
+      },
+      createEnvironment(homeDirectory, xdgConfigHome),
+    );
+
+    expect(result.generatedIdentity).toBe(false);
+    expect(
+      await readFile(join(xdgConfigHome, "devsync", "age", "keys.txt"), "utf8"),
+    ).toBe(`${ageKeys.identity}\n`);
+    expect(
+      JSON.parse(
+        await readFile(join(result.syncDirectory, "manifest.json"), "utf8"),
+      ),
+    ).toMatchObject({
+      age: {
+        identityFile: "$XDG_CONFIG_HOME/devsync/age/keys.txt",
+        recipients: expect.arrayContaining([
+          ageKeys.recipient,
+          extraRecipient.recipient,
+        ]),
+      },
+    });
+  });
+
+  it("rejects an invalid supplied age private key", async () => {
+    const workspace = await createWorkspace();
+    const homeDirectory = join(workspace, "home");
+    const xdgConfigHome = join(workspace, "xdg");
+
+    await expect(
+      initializeSync(
+        {
+          ageIdentity: "not-a-key",
+          identityFile: "$XDG_CONFIG_HOME/devsync/age/keys.txt",
+          recipients: [],
+        },
+        createEnvironment(homeDirectory, xdgConfigHome),
+      ),
+    ).rejects.toThrowError(/Invalid age private key/u);
+  });
+
   it("clones a configured repository source during initialization", async () => {
     const workspace = await createWorkspace();
     const homeDirectory = join(workspace, "home");
