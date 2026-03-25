@@ -23,6 +23,9 @@ type OutputTone = "default" | "error" | "success" | "warn";
 type FormatterOptions = Readonly<{
   verbose?: boolean;
 }>;
+type ProgressFormatOptions = Readonly<{
+  detail?: boolean;
+}>;
 type StatPair = readonly [label: string, value: number | string];
 
 const OUTPUT_INDENT = "  ";
@@ -177,6 +180,17 @@ export const writeStdout = (value: string) => {
 
 export const writeStderr = (value: string) => {
   process.stderr.write(value);
+};
+
+export const formatProgressMessage = (
+  message: string,
+  options: ProgressFormatOptions = {},
+) => {
+  return ensureTrailingNewline(
+    options.detail
+      ? `${OUTPUT_INDENT}${style.detail(message)}`
+      : `${toneStyle("default")(toneIcon("default"))} ${style.value(message)}`,
+  );
 };
 
 export const heading = (text: string, tone: OutputTone = "default") => {

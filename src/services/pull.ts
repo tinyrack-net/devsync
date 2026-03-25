@@ -1,4 +1,5 @@
 import { resolveSyncConfigFilePath } from "#app/config/sync.js";
+import { type ProgressReporter, reportPhase } from "#app/lib/progress.js";
 import {
   applyEntryMaterialization,
   buildEntryMaterialization,
@@ -41,15 +42,23 @@ export type PullPlan = Readonly<{
 export const buildPullPlan = async (
   config: EffectiveSyncConfig,
   syncDirectory: string,
+  reporter?: ProgressReporter,
 ): Promise<PullPlan> => {
-  const snapshot = await buildRepositorySnapshot(syncDirectory, config);
+  reportPhase(reporter, "Scanning repository artifacts...");
+  const snapshot = await buildRepositorySnapshot(
+    syncDirectory,
+    config,
+    reporter,
+  );
+  reportPhase(reporter, "Planning local materializations...");
   const materializations = config.entries.map((entry) => {
-    return buildEntryMaterialization(entry, snapshot);
+    return buildEntryMaterialization(entry, snapshot, reporter);
   });
 
   let deletedLocalCount = 0;
   const existingKeys = new Set<string>();
 
+  reportPhase(reporter, "Scanning existing local paths...");
   for (let index = 0; index < config.entries.length; index += 1) {
     const entry = config.entries[index];
     const materialization = materializations[index];
@@ -63,6 +72,7 @@ export const buildPullPlan = async (
       materialization.desiredKeys,
       config,
       existingKeys,
+      reporter,
     );
   }
 
@@ -108,11 +118,15 @@ export const buildPullResultFromPlan = (
 export const pullSync = async (
   request: SyncPullRequest,
   environment: NodeJS.ProcessEnv,
+  reporter?: ProgressReporter,
 ): Promise<SyncPullResult> => {
+  reportPhase(reporter, "Starting pull...");
   const { syncDirectory } = resolveSyncPaths(environment);
 
+  reportPhase(reporter, "Checking sync repository...");
   await ensureSyncRepository(syncDirectory);
 
+  reportPhase(reporter, "Loading sync configuration...");
   const { effectiveConfig: config } = await loadSyncConfig(
     syncDirectory,
     environment,
@@ -120,7 +134,7 @@ export const pullSync = async (
       ...(request.profile === undefined ? {} : { profile: request.profile }),
     },
   );
-  const plan = await buildPullPlan(config, syncDirectory);
+  const plan = await buildPullPlan(config, syncDirectory, reporter);
 
   for (let index = 0; index < config.entries.length; index += 1) {
     const entry = config.entries[index];
@@ -131,7 +145,8 @@ export const pullSync = async (
     }
 
     if (!request.dryRun) {
-      await applyEntryMaterialization(entry, materialization, config);
+      reportPhase(reporter, `Applying ${entry.repoPath}...`);
+      await applyEntryMaterialization(entry, materialization, config, reporter);
     }
   }
 

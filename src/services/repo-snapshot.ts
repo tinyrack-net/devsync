@@ -7,6 +7,11 @@ import {
   resolveSyncRule,
 } from "#app/config/sync.js";
 import { isExecutableMode } from "#app/lib/file-mode.js";
+import {
+  type ProgressReporter,
+  reportDetail,
+  reportPhase,
+} from "#app/lib/progress.js";
 import { decryptSecretFile } from "./crypto.js";
 import { DevsyncError, wrapUnknownError } from "./error.js";
 import { getPathStats, listDirectoryEntries } from "./filesystem.js";
@@ -19,6 +24,27 @@ import {
 import type { EffectiveSyncConfig } from "./runtime.js";
 
 type RepositorySnapshotConfig = EffectiveSyncConfig;
+
+const reportRepositoryScanProgress = (
+  reporter: ProgressReporter | undefined,
+  state: { scannedStorageEntryCount: number },
+  storagePath: string,
+  kind: "directory" | "file",
+) => {
+  state.scannedStorageEntryCount += 1;
+
+  if (reporter?.verbose) {
+    reportDetail(reporter, `scanned repository ${kind} ${storagePath}`);
+    return;
+  }
+
+  if (state.scannedStorageEntryCount % 100 === 0) {
+    reportPhase(
+      reporter,
+      `Scanned ${state.scannedStorageEntryCount} repository entries...`,
+    );
+  }
+};
 
 const isActiveStorageProfile = (
   storageProfile: string,
@@ -195,6 +221,10 @@ const walkArtifactTree = async (
   config: RepositorySnapshotConfig,
   snapshot: Map<string, SnapshotNode>,
   prefix = "",
+  reporter?: ProgressReporter,
+  progressState: { scannedStorageEntryCount: number } = {
+    scannedStorageEntryCount: 0,
+  },
 ) => {
   const entries = await listDirectoryEntries(rootDirectory);
 
@@ -202,9 +232,22 @@ const walkArtifactTree = async (
     const absolutePath = join(rootDirectory, entry.name);
     const storagePath = prefix === "" ? entry.name : `${prefix}/${entry.name}`;
     const stats = await lstat(absolutePath);
+    reportRepositoryScanProgress(
+      reporter,
+      progressState,
+      storagePath,
+      stats.isDirectory() ? "directory" : "file",
+    );
 
     if (stats.isDirectory()) {
-      await walkArtifactTree(absolutePath, config, snapshot, storagePath);
+      await walkArtifactTree(
+        absolutePath,
+        config,
+        snapshot,
+        storagePath,
+        reporter,
+        progressState,
+      );
       continue;
     }
 
@@ -215,10 +258,12 @@ const walkArtifactTree = async (
 export const buildRepositorySnapshot = async (
   syncDirectory: string,
   config: RepositorySnapshotConfig,
+  reporter?: ProgressReporter,
 ) => {
   const snapshot = new Map<string, SnapshotNode>();
   const artifactsDirectory = resolveSyncArtifactsDirectoryPath(syncDirectory);
   const namespaces = collectArtifactNamespaces(config.entries);
+  const progressState = { scannedStorageEntryCount: 0 };
 
   await Promise.all(
     [...namespaces].map(async (namespace) => {
@@ -226,7 +271,15 @@ export const buildRepositorySnapshot = async (
       const namespaceStats = await getPathStats(namespaceDirectory);
 
       if (namespaceStats?.isDirectory()) {
-        await walkArtifactTree(namespaceDirectory, config, snapshot, namespace);
+        reportPhase(reporter, `Scanning repository namespace ${namespace}...`);
+        await walkArtifactTree(
+          namespaceDirectory,
+          config,
+          snapshot,
+          namespace,
+          reporter,
+          progressState,
+        );
       }
     }),
   );

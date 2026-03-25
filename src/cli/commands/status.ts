@@ -26,9 +26,11 @@ export default class SyncStatus extends BaseCommand {
 
   public override async run(): Promise<void> {
     const { flags } = await this.parse(SyncStatus);
+    const progress = this.createProgressReporter(flags.verbose);
     const output = formatSyncStatusResult(
       await getSyncStatus(process.env, {
         profile: flags.profile,
+        reporter: progress,
       }),
       { verbose: flags.verbose },
     );

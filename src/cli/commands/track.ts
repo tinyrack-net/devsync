@@ -56,6 +56,7 @@ export default class SyncTrack extends BaseCommand {
     const targets = argv as string[];
     const mode = flags.mode as "ignore" | "normal" | "secret";
     const profiles = flags.profile ?? [];
+    const progress = this.createProgressReporter(flags.verbose);
 
     if (targets.length === 0) {
       this.error("At least one target path is required.");
@@ -63,9 +64,13 @@ export default class SyncTrack extends BaseCommand {
 
     const environment = process.env;
     const cwd = process.cwd();
-    const results: string[] = [];
+    progress.phase(
+      `Processing ${targets.length} sync target${targets.length === 1 ? "" : "s"}...`,
+    );
 
     for (const target of targets) {
+      progress.phase(`Resolving ${target}...`);
+
       try {
         const result = await trackSyncTarget(
           {
@@ -77,12 +82,13 @@ export default class SyncTrack extends BaseCommand {
           cwd,
         );
 
-        results.push(formatSyncAddResult(result, { verbose: flags.verbose }));
+        this.print(formatSyncAddResult(result, { verbose: flags.verbose }));
       } catch (error: unknown) {
         if (
           error instanceof DevsyncError &&
           error.code === "TARGET_NOT_FOUND"
         ) {
+          progress.phase(`Updating existing target ${target}...`);
           const setResult = await setSyncTargetMode(
             {
               mode,
@@ -101,7 +107,7 @@ export default class SyncTrack extends BaseCommand {
             );
           }
 
-          results.push(
+          this.print(
             formatSyncSetResult(setResult, { verbose: flags.verbose }),
           );
         } else {
@@ -109,7 +115,5 @@ export default class SyncTrack extends BaseCommand {
         }
       }
     }
-
-    this.print(results.join("\n"));
   }
 }

@@ -7,6 +7,11 @@ import {
   resolveManagedSyncMode,
 } from "#app/config/sync.js";
 import { buildDirectoryKey } from "#app/lib/path.js";
+import {
+  type ProgressReporter,
+  reportDetail,
+  reportPhase,
+} from "#app/lib/progress.js";
 import { DevsyncError } from "./error.js";
 import {
   copyFilesystemNode,
@@ -23,6 +28,29 @@ type MaterializationConfig = ResolvedSyncConfig &
   Readonly<{
     activeProfile?: string;
   }>;
+
+const reportPullPlanningProgress = (
+  reporter: ProgressReporter | undefined,
+  state: { scannedLocalNodeCount: number },
+  repoPath: string,
+) => {
+  state.scannedLocalNodeCount += 1;
+
+  if (reporter?.verbose) {
+    reportDetail(
+      reporter,
+      `scanned local path ${repoPath} while planning pull`,
+    );
+    return;
+  }
+
+  if (state.scannedLocalNodeCount % 100 === 0) {
+    reportPhase(
+      reporter,
+      `Scanned ${state.scannedLocalNodeCount} local paths while planning pull...`,
+    );
+  }
+};
 
 type EntryMaterialization =
   | Readonly<{
@@ -45,6 +73,7 @@ const copyIgnoredLocalNodesToDirectory = async (
   targetDirectory: string,
   config: MaterializationConfig,
   repoPathPrefix: string,
+  reporter?: ProgressReporter,
 ): Promise<number> => {
   const stats = await getPathStats(sourceDirectory);
 
@@ -77,6 +106,7 @@ const copyIgnoredLocalNodesToDirectory = async (
         targetPath,
         config,
         repoPath,
+        reporter,
       );
       continue;
     }
@@ -90,6 +120,7 @@ const copyIgnoredLocalNodesToDirectory = async (
 
     await mkdir(dirname(targetPath), { recursive: true });
     await copyFilesystemNode(sourcePath, targetPath, entryStats);
+    reportDetail(reporter, `preserved ignored local path ${repoPath}`);
     copiedNodeCount += 1;
   }
 
@@ -99,7 +130,9 @@ const copyIgnoredLocalNodesToDirectory = async (
 const stageAndReplaceFilePath = async (
   targetPath: string,
   node: FileLikeSnapshotNode,
+  reporter?: ProgressReporter,
 ) => {
+  reportDetail(reporter, `staging local file ${targetPath}`);
   await mkdir(dirname(targetPath), { recursive: true });
   const stagingDirectory = await mkdtemp(
     join(dirname(targetPath), `.${basename(targetPath)}.devsync-sync-`),
@@ -123,6 +156,7 @@ const stageAndReplaceMergedDirectoryPath = async (
   entry: ResolvedSyncConfigEntry,
   config: MaterializationConfig,
   desiredNodes: ReadonlyMap<string, FileLikeSnapshotNode>,
+  reporter?: ProgressReporter,
 ) => {
   await mkdir(dirname(entry.localPath), { recursive: true });
   const stagingDirectory = await mkdtemp(
@@ -138,7 +172,9 @@ const stageAndReplaceMergedDirectoryPath = async (
       stagingDirectory,
       config,
       entry.repoPath,
+      reporter,
     );
+    let stagedNodeCount = 0;
 
     for (const relativePath of [...desiredNodes.keys()].sort((left, right) => {
       return left.localeCompare(right);
@@ -155,6 +191,20 @@ const stageAndReplaceMergedDirectoryPath = async (
         await writeSymlinkNode(targetNodePath, node.linkTarget);
       } else {
         await writeFileNode(targetNodePath, node);
+      }
+
+      stagedNodeCount += 1;
+
+      if (reporter?.verbose) {
+        reportDetail(
+          reporter,
+          `staged local node ${posix.join(entry.repoPath, relativePath)}`,
+        );
+      } else if (stagedNodeCount % 100 === 0) {
+        reportPhase(
+          reporter,
+          `Staged ${stagedNodeCount} local nodes for ${entry.repoPath}...`,
+        );
       }
     }
 
@@ -173,11 +223,13 @@ const stageAndReplaceMergedDirectoryPath = async (
 export const buildEntryMaterialization = (
   entry: ResolvedSyncConfigEntry,
   snapshot: ReadonlyMap<string, SnapshotNode>,
+  reporter?: ProgressReporter,
 ): EntryMaterialization => {
   if (entry.kind === "file") {
     const node = snapshot.get(entry.repoPath);
 
     if (node === undefined) {
+      reportDetail(reporter, `planned an absent local file ${entry.repoPath}`);
       return {
         desiredKeys: new Set<string>(),
         type: "absent",
@@ -195,6 +247,7 @@ export const buildEntryMaterialization = (
       );
     }
 
+    reportDetail(reporter, `planned a local file ${entry.repoPath}`);
     return {
       desiredKeys: new Set<string>([entry.repoPath]),
       node,
@@ -234,6 +287,10 @@ export const buildEntryMaterialization = (
   }
 
   if (rootNode === undefined && nodes.size === 0) {
+    reportDetail(
+      reporter,
+      `planned an absent local directory ${entry.repoPath}`,
+    );
     return {
       desiredKeys,
       type: "absent",
@@ -241,6 +298,7 @@ export const buildEntryMaterialization = (
   }
 
   desiredKeys.add(buildDirectoryKey(entry.repoPath));
+  reportDetail(reporter, `planned a local directory ${entry.repoPath}`);
 
   return {
     desiredKeys,
@@ -254,6 +312,10 @@ const collectLocalLeafKeys = async (
   repoPathPrefix: string,
   keys: Set<string>,
   prefix?: string,
+  reporter?: ProgressReporter,
+  progressState: { scannedLocalNodeCount: number } = {
+    scannedLocalNodeCount: 0,
+  },
 ) => {
   const stats = await getPathStats(targetPath);
 
@@ -262,6 +324,7 @@ const collectLocalLeafKeys = async (
   }
 
   if (!stats.isDirectory()) {
+    reportPullPlanningProgress(reporter, progressState, repoPathPrefix);
     keys.add(repoPathPrefix);
 
     return;
@@ -276,6 +339,8 @@ const collectLocalLeafKeys = async (
     const relativePath =
       prefix === undefined ? entry.name : `${prefix}/${entry.name}`;
     const childStats = await lstat(absolutePath);
+    const repoPath = posix.join(repoPathPrefix, relativePath);
+    reportPullPlanningProgress(reporter, progressState, repoPath);
 
     if (childStats?.isDirectory()) {
       await collectLocalLeafKeys(
@@ -283,11 +348,13 @@ const collectLocalLeafKeys = async (
         repoPathPrefix,
         keys,
         relativePath,
+        reporter,
+        progressState,
       );
       continue;
     }
 
-    keys.add(posix.join(repoPathPrefix, relativePath));
+    keys.add(repoPath);
   }
 };
 
@@ -296,6 +363,10 @@ const collectIgnoredLocalKeys = async (
   repoPath: string,
   config: MaterializationConfig,
   keys: Set<string>,
+  reporter?: ProgressReporter,
+  progressState: { scannedLocalNodeCount: number } = {
+    scannedLocalNodeCount: 0,
+  },
 ): Promise<boolean> => {
   const stats = await getPathStats(targetPath);
 
@@ -306,6 +377,7 @@ const collectIgnoredLocalKeys = async (
   const mode = resolveManagedSyncMode(config, repoPath, config.activeProfile);
 
   if (!stats.isDirectory()) {
+    reportPullPlanningProgress(reporter, progressState, repoPath);
     if (mode !== "ignore") {
       return false;
     }
@@ -323,8 +395,14 @@ const collectIgnoredLocalKeys = async (
     const childRepoPath = posix.join(repoPath, entry.name);
 
     preservedIgnoredChildren =
-      (await collectIgnoredLocalKeys(childPath, childRepoPath, config, keys)) ||
-      preservedIgnoredChildren;
+      (await collectIgnoredLocalKeys(
+        childPath,
+        childRepoPath,
+        config,
+        keys,
+        reporter,
+        progressState,
+      )) || preservedIgnoredChildren;
   }
 
   if (mode === "ignore" || preservedIgnoredChildren) {
@@ -339,15 +417,26 @@ export const countDeletedLocalNodes = async (
   desiredKeys: ReadonlySet<string>,
   config: MaterializationConfig,
   existingKeys: Set<string> = new Set<string>(),
+  reporter?: ProgressReporter,
 ) => {
   const preservedIgnoredKeys = new Set<string>();
+  const progressState = { scannedLocalNodeCount: 0 };
 
-  await collectLocalLeafKeys(entry.localPath, entry.repoPath, existingKeys);
+  await collectLocalLeafKeys(
+    entry.localPath,
+    entry.repoPath,
+    existingKeys,
+    undefined,
+    reporter,
+    progressState,
+  );
   await collectIgnoredLocalKeys(
     entry.localPath,
     entry.repoPath,
     config,
     preservedIgnoredKeys,
+    reporter,
+    progressState,
   );
 
   return [...existingKeys].filter((key) => {
@@ -359,6 +448,7 @@ export const applyEntryMaterialization = async (
   entry: ResolvedSyncConfigEntry,
   materialization: EntryMaterialization,
   config: MaterializationConfig,
+  reporter?: ProgressReporter,
 ) => {
   if (
     entry.kind === "file" &&
@@ -370,7 +460,12 @@ export const applyEntryMaterialization = async (
 
   if (materialization.type === "absent") {
     if (entry.kind === "directory") {
-      await stageAndReplaceMergedDirectoryPath(entry, config, new Map());
+      await stageAndReplaceMergedDirectoryPath(
+        entry,
+        config,
+        new Map(),
+        reporter,
+      );
 
       return;
     }
@@ -381,7 +476,11 @@ export const applyEntryMaterialization = async (
   }
 
   if (materialization.type === "file") {
-    await stageAndReplaceFilePath(entry.localPath, materialization.node);
+    await stageAndReplaceFilePath(
+      entry.localPath,
+      materialization.node,
+      reporter,
+    );
 
     return;
   }
@@ -390,6 +489,7 @@ export const applyEntryMaterialization = async (
     entry,
     config,
     materialization.nodes,
+    reporter,
   );
 };
 

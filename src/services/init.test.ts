@@ -3,6 +3,7 @@ import { join } from "node:path";
 
 import { afterEach, describe, expect, it } from "vitest";
 
+import type { ProgressReporter } from "#app/lib/progress.js";
 import { DevsyncError } from "#app/services/error.js";
 import { initializeSync } from "#app/services/init.js";
 import {
@@ -29,6 +30,26 @@ const createEnvironment = (
   return {
     HOME: homeDirectory,
     XDG_CONFIG_HOME: xdgConfigHome,
+  };
+};
+
+const createProgressCapture = (verbose = false) => {
+  const messages: string[] = [];
+  const reporter: ProgressReporter = {
+    detail: (message: string) => {
+      if (verbose) {
+        messages.push(`detail:${message}`);
+      }
+    },
+    phase: (message: string) => {
+      messages.push(message);
+    },
+    verbose,
+  };
+
+  return {
+    messages,
+    reporter,
   };
 };
 
@@ -105,6 +126,7 @@ describe("init service", () => {
     const xdgConfigHome = join(workspace, "xdg");
     const sourceRepository = join(workspace, "remote-sync");
     const ageKeys = await createAgeKeyPair();
+    const { messages, reporter } = createProgressCapture();
 
     await writeIdentityFile(xdgConfigHome, ageKeys.identity);
     await runGit(["init", "-b", "main", sourceRepository], workspace);
@@ -116,10 +138,19 @@ describe("init service", () => {
         repository: sourceRepository,
       },
       createEnvironment(homeDirectory, xdgConfigHome),
+      reporter,
     );
 
     expect(result.gitAction).toBe("cloned");
     expect(result.gitSource).toBe(sourceRepository);
+    expect(messages[0]).toBe("Initializing sync directory...");
+    expect(messages).toEqual(
+      expect.arrayContaining([
+        `Cloning the sync repository from ${sourceRepository}...`,
+        "Preparing sync encryption settings...",
+        "Writing sync manifest...",
+      ]),
+    );
     expect(
       await readFile(join(result.syncDirectory, "manifest.json"), "utf8"),
     ).toContain('"version": 7');

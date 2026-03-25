@@ -4,11 +4,13 @@ import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 
 import { syncSecretArtifactSuffix } from "#app/config/sync.js";
+import type { ProgressReporter } from "#app/lib/progress.js";
 import { trackSyncTarget } from "#app/services/add.js";
 import { initializeSync } from "#app/services/init.js";
 import { pullSync } from "#app/services/pull.js";
 import { pushSync } from "#app/services/push.js";
 import { setSyncTargetMode } from "#app/services/set.js";
+import { getSyncStatus } from "#app/services/status.js";
 import {
   createAgeKeyPair,
   createTemporaryDirectory,
@@ -32,6 +34,26 @@ const createEnvironment = (
   return {
     HOME: homeDirectory,
     XDG_CONFIG_HOME: xdgConfigHome,
+  };
+};
+
+const createProgressCapture = (verbose = false) => {
+  const messages: string[] = [];
+  const reporter: ProgressReporter = {
+    detail: (message: string) => {
+      if (verbose) {
+        messages.push(`detail:${message}`);
+      }
+    },
+    phase: (message: string) => {
+      messages.push(message);
+    },
+    verbose,
+  };
+
+  return {
+    messages,
+    reporter,
   };
 };
 
@@ -85,18 +107,28 @@ describe("sync dry runs", () => {
       environment,
       cwd,
     );
+    const { messages, reporter } = createProgressCapture();
 
     const result = await pushSync(
       {
         dryRun: true,
       },
       environment,
+      reporter,
     );
 
     expect(result.dryRun).toBe(true);
     expect(result.directoryCount).toBe(1);
     expect(result.plainFileCount).toBe(1);
     expect(result.encryptedFileCount).toBe(1);
+    expect(messages[0]).toBe("Starting push...");
+    expect(messages).toEqual(
+      expect.arrayContaining([
+        "Scanning local files...",
+        "Preparing repository artifacts...",
+        "Scanning existing repository artifacts...",
+      ]),
+    );
     await expect(
       readFile(
         join(
@@ -168,18 +200,73 @@ describe("sync dry runs", () => {
 
     await writeFile(plainFile, "changed locally\n", "utf8");
     await writeFile(extraFile, "leave me\n", "utf8");
+    const { messages, reporter } = createProgressCapture();
 
     const result = await pullSync(
       {
         dryRun: true,
       },
       environment,
+      reporter,
     );
 
     expect(result.dryRun).toBe(true);
     expect(result.plainFileCount).toBe(1);
     expect(result.deletedLocalCount).toBeGreaterThanOrEqual(1);
+    expect(messages[0]).toBe("Starting pull...");
+    expect(messages).toEqual(
+      expect.arrayContaining([
+        "Scanning repository artifacts...",
+        "Planning local materializations...",
+        "Scanning existing local paths...",
+      ]),
+    );
     expect(await readFile(plainFile, "utf8")).toBe("changed locally\n");
     expect(await readFile(extraFile, "utf8")).toBe("leave me\n");
+  });
+
+  it("reports status planning progress", async () => {
+    const workspace = await createWorkspace();
+    const homeDirectory = join(workspace, "home");
+    const xdgConfigHome = join(workspace, "xdg");
+    const bundleDirectory = join(homeDirectory, "bundle");
+    const plainFile = join(bundleDirectory, "plain.txt");
+    const ageKeys = await createAgeKeyPair();
+    const environment = createEnvironment(homeDirectory, xdgConfigHome);
+    const cwd = homeDirectory;
+
+    await writeIdentityFile(xdgConfigHome, ageKeys.identity);
+    await mkdir(bundleDirectory, { recursive: true });
+    await writeFile(plainFile, "plain\n", "utf8");
+
+    await initializeSync(
+      {
+        identityFile: "$XDG_CONFIG_HOME/devsync/age/keys.txt",
+        recipients: [ageKeys.recipient],
+      },
+      environment,
+    );
+    await trackSyncTarget(
+      {
+        mode: "normal",
+        target: bundleDirectory,
+      },
+      environment,
+      cwd,
+    );
+    const { messages, reporter } = createProgressCapture();
+
+    const result = await getSyncStatus(environment, {
+      reporter,
+    });
+
+    expect(result.entryCount).toBe(1);
+    expect(messages[0]).toBe("Analyzing sync status...");
+    expect(messages).toEqual(
+      expect.arrayContaining([
+        "Building push plan...",
+        "Building pull plan...",
+      ]),
+    );
   });
 });

@@ -11,6 +11,11 @@ import {
   syncSecretArtifactSuffix,
 } from "#app/config/sync.js";
 import { buildDirectoryKey } from "#app/lib/path.js";
+import {
+  type ProgressReporter,
+  reportDetail,
+  reportPhase,
+} from "#app/lib/progress.js";
 import { decryptSecretFile, encryptSecretFile } from "./crypto.js";
 import { DevsyncError } from "./error.js";
 import {
@@ -172,9 +177,11 @@ export const resolveEntryArtifactPath = (
 export const buildRepoArtifacts = async (
   snapshot: ReadonlyMap<string, SnapshotNode>,
   config: ArtifactConfig,
+  reporter?: ProgressReporter,
 ) => {
   const artifacts: RepoArtifact[] = [];
   const seenArtifactKeys = new Set<string>();
+  let preparedArtifactCount = 0;
 
   const addArtifact = (artifact: RepoArtifact) => {
     const key = buildArtifactKey(artifact);
@@ -188,6 +195,18 @@ export const buildRepoArtifacts = async (
 
     seenArtifactKeys.add(key);
     artifacts.push(artifact);
+    preparedArtifactCount += 1;
+
+    const relativePath = resolveArtifactRelativePath(artifact);
+
+    if (reporter?.verbose) {
+      reportDetail(reporter, `prepared repository artifact ${relativePath}`);
+    } else if (preparedArtifactCount % 100 === 0) {
+      reportPhase(
+        reporter,
+        `Prepared ${preparedArtifactCount} repository artifacts...`,
+      );
+    }
   };
 
   for (const repoPath of [...snapshot.keys()].sort((left, right) => {
@@ -260,6 +279,7 @@ const collectArtifactLeafKeys = async (
   rootDirectory: string,
   keys: Set<string>,
   prefix?: string,
+  onKey?: (key: string) => void,
 ) => {
   const rootStats = await getPathStats(rootDirectory);
 
@@ -270,6 +290,7 @@ const collectArtifactLeafKeys = async (
   if (!rootStats.isDirectory()) {
     if (prefix !== undefined) {
       keys.add(prefix);
+      onKey?.(prefix);
     }
 
     return;
@@ -284,21 +305,37 @@ const collectArtifactLeafKeys = async (
     const stats = await lstat(absolutePath);
 
     if (stats?.isDirectory()) {
-      await collectArtifactLeafKeys(absolutePath, keys, relativePath);
+      await collectArtifactLeafKeys(absolutePath, keys, relativePath, onKey);
       continue;
     }
 
     keys.add(relativePath);
+    onKey?.(relativePath);
   }
 };
 
 export const collectExistingArtifactKeys = async (
   syncDirectory: string,
   config: ArtifactConfig,
+  reporter?: ProgressReporter,
 ) => {
   const keys = new Set<string>();
   const artifactsDirectory = resolveSyncArtifactsDirectoryPath(syncDirectory);
   const namespaces = collectArtifactNamespaces(config.entries);
+  let discoveredArtifactCount = 0;
+
+  const noteDiscoveredArtifact = (key: string) => {
+    discoveredArtifactCount += 1;
+
+    if (reporter?.verbose) {
+      reportDetail(reporter, `found repository artifact ${key}`);
+    } else if (discoveredArtifactCount % 100 === 0) {
+      reportPhase(
+        reporter,
+        `Scanned ${discoveredArtifactCount} repository artifacts...`,
+      );
+    }
+  };
 
   await Promise.all(
     [...namespaces].map(async (namespace) => {
@@ -306,6 +343,7 @@ export const collectExistingArtifactKeys = async (
         join(artifactsDirectory, namespace),
         keys,
         namespace,
+        noteDiscoveredArtifact,
       );
     }),
   );
@@ -391,22 +429,40 @@ export const writeArtifactsToDirectory = async (
   rootDirectory: string,
   artifacts: readonly RepoArtifact[],
   ageConfig?: AgeWriteConfig,
+  reporter?: ProgressReporter,
 ) => {
   await mkdir(rootDirectory, { recursive: true });
+  let processedArtifactCount = 0;
+
+  const noteProcessedArtifact = (relativePath: string, action: string) => {
+    processedArtifactCount += 1;
+
+    if (reporter?.verbose) {
+      reportDetail(reporter, `${action} ${relativePath}`);
+      return;
+    }
+
+    if (processedArtifactCount % 100 === 0) {
+      reportPhase(
+        reporter,
+        `Processed ${processedArtifactCount} repository artifacts...`,
+      );
+    }
+  };
 
   for (const artifact of artifacts) {
-    const artifactPath = join(
-      rootDirectory,
-      ...resolveArtifactRelativePath(artifact).split("/"),
-    );
+    const relativePath = resolveArtifactRelativePath(artifact);
+    const artifactPath = join(rootDirectory, ...relativePath.split("/"));
 
     if (artifact.kind === "directory") {
       await mkdir(artifactPath, { recursive: true });
+      noteProcessedArtifact(relativePath, "ensured repository directory");
       continue;
     }
 
     if (artifact.kind === "symlink") {
       await writeSymlinkNode(artifactPath, artifact.linkTarget);
+      noteProcessedArtifact(relativePath, "wrote repository symlink");
       continue;
     }
 
@@ -418,6 +474,10 @@ export const writeArtifactsToDirectory = async (
       );
 
       if (unchanged) {
+        noteProcessedArtifact(
+          relativePath,
+          "skipped unchanged secret artifact",
+        );
         continue;
       }
 
@@ -430,9 +490,11 @@ export const writeArtifactsToDirectory = async (
         contents: encrypted,
         executable: artifact.executable,
       });
+      noteProcessedArtifact(relativePath, "wrote repository secret artifact");
       continue;
     }
 
     await writeFileNode(artifactPath, artifact);
+    noteProcessedArtifact(relativePath, "wrote repository file");
   }
 };

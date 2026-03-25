@@ -33,6 +33,7 @@ export default class SyncPush extends BaseCommand {
 
   public override async run(): Promise<void> {
     const { flags } = await this.parse(SyncPush);
+    const progress = this.createProgressReporter(flags.verbose);
     const output = formatSyncPushResult(
       await pushSync(
         {
@@ -40,6 +41,7 @@ export default class SyncPush extends BaseCommand {
           profile: flags.profile,
         },
         process.env,
+        progress,
       ),
       { verbose: flags.verbose },
     );

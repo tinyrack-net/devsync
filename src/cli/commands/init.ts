@@ -51,6 +51,7 @@ export default class SyncInit extends BaseCommand {
 
   public override async run(): Promise<void> {
     const { args, flags } = await this.parse(SyncInit);
+    const progress = this.createProgressReporter(flags.verbose);
     const requestedKey = flags.key?.trim();
     const configuredIdentityFile =
       flags.identity?.trim() || defaultSyncIdentityFile;
@@ -81,6 +82,7 @@ export default class SyncInit extends BaseCommand {
           repository: args.repository,
         },
         process.env,
+        progress,
       ),
       { verbose: flags.verbose },
     );

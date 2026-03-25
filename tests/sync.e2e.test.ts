@@ -1,3 +1,4 @@
+import { spawn } from "node:child_process";
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -38,6 +39,74 @@ const runCli = async (
     input: options?.input,
     reject: options?.reject,
   });
+};
+
+const runCliStreaming = async (
+  args: readonly string[],
+  options?: Readonly<{
+    cwd?: string;
+    env?: NodeJS.ProcessEnv;
+  }>,
+) => {
+  const child = spawn(process.execPath, [cliPath, ...args], {
+    cwd: options?.cwd,
+    env: {
+      ...process.env,
+      ...options?.env,
+      FORCE_COLOR: "0",
+      NO_COLOR: "1",
+      NODE_NO_WARNINGS: "1",
+    },
+    stdio: ["ignore", "pipe", "pipe"],
+  });
+  let stdout = "";
+  let stderr = "";
+
+  child.stdout.setEncoding("utf8");
+  child.stderr.setEncoding("utf8");
+  child.stdout.on("data", (chunk: string) => {
+    stdout += chunk;
+  });
+  child.stderr.on("data", (chunk: string) => {
+    stderr += chunk;
+  });
+
+  const firstStderr = await new Promise<string>((resolve, reject) => {
+    const onData = (chunk: string) => {
+      cleanup();
+      resolve(chunk);
+    };
+    const onClose = () => {
+      cleanup();
+      reject(new Error("Process exited before emitting progress output."));
+    };
+    const onError = (error: Error) => {
+      cleanup();
+      reject(error);
+    };
+    const cleanup = () => {
+      child.stderr.off("data", onData);
+      child.off("close", onClose);
+      child.off("error", onError);
+    };
+
+    child.stderr.on("data", onData);
+    child.on("close", onClose);
+    child.on("error", onError);
+  });
+  const exitCode = await new Promise<number>((resolve, reject) => {
+    child.on("close", (code) => {
+      resolve(code ?? -1);
+    });
+    child.on("error", reject);
+  });
+
+  return {
+    exitCode,
+    firstStderr,
+    stderr,
+    stdout,
+  };
 };
 
 const createSyncEnvironment = (
@@ -367,5 +436,44 @@ describe("sync CLI e2e", () => {
 
     expect(result.exitCode).toBe(0);
     expect(stripAnsi(result.stdout)).toContain("mode      secret");
+  });
+
+  it("streams push progress to stderr before the command exits", async () => {
+    const workspace = await createWorkspace();
+    const homeDirectory = join(workspace, "home");
+    const xdgConfigHome = join(workspace, "xdg");
+    const bundleDirectory = join(homeDirectory, ".config", "streaming");
+    const ageKeys = await createAgeKeyPair();
+    const env = createSyncEnvironment(homeDirectory, xdgConfigHome);
+
+    await writeIdentityFile(xdgConfigHome, ageKeys.identity);
+    await mkdir(bundleDirectory, { recursive: true });
+
+    for (let index = 0; index < 150; index += 1) {
+      await writeFile(
+        join(bundleDirectory, `file-${String(index).padStart(3, "0")}.txt`),
+        `value-${index}\n`,
+        "utf8",
+      );
+    }
+
+    await runCli(
+      [
+        "init",
+        "--recipient",
+        ageKeys.recipient,
+        "--identity",
+        "$XDG_CONFIG_HOME/devsync/age/keys.txt",
+      ],
+      { env },
+    );
+    await runCli(["track", bundleDirectory], { env });
+
+    const result = await runCliStreaming(["push"], { env });
+
+    expect(result.exitCode).toBe(0);
+    expect(stripAnsi(result.firstStderr)).toContain("Starting push...");
+    expect(stripAnsi(result.stderr)).toContain("Scanning local files...");
+    expect(stripAnsi(result.stdout)).toContain("Pushed to sync repository");
   });
 });

@@ -6,6 +6,11 @@ import {
   resolveManagedSyncMode,
 } from "#app/config/sync.js";
 import { isExecutableMode } from "#app/lib/file-mode.js";
+import {
+  type ProgressReporter,
+  reportDetail,
+  reportPhase,
+} from "#app/lib/progress.js";
 import { DevsyncError } from "./error.js";
 import { getPathStats, listDirectoryEntries } from "./filesystem.js";
 import { assertStorageSafeRepoPath } from "./repo-artifacts.js";
@@ -50,6 +55,27 @@ export const addSnapshotNode = (
   }
 
   snapshot.set(repoPath, node);
+};
+
+const reportLocalScanProgress = (
+  reporter: ProgressReporter | undefined,
+  state: { scannedEntryCount: number },
+  repoPath: string,
+  kind: "directory" | "file" | "other" | "symlink",
+) => {
+  state.scannedEntryCount += 1;
+
+  if (reporter?.verbose) {
+    reportDetail(reporter, `scanned local ${kind} ${repoPath}`);
+    return;
+  }
+
+  if (state.scannedEntryCount % 100 === 0) {
+    reportPhase(
+      reporter,
+      `Scanned ${state.scannedEntryCount} local filesystem entries...`,
+    );
+  }
 };
 
 const addLocalNode = async (
@@ -105,6 +131,8 @@ const walkLocalDirectory = async (
   localDirectory: string,
   repoPathPrefix: string,
   childEntryPaths: ReadonlySet<string>,
+  reporter?: ProgressReporter,
+  progressState: { scannedEntryCount: number } = { scannedEntryCount: 0 },
 ) => {
   const entries = await listDirectoryEntries(localDirectory);
 
@@ -117,6 +145,18 @@ const walkLocalDirectory = async (
     }
 
     const stats = await lstat(localPath);
+    reportLocalScanProgress(
+      reporter,
+      progressState,
+      repoPath,
+      stats.isDirectory()
+        ? "directory"
+        : stats.isSymbolicLink()
+          ? "symlink"
+          : stats.isFile()
+            ? "file"
+            : "other",
+    );
 
     if (stats.isDirectory()) {
       assertStorageSafeRepoPath(repoPath);
@@ -126,6 +166,8 @@ const walkLocalDirectory = async (
         localPath,
         repoPath,
         childEntryPaths,
+        reporter,
+        progressState,
       );
       continue;
     }
@@ -134,14 +176,20 @@ const walkLocalDirectory = async (
   }
 };
 
-export const buildLocalSnapshot = async (config: SnapshotConfig) => {
+export const buildLocalSnapshot = async (
+  config: SnapshotConfig,
+  reporter?: ProgressReporter,
+) => {
   const snapshot = new Map<string, SnapshotNode>();
   const allEntryPaths = new Set(config.entries.map((e) => e.repoPath));
+  const progressState = { scannedEntryCount: 0 };
 
   for (const entry of config.entries) {
+    reportPhase(reporter, `Scanning tracked entry ${entry.repoPath}...`);
     const stats = await getPathStats(entry.localPath);
 
     if (stats === undefined) {
+      reportDetail(reporter, `skipped missing local entry ${entry.repoPath}`);
       continue;
     }
 
@@ -155,6 +203,19 @@ export const buildLocalSnapshot = async (config: SnapshotConfig) => {
       if (entryMode === "ignore") {
         continue;
       }
+
+      reportLocalScanProgress(
+        reporter,
+        progressState,
+        entry.repoPath,
+        stats.isSymbolicLink()
+          ? "symlink"
+          : stats.isFile()
+            ? "file"
+            : stats.isDirectory()
+              ? "directory"
+              : "other",
+      );
 
       if (stats.isDirectory()) {
         throw new DevsyncError(
@@ -191,6 +252,8 @@ export const buildLocalSnapshot = async (config: SnapshotConfig) => {
       entry.localPath,
       entry.repoPath,
       childEntryPaths,
+      reporter,
+      progressState,
     );
 
     if (entryMode !== "ignore" || snapshot.size > snapshotSizeBeforeWalk) {

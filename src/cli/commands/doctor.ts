@@ -13,7 +13,10 @@ export default class SyncDoctor extends BaseCommand {
 
   public override async run(): Promise<void> {
     const { flags } = await this.parse(SyncDoctor);
-    const result = await runSyncDoctor(process.env);
+    const result = await runSyncDoctor(
+      process.env,
+      this.createProgressReporter(flags.verbose),
+    );
 
     this.print(formatSyncDoctorResult(result, { verbose: flags.verbose }));
 

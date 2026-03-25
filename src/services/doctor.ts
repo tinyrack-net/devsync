@@ -1,4 +1,9 @@
 import { resolveSyncConfigFilePath } from "#app/config/sync.js";
+import {
+  type ProgressReporter,
+  reportDetail,
+  reportPhase,
+} from "#app/lib/progress.js";
 
 import { pathExists } from "./filesystem.js";
 import { ensureRepository } from "./git.js";
@@ -44,12 +49,15 @@ const fail = (checkId: string, detail: string): DoctorCheck => ({
 
 export const runSyncDoctor = async (
   environment: NodeJS.ProcessEnv,
+  reporter?: ProgressReporter,
 ): Promise<SyncDoctorResult> => {
+  reportPhase(reporter, "Running doctor checks...");
   const { syncDirectory } = resolveSyncPaths(environment);
   const configPath = resolveSyncConfigFilePath(syncDirectory);
   const checks: DoctorCheck[] = [];
 
   try {
+    reportPhase(reporter, "Checking sync repository...");
     await ensureRepository(syncDirectory);
     checks.push(ok("git", "Sync directory is a git repository."));
   } catch (error: unknown) {
@@ -72,6 +80,7 @@ export const runSyncDoctor = async (
   let config: EffectiveSyncConfig;
 
   try {
+    reportPhase(reporter, "Loading sync configuration...");
     const { effectiveConfig, fullConfig } = await loadSyncConfig(
       syncDirectory,
       environment,
@@ -111,6 +120,7 @@ export const runSyncDoctor = async (
     };
   }
 
+  reportPhase(reporter, "Checking age identity...");
   checks.push(
     (await pathExists(config.age.identityFile))
       ? ok("age", `Age identity file exists at ${config.age.identityFile}.`)
@@ -128,8 +138,21 @@ export const runSyncDoctor = async (
   });
 
   let missingCount = 0;
+  let checkedLocalPathCount = 0;
 
+  reportPhase(reporter, "Checking tracked local paths...");
   for (const entry of missingEntries) {
+    checkedLocalPathCount += 1;
+
+    if (reporter?.verbose) {
+      reportDetail(reporter, `checked tracked local path ${entry.localPath}`);
+    } else if (checkedLocalPathCount % 100 === 0) {
+      reportPhase(
+        reporter,
+        `Checked ${checkedLocalPathCount} tracked local paths...`,
+      );
+    }
+
     if (!(await pathExists(entry.localPath))) {
       missingCount += 1;
     }

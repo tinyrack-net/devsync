@@ -3,6 +3,7 @@ import {
   type SyncConfigEntryKind,
   type SyncMode,
 } from "#app/config/sync.js";
+import { type ProgressReporter, reportPhase } from "#app/lib/progress.js";
 
 import {
   buildPullPlan,
@@ -47,20 +48,36 @@ export const getSyncStatus = async (
   environment: NodeJS.ProcessEnv,
   options: Readonly<{
     profile?: string;
+    reporter?: ProgressReporter;
   }> = {},
 ): Promise<SyncStatusResult> => {
+  const reporter = options.reporter;
+
+  reportPhase(reporter, "Analyzing sync status...");
   const { syncDirectory } = resolveSyncPaths(environment);
   const configPath = resolveSyncConfigFilePath(syncDirectory);
 
+  reportPhase(reporter, "Checking sync repository...");
   await ensureSyncRepository(syncDirectory);
 
+  reportPhase(reporter, "Loading sync configuration...");
   const { effectiveConfig, fullConfig } = await loadSyncConfig(
     syncDirectory,
     environment,
     options,
   );
-  const pushPlan = await buildPushPlan(effectiveConfig, syncDirectory);
-  const pullPlan = await buildPullPlan(effectiveConfig, syncDirectory);
+  reportPhase(reporter, "Building push plan...");
+  const pushPlan = await buildPushPlan(
+    effectiveConfig,
+    syncDirectory,
+    reporter,
+  );
+  reportPhase(reporter, "Building pull plan...");
+  const pullPlan = await buildPullPlan(
+    effectiveConfig,
+    syncDirectory,
+    reporter,
+  );
 
   return {
     ...(effectiveConfig.activeProfile === undefined

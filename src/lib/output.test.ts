@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  formatProgressMessage,
   formatSyncAddResult,
   formatSyncProfileListResult,
   formatSyncProfileUpdateResult,
@@ -12,6 +13,19 @@ const ansiPattern = /\x1b\[[0-9;]*m/g;
 const stripAnsi = (value: string) => value.replace(ansiPattern, "");
 
 describe("output", () => {
+  it("formats progress messages for phase and detail output", () => {
+    expect(stripAnsi(formatProgressMessage("Scanning local files..."))).toBe(
+      "› Scanning local files...\n",
+    );
+    expect(
+      stripAnsi(
+        formatProgressMessage("scanned local file .config/zsh/.zshrc", {
+          detail: true,
+        }),
+      ),
+    ).toBe("  scanned local file .config/zsh/.zshrc\n");
+  });
+
   it("formats profile list and update results", () => {
     expect(
       stripAnsi(

@@ -122,6 +122,8 @@ Notes:
 - `pull` updates local files only.
 - Secret paths are stored encrypted in the repository and require the configured `age` identity to decrypt on restore.
 - `init` prompts for an age private key when `--key` is omitted. Submit an empty response to generate a new identity automatically.
+- Long-running commands such as `init`, `status`, `push`, `pull`, and multi-target `track` now stream progress to `stderr` while keeping the final summary on `stdout`.
+- Use `--verbose` to show more detailed per-entry and per-file progress output.
 
 ## 4. Detailed docs
 

@@ -4,6 +4,11 @@ import {
   resolveSyncArtifactsDirectoryPath,
   resolveSyncConfigFilePath,
 } from "#app/config/sync.js";
+import {
+  type ProgressReporter,
+  reportDetail,
+  reportPhase,
+} from "#app/lib/progress.js";
 
 import { removePathAtomically } from "./filesystem.js";
 import { buildLocalSnapshot, type SnapshotNode } from "./local-snapshot.js";
@@ -11,6 +16,7 @@ import {
   buildArtifactKey,
   buildRepoArtifacts,
   collectExistingArtifactKeys,
+  type RepoArtifact,
   writeArtifactsToDirectory,
 } from "./repo-artifacts.js";
 import {
@@ -37,6 +43,7 @@ export type SyncPushResult = Readonly<{
 }>;
 
 export type PushPlan = Readonly<{
+  artifacts: readonly RepoArtifact[];
   counts: ReturnType<typeof buildPushCounts>;
   deletedArtifactCount: number;
   desiredArtifactKeys: ReadonlySet<string>;
@@ -79,23 +86,29 @@ const buildPushCounts = (snapshot: ReadonlyMap<string, SnapshotNode>) => {
 export const buildPushPlan = async (
   config: EffectiveSyncConfig,
   syncDirectory: string,
+  reporter?: ProgressReporter,
 ): Promise<PushPlan> => {
-  const snapshot = await buildLocalSnapshot(config);
-  const artifacts = await buildRepoArtifacts(snapshot, config);
+  reportPhase(reporter, "Scanning local files...");
+  const snapshot = await buildLocalSnapshot(config, reporter);
+  reportPhase(reporter, "Preparing repository artifacts...");
+  const artifacts = await buildRepoArtifacts(snapshot, config, reporter);
   const desiredArtifactKeys = new Set(
     artifacts.map((artifact) => {
       return buildArtifactKey(artifact);
     }),
   );
+  reportPhase(reporter, "Scanning existing repository artifacts...");
   const existingArtifactKeys = await collectExistingArtifactKeys(
     syncDirectory,
     config,
+    reporter,
   );
   const deletedArtifactCount = [...existingArtifactKeys].filter((key) => {
     return !desiredArtifactKeys.has(key);
   }).length;
 
   return {
+    artifacts,
     counts: buildPushCounts(snapshot),
     deletedArtifactCount,
     desiredArtifactKeys,
@@ -137,11 +150,15 @@ export const buildPushResultFromPlan = (
 export const pushSync = async (
   request: SyncPushRequest,
   environment: NodeJS.ProcessEnv,
+  reporter?: ProgressReporter,
 ): Promise<SyncPushResult> => {
+  reportPhase(reporter, "Starting push...");
   const { syncDirectory } = resolveSyncPaths(environment);
 
+  reportPhase(reporter, "Checking sync repository...");
   await ensureSyncRepository(syncDirectory);
 
+  reportPhase(reporter, "Loading sync configuration...");
   const { effectiveConfig: config } = await loadSyncConfig(
     syncDirectory,
     environment,
@@ -149,25 +166,57 @@ export const pushSync = async (
       ...(request.profile === undefined ? {} : { profile: request.profile }),
     },
   );
-  const plan = await buildPushPlan(config, syncDirectory);
+  const plan = await buildPushPlan(config, syncDirectory, reporter);
 
   if (!request.dryRun) {
     const artifactsDirectory = resolveSyncArtifactsDirectoryPath(syncDirectory);
-    const artifacts = await buildRepoArtifacts(plan.snapshot, config);
-
-    for (const staleKey of [...plan.existingArtifactKeys].filter((key) => {
+    const staleArtifactKeys = [...plan.existingArtifactKeys].filter((key) => {
       return !plan.desiredArtifactKeys.has(key);
-    })) {
+    });
+
+    if (staleArtifactKeys.length > 0) {
+      reportPhase(
+        reporter,
+        `Removing ${staleArtifactKeys.length} stale repository artifact${staleArtifactKeys.length === 1 ? "" : "s"}...`,
+      );
+    }
+
+    let removedArtifactCount = 0;
+
+    for (const staleKey of staleArtifactKeys) {
       const relativePath = staleKey.endsWith("/")
         ? staleKey.slice(0, -1)
         : staleKey;
+
+      removedArtifactCount += 1;
+
+      if (reporter?.verbose) {
+        reportDetail(
+          reporter,
+          `removing stale repository artifact ${relativePath}`,
+        );
+      } else if (removedArtifactCount % 100 === 0) {
+        reportPhase(
+          reporter,
+          `Removed ${removedArtifactCount} stale repository artifacts...`,
+        );
+      }
 
       await removePathAtomically(
         join(artifactsDirectory, ...relativePath.split("/")),
       );
     }
 
-    await writeArtifactsToDirectory(artifactsDirectory, artifacts, config.age);
+    reportPhase(
+      reporter,
+      `Writing ${plan.artifacts.length} repository artifact${plan.artifacts.length === 1 ? "" : "s"}...`,
+    );
+    await writeArtifactsToDirectory(
+      artifactsDirectory,
+      plan.artifacts,
+      config.age,
+      reporter,
+    );
   }
 
   return buildPushResultFromPlan(plan, syncDirectory, request.dryRun);
