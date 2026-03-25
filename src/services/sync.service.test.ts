@@ -50,7 +50,7 @@ afterEach(async () => {
 });
 
 describe("sync service", () => {
-  it("tracks entries in v6 manifest format", async () => {
+  it("tracks entries in v7 manifest format", async () => {
     const workspace = await createWorkspace();
     const homeDirectory = join(workspace, "home");
     const xdgConfigHome = join(workspace, "xdg");
@@ -104,18 +104,18 @@ describe("sync service", () => {
       version: number;
     };
 
-    expect(config.version).toBe(6);
+    expect(config.version).toBe(7);
     expect(config).toHaveProperty("age");
     expect(config.entries).toEqual([
       {
         kind: "directory",
         localPath: { default: "~/.config/zsh" },
-        mode: "normal",
+        mode: { default: "normal" },
       },
       {
         kind: "file",
         localPath: { default: "~/.gitconfig-work" },
-        mode: "secret",
+        mode: { default: "secret" },
       },
     ]);
   });
@@ -270,14 +270,14 @@ describe("sync service", () => {
     ) as {
       entries: Array<{
         localPath: { default: string };
-        mode?: string;
+        mode?: { default: string };
       }>;
     };
     const secretEntry = configAfterModeChange.entries.find(
       (entry) => entry.localPath.default === "~/.config/zsh/secrets.zsh",
     );
 
-    expect(secretEntry?.mode).toBe("normal");
+    expect(secretEntry?.mode).toEqual({ default: "normal" });
   });
 
   it("assigns and unassigns profiles to entries", async () => {

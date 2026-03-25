@@ -6,11 +6,12 @@ import {
 } from "./config-file.js";
 
 describe("config-file", () => {
-  it("writes v6 directory entries", () => {
+  it("writes v7 directory entries", () => {
     expect(
       createSyncConfigDocument({
         entries: [
           {
+            configuredMode: { default: "normal" },
             configuredLocalPath: { default: "~/.config/zsh" },
             kind: "directory",
             localPath: "/tmp/home/.config/zsh",
@@ -21,7 +22,7 @@ describe("config-file", () => {
             repoPath: ".config/zsh",
           },
         ],
-        version: 5,
+        version: 7,
       }),
     ).toEqual({
       entries: [
@@ -30,15 +31,16 @@ describe("config-file", () => {
           localPath: { default: "~/.config/zsh" },
         },
       ],
-      version: 6,
+      version: 7,
     });
   });
 
-  it("writes v6 file entries with mode and profiles", () => {
+  it("writes v7 file entries with mode and profiles", () => {
     expect(
       createSyncConfigDocument({
         entries: [
           {
+            configuredMode: { default: "secret" },
             configuredLocalPath: { default: "~/.gitconfig" },
             kind: "file",
             localPath: "/tmp/home/.gitconfig",
@@ -49,7 +51,7 @@ describe("config-file", () => {
             repoPath: ".gitconfig",
           },
         ],
-        version: 5,
+        version: 7,
       }),
     ).toEqual({
       entries: [
@@ -57,10 +59,10 @@ describe("config-file", () => {
           kind: "file",
           localPath: { default: "~/.gitconfig" },
           profiles: ["default", "work"],
-          mode: "secret",
+          mode: { default: "secret" },
         },
       ],
-      version: 6,
+      version: 7,
     });
   });
 
@@ -69,6 +71,7 @@ describe("config-file", () => {
       createSyncConfigDocument({
         entries: [
           {
+            configuredMode: { default: "normal" },
             configuredLocalPath: { default: "~/.bashrc" },
             kind: "file",
             localPath: "/tmp/home/.bashrc",
@@ -79,7 +82,7 @@ describe("config-file", () => {
             repoPath: ".bashrc",
           },
         ],
-        version: 5,
+        version: 7,
       }),
     ).toEqual({
       entries: [
@@ -88,7 +91,7 @@ describe("config-file", () => {
           localPath: { default: "~/.bashrc" },
         },
       ],
-      version: 6,
+      version: 7,
     });
   });
 
@@ -114,6 +117,7 @@ describe("config-file", () => {
       createSyncConfigDocument({
         entries: [
           {
+            configuredMode: { default: "normal" },
             configuredLocalPath: { default: "~/.bashrc" },
             kind: "file",
             localPath: "/tmp/home/.bashrc",
@@ -124,17 +128,55 @@ describe("config-file", () => {
             repoPath: ".bashrc",
           },
         ],
-        version: 5,
+        version: 7,
       }),
     ).toEqual({
       entries: [
         {
           kind: "file",
           localPath: { default: "~/.bashrc" },
-          mode: "normal",
+          mode: { default: "normal" },
         },
       ],
-      version: 6,
+      version: 7,
+    });
+  });
+
+  it("writes explicit platform-aware modes unchanged", () => {
+    expect(
+      createSyncConfigDocument({
+        entries: [
+          {
+            configuredMode: {
+              default: "normal",
+              mac: "secret",
+              win: "ignore",
+            },
+            configuredLocalPath: { default: "~/.gitconfig" },
+            kind: "file",
+            localPath: "/tmp/home/.gitconfig",
+            profiles: [],
+            profilesExplicit: false,
+            mode: "normal",
+            modeExplicit: true,
+            repoPath: ".gitconfig",
+          },
+        ],
+        version: 7,
+      }),
+    ).toEqual({
+      entries: [
+        {
+          kind: "file",
+          localPath: { default: "~/.gitconfig" },
+          mode: {
+            default: "normal",
+            mac: "secret",
+            win: "ignore",
+          },
+        },
+      ],
+      version: 7,
     });
   });
 });

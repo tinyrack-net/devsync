@@ -100,7 +100,7 @@ describe("sync CLI e2e", () => {
         recipients: [expect.stringMatching(/^age1/u)],
       },
       entries: [],
-      version: 6,
+      version: 7,
     });
   });
 
@@ -162,7 +162,7 @@ describe("sync CLI e2e", () => {
       entries: Array<{
         kind: string;
         localPath: { default: string };
-        mode?: string;
+        mode?: { default: string };
       }>;
     };
 
@@ -174,12 +174,12 @@ describe("sync CLI e2e", () => {
       {
         kind: "directory",
         localPath: { default: "~/.config/mytool" },
-        mode: "secret",
+        mode: { default: "secret" },
       },
       {
         kind: "directory",
         localPath: { default: "~/.config/mytool/cache" },
-        mode: "ignore",
+        mode: { default: "ignore" },
       },
       {
         kind: "file",

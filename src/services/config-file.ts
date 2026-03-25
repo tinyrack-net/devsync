@@ -26,13 +26,13 @@ export const createSyncConfigDocument = (
     config.entries.map((entry): SyncConfig["entries"][number] => ({
       kind: entry.kind,
       localPath: entry.configuredLocalPath,
-      ...(entry.modeExplicit ? { mode: entry.mode } : {}),
+      ...(entry.modeExplicit ? { mode: entry.configuredMode } : {}),
       ...(entry.profilesExplicit ? { profiles: [...entry.profiles] } : {}),
     })),
   );
 
   return {
-    version: 6,
+    version: 7,
     ...(config.age === undefined
       ? {}
       : {

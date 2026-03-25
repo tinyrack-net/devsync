@@ -2,8 +2,10 @@ import { readFile } from "node:fs/promises";
 import { isAbsolute, join, posix, relative, sep } from "node:path";
 
 import { z } from "zod";
-import type { PlatformLocalPath } from "#app/config/platform.js";
 import {
+  detectCurrentPlatformKey,
+  type PlatformKey,
+  type PlatformLocalPath,
   resolveDefaultLocalPath,
   resolveLocalPathForPlatform,
 } from "#app/config/platform.js";
@@ -43,13 +45,21 @@ const platformLocalPathSchema = z
   .strict();
 
 const localPathSchema = platformLocalPathSchema;
+const platformSyncModeSchema = z
+  .object({
+    default: z.enum(syncModes),
+    win: z.enum(syncModes).optional(),
+    mac: z.enum(syncModes).optional(),
+    linux: z.enum(syncModes).optional(),
+  })
+  .strict();
 
 const syncConfigEntrySchema = z
   .object({
     kind: z.enum(syncEntryKinds),
     localPath: localPathSchema,
     profiles: syncProfileNameArraySchema.optional(),
-    mode: z.enum(syncModes).optional(),
+    mode: platformSyncModeSchema.optional(),
   })
   .strict();
 
@@ -62,28 +72,23 @@ const syncConfigAgeSchema = z
   })
   .strict();
 
-const syncConfigSchemaV5 = z
+const syncConfigSchemaV7 = z
   .object({
-    version: z.literal(5),
+    version: z.literal(7),
+    age: syncConfigAgeSchema.optional(),
     entries: z.array(syncConfigEntrySchema),
   })
   .strict();
 
-const syncConfigSchemaV6 = z
-  .object({
-    version: z.literal(6),
-    age: syncConfigAgeSchema,
-    entries: z.array(syncConfigEntrySchema),
-  })
-  .strict();
-
-const syncConfigSchema = z.union([syncConfigSchemaV5, syncConfigSchemaV6]);
+const syncConfigSchema = syncConfigSchemaV7;
 
 export type SyncConfigEntryKind = (typeof syncEntryKinds)[number];
 export type SyncMode = (typeof syncModes)[number];
+export type PlatformSyncMode = z.infer<typeof platformSyncModeSchema>;
 export type SyncConfig = z.infer<typeof syncConfigSchema>;
 
 export type ResolvedSyncConfigEntry = Readonly<{
+  configuredMode: PlatformSyncMode;
   configuredLocalPath: PlatformLocalPath;
   kind: SyncConfigEntryKind;
   localPath: string;
@@ -102,10 +107,19 @@ export type SyncAgeConfig = Readonly<{
 export type ResolvedSyncConfig = Readonly<{
   age?: SyncAgeConfig;
   entries: readonly ResolvedSyncConfigEntry[];
-  version: 5 | 6;
+  version: 7;
 }>;
 
 export const syncDefaultProfile = "default";
+
+const defaultSyncMode: PlatformSyncMode = { default: "normal" };
+
+const resolveSyncModeForPlatform = (
+  configuredMode: PlatformSyncMode,
+  platformKey: PlatformKey,
+): SyncMode => {
+  return configuredMode[platformKey] ?? configuredMode.default;
+};
 
 export const normalizeSyncRepoPath = (value: string) => {
   const normalizedValue = posix.normalize(value.replaceAll("\\", "/"));
@@ -398,6 +412,12 @@ const buildNormalizedProfiles = (
   return entry.profiles;
 };
 
+const buildConfiguredMode = (
+  entry: z.infer<typeof syncConfigEntrySchema>,
+): PlatformSyncMode => {
+  return entry.mode ?? defaultSyncMode;
+};
+
 const findNearestParentEntry = (
   entries: ReadonlyMap<string, ResolvedSyncConfigEntry>,
   childRepoPath: string,
@@ -420,6 +440,7 @@ const findNearestParentEntry = (
 
 const applyEntryInheritance = (
   entries: ResolvedSyncConfigEntry[],
+  platformKey: PlatformKey,
 ): ResolvedSyncConfigEntry[] => {
   const sorted = [...entries].sort(
     (a, b) => a.repoPath.length - b.repoPath.length,
@@ -431,7 +452,9 @@ const applyEntryInheritance = (
     const parent = findNearestParentEntry(resolved, entry.repoPath);
 
     const inheritedMode =
-      !entry.modeExplicit && parent !== undefined ? parent.mode : entry.mode;
+      !entry.modeExplicit && parent !== undefined
+        ? parent.configuredMode
+        : entry.configuredMode;
 
     const inheritedProfiles =
       !entry.profilesExplicit && parent !== undefined
@@ -440,8 +463,9 @@ const applyEntryInheritance = (
 
     resolved.set(entry.repoPath, {
       ...entry,
+      configuredMode: inheritedMode,
       profiles: inheritedProfiles,
-      mode: inheritedMode,
+      mode: resolveSyncModeForPlatform(inheritedMode, platformKey),
     });
   }
 
@@ -460,6 +484,7 @@ export const parseSyncConfig = (
   input: unknown,
   environment: NodeJS.ProcessEnv = process.env,
 ): ResolvedSyncConfig => {
+  const platformKey = detectCurrentPlatformKey();
   const result = syncConfigSchema.safeParse(input);
 
   if (!result.success) {
@@ -477,15 +502,16 @@ export const parseSyncConfig = (
     );
     const repoPath = deriveRepoPathFromLocalPath(entry.localPath, environment);
     const profiles = buildNormalizedProfiles(entry);
-    const mode = entry.mode ?? "normal";
+    const configuredMode = buildConfiguredMode(entry);
 
     return {
+      configuredMode,
       configuredLocalPath: entry.localPath,
       kind: entry.kind,
       localPath: resolvedLocalPath,
       profiles,
       profilesExplicit: entry.profiles !== undefined,
-      mode,
+      mode: resolveSyncModeForPlatform(configuredMode, platformKey),
       modeExplicit: entry.mode !== undefined,
       repoPath,
     } satisfies ResolvedSyncConfigEntry;
@@ -493,15 +519,15 @@ export const parseSyncConfig = (
 
   validateResolvedSyncConfigEntries(rawEntries);
 
-  const entries = applyEntryInheritance(rawEntries);
+  const entries = applyEntryInheritance(rawEntries, platformKey);
 
   const age =
-    result.data.version === 6
-      ? {
+    result.data.age === undefined
+      ? undefined
+      : {
           identityFile: result.data.age.identityFile,
           recipients: [...new Set(result.data.age.recipients)],
-        }
-      : undefined;
+        };
 
   return {
     ...(age === undefined ? {} : { age }),
@@ -515,7 +541,7 @@ export const createInitialSyncConfig = (age: {
   recipients: string[];
 }): SyncConfig => {
   return {
-    version: 6,
+    version: 7,
     age,
     entries: [],
   };

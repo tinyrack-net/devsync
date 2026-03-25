@@ -1,13 +1,24 @@
 import { join } from "node:path";
 
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
+import * as platformConfig from "#app/config/platform.js";
 import { createTemporaryDirectory } from "#app/test/helpers/sync-fixture.js";
 import {
   normalizeSyncProfileName,
   parseSyncConfig,
   resolveSyncRule,
 } from "./sync.js";
+
+afterEach(() => {
+  vi.restoreAllMocks();
+});
+
+const forcePlatform = (platformKey: platformConfig.PlatformKey) => {
+  vi.spyOn(platformConfig, "detectCurrentPlatformKey").mockReturnValue(
+    platformKey,
+  );
+};
 
 describe("sync config", () => {
   it("allows all alphanumeric profile names", () => {
@@ -16,7 +27,7 @@ describe("sync config", () => {
     expect(normalizeSyncProfileName("personal")).toBe("personal");
   });
 
-  it("parses v5 entries with flat profiles", async () => {
+  it("parses v7 entries with flat profiles", async () => {
     const workspace = await createTemporaryDirectory("devsync-sync-config-");
     const homeDirectory = join(workspace, "home");
 
@@ -31,17 +42,17 @@ describe("sync config", () => {
             kind: "file",
             localPath: { default: "~/.config/zsh/secrets.zsh" },
             profiles: ["default", "work"],
-            mode: "secret",
+            mode: { default: "secret" },
           },
         ],
-        version: 5,
+        version: 7,
       },
       {
         HOME: homeDirectory,
       },
     );
 
-    expect(config.version).toBe(5);
+    expect(config.version).toBe(7);
     expect(config.entries).toHaveLength(2);
     expect(resolveSyncRule(config, ".config/zsh/secrets.zsh")).toEqual({
       profile: "default",
@@ -61,7 +72,7 @@ describe("sync config", () => {
     ).toBeUndefined();
   });
 
-  it("parses v5 file entries with mode and profiles", async () => {
+  it("parses v7 file entries with mode and profiles", async () => {
     const workspace = await createTemporaryDirectory("devsync-sync-config-");
     const homeDirectory = join(workspace, "home");
 
@@ -72,10 +83,10 @@ describe("sync config", () => {
             kind: "file",
             localPath: { default: "~/.gitconfig" },
             profiles: ["default", "work"],
-            mode: "secret",
+            mode: { default: "secret" },
           },
         ],
-        version: 5,
+        version: 7,
       },
       {
         HOME: homeDirectory,
@@ -108,15 +119,15 @@ describe("sync config", () => {
           {
             kind: "file",
             localPath: { default: "~/.config/zsh/secrets.zsh" },
-            mode: "secret",
+            mode: { default: "secret" },
           },
           {
             kind: "directory",
             localPath: { default: "~/.config/zsh/cache" },
-            mode: "ignore",
+            mode: { default: "ignore" },
           },
         ],
-        version: 5,
+        version: 7,
       },
       {
         HOME: homeDirectory,
@@ -134,7 +145,7 @@ describe("sync config", () => {
     );
   });
 
-  it("rejects v4 config format", async () => {
+  it("rejects v6 config format", async () => {
     const workspace = await createTemporaryDirectory("devsync-sync-config-");
     const homeDirectory = join(workspace, "home");
 
@@ -142,7 +153,7 @@ describe("sync config", () => {
       parseSyncConfig(
         {
           entries: [],
-          version: 4,
+          version: 6,
         },
         {
           HOME: homeDirectory,
@@ -162,7 +173,7 @@ describe("sync config", () => {
             { kind: "file", localPath: { default: "~/.gitconfig" } },
             { kind: "file", localPath: { default: "~/.gitconfig" } },
           ],
-          version: 5,
+          version: 7,
         },
         {
           HOME: homeDirectory,
@@ -182,10 +193,10 @@ describe("sync config", () => {
           {
             kind: "file",
             localPath: { default: "~/.config/zsh/secrets.zsh" },
-            mode: "secret",
+            mode: { default: "secret" },
           },
         ],
-        version: 5,
+        version: 7,
       },
       {
         HOME: homeDirectory,
@@ -201,12 +212,12 @@ describe("sync config", () => {
 
     const config = parseSyncConfig(
       {
-        version: 5,
+        version: 7,
         entries: [
           {
             kind: "directory",
             localPath: { default: "~/.config/zsh" },
-            mode: "secret",
+            mode: { default: "secret" },
           },
           {
             kind: "file",
@@ -230,7 +241,7 @@ describe("sync config", () => {
 
     const config = parseSyncConfig(
       {
-        version: 5,
+        version: 7,
         entries: [
           {
             kind: "directory",
@@ -259,17 +270,17 @@ describe("sync config", () => {
 
     const config = parseSyncConfig(
       {
-        version: 5,
+        version: 7,
         entries: [
           {
             kind: "directory",
             localPath: { default: "~/.config/zsh" },
-            mode: "secret",
+            mode: { default: "secret" },
           },
           {
             kind: "file",
             localPath: { default: "~/.config/zsh/aliases.zsh" },
-            mode: "normal",
+            mode: { default: "normal" },
           },
         ],
       },
@@ -281,6 +292,74 @@ describe("sync config", () => {
     );
     expect(child?.mode).toBe("normal");
     expect(child?.modeExplicit).toBe(true);
+    expect(child?.configuredMode).toEqual({ default: "normal" });
+  });
+
+  it("inherits the full parent mode policy when child mode is omitted", async () => {
+    forcePlatform("win");
+    const workspace = await createTemporaryDirectory("devsync-sync-config-");
+    const homeDirectory = join(workspace, "home");
+
+    const config = parseSyncConfig(
+      {
+        version: 7,
+        entries: [
+          {
+            kind: "directory",
+            localPath: { default: "~/.config/zsh" },
+            mode: { default: "normal", mac: "secret", win: "ignore" },
+          },
+          {
+            kind: "file",
+            localPath: { default: "~/.config/zsh/aliases.zsh" },
+          },
+        ],
+      },
+      { HOME: homeDirectory },
+    );
+
+    const child = config.entries.find(
+      (e) => e.repoPath === ".config/zsh/aliases.zsh",
+    );
+
+    expect(child?.configuredMode).toEqual({
+      default: "normal",
+      mac: "secret",
+      win: "ignore",
+    });
+    expect(child?.mode).toBe("ignore");
+  });
+
+  it("does not merge parent platform overrides into explicit child mode", async () => {
+    forcePlatform("win");
+    const workspace = await createTemporaryDirectory("devsync-sync-config-");
+    const homeDirectory = join(workspace, "home");
+
+    const config = parseSyncConfig(
+      {
+        version: 7,
+        entries: [
+          {
+            kind: "directory",
+            localPath: { default: "~/.config/zsh" },
+            mode: { default: "normal", mac: "secret", win: "ignore" },
+          },
+          {
+            kind: "file",
+            localPath: { default: "~/.config/zsh/aliases.zsh" },
+            mode: { default: "secret" },
+          },
+        ],
+      },
+      { HOME: homeDirectory },
+    );
+
+    const child = config.entries.find(
+      (e) => e.repoPath === ".config/zsh/aliases.zsh",
+    );
+
+    expect(child?.configuredMode).toEqual({ default: "secret" });
+    expect(child?.mode).toBe("secret");
   });
 
   it("transitive inheritance through multiple levels", async () => {
@@ -289,13 +368,13 @@ describe("sync config", () => {
 
     const config = parseSyncConfig(
       {
-        version: 5,
+        version: 7,
         entries: [
           {
             kind: "directory",
             localPath: { default: "~/.config" },
             profiles: ["vivident"],
-            mode: "secret",
+            mode: { default: "secret" },
           },
           {
             kind: "directory",
@@ -327,7 +406,7 @@ describe("sync config", () => {
 
     const config = parseSyncConfig(
       {
-        version: 5,
+        version: 7,
         entries: [
           {
             kind: "file",
@@ -337,7 +416,7 @@ describe("sync config", () => {
             kind: "directory",
             localPath: { default: "~/.config/zsh" },
             profiles: ["vivident"],
-            mode: "secret",
+            mode: { default: "secret" },
           },
         ],
       },
@@ -357,7 +436,7 @@ describe("sync config", () => {
 
     const config = parseSyncConfig(
       {
-        version: 5,
+        version: 7,
         entries: [
           {
             kind: "file",
@@ -387,7 +466,7 @@ describe("sync config", () => {
             },
           },
         ],
-        version: 5,
+        version: 7,
       },
       {
         HOME: homeDirectory,
@@ -418,7 +497,7 @@ describe("sync config", () => {
             },
           },
         ],
-        version: 5,
+        version: 7,
       },
       {
         HOME: homeDirectory,
@@ -440,7 +519,7 @@ describe("sync config", () => {
             localPath: { default: "~/.gitconfig" },
           },
         ],
-        version: 5,
+        version: 7,
       },
       {
         HOME: homeDirectory,
@@ -452,6 +531,7 @@ describe("sync config", () => {
   });
 
   it("resolves localPath using linux platform override", async () => {
+    forcePlatform("linux");
     const workspace = await createTemporaryDirectory("devsync-sync-config-");
     const homeDirectory = join(workspace, "home");
     const xdgConfigHome = join(homeDirectory, ".config");
@@ -467,7 +547,7 @@ describe("sync config", () => {
             },
           },
         ],
-        version: 5,
+        version: 7,
       },
       {
         HOME: homeDirectory,
@@ -476,6 +556,58 @@ describe("sync config", () => {
     );
 
     expect(config.entries[0]?.localPath).toBe(join(xdgConfigHome, "app"));
+  });
+
+  it("resolves platform-specific modes for the current OS", async () => {
+    forcePlatform("mac");
+    const workspace = await createTemporaryDirectory("devsync-sync-config-");
+    const homeDirectory = join(workspace, "home");
+
+    const config = parseSyncConfig(
+      {
+        entries: [
+          {
+            kind: "file",
+            localPath: { default: "~/.gitconfig" },
+            mode: { default: "normal", mac: "secret", win: "ignore" },
+          },
+        ],
+        version: 7,
+      },
+      {
+        HOME: homeDirectory,
+      },
+    );
+
+    expect(config.entries[0]?.configuredMode).toEqual({
+      default: "normal",
+      mac: "secret",
+      win: "ignore",
+    });
+    expect(config.entries[0]?.mode).toBe("secret");
+  });
+
+  it("rejects string mode format", async () => {
+    const workspace = await createTemporaryDirectory("devsync-sync-config-");
+    const homeDirectory = join(workspace, "home");
+
+    expect(() =>
+      parseSyncConfig(
+        {
+          entries: [
+            {
+              kind: "file",
+              localPath: { default: "~/.gitconfig" },
+              mode: "secret",
+            },
+          ],
+          version: 7,
+        },
+        {
+          HOME: homeDirectory,
+        },
+      ),
+    ).toThrowError("Sync configuration is invalid.");
   });
 
   it("rejects unknown keys in localPath object", async () => {
@@ -494,7 +626,7 @@ describe("sync config", () => {
               },
             },
           ],
-          version: 5,
+          version: 7,
         },
         {
           HOME: homeDirectory,
@@ -516,7 +648,7 @@ describe("sync config", () => {
               localPath: { linux: "~/.gitconfig" },
             },
           ],
-          version: 5,
+          version: 7,
         },
         {
           HOME: homeDirectory,
@@ -533,7 +665,7 @@ describe("sync config", () => {
       parseSyncConfig(
         {
           entries: [{ kind: "file", localPath: "~/.gitconfig" }],
-          version: 5,
+          version: 7,
         },
         {
           HOME: homeDirectory,
@@ -557,7 +689,7 @@ describe("sync config", () => {
             kind: "file",
             localPath: { default: "~/.ssh/config" },
             profiles: ["vivident"],
-            mode: "secret",
+            mode: { default: "secret" },
           },
           {
             kind: "file",
@@ -565,7 +697,7 @@ describe("sync config", () => {
             profiles: ["default", "work"],
           },
         ],
-        version: 5,
+        version: 7,
       },
       {
         HOME: homeDirectory,

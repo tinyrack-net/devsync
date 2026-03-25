@@ -2,6 +2,7 @@ import { join } from "node:path";
 
 import {
   findOwningSyncEntry,
+  type PlatformSyncMode,
   type ResolvedSyncConfigEntry,
   readSyncConfig,
   resolveEntryRelativeRepoPath,
@@ -41,6 +42,10 @@ export type SyncSetResult = Readonly<{
   reason?: SyncSetReason;
   syncDirectory: string;
 }>;
+
+const buildDefaultPlatformMode = (mode: SyncMode): PlatformSyncMode => ({
+  default: mode,
+});
 
 const computeLocalPath = (entry: ResolvedSyncConfigEntry, repoPath: string) => {
   const relativePath = resolveEntryRelativeRepoPath(entry, repoPath);
@@ -225,7 +230,15 @@ export const setSyncTargetMode = async (
   });
 
   if (target.relativePath === "") {
-    const action = target.entry.mode === request.mode ? "unchanged" : "updated";
+    const nextConfiguredMode = buildDefaultPlatformMode(request.mode);
+    const action =
+      target.entry.mode === request.mode &&
+      target.entry.configuredMode.default === request.mode &&
+      target.entry.configuredMode.win === undefined &&
+      target.entry.configuredMode.mac === undefined &&
+      target.entry.configuredMode.linux === undefined
+        ? "unchanged"
+        : "updated";
     const nextConfig = createSyncConfigDocument({
       ...config,
       entries: config.entries.map((entry) => {
@@ -235,6 +248,7 @@ export const setSyncTargetMode = async (
 
         return {
           ...entry,
+          configuredMode: nextConfiguredMode,
           mode: request.mode,
         };
       }),
@@ -256,9 +270,17 @@ export const setSyncTargetMode = async (
   );
 
   if (existingChild !== undefined) {
-    if (existingChild.mode === request.mode) {
+    if (
+      existingChild.mode === request.mode &&
+      existingChild.configuredMode.default === request.mode &&
+      existingChild.configuredMode.win === undefined &&
+      existingChild.configuredMode.mac === undefined &&
+      existingChild.configuredMode.linux === undefined
+    ) {
       return buildResult("unchanged", { reason: "already-set" });
     }
+
+    const nextConfiguredMode = buildDefaultPlatformMode(request.mode);
 
     const nextConfig = createSyncConfigDocument({
       ...config,
@@ -267,7 +289,11 @@ export const setSyncTargetMode = async (
           return entry;
         }
 
-        return { ...entry, mode: request.mode };
+        return {
+          ...entry,
+          configuredMode: nextConfiguredMode,
+          mode: request.mode,
+        };
       }),
     });
 
@@ -288,6 +314,7 @@ export const setSyncTargetMode = async (
     profilesExplicit: false,
     mode: request.mode,
     modeExplicit: true,
+    configuredMode: buildDefaultPlatformMode(request.mode),
     repoPath: childRepoPath,
   };
 

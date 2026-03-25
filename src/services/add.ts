@@ -1,6 +1,7 @@
 import { resolveConfiguredIdentityFile } from "#app/config/global-config.js";
 import {
   normalizeSyncProfileName,
+  type PlatformSyncMode,
   type ResolvedSyncConfigEntry,
   readSyncConfig,
   type SyncConfigEntryKind,
@@ -37,6 +38,10 @@ export type SyncAddResult = Readonly<{
   repoPath: string;
   syncDirectory: string;
 }>;
+
+const buildDefaultPlatformMode = (mode: SyncMode): PlatformSyncMode => ({
+  default: mode,
+});
 
 const buildAddEntryCandidate = async (
   targetPath: string,
@@ -114,6 +119,7 @@ const buildAddEntryCandidate = async (
     profilesExplicit: input.profiles !== undefined,
     mode: input.mode,
     modeExplicit: true,
+    configuredMode: buildDefaultPlatformMode(input.mode),
     repoPath,
   } satisfies ResolvedSyncConfigEntry;
 };
@@ -203,7 +209,13 @@ export const trackSyncTarget = async (
     };
   }
 
-  const modeChanged = existingEntry?.mode !== request.mode;
+  const requestedConfiguredMode = buildDefaultPlatformMode(request.mode);
+  const modeChanged =
+    existingEntry?.mode !== request.mode ||
+    existingEntry?.configuredMode.default !== requestedConfiguredMode.default ||
+    existingEntry?.configuredMode.win !== undefined ||
+    existingEntry?.configuredMode.mac !== undefined ||
+    existingEntry?.configuredMode.linux !== undefined;
   const profilesChanged =
     effectiveProfiles !== undefined &&
     (existingEntry?.profiles.length !== candidate.profiles.length ||
@@ -220,7 +232,12 @@ export const trackSyncTarget = async (
 
         return {
           ...entry,
-          ...(modeChanged ? { mode: request.mode } : {}),
+          ...(modeChanged
+            ? {
+                configuredMode: requestedConfiguredMode,
+                mode: request.mode,
+              }
+            : {}),
           ...(profilesChanged
             ? {
                 profiles: candidate.profiles,

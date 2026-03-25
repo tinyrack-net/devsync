@@ -14,6 +14,7 @@ describe("sync runtime", () => {
     const config = {
       entries: [
         {
+          configuredMode: { default: "normal" },
           configuredLocalPath: { default: "~/.config/zsh" },
           kind: "directory",
           localPath: "/tmp/home/.config/zsh",
@@ -24,7 +25,7 @@ describe("sync runtime", () => {
           repoPath: ".config/zsh",
         },
       ],
-      version: 5 as const,
+      version: 7 as const,
     } satisfies ResolvedSyncConfig;
 
     const effective = buildEffectiveSyncConfig(
@@ -50,6 +51,7 @@ describe("sync runtime", () => {
     const config = {
       entries: [
         {
+          configuredMode: { default: "secret" },
           configuredLocalPath: { default: "~/.gitconfig" },
           kind: "file",
           localPath: "/tmp/home/.gitconfig",
@@ -60,7 +62,7 @@ describe("sync runtime", () => {
           repoPath: ".gitconfig",
         },
       ],
-      version: 5 as const,
+      version: 7 as const,
     } satisfies ResolvedSyncConfig;
 
     expect(
