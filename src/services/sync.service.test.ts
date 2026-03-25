@@ -1,4 +1,4 @@
-import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { lstat, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -588,6 +588,230 @@ describe("sync service", () => {
     expect(await readFile(secretArtifact, "utf8")).toContain(
       "BEGIN AGE ENCRYPTED FILE",
     );
+  });
+
+  it("restores file permission from entry permission on pull", async () => {
+    if (process.platform === "win32") {
+      return;
+    }
+
+    const workspace = await createWorkspace();
+    const homeDirectory = join(workspace, "home");
+    const xdgConfigHome = join(workspace, "xdg");
+    const sshDirectory = join(homeDirectory, ".ssh");
+    const keyFile = join(sshDirectory, "id_rsa");
+    const ageKeys = await createAgeKeyPair();
+    const environment = createSyncEnvironment(homeDirectory, xdgConfigHome);
+
+    await writeIdentityFile(xdgConfigHome, ageKeys.identity);
+    await mkdir(sshDirectory, { recursive: true });
+    await writeFile(keyFile, "fake-private-key\n");
+
+    await initializeSync(
+      {
+        identityFile: "$XDG_CONFIG_HOME/devsync/age/keys.txt",
+        recipients: [ageKeys.recipient],
+      },
+      environment,
+    );
+
+    await writeFile(
+      join(xdgConfigHome, "devsync", "sync", "manifest.json"),
+      JSON.stringify(
+        {
+          version: 7,
+          age: {
+            identityFile: "$XDG_CONFIG_HOME/devsync/age/keys.txt",
+            recipients: [ageKeys.recipient],
+          },
+          entries: [
+            {
+              kind: "file",
+              localPath: { default: "~/.ssh/id_rsa" },
+              mode: { default: "secret" },
+              permission: { default: "0600" },
+            },
+          ],
+        },
+        null,
+        2,
+      ),
+      "utf8",
+    );
+
+    await pushSync({ dryRun: false }, environment);
+    await writeFile(keyFile, "modified-content\n");
+    await pullSync({ dryRun: false }, environment);
+
+    expect(await readFile(keyFile, "utf8")).toBe("fake-private-key\n");
+    const stats = await lstat(keyFile);
+    expect(stats.mode & 0o777).toBe(0o600);
+  });
+
+  it("restores directory entry permission to child files on pull", async () => {
+    if (process.platform === "win32") {
+      return;
+    }
+
+    const workspace = await createWorkspace();
+    const homeDirectory = join(workspace, "home");
+    const xdgConfigHome = join(workspace, "xdg");
+    const sshDirectory = join(homeDirectory, ".ssh");
+    const keyFile = join(sshDirectory, "id_rsa");
+    const configFile = join(sshDirectory, "config");
+    const ageKeys = await createAgeKeyPair();
+    const environment = createSyncEnvironment(homeDirectory, xdgConfigHome);
+
+    await writeIdentityFile(xdgConfigHome, ageKeys.identity);
+    await mkdir(sshDirectory, { recursive: true });
+    await writeFile(keyFile, "fake-private-key\n");
+    await writeFile(configFile, "Host *\n  AddKeysToAgent yes\n");
+
+    await initializeSync(
+      {
+        identityFile: "$XDG_CONFIG_HOME/devsync/age/keys.txt",
+        recipients: [ageKeys.recipient],
+      },
+      environment,
+    );
+
+    await writeFile(
+      join(xdgConfigHome, "devsync", "sync", "manifest.json"),
+      JSON.stringify(
+        {
+          version: 7,
+          age: {
+            identityFile: "$XDG_CONFIG_HOME/devsync/age/keys.txt",
+            recipients: [ageKeys.recipient],
+          },
+          entries: [
+            {
+              kind: "directory",
+              localPath: { default: "~/.ssh" },
+              mode: { default: "normal" },
+              permission: { default: "0600" },
+            },
+          ],
+        },
+        null,
+        2,
+      ),
+      "utf8",
+    );
+
+    await pushSync({ dryRun: false }, environment);
+    await rm(sshDirectory, { force: true, recursive: true });
+    await pullSync({ dryRun: false }, environment);
+
+    expect(await readFile(keyFile, "utf8")).toBe("fake-private-key\n");
+    expect(await readFile(configFile, "utf8")).toBe(
+      "Host *\n  AddKeysToAgent yes\n",
+    );
+
+    const keyStats = await lstat(keyFile);
+    expect(keyStats.mode & 0o777).toBe(0o600);
+
+    const configStats = await lstat(configFile);
+    expect(configStats.mode & 0o777).toBe(0o600);
+  });
+
+  it("uses default executable mode when permission is not set", async () => {
+    if (process.platform === "win32") {
+      return;
+    }
+
+    const workspace = await createWorkspace();
+    const homeDirectory = join(workspace, "home");
+    const xdgConfigHome = join(workspace, "xdg");
+    const gitconfig = join(homeDirectory, ".gitconfig");
+    const ageKeys = await createAgeKeyPair();
+    const environment = createSyncEnvironment(homeDirectory, xdgConfigHome);
+
+    await writeIdentityFile(xdgConfigHome, ageKeys.identity);
+    await mkdir(homeDirectory, { recursive: true });
+    await writeFile(gitconfig, "[user]\nname=test\n");
+
+    await initializeSync(
+      {
+        identityFile: "$XDG_CONFIG_HOME/devsync/age/keys.txt",
+        recipients: [ageKeys.recipient],
+      },
+      environment,
+    );
+
+    await trackSyncTarget(
+      { mode: "normal", target: gitconfig },
+      environment,
+      homeDirectory,
+    );
+
+    await pushSync({ dryRun: false }, environment);
+    await rm(gitconfig);
+    await pullSync({ dryRun: false }, environment);
+
+    const stats = await lstat(gitconfig);
+    expect(stats.mode & 0o777).toBe(0o644);
+  });
+
+  it("preserves permission field in manifest through round-trip", async () => {
+    const workspace = await createWorkspace();
+    const homeDirectory = join(workspace, "home");
+    const xdgConfigHome = join(workspace, "xdg");
+    const keyFile = join(homeDirectory, ".ssh", "id_rsa");
+    const ageKeys = await createAgeKeyPair();
+    const environment = createSyncEnvironment(homeDirectory, xdgConfigHome);
+
+    await writeIdentityFile(xdgConfigHome, ageKeys.identity);
+    await mkdir(join(homeDirectory, ".ssh"), { recursive: true });
+    await writeFile(keyFile, "key-content\n");
+
+    await initializeSync(
+      {
+        identityFile: "$XDG_CONFIG_HOME/devsync/age/keys.txt",
+        recipients: [ageKeys.recipient],
+      },
+      environment,
+    );
+
+    const manifestPath = join(
+      xdgConfigHome,
+      "devsync",
+      "sync",
+      "manifest.json",
+    );
+    await writeFile(
+      manifestPath,
+      JSON.stringify(
+        {
+          version: 7,
+          age: {
+            identityFile: "$XDG_CONFIG_HOME/devsync/age/keys.txt",
+            recipients: [ageKeys.recipient],
+          },
+          entries: [
+            {
+              kind: "file",
+              localPath: { default: "~/.ssh/id_rsa" },
+              mode: { default: "secret" },
+              permission: { default: "0600" },
+            },
+          ],
+        },
+        null,
+        2,
+      ),
+      "utf8",
+    );
+
+    await pushSync({ dryRun: false }, environment);
+
+    const config = JSON.parse(await readFile(manifestPath, "utf8")) as {
+      entries: Array<{
+        permission?: { default: string };
+      }>;
+    };
+
+    expect(config.entries[0]?.permission).toEqual({ default: "0600" });
   });
 
   it("assigns and unassigns profiles to entries", async () => {

@@ -131,6 +131,7 @@ const stageAndReplaceFilePath = async (
   targetPath: string,
   node: FileLikeSnapshotNode,
   reporter?: ProgressReporter,
+  fileMode?: number,
 ) => {
   reportDetail(reporter, `staging local file ${targetPath}`);
   await mkdir(dirname(targetPath), { recursive: true });
@@ -143,7 +144,7 @@ const stageAndReplaceFilePath = async (
     if (node.type === "symlink") {
       await symlink(node.linkTarget, stagedPath);
     } else {
-      await writeFileNode(stagedPath, node);
+      await writeFileNode(stagedPath, node, fileMode);
     }
 
     await replacePathAtomically(targetPath, stagedPath);
@@ -157,6 +158,7 @@ const stageAndReplaceMergedDirectoryPath = async (
   config: MaterializationConfig,
   desiredNodes: ReadonlyMap<string, FileLikeSnapshotNode>,
   reporter?: ProgressReporter,
+  fileMode?: number,
 ) => {
   await mkdir(dirname(entry.localPath), { recursive: true });
   const stagingDirectory = await mkdtemp(
@@ -190,7 +192,7 @@ const stageAndReplaceMergedDirectoryPath = async (
       if (node.type === "symlink") {
         await writeSymlinkNode(targetNodePath, node.linkTarget);
       } else {
-        await writeFileNode(targetNodePath, node);
+        await writeFileNode(targetNodePath, node, fileMode);
       }
 
       stagedNodeCount += 1;
@@ -465,6 +467,7 @@ export const applyEntryMaterialization = async (
         config,
         new Map(),
         reporter,
+        entry.permission,
       );
 
       return;
@@ -480,6 +483,7 @@ export const applyEntryMaterialization = async (
       entry.localPath,
       materialization.node,
       reporter,
+      entry.permission,
     );
 
     return;
@@ -490,6 +494,7 @@ export const applyEntryMaterialization = async (
     config,
     materialization.nodes,
     reporter,
+    entry.permission,
   );
 };
 

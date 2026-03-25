@@ -320,6 +320,7 @@ export const setSyncTargetMode = async (
     mode: request.mode,
     modeExplicit: true,
     configuredMode: buildDefaultPlatformMode(request.mode),
+    permissionExplicit: false,
     repoPath: childRepoPath,
   };
 

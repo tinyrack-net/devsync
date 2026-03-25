@@ -129,6 +129,7 @@ const buildAddEntryCandidate = async (
     mode: input.mode,
     modeExplicit: true,
     configuredMode: buildDefaultPlatformMode(input.mode),
+    permissionExplicit: false,
     repoPath,
   } satisfies ResolvedSyncConfigEntry;
 };
