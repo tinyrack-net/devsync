@@ -1,7 +1,7 @@
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { DevsyncError } from "#app/services/error.js";
 import { createTemporaryDirectory } from "#app/test/helpers/sync-fixture.js";
@@ -22,6 +22,8 @@ const createWorkspace = async () => {
 };
 
 afterEach(async () => {
+  vi.restoreAllMocks();
+
   while (temporaryDirectories.length > 0) {
     const directory = temporaryDirectories.pop();
 
@@ -32,49 +34,145 @@ afterEach(async () => {
 });
 
 describe("shell launcher", () => {
-  it("resolves platform defaults from standard shell environment variables", () => {
+  it("resolves platform defaults from standard shell environment variables", async () => {
     expect(
-      resolveShellCommandForPlatform("linux", {
+      await resolveShellCommandForPlatform("linux", {
         SHELL: "/bin/zsh",
       }),
     ).toEqual({
       args: [],
       command: "/bin/zsh",
     });
-    expect(resolveShellCommandForPlatform("wsl", {})).toEqual({
+    expect(await resolveShellCommandForPlatform("wsl", {})).toEqual({
       args: [],
       command: "/bin/sh",
     });
     expect(
-      resolveShellCommandForPlatform("win", {
-        COMSPEC: "C:\\Windows\\System32\\cmd.exe",
-      }),
+      await resolveShellCommandForPlatform(
+        "win",
+        {
+          COMSPEC: "C:\\Windows\\System32\\cmd.exe",
+        },
+        {
+          initialWindowsProcessId: 1,
+          inspectWindowsProcess: vi.fn(async () => undefined),
+        },
+      ),
     ).toEqual({
       args: [],
       command: "C:\\Windows\\System32\\cmd.exe",
     });
   });
 
-  it("uses explicit command overrides when configured", () => {
+  it("uses explicit command overrides when configured", async () => {
+    const inspectWindowsProcess = vi.fn(async () => {
+      throw new Error("override should short-circuit Windows inspection");
+    });
+
     expect(
-      resolveShellCommandForPlatform("linux", {
-        DEVSYNC_CD_ARGS: '["-i","--noprofile"]',
-        DEVSYNC_CD_COMMAND: "/bin/bash",
-        SHELL: "/bin/zsh",
-      }),
+      await resolveShellCommandForPlatform(
+        "win",
+        {
+          COMSPEC: "C:\\Windows\\System32\\cmd.exe",
+          DEVSYNC_CD_ARGS: '["-i","--noprofile"]',
+          DEVSYNC_CD_COMMAND: "C:\\Program Files\\PowerShell\\7\\pwsh.exe",
+        },
+        {
+          initialWindowsProcessId: 1,
+          inspectWindowsProcess,
+        },
+      ),
     ).toEqual({
       args: ["-i", "--noprofile"],
-      command: "/bin/bash",
+      command: "C:\\Program Files\\PowerShell\\7\\pwsh.exe",
     });
+    expect(inspectWindowsProcess).not.toHaveBeenCalled();
   });
 
-  it("rejects invalid command override arguments", () => {
-    expect(() =>
+  it("prefers the invoking PowerShell over wrapper cmd.exe on Windows", async () => {
+    const inspectWindowsProcess = vi.fn(async (processId: number) => {
+      if (processId === 200) {
+        return {
+          commandLine:
+            '"C:\\Windows\\System32\\cmd.exe" /d /s /c ""C:\\Users\\test\\AppData\\Roaming\\npm\\devsync.cmd" cd"',
+          executablePath: "C:\\Windows\\System32\\cmd.exe",
+          name: "cmd.exe",
+          parentProcessId: 150,
+          processId,
+        };
+      }
+
+      if (processId === 150) {
+        return {
+          commandLine: '"C:\\Program Files\\PowerShell\\7\\pwsh.exe"',
+          executablePath: "C:\\Program Files\\PowerShell\\7\\pwsh.exe",
+          name: "pwsh.exe",
+          parentProcessId: 1,
+          processId,
+        };
+      }
+
+      return undefined;
+    });
+
+    expect(
+      await resolveShellCommandForPlatform(
+        "win",
+        {
+          COMSPEC: "C:\\Windows\\System32\\cmd.exe",
+        },
+        {
+          initialWindowsProcessId: 200,
+          inspectWindowsProcess,
+        },
+      ),
+    ).toEqual({
+      args: [],
+      command: "C:\\Program Files\\PowerShell\\7\\pwsh.exe",
+    });
+    expect(inspectWindowsProcess).toHaveBeenCalledTimes(2);
+  });
+
+  it("keeps interactive cmd.exe sessions on Windows", async () => {
+    const inspectWindowsProcess = vi.fn(async (processId: number) => {
+      if (processId === 200) {
+        return {
+          commandLine: '"C:\\Windows\\System32\\cmd.exe"',
+          executablePath: "C:\\Windows\\System32\\cmd.exe",
+          name: "cmd.exe",
+          parentProcessId: 150,
+          processId,
+        };
+      }
+
+      return undefined;
+    });
+
+    expect(
+      await resolveShellCommandForPlatform(
+        "win",
+        {
+          COMSPEC: "C:\\Windows\\System32\\cmd.exe",
+        },
+        {
+          initialWindowsProcessId: 200,
+          inspectWindowsProcess,
+        },
+      ),
+    ).toEqual({
+      args: [],
+      command: "C:\\Windows\\System32\\cmd.exe",
+    });
+    expect(inspectWindowsProcess).toHaveBeenCalledTimes(1);
+  });
+
+  it("rejects invalid command override arguments", async () => {
+    await expect(
       resolveShellCommandForPlatform("linux", {
         DEVSYNC_CD_ARGS: '{"interactive":true}',
         DEVSYNC_CD_COMMAND: "/bin/bash",
       }),
-    ).toThrowError(DevsyncError);
+    ).rejects.toThrowError(DevsyncError);
   });
 
   it("launches the configured command in the requested directory", async () => {
