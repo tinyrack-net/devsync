@@ -8,6 +8,7 @@ import { afterEach, describe, expect, it } from "vitest";
 
 import {
   createAgeKeyPair,
+  createShellRecorderEnvironment,
   createTemporaryDirectory,
   stripAnsi,
   writeIdentityFile,
@@ -238,15 +239,22 @@ describe("sync CLI e2e", () => {
     ).toBe(`${ageKeys.identity}\n`);
   });
 
-  it("prints the sync directory via cd command", async () => {
+  it("launches a shell in the sync directory via cd command", async () => {
     const workspace = await createWorkspace();
     const homeDirectory = join(workspace, "home");
     const xdgConfigHome = join(workspace, "xdg");
+    const markerFile = join(workspace, "shell-marker.txt");
     const result = await runCli(["cd"], {
-      env: createSyncEnvironment(homeDirectory, xdgConfigHome),
+      env: {
+        ...createSyncEnvironment(homeDirectory, xdgConfigHome),
+        ...(await createShellRecorderEnvironment(workspace, markerFile)),
+      },
     });
 
-    expect(result.stdout).toBe(`${join(xdgConfigHome, "devsync", "sync")}`);
+    expect(result.stdout).toBe("");
+    expect(await readFile(markerFile, "utf8")).toBe(
+      join(xdgConfigHome, "devsync", "sync"),
+    );
   });
 
   it("tracks roots, sets modes, and untracks from the CLI", async () => {

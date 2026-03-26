@@ -101,10 +101,12 @@ devsync push
 Open the sync repository and publish it with git:
 
 ```bash
-cd "$(devsync cd)"
+devsync cd
+# inside the spawned shell
 git add .
 git commit -m "Update synced config"
 git push
+exit
 ```
 
 On another device, clone and restore from the same repo:
@@ -363,14 +365,13 @@ Omit the profile name to clear the active profile.
 
 #### `cd`
 
-Print the sync repository path.
+Launch a shell in the sync repository directory.
 
 ```bash
 devsync cd
-cd "$(devsync cd)"
 ```
 
-`devsync cd` prints the path because a child CLI process cannot change the current directory of your existing shell directly.
+`devsync cd` opens a child shell rooted at the sync repository directory. Exit that shell to return to your original session.
 
 For flag-level details, use built-in help:
 

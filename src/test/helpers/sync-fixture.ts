@@ -8,6 +8,13 @@ import { generateIdentity, identityToRecipient } from "age-encryption";
 
 const execFileAsync = promisify(execFile);
 
+const gitTestEnvironment = {
+  GIT_AUTHOR_EMAIL: "test@example.com",
+  GIT_AUTHOR_NAME: "Test User",
+  GIT_COMMITTER_EMAIL: "test@example.com",
+  GIT_COMMITTER_NAME: "Test User",
+};
+
 export const createTemporaryDirectory = async (prefix: string) => {
   return await mkdtemp(join(tmpdir(), prefix));
 };
@@ -37,6 +44,7 @@ export const runGit = async (args: readonly string[], cwd?: string) => {
   return await execFileAsync("git", [...args], {
     cwd,
     encoding: "utf8",
+    env: { ...process.env, ...gitTestEnvironment },
     maxBuffer: 10_000_000,
   });
 };
@@ -49,4 +57,28 @@ export const stripAnsi = (value: string) => value.replace(ansiPattern, "");
 export const writeJsonFile = async (path: string, value: unknown) => {
   await mkdir(dirname(path), { recursive: true });
   await writeFile(path, `${JSON.stringify(value, null, 2)}\n`, "utf8");
+};
+
+export const createShellRecorderEnvironment = async (
+  workspace: string,
+  markerFile: string,
+) => {
+  const shellScript = join(workspace, "record-shell.mjs");
+
+  await writeFile(
+    shellScript,
+    [
+      'import { writeFileSync } from "node:fs";',
+      "const marker = process.env.DEVSYNC_SHELL_MARKER;",
+      'if (!marker) throw new Error("missing marker path");',
+      'writeFileSync(marker, process.cwd(), "utf8");',
+    ].join("\n"),
+    "utf8",
+  );
+
+  return {
+    DEVSYNC_CD_ARGS: JSON.stringify([shellScript]),
+    DEVSYNC_CD_COMMAND: process.execPath,
+    DEVSYNC_SHELL_MARKER: markerFile,
+  } satisfies NodeJS.ProcessEnv;
 };

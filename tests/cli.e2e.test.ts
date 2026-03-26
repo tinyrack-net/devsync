@@ -34,7 +34,7 @@ describe("CLI e2e", () => {
     expect(result.exitCode).toBe(0);
     expect(result.stderr).toBe("");
     expect(result.stdout).toContain("autocomplete");
-    expect(result.stdout).toMatch(/\n\s*cd\s+/);
+    expect(result.stdout).toContain("Launch a shell in the sync directory");
     expect(result.stdout).toContain("track");
     expect(result.stdout).toContain("untrack");
     expect(result.stdout).toContain("profile");
@@ -43,11 +43,15 @@ describe("CLI e2e", () => {
     expect(result.stdout).toContain("status");
   });
 
-  it("shows help for track and profile use commands", async () => {
-    const [trackHelp, profileHelp] = await Promise.all([
+  it("shows help for cd, track, and profile use commands", async () => {
+    const [cdHelp, trackHelp, profileHelp] = await Promise.all([
+      runCli(["cd", "--help"]),
       runCli(["track", "--help"]),
       runCli(["profile", "use", "--help"]),
     ]);
+
+    expect(cdHelp.stdout).toContain("$ devsync cd");
+    expect(cdHelp.stdout).toContain("Launch a child shell rooted");
 
     expect(trackHelp.stdout).toContain("$ devsync track");
     expect(trackHelp.stdout).toContain("--mode");
