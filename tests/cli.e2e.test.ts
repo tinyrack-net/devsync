@@ -34,6 +34,7 @@ describe("CLI e2e", () => {
     expect(result.exitCode).toBe(0);
     expect(result.stderr).toBe("");
     expect(result.stdout).toContain("autocomplete");
+    expect(result.stdout).toMatch(/\n\s*cd\s+/);
     expect(result.stdout).toContain("track");
     expect(result.stdout).toContain("untrack");
     expect(result.stdout).toContain("profile");
@@ -56,14 +57,14 @@ describe("CLI e2e", () => {
   });
 
   it("returns a non-zero exit code for removed command surfaces", async () => {
-    const [addResult, removeResult, modeResult, listResult] = await Promise.all(
-      [
+    const [addResult, removeResult, modeResult, listResult, dirResult] =
+      await Promise.all([
         runCli(["add", "~/.gitconfig"], { reject: false }),
         runCli(["remove", "~/.gitconfig"], { reject: false }),
         runCli(["mode", "secret", "~/.gitconfig"], { reject: false }),
         runCli(["list"], { reject: false }),
-      ],
-    );
+        runCli(["dir"], { reject: false }),
+      ]);
 
     expect(addResult.exitCode).not.toBe(0);
     expect(addResult.stderr).toContain("not found");
@@ -73,5 +74,7 @@ describe("CLI e2e", () => {
     expect(modeResult.stderr).toContain("not found");
     expect(listResult.exitCode).not.toBe(0);
     expect(listResult.stderr).toContain("not found");
+    expect(dirResult.exitCode).not.toBe(0);
+    expect(dirResult.stderr).toContain("not found");
   });
 });

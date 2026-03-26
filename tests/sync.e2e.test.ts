@@ -238,11 +238,11 @@ describe("sync CLI e2e", () => {
     ).toBe(`${ageKeys.identity}\n`);
   });
 
-  it("prints the sync directory via dir command", async () => {
+  it("prints the sync directory via cd command", async () => {
     const workspace = await createWorkspace();
     const homeDirectory = join(workspace, "home");
     const xdgConfigHome = join(workspace, "xdg");
-    const result = await runCli(["dir"], {
+    const result = await runCli(["cd"], {
       env: createSyncEnvironment(homeDirectory, xdgConfigHome),
     });
 

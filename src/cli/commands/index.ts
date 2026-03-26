@@ -1,4 +1,4 @@
-import SyncDir from "#app/cli/commands/dir.js";
+import SyncCd from "#app/cli/commands/cd.js";
 import SyncDoctor from "#app/cli/commands/doctor.js";
 import SyncInit from "#app/cli/commands/init.js";
 import SyncProfileList from "#app/cli/commands/profile/list.js";
@@ -10,7 +10,7 @@ import SyncTrack from "#app/cli/commands/track.js";
 import SyncUntrack from "#app/cli/commands/untrack.js";
 
 export const COMMANDS = {
-  dir: SyncDir,
+  cd: SyncCd,
   doctor: SyncDoctor,
   init: SyncInit,
   "profile:list": SyncProfileList,

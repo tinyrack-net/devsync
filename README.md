@@ -101,7 +101,7 @@ devsync push
 Open the sync repository and publish it with git:
 
 ```bash
-cd "$(devsync dir)"
+cd "$(devsync cd)"
 git add .
 git commit -m "Update synced config"
 git push
@@ -361,14 +361,16 @@ devsync profile use
 
 Omit the profile name to clear the active profile.
 
-#### `dir`
+#### `cd`
 
 Print the sync repository path.
 
 ```bash
-devsync dir
-cd "$(devsync dir)"
+devsync cd
+cd "$(devsync cd)"
 ```
+
+`devsync cd` prints the path because a child CLI process cannot change the current directory of your existing shell directly.
 
 For flag-level details, use built-in help:
 
