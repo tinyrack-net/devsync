@@ -1,8 +1,6 @@
 import { Args } from "@oclif/core";
 
 import { BaseCommand } from "#app/cli/base-command.js";
-import { formatSyncForgetResult } from "#app/lib/output.js";
-import { forgetSyncTarget } from "#app/services/forget.js";
 
 export default class SyncUntrack extends BaseCommand {
   public static override summary = "Stop tracking a synced path";
@@ -26,6 +24,11 @@ export default class SyncUntrack extends BaseCommand {
 
   public override async run(): Promise<void> {
     const { args, flags } = await this.parse(SyncUntrack);
+    const [{ formatSyncForgetResult }, { forgetSyncTarget }] =
+      await Promise.all([
+        import("#app/lib/output.js"),
+        import("#app/services/forget.js"),
+      ]);
     const output = formatSyncForgetResult(
       await forgetSyncTarget(
         {

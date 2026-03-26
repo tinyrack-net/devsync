@@ -1,11 +1,6 @@
 import { Args, Flags } from "@oclif/core";
 
 import { BaseCommand } from "#app/cli/base-command.js";
-import { formatSyncAddResult, formatSyncSetResult } from "#app/lib/output.js";
-import { trackSyncTarget } from "#app/services/add.js";
-import { DevsyncError } from "#app/services/error.js";
-import { assignSyncProfiles } from "#app/services/profile.js";
-import { setSyncTargetMode } from "#app/services/set.js";
 
 export default class SyncTrack extends BaseCommand {
   public static override summary =
@@ -62,6 +57,19 @@ export default class SyncTrack extends BaseCommand {
       this.error("At least one target path is required.");
     }
 
+    const [
+      { formatSyncAddResult, formatSyncSetResult },
+      { trackSyncTarget },
+      { DevsyncError },
+      { assignSyncProfiles },
+      { setSyncTargetMode },
+    ] = await Promise.all([
+      import("#app/lib/output.js"),
+      import("#app/services/add.js"),
+      import("#app/services/error.js"),
+      import("#app/services/profile.js"),
+      import("#app/services/set.js"),
+    ]);
     const environment = process.env;
     const cwd = process.cwd();
     progress.phase(

@@ -1,6 +1,4 @@
 import { BaseCommand } from "#app/cli/base-command.js";
-import { formatSyncDoctorResult } from "#app/lib/output.js";
-import { runSyncDoctor } from "#app/services/doctor.js";
 
 export default class SyncDoctor extends BaseCommand {
   public static override summary =
@@ -13,6 +11,10 @@ export default class SyncDoctor extends BaseCommand {
 
   public override async run(): Promise<void> {
     const { flags } = await this.parse(SyncDoctor);
+    const [{ formatSyncDoctorResult }, { runSyncDoctor }] = await Promise.all([
+      import("#app/lib/output.js"),
+      import("#app/services/doctor.js"),
+    ]);
     const result = await runSyncDoctor(
       process.env,
       this.createProgressReporter(flags.verbose),

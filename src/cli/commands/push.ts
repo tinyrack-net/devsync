@@ -1,8 +1,6 @@
 import { Flags } from "@oclif/core";
 
 import { BaseCommand } from "#app/cli/base-command.js";
-import { formatSyncPushResult } from "#app/lib/output.js";
-import { pushSync } from "#app/services/push.js";
 
 export default class SyncPush extends BaseCommand {
   public static override summary =
@@ -34,6 +32,10 @@ export default class SyncPush extends BaseCommand {
   public override async run(): Promise<void> {
     const { flags } = await this.parse(SyncPush);
     const progress = this.createProgressReporter(flags.verbose);
+    const [{ formatSyncPushResult }, { pushSync }] = await Promise.all([
+      import("#app/lib/output.js"),
+      import("#app/services/push.js"),
+    ]);
     const output = formatSyncPushResult(
       await pushSync(
         {

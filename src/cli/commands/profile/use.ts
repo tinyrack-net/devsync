@@ -1,8 +1,6 @@
 import { Args } from "@oclif/core";
 
 import { BaseCommand } from "#app/cli/base-command.js";
-import { formatSyncProfileUpdateResult } from "#app/lib/output.js";
-import { clearSyncProfiles, useSyncProfile } from "#app/services/profile.js";
 
 export default class SyncProfileUse extends BaseCommand {
   public static override summary = "Set or clear the active sync profile";
@@ -24,6 +22,13 @@ export default class SyncProfileUse extends BaseCommand {
 
   public override async run(): Promise<void> {
     const { args, flags } = await this.parse(SyncProfileUse);
+    const [
+      { formatSyncProfileUpdateResult },
+      { clearSyncProfiles, useSyncProfile },
+    ] = await Promise.all([
+      import("#app/lib/output.js"),
+      import("#app/services/profile.js"),
+    ]);
     const result =
       args.profile !== undefined
         ? await useSyncProfile(args.profile, process.env)

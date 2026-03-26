@@ -1,8 +1,6 @@
 import { Flags } from "@oclif/core";
 
 import { BaseCommand } from "#app/cli/base-command.js";
-import { formatSyncPullResult } from "#app/lib/output.js";
-import { pullSync } from "#app/services/pull.js";
 
 export default class SyncPull extends BaseCommand {
   public static override summary =
@@ -34,6 +32,10 @@ export default class SyncPull extends BaseCommand {
   public override async run(): Promise<void> {
     const { flags } = await this.parse(SyncPull);
     const progress = this.createProgressReporter(flags.verbose);
+    const [{ formatSyncPullResult }, { pullSync }] = await Promise.all([
+      import("#app/lib/output.js"),
+      import("#app/services/pull.js"),
+    ]);
     const output = formatSyncPullResult(
       await pullSync(
         {

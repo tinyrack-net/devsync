@@ -1,11 +1,6 @@
 import { Args, Flags } from "@oclif/core";
 
 import { BaseCommand } from "#app/cli/base-command.js";
-import { promptForSecret } from "#app/cli/prompt.js";
-import { resolveConfiguredAbsolutePath } from "#app/config/xdg.js";
-import { formatSyncInitResult } from "#app/lib/output.js";
-import { pathExists } from "#app/services/filesystem.js";
-import { defaultSyncIdentityFile, initializeSync } from "#app/services/init.js";
 
 export default class SyncInit extends BaseCommand {
   public static override summary = "Initialize the git-backed sync directory";
@@ -52,6 +47,19 @@ export default class SyncInit extends BaseCommand {
   public override async run(): Promise<void> {
     const { args, flags } = await this.parse(SyncInit);
     const progress = this.createProgressReporter(flags.verbose);
+    const [
+      { promptForSecret },
+      { resolveConfiguredAbsolutePath },
+      { formatSyncInitResult },
+      { pathExists },
+      { defaultSyncIdentityFile, initializeSync },
+    ] = await Promise.all([
+      import("#app/cli/prompt.js"),
+      import("#app/config/xdg.js"),
+      import("#app/lib/output.js"),
+      import("#app/services/filesystem.js"),
+      import("#app/services/init.js"),
+    ]);
     const requestedKey = flags.key?.trim();
     const configuredIdentityFile =
       flags.identity?.trim() || defaultSyncIdentityFile;
