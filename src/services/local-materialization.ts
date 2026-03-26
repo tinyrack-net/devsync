@@ -1,4 +1,4 @@
-import { lstat, mkdir, mkdtemp, rm, symlink } from "node:fs/promises";
+import { chmod, lstat, mkdir, mkdtemp, rm, symlink } from "node:fs/promises";
 import { basename, dirname, join, posix } from "node:path";
 
 import {
@@ -6,6 +6,7 @@ import {
   type ResolvedSyncConfigEntry,
   resolveManagedSyncMode,
 } from "#app/config/sync.js";
+import { buildSearchableDirectoryMode } from "#app/lib/file-mode.js";
 import { buildDirectoryKey } from "#app/lib/path.js";
 import {
   type ProgressReporter,
@@ -214,6 +215,10 @@ const stageAndReplaceMergedDirectoryPath = async (
       await removePathAtomically(entry.localPath);
 
       return;
+    }
+
+    if (fileMode !== undefined) {
+      await chmod(stagingDirectory, buildSearchableDirectoryMode(fileMode));
     }
 
     await replacePathAtomically(entry.localPath, stagingDirectory);

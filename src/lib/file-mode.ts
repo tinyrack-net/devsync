@@ -2,6 +2,12 @@ export const buildExecutableMode = (executable: boolean) => {
   return executable ? 0o755 : 0o644;
 };
 
+export const buildSearchableDirectoryMode = (mode: number) => {
+  const normalizedMode = mode & 0o777;
+
+  return normalizedMode | ((normalizedMode & 0o444) >> 2);
+};
+
 export const isExecutableMode = (mode: number | bigint) => {
   return (Number(mode) & 0o111) !== 0;
 };

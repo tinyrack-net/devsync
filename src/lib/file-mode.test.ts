@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   buildExecutableMode,
+  buildSearchableDirectoryMode,
   formatPermissionOctal,
   isExecutableMode,
   isPermissionOctal,
@@ -14,6 +15,15 @@ describe("file mode helpers", () => {
     expect(buildExecutableMode(false)).toBe(0o644);
     expect(isExecutableMode(0o100755)).toBe(true);
     expect(isExecutableMode(0o100644)).toBe(false);
+  });
+
+  it("builds searchable directory modes from configured permissions", () => {
+    expect(buildSearchableDirectoryMode(0o000)).toBe(0o000);
+    expect(buildSearchableDirectoryMode(0o400)).toBe(0o500);
+    expect(buildSearchableDirectoryMode(0o600)).toBe(0o700);
+    expect(buildSearchableDirectoryMode(0o644)).toBe(0o755);
+    expect(buildSearchableDirectoryMode(0o700)).toBe(0o700);
+    expect(buildSearchableDirectoryMode(0o755)).toBe(0o755);
   });
 });
 
