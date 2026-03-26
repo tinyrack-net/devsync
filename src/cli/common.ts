@@ -2,13 +2,19 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 
-import type { StricliAutoCompleteContext } from "@stricli/auto-complete";
 import type { TypedFlagParameter } from "@stricli/core";
 
 import { createCliProgressReporter } from "#app/cli/progress-reporter.js";
 import { writeStdout } from "#app/lib/output.js";
 
-export type DevsyncCliContext = StricliAutoCompleteContext;
+export type DevsyncCliContext = {
+  fs: {
+    promises: typeof fs.promises;
+  };
+  os: typeof os;
+  path: typeof path;
+  process: NodeJS.Process;
+};
 
 export const verboseFlag = {
   brief: "Show detailed output including file paths and progress details",

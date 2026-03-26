@@ -37,7 +37,7 @@ Core capabilities:
 
 Requirements:
 
-- Node.js 24+
+- Node.js 25.5+
 - npm
 - git
 
@@ -62,6 +62,34 @@ npm run start -- --help
 ```
 
 The published package name is `@tinyrack/devsync`, and the installed command is `devsync`.
+
+### Single executable builds with Node SEA
+
+This repository also supports a local-platform single executable build through Node SEA.
+
+Requirements for SEA builds:
+
+- Node.js 25.5+
+- the build must run on the same platform you want to execute initially
+
+Build the executable:
+
+```bash
+npm run sea:build
+./dist/sea/devsync --version
+```
+
+Run the dedicated smoke test:
+
+```bash
+npm run sea:smoke
+```
+
+Notes:
+
+- The SEA output is written to `dist/sea/devsync` on Unix-like systems and `dist/sea/devsync.exe` on Windows.
+- `npm run sea:bundle` creates only the single-file bundled entry that feeds SEA generation.
+- The initial SEA workflow is local-platform only. Cross-platform release generation and code signing are separate concerns.
 
 ## 3. Quickstart
 

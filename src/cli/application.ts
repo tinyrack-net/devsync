@@ -1,5 +1,3 @@
-import { readFileSync } from "node:fs";
-
 import {
   type Application,
   type ApplicationText,
@@ -9,20 +7,11 @@ import {
 } from "@stricli/core";
 import { buildRootRoute } from "#app/cli/commands/index.js";
 import { createCliContext, type DevsyncCliContext } from "#app/cli/common.js";
+import { currentVersion } from "#app/cli/version.js";
 import { formatErrorMessage } from "#app/lib/output.js";
 
 type CommandError = Error & {
   exitCode?: number;
-};
-
-const readPackageVersion = () => {
-  const packageJson = JSON.parse(
-    readFileSync(new URL("../../package.json", import.meta.url), "utf8"),
-  ) as {
-    version: string;
-  };
-
-  return packageJson.version;
 };
 
 const formatRuntimeError = (error: unknown) => {
@@ -97,7 +86,7 @@ application = buildApplication(rootRoute, {
     caseStyle: "allow-kebab-for-camel",
   },
   versionInfo: {
-    currentVersion: `devsync/${readPackageVersion()}`,
+    currentVersion,
   },
 });
 

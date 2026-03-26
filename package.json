@@ -35,13 +35,16 @@
     "LICENSE"
   ],
   "engines": {
-    "node": ">=24"
+    "node": ">=25.5.0"
   },
   "scripts": {
     "dev": "tsc -p tsconfig.build.json --watch",
     "build": "tsc -p tsconfig.build.json",
     "clean": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\"",
     "prebuild": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\"",
+    "sea:bundle": "node scripts/build-sea.mjs --bundle-only",
+    "sea:build": "node scripts/build-sea.mjs",
+    "sea:smoke": "node scripts/smoke-sea.mjs",
     "start": "node dist/index.js",
     "prepack": "npm run build",
     "typecheck": "tsc -p tsconfig.json",
@@ -56,7 +59,6 @@
     "release:major": "npm version major -m \"chore(release): %s\""
   },
   "dependencies": {
-    "@stricli/auto-complete": "^1.2.6",
     "@stricli/core": "^1.2.6",
     "age-encryption": "^0.3.0",
     "picocolors": "^1.1.1",
