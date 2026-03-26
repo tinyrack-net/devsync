@@ -648,7 +648,7 @@ describe("sync service", () => {
     expect(stats.mode & 0o777).toBe(0o600);
   });
 
-  it("restores directory entry permission to child files on pull", async () => {
+  it("restores directory entry permission to child files and a searchable directory on pull", async () => {
     if (process.platform === "win32") {
       return;
     }
@@ -708,11 +708,85 @@ describe("sync service", () => {
       "Host *\n  AddKeysToAgent yes\n",
     );
 
+    const directoryStats = await lstat(sshDirectory);
+    expect(directoryStats.mode & 0o777).toBe(0o700);
+
     const keyStats = await lstat(keyFile);
     expect(keyStats.mode & 0o777).toBe(0o600);
 
     const configStats = await lstat(configFile);
     expect(configStats.mode & 0o777).toBe(0o600);
+  });
+
+  it("preserves ignored local files inside permissioned directories on pull", async () => {
+    if (process.platform === "win32") {
+      return;
+    }
+
+    const workspace = await createWorkspace();
+    const homeDirectory = join(workspace, "home");
+    const xdgConfigHome = join(workspace, "xdg");
+    const sshDirectory = join(homeDirectory, ".ssh");
+    const keyFile = join(sshDirectory, "id_rsa");
+    const ignoredFile = join(sshDirectory, "known_hosts.local");
+    const ageKeys = await createAgeKeyPair();
+    const environment = createSyncEnvironment(homeDirectory, xdgConfigHome);
+
+    await writeIdentityFile(xdgConfigHome, ageKeys.identity);
+    await mkdir(sshDirectory, { recursive: true });
+    await writeFile(keyFile, "fake-private-key\n");
+    await writeFile(ignoredFile, "initial-local-state\n");
+
+    await initializeSync(
+      {
+        identityFile: "$XDG_CONFIG_HOME/devsync/age/keys.txt",
+        recipients: [ageKeys.recipient],
+      },
+      environment,
+    );
+
+    await writeFile(
+      join(xdgConfigHome, "devsync", "sync", "manifest.json"),
+      JSON.stringify(
+        {
+          version: 7,
+          age: {
+            identityFile: "$XDG_CONFIG_HOME/devsync/age/keys.txt",
+            recipients: [ageKeys.recipient],
+          },
+          entries: [
+            {
+              kind: "directory",
+              localPath: { default: "~/.ssh" },
+              mode: { default: "normal" },
+              permission: { default: "0600" },
+            },
+            {
+              kind: "file",
+              localPath: { default: "~/.ssh/known_hosts.local" },
+              mode: { default: "ignore" },
+            },
+          ],
+        },
+        null,
+        2,
+      ),
+      "utf8",
+    );
+
+    await pushSync({ dryRun: false }, environment);
+    await writeFile(keyFile, "modified-content\n");
+    await writeFile(ignoredFile, "preserved-local-state\n");
+    await pullSync({ dryRun: false }, environment);
+
+    expect(await readFile(keyFile, "utf8")).toBe("fake-private-key\n");
+    expect(await readFile(ignoredFile, "utf8")).toBe("preserved-local-state\n");
+
+    const directoryStats = await lstat(sshDirectory);
+    expect(directoryStats.mode & 0o777).toBe(0o700);
+
+    const keyStats = await lstat(keyFile);
+    expect(keyStats.mode & 0o777).toBe(0o600);
   });
 
   it("uses default executable mode when permission is not set", async () => {

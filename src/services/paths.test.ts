@@ -2,13 +2,31 @@ import { resolve } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
+import type { ResolvedSyncConfigEntry } from "#app/config/sync.js";
 import {
   buildConfiguredHomeLocalPath,
   buildRepoPathWithinRoot,
   resolveCommandTargetPath,
+  resolveTrackedEntry,
   tryBuildRepoPathWithinRoot,
   tryNormalizeRepoPathInput,
 } from "#app/services/paths.js";
+
+const trackedEntry = (
+  overrides: Partial<ResolvedSyncConfigEntry> = {},
+): ResolvedSyncConfigEntry => ({
+  configuredLocalPath: { default: "~/.gitconfig" },
+  configuredMode: { default: "normal" },
+  kind: "file",
+  localPath: "/tmp/home/.gitconfig",
+  mode: "normal",
+  modeExplicit: false,
+  permissionExplicit: false,
+  profiles: [],
+  profilesExplicit: false,
+  repoPath: ".gitconfig",
+  ...overrides,
+});
 
 describe("path helpers", () => {
   it("resolves command targets from cwd and home prefixes", () => {
@@ -59,5 +77,42 @@ describe("path helpers", () => {
       ),
     ).toBeUndefined();
     expect(tryNormalizeRepoPathInput("../bundle")).toBeUndefined();
+  });
+
+  it("resolves tracked entries by repository path for non-explicit targets", () => {
+    const entry = trackedEntry({
+      configuredLocalPath: { default: "~/.config/tool/settings.json" },
+      localPath: "/tmp/home/.config/tool/settings.json",
+      repoPath: ".config/tool/settings.json",
+    });
+
+    expect(
+      resolveTrackedEntry(
+        ".config/tool/settings.json",
+        [entry],
+        { HOME: "/tmp/home" },
+        "/tmp/cwd",
+      ),
+    ).toEqual(entry);
+  });
+
+  it("rejects ambiguous tracked entries for the same explicit local path", () => {
+    expect(() => {
+      resolveTrackedEntry(
+        "/tmp/home/.gitconfig",
+        [
+          trackedEntry({
+            localPath: resolve("/tmp/home/.gitconfig"),
+            repoPath: ".gitconfig",
+          }),
+          trackedEntry({
+            localPath: resolve("/tmp/home/.gitconfig"),
+            repoPath: ".gitconfig-work",
+          }),
+        ],
+        { HOME: "/tmp/home" },
+        "/tmp/cwd",
+      );
+    }).toThrowError(/Multiple tracked sync entries match/u);
   });
 });

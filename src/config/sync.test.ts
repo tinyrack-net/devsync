@@ -1045,6 +1045,61 @@ describe("sync config", () => {
     expect(config.entries[0]?.permission).toBe(0o600);
   });
 
+  it("inherits WSL permission fallback from parent directories", async () => {
+    forcePlatform("wsl");
+    const workspace = await createTemporaryDirectory("devsync-sync-config-");
+    const homeDirectory = join(workspace, "home");
+
+    const config = parseSyncConfig(
+      {
+        version: 7,
+        entries: [
+          {
+            kind: "directory",
+            localPath: { default: "~/.ssh" },
+            permission: { default: "0644", linux: "0600" },
+          },
+          {
+            kind: "file",
+            localPath: { default: "~/.ssh/id_rsa" },
+          },
+        ],
+      },
+      { HOME: homeDirectory },
+    );
+
+    const child = config.entries.find(
+      (entry) => entry.repoPath === ".ssh/id_rsa",
+    );
+    expect(child?.permission).toBe(0o600);
+    expect(child?.permissionExplicit).toBe(false);
+    expect(child?.configuredPermission).toEqual({
+      default: "0644",
+      linux: "0600",
+    });
+  });
+
+  it("rejects permission objects with unsupported platform keys", async () => {
+    const workspace = await createTemporaryDirectory("devsync-sync-config-");
+    const homeDirectory = join(workspace, "home");
+
+    expect(() =>
+      parseSyncConfig(
+        {
+          entries: [
+            {
+              kind: "file",
+              localPath: { default: "~/.ssh/id_rsa" },
+              permission: { default: "0600", freebsd: "0600" },
+            },
+          ],
+          version: 7,
+        },
+        { HOME: homeDirectory },
+      ),
+    ).toThrowError("Sync configuration is invalid.");
+  });
+
   it("treats profiles as an allowlist", async () => {
     const workspace = await createTemporaryDirectory("devsync-sync-config-");
     const homeDirectory = join(workspace, "home");

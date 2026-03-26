@@ -98,6 +98,39 @@ describe("config-file", () => {
     });
   });
 
+  it("writes explicit permissions unchanged", () => {
+    expect(
+      createSyncConfigDocument({
+        entries: [
+          {
+            configuredMode: { default: "normal" },
+            configuredLocalPath: { default: "~/.ssh/id_rsa" },
+            configuredPermission: { default: "0600", linux: "0400" },
+            kind: "file",
+            localPath: "/tmp/home/.ssh/id_rsa",
+            profiles: [],
+            profilesExplicit: false,
+            mode: "normal",
+            modeExplicit: false,
+            permission: 0o600,
+            permissionExplicit: true,
+            repoPath: ".ssh/id_rsa",
+          },
+        ],
+        version: 7,
+      }),
+    ).toEqual({
+      entries: [
+        {
+          kind: "file",
+          localPath: { default: "~/.ssh/id_rsa" },
+          permission: { default: "0600", linux: "0400" },
+        },
+      ],
+      version: 7,
+    });
+  });
+
   it("sorts entries by default path", () => {
     const sorted = sortSyncConfigEntries([
       { kind: "file", localPath: { default: "~/.zshrc" } },
