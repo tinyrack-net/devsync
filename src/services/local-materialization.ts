@@ -2,9 +2,11 @@ import { chmod, lstat, mkdir, mkdtemp, rm, symlink } from "node:fs/promises";
 import { basename, dirname, join, posix } from "node:path";
 
 import {
+  collectChildEntryPaths,
   type ResolvedSyncConfig,
   type ResolvedSyncConfigEntry,
   resolveManagedSyncMode,
+  resolveSyncRule,
 } from "#app/config/sync.js";
 import { buildSearchableDirectoryMode } from "#app/lib/file-mode.js";
 import { buildDirectoryKey } from "#app/lib/path.js";
@@ -318,6 +320,7 @@ const collectLocalLeafKeys = async (
   targetPath: string,
   repoPathPrefix: string,
   keys: Set<string>,
+  childEntryPaths: ReadonlySet<string>,
   prefix?: string,
   reporter?: ProgressReporter,
   progressState: { scannedLocalNodeCount: number } = {
@@ -347,6 +350,11 @@ const collectLocalLeafKeys = async (
       prefix === undefined ? entry.name : `${prefix}/${entry.name}`;
     const childStats = await lstat(absolutePath);
     const repoPath = posix.join(repoPathPrefix, relativePath);
+
+    if (childEntryPaths.has(repoPath)) {
+      continue;
+    }
+
     reportPullPlanningProgress(reporter, progressState, repoPath);
 
     if (childStats?.isDirectory()) {
@@ -354,6 +362,7 @@ const collectLocalLeafKeys = async (
         absolutePath,
         repoPathPrefix,
         keys,
+        childEntryPaths,
         relativePath,
         reporter,
         progressState,
@@ -365,60 +374,6 @@ const collectLocalLeafKeys = async (
   }
 };
 
-const collectIgnoredLocalKeys = async (
-  targetPath: string,
-  repoPath: string,
-  config: MaterializationConfig,
-  keys: Set<string>,
-  reporter?: ProgressReporter,
-  progressState: { scannedLocalNodeCount: number } = {
-    scannedLocalNodeCount: 0,
-  },
-): Promise<boolean> => {
-  const stats = await getPathStats(targetPath);
-
-  if (stats === undefined) {
-    return false;
-  }
-
-  const mode = resolveManagedSyncMode(config, repoPath, config.activeProfile);
-
-  if (!stats.isDirectory()) {
-    reportPullPlanningProgress(reporter, progressState, repoPath);
-    if (mode !== "ignore") {
-      return false;
-    }
-
-    keys.add(repoPath);
-
-    return true;
-  }
-
-  let preservedIgnoredChildren = mode === "ignore";
-  const entries = await listDirectoryEntries(targetPath);
-
-  for (const entry of entries) {
-    const childPath = join(targetPath, entry.name);
-    const childRepoPath = posix.join(repoPath, entry.name);
-
-    preservedIgnoredChildren =
-      (await collectIgnoredLocalKeys(
-        childPath,
-        childRepoPath,
-        config,
-        keys,
-        reporter,
-        progressState,
-      )) || preservedIgnoredChildren;
-  }
-
-  if (mode === "ignore" || preservedIgnoredChildren) {
-    keys.add(buildDirectoryKey(repoPath));
-  }
-
-  return mode === "ignore" || preservedIgnoredChildren;
-};
-
 export const countDeletedLocalNodes = async (
   entry: ResolvedSyncConfigEntry,
   desiredKeys: ReadonlySet<string>,
@@ -426,28 +381,30 @@ export const countDeletedLocalNodes = async (
   existingKeys: Set<string> = new Set<string>(),
   reporter?: ProgressReporter,
 ) => {
-  const preservedIgnoredKeys = new Set<string>();
+  const rule = resolveSyncRule(config, entry.repoPath, config.activeProfile);
+
+  if (rule === undefined || rule.mode === "ignore") {
+    return 0;
+  }
+
   const progressState = { scannedLocalNodeCount: 0 };
+  const childEntryPaths =
+    entry.kind === "directory"
+      ? collectChildEntryPaths(config, entry.repoPath)
+      : new Set<string>();
 
   await collectLocalLeafKeys(
     entry.localPath,
     entry.repoPath,
     existingKeys,
+    childEntryPaths,
     undefined,
-    reporter,
-    progressState,
-  );
-  await collectIgnoredLocalKeys(
-    entry.localPath,
-    entry.repoPath,
-    config,
-    preservedIgnoredKeys,
     reporter,
     progressState,
   );
 
   return [...existingKeys].filter((key) => {
-    return !desiredKeys.has(key) && !preservedIgnoredKeys.has(key);
+    return !desiredKeys.has(key);
   }).length;
 };
 
@@ -457,11 +414,9 @@ export const applyEntryMaterialization = async (
   config: MaterializationConfig,
   reporter?: ProgressReporter,
 ) => {
-  if (
-    entry.kind === "file" &&
-    resolveManagedSyncMode(config, entry.repoPath, config.activeProfile) ===
-      "ignore"
-  ) {
+  const rule = resolveSyncRule(config, entry.repoPath, config.activeProfile);
+
+  if (rule === undefined || rule.mode === "ignore") {
     return;
   }
 

@@ -275,6 +275,20 @@ export const findOwningSyncEntry = (
   return best;
 };
 
+export const collectChildEntryPaths = (
+  config: Pick<ResolvedSyncConfig, "entries">,
+  repoPath: string,
+): ReadonlySet<string> => {
+  return new Set(
+    config.entries.flatMap((entry) => {
+      return entry.repoPath !== repoPath &&
+        entry.repoPath.startsWith(`${repoPath}/`)
+        ? [entry.repoPath]
+        : [];
+    }),
+  );
+};
+
 export const resolveEntryRelativeRepoPath = (
   entry: Pick<ResolvedSyncConfigEntry, "kind" | "repoPath">,
   repoPath: string,

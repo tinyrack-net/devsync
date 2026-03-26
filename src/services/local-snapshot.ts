@@ -2,6 +2,7 @@ import { lstat, readFile, readlink } from "node:fs/promises";
 import { join, posix } from "node:path";
 
 import {
+  collectChildEntryPaths,
   type ResolvedSyncConfig,
   resolveManagedSyncMode,
 } from "#app/config/sync.js";
@@ -181,7 +182,6 @@ export const buildLocalSnapshot = async (
   reporter?: ProgressReporter,
 ) => {
   const snapshot = new Map<string, SnapshotNode>();
-  const allEntryPaths = new Set(config.entries.map((e) => e.repoPath));
   const progressState = { scannedEntryCount: 0 };
 
   for (const entry of config.entries) {
@@ -240,12 +240,13 @@ export const buildLocalSnapshot = async (
     }
 
     const childEntryPaths = new Set(
-      [...allEntryPaths].filter(
-        (p) => p !== entry.repoPath && p.startsWith(`${entry.repoPath}/`),
-      ),
+      collectChildEntryPaths(config, entry.repoPath),
     );
 
-    const snapshotSizeBeforeWalk = snapshot.size;
+    if (entryMode === "ignore") {
+      continue;
+    }
+
     await walkLocalDirectory(
       snapshot,
       config,
@@ -255,12 +256,9 @@ export const buildLocalSnapshot = async (
       reporter,
       progressState,
     );
-
-    if (entryMode !== "ignore" || snapshot.size > snapshotSizeBeforeWalk) {
-      addSnapshotNode(snapshot, entry.repoPath, {
-        type: "directory",
-      });
-    }
+    addSnapshotNode(snapshot, entry.repoPath, {
+      type: "directory",
+    });
   }
 
   return snapshot;
