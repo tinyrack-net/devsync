@@ -1,45 +1,54 @@
-import { Args } from "@oclif/core";
+import { buildCommand } from "@stricli/core";
 
-import { BaseCommand } from "#app/cli/base-command.js";
+import {
+  type DevsyncCliContext,
+  isVerbose,
+  print,
+  verboseFlag,
+} from "#app/cli/common.js";
+import { formatSyncForgetResult } from "#app/lib/output.js";
+import { forgetSyncTarget } from "#app/services/forget.js";
 
-export default class SyncUntrack extends BaseCommand {
-  public static override summary = "Stop tracking a synced path";
+type UntrackFlags = {
+  verbose?: boolean;
+};
 
-  public static override description =
-    "Remove a tracked root entry or a nested override from devsync configuration. This only updates the sync config; actual file changes happen on the next push or pull. Use a local path to remove the main tracked target, or use a repository-relative child path inside a tracked directory to remove only that override.";
-
-  public static override examples = [
-    "<%= config.bin %> <%= command.id %> ~/.gitconfig",
-    "cd ~/mytool && <%= config.bin %> <%= command.id %> ./settings.json",
-    "<%= config.bin %> <%= command.id %> .config/mytool",
-  ];
-
-  public static override args = {
-    target: Args.string({
-      description:
-        "Tracked local path (including cwd-relative) or repository path to stop tracking",
-      required: true,
-    }),
-  };
-
-  public override async run(): Promise<void> {
-    const { args, flags } = await this.parse(SyncUntrack);
-    const [{ formatSyncForgetResult }, { forgetSyncTarget }] =
-      await Promise.all([
-        import("#app/lib/output.js"),
-        import("#app/services/forget.js"),
-      ]);
+const untrackCommand = buildCommand<UntrackFlags, [string], DevsyncCliContext>({
+  docs: {
+    brief: "Stop tracking a synced path",
+    fullDescription:
+      "Remove a tracked root entry or a nested override from devsync configuration. This only updates the sync config; actual file changes happen on the next push or pull. Use a local path to remove the main tracked target, or use a repository-relative child path inside a tracked directory to remove only that override.",
+  },
+  async func(flags, target) {
     const output = formatSyncForgetResult(
       await forgetSyncTarget(
         {
-          target: args.target,
+          target,
         },
         process.env,
         process.cwd(),
       ),
-      { verbose: flags.verbose },
+      { verbose: isVerbose(flags.verbose) },
     );
 
-    this.print(output);
-  }
-}
+    print(output);
+  },
+  parameters: {
+    flags: {
+      verbose: verboseFlag,
+    },
+    positional: {
+      kind: "tuple",
+      parameters: [
+        {
+          brief:
+            "Tracked local path (including cwd-relative) or repository path to stop tracking",
+          parse: String,
+          placeholder: "target",
+        },
+      ],
+    },
+  },
+});
+
+export default untrackCommand;

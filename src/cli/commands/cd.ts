@@ -1,26 +1,33 @@
-import { BaseCommand } from "#app/cli/base-command.js";
+import { mkdir } from "node:fs/promises";
 
-export default class SyncCd extends BaseCommand {
-  public static override summary = "Launch a shell in the sync directory";
+import { buildCommand } from "@stricli/core";
+import { type DevsyncCliContext, verboseFlag } from "#app/cli/common.js";
+import { launchShellInDirectory } from "#app/cli/shell.js";
+import { resolveDevsyncSyncDirectory } from "#app/config/xdg.js";
 
-  public static override description =
-    "Launch a child shell rooted at the local sync repository directory. Like chezmoi cd, this opens a new shell session instead of changing the current directory of your existing shell.";
-
-  public static override examples = ["<%= config.bin %> <%= command.id %>"];
-
-  public override async run(): Promise<void> {
-    const [
-      { mkdir },
-      { launchShellInDirectory },
-      { resolveDevsyncSyncDirectory },
-    ] = await Promise.all([
-      import("node:fs/promises"),
-      import("#app/cli/shell.js"),
-      import("#app/config/xdg.js"),
-    ]);
+const cdCommand = buildCommand<
+  {
+    verbose?: boolean;
+  },
+  [],
+  DevsyncCliContext
+>({
+  docs: {
+    brief: "Launch a shell in the sync directory",
+    fullDescription:
+      "Launch a child shell rooted at the local sync repository directory. Like chezmoi cd, this opens a new shell session instead of changing the current directory of your existing shell.",
+  },
+  async func() {
     const syncDirectory = resolveDevsyncSyncDirectory();
 
     await mkdir(syncDirectory, { recursive: true });
     await launchShellInDirectory(syncDirectory, process.env);
-  }
-}
+  },
+  parameters: {
+    flags: {
+      verbose: verboseFlag,
+    },
+  },
+});
+
+export default cdCommand;

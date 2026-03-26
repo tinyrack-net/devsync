@@ -1,11 +1,11 @@
 import { spawn } from "node:child_process";
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import { fileURLToPath } from "node:url";
 
 import { execa } from "execa";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, beforeAll, describe, expect, it } from "vitest";
 
+import { cliPath, ensureCliBuilt } from "../src/test/helpers/cli-entry.js";
 import {
   createAgeKeyPair,
   createShellRecorderEnvironment,
@@ -14,7 +14,6 @@ import {
   writeIdentityFile,
 } from "../src/test/helpers/sync-fixture.js";
 
-const cliPath = fileURLToPath(new URL("../src/index.ts", import.meta.url));
 const temporaryDirectories: string[] = [];
 
 const createWorkspace = async () => {
@@ -131,6 +130,10 @@ afterEach(async () => {
 });
 
 describe("sync CLI e2e", () => {
+  beforeAll(async () => {
+    await ensureCliBuilt();
+  });
+
   it("generates a default age identity for bare init", async () => {
     const workspace = await createWorkspace();
     const homeDirectory = join(workspace, "home");

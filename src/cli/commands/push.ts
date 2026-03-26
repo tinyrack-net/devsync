@@ -1,53 +1,60 @@
-import { Flags } from "@oclif/core";
+import { buildCommand } from "@stricli/core";
 
-import { BaseCommand } from "#app/cli/base-command.js";
+import {
+  createProgressReporter,
+  type DevsyncCliContext,
+  isVerbose,
+  print,
+  verboseFlag,
+} from "#app/cli/common.js";
+import { formatSyncPushResult } from "#app/lib/output.js";
+import { pushSync } from "#app/services/push.js";
 
-export default class SyncPush extends BaseCommand {
-  public static override summary =
-    "Mirror local config into the git-backed sync repository";
+type PushFlags = {
+  dryRun?: boolean;
+  profile?: string;
+  verbose?: boolean;
+};
 
-  public static override description =
-    "Collect the current state of tracked local files and directories, then update the sync repository artifacts to match. Secret targets are encrypted before they are written into the repository.";
-
-  public static override examples = [
-    "<%= config.bin %> <%= command.id %>",
-    "<%= config.bin %> <%= command.id %> --dry-run",
-    "<%= config.bin %> <%= command.id %> --profile work",
-  ];
-
-  public static override flags = {
-    "dry-run": Flags.boolean({
-      default: false,
-      summary: "Preview repository updates only",
-      description:
-        "Show which repository files devsync would create, update, or remove without writing any changes into the sync repository.",
-    }),
-    profile: Flags.string({
-      summary: "Use a specific profile layer for this command",
-      description:
-        "Override the persisted active profile for this push operation only.",
-    }),
-  };
-
-  public override async run(): Promise<void> {
-    const { flags } = await this.parse(SyncPush);
-    const progress = this.createProgressReporter(flags.verbose);
-    const [{ formatSyncPushResult }, { pushSync }] = await Promise.all([
-      import("#app/lib/output.js"),
-      import("#app/services/push.js"),
-    ]);
+const pushCommand = buildCommand<PushFlags, [], DevsyncCliContext>({
+  docs: {
+    brief: "Mirror local config into the git-backed sync repository",
+    fullDescription:
+      "Collect the current state of tracked local files and directories, then update the sync repository artifacts to match. Secret targets are encrypted before they are written into the repository.",
+  },
+  async func(flags) {
+    const verbose = isVerbose(flags.verbose);
     const output = formatSyncPushResult(
       await pushSync(
         {
-          dryRun: flags["dry-run"],
+          dryRun: flags.dryRun ?? false,
           profile: flags.profile,
         },
         process.env,
-        progress,
+        createProgressReporter(verbose),
       ),
-      { verbose: flags.verbose },
+      { verbose },
     );
 
-    this.print(output);
-  }
-}
+    print(output);
+  },
+  parameters: {
+    flags: {
+      dryRun: {
+        brief: "Preview repository updates only",
+        kind: "boolean",
+        optional: true,
+      },
+      profile: {
+        brief: "Use a specific profile layer for this command",
+        kind: "parsed",
+        optional: true,
+        parse: String,
+        placeholder: "profile",
+      },
+      verbose: verboseFlag,
+    },
+  },
+});
+
+export default pushCommand;

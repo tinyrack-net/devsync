@@ -1,10 +1,7 @@
-import { fileURLToPath } from "node:url";
-
 import { execa } from "execa";
-import { describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it } from "vitest";
 import packageJson from "../package.json" with { type: "json" };
-
-const cliPath = fileURLToPath(new URL("../src/index.ts", import.meta.url));
+import { cliPath, ensureCliBuilt } from "../src/test/helpers/cli-entry.js";
 
 const runCli = async (
   args: readonly string[],
@@ -20,6 +17,10 @@ const runCli = async (
 };
 
 describe("CLI e2e", () => {
+  beforeAll(async () => {
+    await ensureCliBuilt();
+  });
+
   it("shows the version from the real entrypoint", async () => {
     const result = await runCli(["--version"]);
 
@@ -50,14 +51,14 @@ describe("CLI e2e", () => {
       runCli(["profile", "use", "--help"]),
     ]);
 
-    expect(cdHelp.stdout).toContain("$ devsync cd");
+    expect(cdHelp.stdout).toContain("USAGE");
     expect(cdHelp.stdout).toContain("Launch a child shell rooted");
 
-    expect(trackHelp.stdout).toContain("$ devsync track");
+    expect(trackHelp.stdout).toContain("USAGE");
     expect(trackHelp.stdout).toContain("--mode");
     expect(trackHelp.stdout).toContain("--profile");
 
-    expect(profileHelp.stdout).toContain("$ devsync profile use");
+    expect(profileHelp.stdout).toContain("Profile name to activate");
   });
 
   it("returns a non-zero exit code for removed command surfaces", async () => {

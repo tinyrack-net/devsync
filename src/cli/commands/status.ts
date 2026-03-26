@@ -1,42 +1,50 @@
-import { Flags } from "@oclif/core";
+import { buildCommand } from "@stricli/core";
 
-import { BaseCommand } from "#app/cli/base-command.js";
+import {
+  createProgressReporter,
+  type DevsyncCliContext,
+  isVerbose,
+  print,
+  verboseFlag,
+} from "#app/cli/common.js";
+import { formatSyncStatusResult } from "#app/lib/output.js";
+import { getSyncStatus } from "#app/services/status.js";
 
-export default class SyncStatus extends BaseCommand {
-  public static override summary =
-    "Show planned push and pull changes for the current sync config";
+type StatusFlags = {
+  profile?: string;
+  verbose?: boolean;
+};
 
-  public static override description =
-    "Compare the tracked local files with the sync repository and report what push would write to the repository and what pull would write back locally.";
-
-  public static override examples = [
-    "<%= config.bin %> <%= command.id %>",
-    "<%= config.bin %> <%= command.id %> --profile work",
-  ];
-
-  public static override flags = {
-    profile: Flags.string({
-      summary: "Use a specific profile layer for this command",
-      description:
-        "Override the persisted active profile for this status command only.",
-    }),
-  };
-
-  public override async run(): Promise<void> {
-    const { flags } = await this.parse(SyncStatus);
-    const progress = this.createProgressReporter(flags.verbose);
-    const [{ formatSyncStatusResult }, { getSyncStatus }] = await Promise.all([
-      import("#app/lib/output.js"),
-      import("#app/services/status.js"),
-    ]);
+const statusCommand = buildCommand<StatusFlags, [], DevsyncCliContext>({
+  docs: {
+    brief: "Show planned push and pull changes for the current sync config",
+    fullDescription:
+      "Compare the tracked local files with the sync repository and report what push would write to the repository and what pull would write back locally.",
+  },
+  async func(flags) {
+    const verbose = isVerbose(flags.verbose);
     const output = formatSyncStatusResult(
       await getSyncStatus(process.env, {
         profile: flags.profile,
-        reporter: progress,
+        reporter: createProgressReporter(verbose),
       }),
-      { verbose: flags.verbose },
+      { verbose },
     );
 
-    this.print(output);
-  }
-}
+    print(output);
+  },
+  parameters: {
+    flags: {
+      profile: {
+        brief: "Use a specific profile layer for this command",
+        kind: "parsed",
+        optional: true,
+        parse: String,
+        placeholder: "profile",
+      },
+      verbose: verboseFlag,
+    },
+  },
+});
+
+export default statusCommand;

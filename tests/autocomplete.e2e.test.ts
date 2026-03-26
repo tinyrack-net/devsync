@@ -1,9 +1,6 @@
-import { fileURLToPath } from "node:url";
-
 import { execa } from "execa";
-import { describe, expect, it } from "vitest";
-
-const cliPath = fileURLToPath(new URL("../src/index.ts", import.meta.url));
+import { beforeAll, describe, expect, it } from "vitest";
+import { cliPath, ensureCliBuilt } from "../src/test/helpers/cli-entry.js";
 
 const runCli = async (args: readonly string[]) => {
   return execa(process.execPath, [cliPath, ...args], {
@@ -16,15 +13,17 @@ const runCli = async (args: readonly string[]) => {
 };
 
 describe("autocomplete e2e", () => {
+  beforeAll(async () => {
+    await ensureCliBuilt();
+  });
+
   it("appears in root help", async () => {
     const result = await runCli([]);
 
     expect(result.exitCode).toBe(0);
     expect(result.stderr).toBe("");
     expect(result.stdout).toContain("autocomplete");
-    expect(result.stdout).toContain(
-      "Display autocomplete installation instructions",
-    );
+    expect(result.stdout).toContain("Manage shell autocomplete support");
   });
 
   it("prints bash autocomplete setup instructions", async () => {
@@ -34,7 +33,8 @@ describe("autocomplete e2e", () => {
     expect(result.stdout).toContain(
       "Setup Instructions for DEVSYNC CLI Autocomplete",
     );
-    expect(result.stdout).toContain("devsync autocomplete script bash");
-    expect(result.stderr).toContain("Building the autocomplete cache");
+    expect(result.stdout).toContain("devsync autocomplete install");
+    expect(result.stdout).toContain("devsync __complete");
+    expect(result.stderr).toBe("");
   });
 });

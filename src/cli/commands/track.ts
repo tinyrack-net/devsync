@@ -1,77 +1,37 @@
-import { Args, Flags } from "@oclif/core";
+import { buildCommand } from "@stricli/core";
 
-import { BaseCommand } from "#app/cli/base-command.js";
+import {
+  createProgressReporter,
+  type DevsyncCliContext,
+  isVerbose,
+  print,
+  verboseFlag,
+} from "#app/cli/common.js";
+import { formatSyncAddResult, formatSyncSetResult } from "#app/lib/output.js";
+import { trackSyncTarget } from "#app/services/add.js";
+import { DevsyncError } from "#app/services/error.js";
+import { assignSyncProfiles } from "#app/services/profile.js";
+import { setSyncTargetMode } from "#app/services/set.js";
 
-export default class SyncTrack extends BaseCommand {
-  public static override summary =
-    "Track local files or directories for syncing";
+type TrackFlags = {
+  mode: "ignore" | "normal" | "secret";
+  profile?: readonly string[];
+  verbose?: boolean;
+};
 
-  public static override description =
-    "Register one or more files or directories inside your home directory so devsync can mirror them into the sync repository. If a target is already tracked, its mode is updated. Targets may also be repository paths inside a tracked directory to create child entries with a specific mode.";
-
-  public static override examples = [
-    "<%= config.bin %> <%= command.id %> ~/.gitconfig",
-    "<%= config.bin %> <%= command.id %> ~/.gitconfig ~/.zshrc ~/.config/nvim",
-    "<%= config.bin %> <%= command.id %> ~/.ssh/config --mode secret",
-    "<%= config.bin %> <%= command.id %> ~/.ssh/config --mode secret --profile vivident",
-    "<%= config.bin %> <%= command.id %> ~/.gitconfig --profile ''",
-    "<%= config.bin %> <%= command.id %> ./.zshrc",
-    "<%= config.bin %> <%= command.id %> ~/.config/mytool/cache --mode ignore",
-    "<%= config.bin %> <%= command.id %> .config/mytool/token.json --mode secret",
-  ];
-
-  public static override strict = false;
-
-  public static override args = {
-    targets: Args.string({
-      description:
-        "Local files or directories under your home directory to track, including cwd-relative paths or repository paths inside tracked directories",
-      required: true,
-    }),
-  };
-
-  public static override flags = {
-    profile: Flags.string({
-      multiple: true,
-      summary: "Restrict syncing to specific profiles",
-      description:
-        "Assign one or more profile names to the tracked entries. When set, the entry is only synced on the listed profiles.",
-    }),
-    mode: Flags.string({
-      default: "normal",
-      options: ["normal", "secret", "ignore"],
-      summary: "Sync mode for the tracked targets",
-      description:
-        "Set the sync mode. normal keeps plain files in sync, secret encrypts synced artifacts, and ignore skips the target during push and pull.",
-    }),
-  };
-
-  public override async run(): Promise<void> {
-    const { argv, flags } = await this.parse(SyncTrack);
-    const targets = argv as string[];
-    const mode = flags.mode as "ignore" | "normal" | "secret";
-    const profiles = flags.profile ?? [];
-    const progress = this.createProgressReporter(flags.verbose);
-
-    if (targets.length === 0) {
-      this.error("At least one target path is required.");
-    }
-
-    const [
-      { formatSyncAddResult, formatSyncSetResult },
-      { trackSyncTarget },
-      { DevsyncError },
-      { assignSyncProfiles },
-      { setSyncTargetMode },
-    ] = await Promise.all([
-      import("#app/lib/output.js"),
-      import("#app/services/add.js"),
-      import("#app/services/error.js"),
-      import("#app/services/profile.js"),
-      import("#app/services/set.js"),
-    ]);
+const trackCommand = buildCommand<TrackFlags, string[], DevsyncCliContext>({
+  docs: {
+    brief: "Track local files or directories for syncing",
+    fullDescription:
+      "Register one or more files or directories inside your home directory so devsync can mirror them into the sync repository. If a target is already tracked, its mode is updated. Targets may also be repository paths inside a tracked directory to create child entries with a specific mode.",
+  },
+  async func(flags, ...targets) {
+    const verbose = isVerbose(flags.verbose);
+    const profiles = [...(flags.profile ?? [])];
+    const progress = createProgressReporter(verbose);
     const environment = process.env;
     const cwd = process.cwd();
+
     progress.phase(
       `Processing ${targets.length} sync target${targets.length === 1 ? "" : "s"}...`,
     );
@@ -82,15 +42,15 @@ export default class SyncTrack extends BaseCommand {
       try {
         const result = await trackSyncTarget(
           {
+            mode: flags.mode,
             profiles: profiles.length > 0 ? profiles : undefined,
-            mode,
             target,
           },
           environment,
           cwd,
         );
 
-        this.print(formatSyncAddResult(result, { verbose: flags.verbose }));
+        print(formatSyncAddResult(result, { verbose }));
       } catch (error: unknown) {
         if (
           error instanceof DevsyncError &&
@@ -99,7 +59,7 @@ export default class SyncTrack extends BaseCommand {
           progress.phase(`Updating existing target ${target}...`);
           const setResult = await setSyncTargetMode(
             {
-              mode,
+              mode: flags.mode,
               target,
             },
             environment,
@@ -115,13 +75,43 @@ export default class SyncTrack extends BaseCommand {
             );
           }
 
-          this.print(
-            formatSyncSetResult(setResult, { verbose: flags.verbose }),
-          );
-        } else {
-          throw error;
+          print(formatSyncSetResult(setResult, { verbose }));
+          continue;
         }
+
+        throw error;
       }
     }
-  }
-}
+  },
+  parameters: {
+    flags: {
+      mode: {
+        brief: "Sync mode for the tracked targets",
+        default: "normal",
+        kind: "enum",
+        values: ["normal", "secret", "ignore"],
+      },
+      profile: {
+        brief: "Restrict syncing to specific profiles",
+        kind: "parsed",
+        optional: true,
+        parse: String,
+        placeholder: "profile",
+        variadic: true,
+      },
+      verbose: verboseFlag,
+    },
+    positional: {
+      kind: "array",
+      minimum: 1,
+      parameter: {
+        brief:
+          "Local files or directories under your home directory to track, including cwd-relative paths or repository paths inside tracked directories",
+        parse: String,
+        placeholder: "target",
+      },
+    },
+  },
+});
+
+export default trackCommand;

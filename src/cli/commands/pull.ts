@@ -1,53 +1,60 @@
-import { Flags } from "@oclif/core";
+import { buildCommand } from "@stricli/core";
 
-import { BaseCommand } from "#app/cli/base-command.js";
+import {
+  createProgressReporter,
+  type DevsyncCliContext,
+  isVerbose,
+  print,
+  verboseFlag,
+} from "#app/cli/common.js";
+import { formatSyncPullResult } from "#app/lib/output.js";
+import { pullSync } from "#app/services/pull.js";
 
-export default class SyncPull extends BaseCommand {
-  public static override summary =
-    "Apply the git-backed sync repository to local config paths";
+type PullFlags = {
+  dryRun?: boolean;
+  profile?: string;
+  verbose?: boolean;
+};
 
-  public static override description =
-    "Read tracked artifacts from the sync repository and materialize them back onto local paths under your home directory. Secret artifacts are decrypted with the configured age identity before they are written locally.";
-
-  public static override examples = [
-    "<%= config.bin %> <%= command.id %>",
-    "<%= config.bin %> <%= command.id %> --dry-run",
-    "<%= config.bin %> <%= command.id %> --profile work",
-  ];
-
-  public static override flags = {
-    "dry-run": Flags.boolean({
-      default: false,
-      summary: "Preview local file updates only",
-      description:
-        "Show which local files and directories devsync would create, update, or remove without touching the local state.",
-    }),
-    profile: Flags.string({
-      summary: "Use a specific profile layer for this command",
-      description:
-        "Override the persisted active profile for this pull operation only.",
-    }),
-  };
-
-  public override async run(): Promise<void> {
-    const { flags } = await this.parse(SyncPull);
-    const progress = this.createProgressReporter(flags.verbose);
-    const [{ formatSyncPullResult }, { pullSync }] = await Promise.all([
-      import("#app/lib/output.js"),
-      import("#app/services/pull.js"),
-    ]);
+const pullCommand = buildCommand<PullFlags, [], DevsyncCliContext>({
+  docs: {
+    brief: "Apply the git-backed sync repository to local config paths",
+    fullDescription:
+      "Read tracked artifacts from the sync repository and materialize them back onto local paths under your home directory. Secret artifacts are decrypted with the configured age identity before they are written locally.",
+  },
+  async func(flags) {
+    const verbose = isVerbose(flags.verbose);
     const output = formatSyncPullResult(
       await pullSync(
         {
-          dryRun: flags["dry-run"],
+          dryRun: flags.dryRun ?? false,
           profile: flags.profile,
         },
         process.env,
-        progress,
+        createProgressReporter(verbose),
       ),
-      { verbose: flags.verbose },
+      { verbose },
     );
 
-    this.print(output);
-  }
-}
+    print(output);
+  },
+  parameters: {
+    flags: {
+      dryRun: {
+        brief: "Preview local file updates only",
+        kind: "boolean",
+        optional: true,
+      },
+      profile: {
+        brief: "Use a specific profile layer for this command",
+        kind: "parsed",
+        optional: true,
+        parse: String,
+        placeholder: "profile",
+      },
+      verbose: verboseFlag,
+    },
+  },
+});
+
+export default pullCommand;

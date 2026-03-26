@@ -1,29 +1,46 @@
-import { BaseCommand } from "#app/cli/base-command.js";
+import { buildCommand } from "@stricli/core";
 
-export default class SyncDoctor extends BaseCommand {
-  public static override summary =
-    "Check sync repository, config, age identity, and tracked local paths";
+import {
+  createProgressReporter,
+  type DevsyncCliContext,
+  isVerbose,
+  print,
+  verboseFlag,
+} from "#app/cli/common.js";
+import { formatSyncDoctorResult } from "#app/lib/output.js";
+import { runSyncDoctor } from "#app/services/doctor.js";
 
-  public static override description =
-    "Run health checks for the local sync setup, including repository availability, config validity, age identity configuration, and whether tracked local paths still exist where devsync expects them.";
-
-  public static override examples = ["<%= config.bin %> <%= command.id %>"];
-
-  public override async run(): Promise<void> {
-    const { flags } = await this.parse(SyncDoctor);
-    const [{ formatSyncDoctorResult }, { runSyncDoctor }] = await Promise.all([
-      import("#app/lib/output.js"),
-      import("#app/services/doctor.js"),
-    ]);
+const doctorCommand = buildCommand<
+  {
+    verbose?: boolean;
+  },
+  [],
+  DevsyncCliContext
+>({
+  docs: {
+    brief:
+      "Check sync repository, config, age identity, and tracked local paths",
+    fullDescription:
+      "Run health checks for the local sync setup, including repository availability, config validity, age identity configuration, and whether tracked local paths still exist where devsync expects them.",
+  },
+  async func(flags) {
+    const verbose = isVerbose(flags.verbose);
     const result = await runSyncDoctor(
       process.env,
-      this.createProgressReporter(flags.verbose),
+      createProgressReporter(verbose),
     );
 
-    this.print(formatSyncDoctorResult(result, { verbose: flags.verbose }));
+    print(formatSyncDoctorResult(result, { verbose }));
 
     if (result.hasFailures) {
-      this.exit(1);
+      process.exitCode = 1;
     }
-  }
-}
+  },
+  parameters: {
+    flags: {
+      verbose: verboseFlag,
+    },
+  },
+});
+
+export default doctorCommand;

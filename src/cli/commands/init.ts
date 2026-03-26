@@ -1,65 +1,33 @@
-import { Args, Flags } from "@oclif/core";
+import { buildCommand } from "@stricli/core";
+import {
+  createProgressReporter,
+  type DevsyncCliContext,
+  isVerbose,
+  print,
+  verboseFlag,
+} from "#app/cli/common.js";
+import { promptForSecret } from "#app/cli/prompt.js";
+import { resolveConfiguredAbsolutePath } from "#app/config/xdg.js";
+import { formatSyncInitResult } from "#app/lib/output.js";
+import { pathExists } from "#app/services/filesystem.js";
+import { defaultSyncIdentityFile, initializeSync } from "#app/services/init.js";
 
-import { BaseCommand } from "#app/cli/base-command.js";
+type InitFlags = {
+  identity?: string;
+  key?: string;
+  recipient?: readonly string[];
+  verbose?: boolean;
+};
 
-export default class SyncInit extends BaseCommand {
-  public static override summary = "Initialize the git-backed sync directory";
-
-  public static override description =
-    "Create or connect the local devsync repository under your XDG config directory, then store the sync settings used by later pull and push operations. If you omit the repository argument, devsync initializes a local git repository in the sync directory.";
-
-  public static override examples = [
-    "<%= config.bin %> <%= command.id %>",
-    "<%= config.bin %> <%= command.id %> https://example.com/my-sync-repo.git",
-    '<%= config.bin %> <%= command.id %> --key "AGE-SECRET-KEY-..."',
-    '<%= config.bin %> <%= command.id %> --identity "$XDG_CONFIG_HOME/devsync/age/keys.txt" --recipient age1...',
-  ];
-
-  public static override args = {
-    repository: Args.string({
-      description: "Remote URL or local git repository path to clone",
-      required: false,
-    }),
-  };
-
-  public static override flags = {
-    identity: Flags.string({
-      helpValue: "path",
-      summary: "Persist an age identity file path",
-      description:
-        "Store the age identity file path in manifest.json so later pull operations know which private key file to use for decrypting secret artifacts.",
-    }),
-    recipient: Flags.string({
-      helpValue: "recipient",
-      summary: "Persist an age recipient public key",
-      description:
-        "Add an age recipient public key to manifest.json. Repeat this flag to encrypt secrets for multiple recipients during push operations.",
-      multiple: true,
-    }),
-    key: Flags.string({
-      helpValue: "age-private-key",
-      summary: "Persist an age private key into the identity file",
-      description:
-        "Validate the provided age private key, write it to the configured identity file, and derive its recipient automatically.",
-    }),
-  };
-
-  public override async run(): Promise<void> {
-    const { args, flags } = await this.parse(SyncInit);
-    const progress = this.createProgressReporter(flags.verbose);
-    const [
-      { promptForSecret },
-      { resolveConfiguredAbsolutePath },
-      { formatSyncInitResult },
-      { pathExists },
-      { defaultSyncIdentityFile, initializeSync },
-    ] = await Promise.all([
-      import("#app/cli/prompt.js"),
-      import("#app/config/xdg.js"),
-      import("#app/lib/output.js"),
-      import("#app/services/filesystem.js"),
-      import("#app/services/init.js"),
-    ]);
+const initCommand = buildCommand<InitFlags, [string?], DevsyncCliContext>({
+  docs: {
+    brief: "Initialize the git-backed sync directory",
+    fullDescription:
+      "Create or connect the local devsync repository under your XDG config directory, then store the sync settings used by later pull and push operations. If you omit the repository argument, devsync initializes a local git repository in the sync directory.",
+  },
+  async func(flags, repository) {
+    const verbose = isVerbose(flags.verbose);
+    const progress = createProgressReporter(verbose);
     const requestedKey = flags.key?.trim();
     const configuredIdentityFile =
       flags.identity?.trim() || defaultSyncIdentityFile;
@@ -87,14 +55,54 @@ export default class SyncInit extends BaseCommand {
           generateAgeIdentity: shouldPrompt && trimmedPromptedKey === "",
           identityFile: flags.identity,
           recipients: flags.recipient ?? [],
-          repository: args.repository,
+          repository,
         },
         process.env,
         progress,
       ),
-      { verbose: flags.verbose },
+      { verbose },
     );
 
-    this.print(output);
-  }
-}
+    print(output);
+  },
+  parameters: {
+    flags: {
+      identity: {
+        brief: "Persist an age identity file path",
+        kind: "parsed",
+        optional: true,
+        parse: String,
+        placeholder: "path",
+      },
+      key: {
+        brief: "Persist an age private key into the identity file",
+        kind: "parsed",
+        optional: true,
+        parse: String,
+        placeholder: "age-private-key",
+      },
+      recipient: {
+        brief: "Persist an age recipient public key",
+        kind: "parsed",
+        optional: true,
+        parse: String,
+        placeholder: "recipient",
+        variadic: true,
+      },
+      verbose: verboseFlag,
+    },
+    positional: {
+      kind: "tuple",
+      parameters: [
+        {
+          brief: "Remote URL or local git repository path to clone",
+          optional: true,
+          parse: String,
+          placeholder: "repository",
+        },
+      ],
+    },
+  },
+});
+
+export default initCommand;
