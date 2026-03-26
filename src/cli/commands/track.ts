@@ -7,6 +7,7 @@ import {
   print,
   verboseFlag,
 } from "#app/cli/common.js";
+import { proposePathCompletions } from "#app/cli/path-completion.js";
 import { formatSyncAddResult, formatSyncSetResult } from "#app/lib/output.js";
 import { trackSyncTarget } from "#app/services/add.js";
 import { DevsyncError } from "#app/services/error.js";
@@ -109,6 +110,7 @@ const trackCommand = buildCommand<TrackFlags, string[], DevsyncCliContext>({
           "Local files or directories under your home directory to track, including cwd-relative paths or repository paths inside tracked directories",
         parse: String,
         placeholder: "target",
+        proposeCompletions: proposePathCompletions,
       },
     },
   },

@@ -155,6 +155,20 @@ Notes:
 - Long-running commands such as `init`, `status`, `push`, `pull`, and multi-target `track` now stream progress to `stderr` while keeping the final summary on `stdout`.
 - Use `--verbose` to show more detailed per-entry and per-file progress output.
 
+### Shell autocomplete
+
+Load autocomplete into the current shell session with `eval`:
+
+```bash
+eval "$(devsync autocomplete bash)"
+```
+
+```zsh
+eval "$(devsync autocomplete zsh)"
+```
+
+To enable autocomplete automatically for future shells, add the matching `eval` line to your shell startup file such as `~/.bashrc` or `~/.zshrc`.
+
 ## 4. Detailed docs
 
 ### How tracking works
