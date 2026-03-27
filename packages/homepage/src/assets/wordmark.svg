@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 160" role="img" aria-labelledby="title desc">
+  <title id="title">devsync</title>
+  <desc id="desc">Stylized devsync wordmark</desc>
+  <defs>
+    <linearGradient id="gradient" x1="0%" x2="100%" y1="0%" y2="100%">
+      <stop offset="0%" stop-color="#14b8a6" />
+      <stop offset="100%" stop-color="#0f766e" />
+    </linearGradient>
+  </defs>
+  <rect width="320" height="160" rx="28" fill="#0f172a" />
+  <path
+    d="M50 80c0-17.673 14.327-32 32-32h34v18H82c-7.732 0-14 6.268-14 14s6.268 14 14 14h34v18H82c-17.673 0-32-14.327-32-32Zm95-32h22l19 54 19-54h22l-30 78h-22l-30-78Zm108 0h18v78h-18V48Z"
+    fill="url(#gradient)"
+  />
+</svg>

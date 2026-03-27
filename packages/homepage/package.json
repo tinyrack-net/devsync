@@ -1,0 +1,28 @@
+{
+  "name": "@tinyrack/devsync-homepage",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Documentation homepage for devsync built with Astro and Starlight.",
+  "license": "MIT",
+  "engines": {
+    "node": ">=24.0.0"
+  },
+  "scripts": {
+    "dev": "astro dev",
+    "build": "astro build",
+    "preview": "astro preview",
+    "start": "astro dev",
+    "typecheck": "astro-check"
+  },
+  "dependencies": {
+    "@astrojs/starlight": "^0.38.2",
+    "@tailwindcss/vite": "^4.2.2",
+    "astro": "^6.1.1",
+    "tailwindcss": "^4.2.2"
+  },
+  "devDependencies": {
+    "@astrojs/check": "^0.9.4",
+    "typescript": "^5.9.3"
+  }
+}

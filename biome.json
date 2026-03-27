@@ -14,7 +14,14 @@
     }
   },
   "files": {
-    "includes": ["**", "!**/coverage", "!**/dist", "!**/node_modules"]
+    "includes": [
+      "**",
+      "!**/.astro",
+      "!**/*.astro",
+      "!**/coverage",
+      "!**/dist",
+      "!**/node_modules"
+    ]
   },
   "javascript": {
     "formatter": {

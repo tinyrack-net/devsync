@@ -1,0 +1,50 @@
+import starlight from "@astrojs/starlight";
+import tailwindcss from "@tailwindcss/vite";
+import type { AstroUserConfig } from "astro";
+import { defineConfig } from "astro/config";
+
+export default defineConfig({
+  site: "https://devsync.tinyrack.net",
+  trailingSlash: "always",
+  redirects: {
+    "/": "/en/",
+  },
+  vite: {
+    plugins: [tailwindcss()] as NonNullable<AstroUserConfig["vite"]>["plugins"],
+  },
+  integrations: [
+    starlight({
+      title: "devsync",
+      description:
+        "Git-backed configuration sync for your development environment.",
+      defaultLocale: "en",
+      locales: {
+        en: {
+          label: "English",
+          lang: "en",
+        },
+        ko: {
+          label: "한국어",
+          lang: "ko",
+        },
+      },
+      social: [
+        {
+          icon: "github",
+          label: "GitHub",
+          href: "https://github.com/tinyrack-net/devsync",
+        },
+      ],
+      customCss: ["./src/styles/tailwind.css"],
+      sidebar: [
+        {
+          label: "Guide",
+          translations: {
+            ko: "가이드",
+          },
+          items: [{ slug: "getting-started" }],
+        },
+      ],
+    }),
+  ],
+});

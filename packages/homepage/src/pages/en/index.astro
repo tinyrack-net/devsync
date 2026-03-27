@@ -1,0 +1,92 @@
+---
+import HomePage from "../../components/HomePage.astro";
+---
+
+<HomePage
+  actions={[
+    { href: "/en/getting-started/", label: "Get Started" },
+    {
+      href: "https://github.com/tinyrack-net/devsync",
+      label: "View on GitHub",
+      variant: "secondary",
+    },
+  ]}
+  capabilities={[
+    {
+      name: "Secret-aware sync",
+      body: "Mark tracked targets as secret and devsync stores repository artifacts encrypted with age.",
+    },
+    {
+      name: "Profile layers",
+      body: "Assign entries to profiles like work or personal, then switch the active layer without changing the manifest.",
+    },
+    {
+      name: "Health and diff checks",
+      body: "Use doctor and status to verify repository health, config validity, and planned local or remote changes before touching files.",
+    },
+    {
+      name: "Shell into the repo",
+      body: "Open a child shell in the sync repository with devsync cd when you want to inspect or commit changes directly.",
+    },
+  ]}
+  commandPreview={`$ devsync init git@github.com:tinyrack-net/devsync.git
+$ devsync track ~/.gitconfig ~/.config/nvim --mode normal
+$ devsync track ~/.ssh/config --mode secret
+$ devsync status
+$ devsync push
+$ devsync pull
+$ devsync profile use work
+$ devsync doctor`}
+  description="Git-backed sync for your development environment."
+  features={[
+    {
+      eyebrow: "Git-backed",
+      title: "Treat local config as a repository, not a pile of copies",
+      body: "devsync mirrors tracked files and directories into a dedicated Git repository under your XDG config directory, so history and review stay explicit.",
+    },
+    {
+      eyebrow: "Home-directory focused",
+      title: "Track what actually matters on a machine",
+      body: "Register dotfiles, app config directories, and nested paths under your home directory, then keep them consistent across fresh setups and long-lived workstations.",
+    },
+    {
+      eyebrow: "Careful automation",
+      title: "Preview changes before you overwrite anything",
+      body: "Push and pull are backed by status reporting, dry runs, and doctor checks, so the tool stays transparent instead of acting like a silent sync daemon.",
+    },
+  ]}
+  intro="devsync is a personal CLI for syncing development configuration with a Git-backed workflow. It manages tracked paths under your home directory, mirrors them into a local sync repository, and restores them later with explicit push and pull steps."
+  lang="en"
+  sectionLabels={{
+    capabilities: "Extra Tools",
+    commandPreview: "The CLI surface stays small and direct.",
+    featureEyebrow: "Why devsync",
+    featureTitle: "Built around explicit control over your machine setup.",
+    workflow: "Typical Flow",
+    workflowTitle: "A setup loop that matches how the CLI actually works.",
+  }}
+  steps={[
+    {
+      command: "devsync init [repository]",
+      title: "Initialize the local sync repository",
+      body: "Create or clone the repository under your XDG config directory and persist the settings later commands will use.",
+    },
+    {
+      command: "devsync track <path...>",
+      title: "Register files, directories, and secrets",
+      body: "Track local targets, assign sync modes, and optionally attach profile restrictions for different machine contexts.",
+    },
+    {
+      command: "devsync status",
+      title: "Inspect pending push and pull work",
+      body: "Compare local state and repository artifacts before writing anything, so you know what will move in each direction.",
+    },
+    {
+      command: "devsync push / pull",
+      title: "Materialize changes deliberately",
+      body: "Push writes local state into the repository and pull restores repository artifacts onto the machine, with secret entries encrypted or decrypted as needed.",
+    },
+  ]}
+  tagline="Keep your machine setup reproducible without hiding the Git workflow."
+  title="devsync"
+/>
