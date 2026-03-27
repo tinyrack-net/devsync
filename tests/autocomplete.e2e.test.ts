@@ -5,6 +5,10 @@ import { join } from "node:path";
 import { execa } from "execa";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { cliPath, ensureCliBuilt } from "../src/test/helpers/cli-entry.js";
+import {
+  isBashAvailable,
+  isZshAvailable,
+} from "../src/test/helpers/shell-availability.js";
 
 const COMPLETE_COMMAND = 'env -u COMP_LINE devsync __complete "${inputs[@]}"';
 
@@ -216,71 +220,92 @@ describe("autocomplete e2e", () => {
     expect(result.stderr).toBe("");
   });
 
-  it("populates bash completions from the emitted script", async () => {
-    const result = await runBashCompletion(["devsync", "aut"], 1);
+  it.skipIf(!isBashAvailable)(
+    "populates bash completions from the emitted script",
+    async () => {
+      const result = await runBashCompletion(["devsync", "aut"], 1);
 
-    expect(result.exitCode).toBe(0);
-    expect(result.stdout.split("\n")).toContain("autocomplete ");
-    expect(result.stderr).toBe("");
-  });
+      expect(result.exitCode).toBe(0);
+      expect(result.stdout.split("\n")).toContain("autocomplete ");
+      expect(result.stderr).toBe("");
+    },
+  );
 
-  it("offers root subcommands when bash completes the command token itself", async () => {
-    const result = await runBashCompletion(["devsync"], 0);
+  it.skipIf(!isBashAvailable)(
+    "offers root subcommands when bash completes the command token itself",
+    async () => {
+      const result = await runBashCompletion(["devsync"], 0);
 
-    expect(result.exitCode).toBe(0);
-    expect(result.stdout.split("\n")).toEqual(
-      expect.arrayContaining(["autocomplete ", "profile ", "track "]),
-    );
-  });
+      expect(result.exitCode).toBe(0);
+      expect(result.stdout.split("\n")).toEqual(
+        expect.arrayContaining(["autocomplete ", "profile ", "track "]),
+      );
+    },
+  );
 
-  it("adds a trailing space for unique bash subcommand completions", async () => {
-    const result = await runBashCompletion(["devsync", "pro"], 1);
+  it.skipIf(!isBashAvailable)(
+    "adds a trailing space for unique bash subcommand completions",
+    async () => {
+      const result = await runBashCompletion(["devsync", "pro"], 1);
 
-    expect(result.exitCode).toBe(0);
-    expect(result.stdout.split("\n")).toContain("profile ");
-    expect(result.stderr).toBe("");
-  });
+      expect(result.exitCode).toBe(0);
+      expect(result.stdout.split("\n")).toContain("profile ");
+      expect(result.stderr).toBe("");
+    },
+  );
 
-  it("populates bash path completions for track targets", async () => {
-    const result = await runBashCompletion(["devsync", "track", "fi"], 2, {
-      cwd: completionFixtureDirectory,
-    });
-
-    expect(result.exitCode).toBe(0);
-    expect(result.stdout.split("\n")).toContain("file-alpha.txt ");
-    expect(result.stderr).toBe("");
-  });
-
-  it("populates bash flag completions after a track target", async () => {
-    const result = await runBashCompletion(
-      ["devsync", "track", "file-alpha.txt", "-"],
-      3,
-      {
+  it.skipIf(!isBashAvailable)(
+    "populates bash path completions for track targets",
+    async () => {
+      const result = await runBashCompletion(["devsync", "track", "fi"], 2, {
         cwd: completionFixtureDirectory,
-      },
-    );
+      });
 
-    expect(result.exitCode).toBe(0);
-    expect(result.stdout.split("\n")).toEqual(
-      expect.arrayContaining(["--mode ", "--profile ", "--verbose "]),
-    );
-  });
+      expect(result.exitCode).toBe(0);
+      expect(result.stdout.split("\n")).toContain("file-alpha.txt ");
+      expect(result.stderr).toBe("");
+    },
+  );
 
-  it("adds a trailing space for unique zsh subcommand completions", async () => {
-    const result = await runZshCompletion(["devsync", "pro"], 2);
+  it.skipIf(!isBashAvailable)(
+    "populates bash flag completions after a track target",
+    async () => {
+      const result = await runBashCompletion(
+        ["devsync", "track", "file-alpha.txt", "-"],
+        3,
+        {
+          cwd: completionFixtureDirectory,
+        },
+      );
 
-    expect(result.exitCode).toBe(0);
-    expect(result.stdout.split("\n")).toContain("profile");
-  });
+      expect(result.exitCode).toBe(0);
+      expect(result.stdout.split("\n")).toEqual(
+        expect.arrayContaining(["--mode ", "--profile ", "--verbose "]),
+      );
+    },
+  );
 
-  it("offers root subcommands when zsh completes the command token itself", async () => {
-    const result = await runZshCompletion(["devsync"], 1);
+  it.skipIf(!isZshAvailable)(
+    "adds a trailing space for unique zsh subcommand completions",
+    async () => {
+      const result = await runZshCompletion(["devsync", "pro"], 2);
 
-    expect(result.exitCode).toBe(0);
-    expect(result.stdout.split("\n")).toEqual(
-      expect.arrayContaining(["autocomplete", "profile", "track"]),
-    );
-  });
+      expect(result.exitCode).toBe(0);
+      expect(result.stdout.split("\n")).toContain("profile");
+    },
+  );
+
+  it.skipIf(!isZshAvailable)(
+    "offers root subcommands when zsh completes the command token itself",
+    async () => {
+      const result = await runZshCompletion(["devsync"], 1);
+
+      expect(result.exitCode).toBe(0);
+      expect(result.stdout.split("\n")).toEqual(
+        expect.arrayContaining(["autocomplete", "profile", "track"]),
+      );
+    },
+  );
 
   it("proposes root subcommands when COMP_LINE has a trailing space", async () => {
     const result = await runCli(["__complete", "devsync", ""], {

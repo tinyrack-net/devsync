@@ -5,6 +5,10 @@ import { delimiter, join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { cliPath, ensureCliBuilt } from "../src/test/helpers/cli-entry.js";
 import { createPtySession } from "../src/test/helpers/pty.js";
+import {
+  isBashAvailable,
+  isZshAvailable,
+} from "../src/test/helpers/shell-availability.js";
 
 const createTestShellDirectory = async (
   rcLines: readonly string[],
@@ -30,7 +34,7 @@ const createTestShellDirectory = async (
   return { binDirectory, configDirectory };
 };
 
-describe("autocomplete zsh pty e2e", () => {
+describe.skipIf(!isZshAvailable)("autocomplete zsh pty e2e", () => {
   let shellConfigDirectory: string;
   let shellBinDirectory: string;
   let systemPath: string;
@@ -140,88 +144,91 @@ describe("autocomplete zsh pty e2e", () => {
   }, 15_000);
 });
 
-describe("autocomplete zsh pty e2e with compinit on every prompt", () => {
-  let reinitShellConfigDirectory: string;
-  let reinitShellBinDirectory: string;
-  let systemPath: string;
+describe.skipIf(!isZshAvailable)(
+  "autocomplete zsh pty e2e with compinit on every prompt",
+  () => {
+    let reinitShellConfigDirectory: string;
+    let reinitShellBinDirectory: string;
+    let systemPath: string;
 
-  beforeAll(async () => {
-    const { PATH: inheritedPath = "" } = process.env;
+    beforeAll(async () => {
+      const { PATH: inheritedPath = "" } = process.env;
 
-    await ensureCliBuilt();
+      await ensureCliBuilt();
 
-    systemPath = inheritedPath;
+      systemPath = inheritedPath;
 
-    // Simulate the problematic pattern from use-omz + ez-compinit:
-    // A precmd hook calls compinit on every prompt, which resets _comps
-    // entries registered via compdef. The reinit hook is registered
-    // BEFORE the autocomplete eval, matching the real-world loading
-    // order where plugin managers add hooks before user completions.
-    const { binDirectory, configDirectory } = await createTestShellDirectory(
-      [
-        "autoload -Uz compinit add-zsh-hook",
-        "compinit",
-        "zstyle ':completion:*' menu no",
-        "__test_reinit_compinit() { compinit; }",
-        "add-zsh-hook precmd __test_reinit_compinit",
-        'eval "$(devsync autocomplete zsh)"',
-        "PS1='PROMPT> '",
-      ],
-      ".zshrc",
-    );
-    reinitShellBinDirectory = binDirectory;
-    reinitShellConfigDirectory = configDirectory;
-  });
-
-  afterAll(async () => {
-    await rm(reinitShellConfigDirectory, {
-      force: true,
-      recursive: true,
-    });
-  });
-
-  it("lists root subcommands even when compinit runs on every prompt", async () => {
-    const session = createPtySession({
-      args: ["-i"],
-      cwd: process.cwd(),
-      env: {
-        FORCE_COLOR: "0",
-        NODE_NO_WARNINGS: "1",
-        NO_COLOR: "1",
-        PATH: [reinitShellBinDirectory, systemPath].join(delimiter),
-        ZDOTDIR: reinitShellConfigDirectory,
-      },
-      file: "zsh",
-    });
-
-    try {
-      await session.waitFor("PROMPT> ");
-
-      session.write("devsync\n");
-      await session.waitFor("COMMANDS");
-      await session.waitFor(/PROMPT> $/mu);
-
-      session.clearOutput();
-
-      session.write("devsync\t\t");
-
-      const output = await session.waitFor(
-        /autocomplete|profile|track/u,
-        10_000,
+      // Simulate the problematic pattern from use-omz + ez-compinit:
+      // A precmd hook calls compinit on every prompt, which resets _comps
+      // entries registered via compdef. The reinit hook is registered
+      // BEFORE the autocomplete eval, matching the real-world loading
+      // order where plugin managers add hooks before user completions.
+      const { binDirectory, configDirectory } = await createTestShellDirectory(
+        [
+          "autoload -Uz compinit add-zsh-hook",
+          "compinit",
+          "zstyle ':completion:*' menu no",
+          "__test_reinit_compinit() { compinit; }",
+          "add-zsh-hook precmd __test_reinit_compinit",
+          'eval "$(devsync autocomplete zsh)"',
+          "PS1='PROMPT> '",
+        ],
+        ".zshrc",
       );
+      reinitShellBinDirectory = binDirectory;
+      reinitShellConfigDirectory = configDirectory;
+    });
 
-      expect(output).toContain("autocomplete");
-      expect(output).toContain("profile");
-      expect(output).toContain("track");
-      expect(output).not.toContain("AGENTS.md");
-      expect(output).not.toContain("package.json");
-    } finally {
-      session.close();
-    }
-  }, 15_000);
-});
+    afterAll(async () => {
+      await rm(reinitShellConfigDirectory, {
+        force: true,
+        recursive: true,
+      });
+    });
 
-describe("autocomplete bash pty e2e", () => {
+    it("lists root subcommands even when compinit runs on every prompt", async () => {
+      const session = createPtySession({
+        args: ["-i"],
+        cwd: process.cwd(),
+        env: {
+          FORCE_COLOR: "0",
+          NODE_NO_WARNINGS: "1",
+          NO_COLOR: "1",
+          PATH: [reinitShellBinDirectory, systemPath].join(delimiter),
+          ZDOTDIR: reinitShellConfigDirectory,
+        },
+        file: "zsh",
+      });
+
+      try {
+        await session.waitFor("PROMPT> ");
+
+        session.write("devsync\n");
+        await session.waitFor("COMMANDS");
+        await session.waitFor(/PROMPT> $/mu);
+
+        session.clearOutput();
+
+        session.write("devsync\t\t");
+
+        const output = await session.waitFor(
+          /autocomplete|profile|track/u,
+          10_000,
+        );
+
+        expect(output).toContain("autocomplete");
+        expect(output).toContain("profile");
+        expect(output).toContain("track");
+        expect(output).not.toContain("AGENTS.md");
+        expect(output).not.toContain("package.json");
+      } finally {
+        session.close();
+      }
+    }, 15_000);
+  },
+);
+
+describe.skipIf(!isBashAvailable)("autocomplete bash pty e2e", () => {
   let bashBinDirectory: string;
   let bashConfigDirectory: string;
   let systemPath: string;
