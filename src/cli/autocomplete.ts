@@ -80,6 +80,29 @@ ${COMPLETION_FUNCTION_NAME}() {
 complete -o default -o nospace -F ${COMPLETION_FUNCTION_NAME} devsync
 `;
 
+const POWERSHELL_AUTOCOMPLETE_SCRIPT = `\
+Register-ArgumentCompleter -Native -CommandName devsync -ScriptBlock {
+  param($wordToComplete, $commandAst, $cursorPosition)
+  $inputs = $commandAst.ToString().Split(' ', [System.StringSplitOptions]::RemoveEmptyEntries)
+  if ($cursorPosition -gt $commandAst.ToString().Length) {
+    $inputs += ''
+  }
+  $rawCompletions = & ${AUTOCOMPLETE_COMMAND.replace(" ", " ")} $inputs 2>$null
+  if (-not $rawCompletions) { return }
+  foreach ($line in $rawCompletions) {
+    $parts = $line.Split([char]9, 2)
+    $word = $parts[0]
+    $desc = if ($parts.Length -gt 1) { $parts[1] } else { '' }
+    $type = if ($word.EndsWith('/')) {
+      [System.Management.Automation.CompletionResultType]::ParameterValue
+    } else {
+      [System.Management.Automation.CompletionResultType]::ParameterValue
+    }
+    [System.Management.Automation.CompletionResult]::new($word, $word, $type, $(if ($desc) { $desc } else { $word }))
+  }
+}
+`;
+
 const ENSURE_FUNCTION_NAME = "__devsync_ensure_completion";
 
 const ZSH_AUTOCOMPLETE_SCRIPT = `\
@@ -155,7 +178,7 @@ add-zsh-hook precmd ${ENSURE_FUNCTION_NAME}
 `;
 
 const buildAutocompleteScriptCommand = (
-  shell: "bash" | "zsh",
+  shell: "bash" | "zsh" | "powershell",
   script: string,
 ) => {
   return buildCommand<EmptyFlags, [], DevsyncCliContext>({
@@ -177,6 +200,10 @@ const bashAutocompleteCommand = buildAutocompleteScriptCommand(
 const zshAutocompleteCommand = buildAutocompleteScriptCommand(
   "zsh",
   ZSH_AUTOCOMPLETE_SCRIPT,
+);
+const powershellAutocompleteCommand = buildAutocompleteScriptCommand(
+  "powershell",
+  POWERSHELL_AUTOCOMPLETE_SCRIPT,
 );
 
 const isCliCommandToken = (input: string) => {
@@ -269,6 +296,7 @@ export const buildAutocompleteRoute = (
       },
       routes: {
         bash: bashAutocompleteCommand,
+        powershell: powershellAutocompleteCommand,
         zsh: zshAutocompleteCommand,
       },
     }),
