@@ -3,12 +3,15 @@ import { tmpdir } from "node:os";
 import { delimiter, join } from "node:path";
 
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { rootCommandNames } from "../src/cli/root-commands.js";
 import { cliPath, ensureCliBuilt } from "../src/test/helpers/cli-entry.js";
 import { createPtySession } from "../src/test/helpers/pty.js";
 import {
   isBashAvailable,
   isZshAvailable,
 } from "../src/test/helpers/shell-availability.js";
+
+const rootCommandsPattern = new RegExp(rootCommandNames.join("|"), "u");
 
 const createTestShellDirectory = async (
   rcLines: readonly string[],
@@ -99,14 +102,11 @@ describe.skipIf(!isZshAvailable)("autocomplete zsh pty e2e", () => {
 
       session.write("devsync\t\t");
 
-      const output = await session.waitFor(
-        /autocomplete|profile|track/u,
-        10_000,
-      );
+      const output = await session.waitFor(rootCommandsPattern, 10_000);
 
-      expect(output).toContain("autocomplete");
-      expect(output).toContain("profile");
-      expect(output).toContain("track");
+      for (const commandName of rootCommandNames) {
+        expect(output).toContain(commandName);
+      }
       expect(output).not.toContain("AGENTS.md");
       expect(output).not.toContain("package.json");
     } finally {
@@ -128,14 +128,11 @@ describe.skipIf(!isZshAvailable)("autocomplete zsh pty e2e", () => {
 
       session.write("devsync\t\t");
 
-      const output = await session.waitFor(
-        /autocomplete|profile|track/u,
-        10_000,
-      );
+      const output = await session.waitFor(rootCommandsPattern, 10_000);
 
-      expect(output).toContain("autocomplete");
-      expect(output).toContain("profile");
-      expect(output).toContain("track");
+      for (const commandName of rootCommandNames) {
+        expect(output).toContain(commandName);
+      }
       expect(output).not.toContain("AGENTS.md");
       expect(output).not.toContain("package.json");
     } finally {
@@ -211,14 +208,11 @@ describe.skipIf(!isZshAvailable)(
 
         session.write("devsync\t\t");
 
-        const output = await session.waitFor(
-          /autocomplete|profile|track/u,
-          10_000,
-        );
+        const output = await session.waitFor(rootCommandsPattern, 10_000);
 
-        expect(output).toContain("autocomplete");
-        expect(output).toContain("profile");
-        expect(output).toContain("track");
+        for (const commandName of rootCommandNames) {
+          expect(output).toContain(commandName);
+        }
         expect(output).not.toContain("AGENTS.md");
         expect(output).not.toContain("package.json");
       } finally {
@@ -277,15 +271,15 @@ describe.skipIf(!isBashAvailable)("autocomplete bash pty e2e", () => {
 
       session.write("devsync \t\t");
 
-      await session.waitFor("autocomplete", 10_000);
-      await session.waitFor("profile", 10_000);
-      await session.waitFor("track", 10_000);
+      for (const commandName of rootCommandNames) {
+        await session.waitFor(commandName, 10_000);
+      }
 
       const output = session.getOutput();
 
-      expect(output).toContain("autocomplete");
-      expect(output).toContain("profile");
-      expect(output).toContain("track");
+      for (const commandName of rootCommandNames) {
+        expect(output).toContain(commandName);
+      }
     } finally {
       session.close();
     }
@@ -305,15 +299,15 @@ describe.skipIf(!isBashAvailable)("autocomplete bash pty e2e", () => {
 
       session.write("devsync \t\t");
 
-      await session.waitFor("autocomplete", 10_000);
-      await session.waitFor("profile", 10_000);
-      await session.waitFor("track", 10_000);
+      for (const commandName of rootCommandNames) {
+        await session.waitFor(commandName, 10_000);
+      }
 
       const output = session.getOutput();
 
-      expect(output).toContain("autocomplete");
-      expect(output).toContain("profile");
-      expect(output).toContain("track");
+      for (const commandName of rootCommandNames) {
+        expect(output).toContain(commandName);
+      }
       expect(output).not.toContain("AGENTS.md");
       expect(output).not.toContain("package.json");
     } finally {

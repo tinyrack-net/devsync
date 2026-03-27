@@ -4,6 +4,7 @@ import { join } from "node:path";
 
 import { execa } from "execa";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { rootCommandNames } from "../src/cli/root-commands.js";
 import { cliPath, ensureCliBuilt } from "../src/test/helpers/cli-entry.js";
 import {
   isBashAvailable,
@@ -32,6 +33,10 @@ const runCli = async (
 
 const completionNames = (stdout: string) =>
   stdout.split("\n").map((line) => line.split("\t")[0] ?? line);
+
+const bashRootCommandNames = rootCommandNames.map((commandName) => {
+  return `${commandName} `;
+});
 
 const shellQuote = (value: string) => {
   return `'${value.replaceAll("'", "'\\''")}'`;
@@ -238,7 +243,7 @@ describe("autocomplete e2e", () => {
 
       expect(result.exitCode).toBe(0);
       expect(result.stdout.split("\n")).toEqual(
-        expect.arrayContaining(["autocomplete ", "profile ", "track "]),
+        expect.arrayContaining(bashRootCommandNames),
       );
     },
   );
@@ -302,7 +307,7 @@ describe("autocomplete e2e", () => {
 
       expect(result.exitCode).toBe(0);
       expect(result.stdout.split("\n")).toEqual(
-        expect.arrayContaining(["autocomplete", "profile", "track"]),
+        expect.arrayContaining(rootCommandNames),
       );
     },
   );
@@ -314,7 +319,7 @@ describe("autocomplete e2e", () => {
 
     expect(result.exitCode).toBe(0);
     expect(completionNames(result.stdout)).toEqual(
-      expect.arrayContaining(["autocomplete", "profile", "track"]),
+      expect.arrayContaining(rootCommandNames),
     );
     expect(result.stderr).toBe("");
   });

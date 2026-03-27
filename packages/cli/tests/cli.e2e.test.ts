@@ -1,6 +1,7 @@
 import { execa } from "execa";
 import { beforeAll, describe, expect, it } from "vitest";
 import packageJson from "../package.json" with { type: "json" };
+import { rootCommandNames } from "../src/cli/root-commands.js";
 import { cliPath, ensureCliBuilt } from "../src/test/helpers/cli-entry.js";
 
 const runCli = async (
@@ -34,14 +35,12 @@ describe("CLI e2e", () => {
 
     expect(result.exitCode).toBe(0);
     expect(result.stderr).toBe("");
-    expect(result.stdout).toContain("autocomplete");
+
+    for (const commandName of rootCommandNames) {
+      expect(result.stdout).toContain(commandName);
+    }
+
     expect(result.stdout).toContain("Launch a shell in the sync directory");
-    expect(result.stdout).toContain("track");
-    expect(result.stdout).toContain("untrack");
-    expect(result.stdout).toContain("profile");
-    expect(result.stdout).toContain("push");
-    expect(result.stdout).toContain("pull");
-    expect(result.stdout).toContain("status");
   });
 
   it("shows help for cd, track, and profile use commands", async () => {
