@@ -4,8 +4,8 @@ import * as path from "node:path";
 
 import type { TypedFlagParameter } from "@stricli/core";
 
-import { createCliProgressReporter } from "#app/cli/progress-reporter.js";
 import { writeStdout } from "#app/lib/output.js";
+import { createCliProgressReporter } from "#app/services/terminal/progress-reporter.js";
 
 export type DevsyncCliContext = {
   fs: {

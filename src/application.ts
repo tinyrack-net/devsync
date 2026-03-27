@@ -5,10 +5,13 @@ import {
   run,
   text_en,
 } from "@stricli/core";
-import { buildRootRoute } from "#app/cli/commands/index.js";
-import { createCliContext, type DevsyncCliContext } from "#app/cli/common.js";
-import { currentVersion } from "#app/cli/version.js";
+import { buildRootRoute } from "#app/cli/index.js";
 import { formatErrorMessage } from "#app/lib/output.js";
+import { currentVersion } from "#app/lib/version.js";
+import {
+  createCliContext,
+  type DevsyncCliContext,
+} from "#app/services/terminal/cli-runtime.js";
 
 type CommandError = Error & {
   exitCode?: number;

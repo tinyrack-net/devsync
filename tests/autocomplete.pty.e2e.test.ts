@@ -1,0 +1,215 @@
+import { chmod, mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { delimiter, join } from "node:path";
+
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { cliPath, ensureCliBuilt } from "../src/test/helpers/cli-entry.js";
+import { createPtySession } from "../src/test/helpers/pty.js";
+
+const createTestShellDirectory = async (
+  zshrcLines: readonly string[],
+): Promise<{ binDirectory: string; configDirectory: string }> => {
+  const configDirectory = await mkdtemp(
+    join(tmpdir(), "devsync-autocomplete-pty-"),
+  );
+  const binDirectory = join(configDirectory, "bin");
+
+  await mkdir(binDirectory, { recursive: true });
+
+  await writeFile(
+    join(binDirectory, "devsync"),
+    ["#!/usr/bin/env bash", `exec ${process.execPath} ${cliPath} "$@"`].join(
+      "\n",
+    ),
+  );
+  await chmod(join(binDirectory, "devsync"), 0o755);
+
+  await writeFile(join(configDirectory, ".zshrc"), zshrcLines.join("\n"));
+
+  return { binDirectory, configDirectory };
+};
+
+describe("autocomplete pty e2e", () => {
+  let shellConfigDirectory: string;
+  let shellBinDirectory: string;
+  let systemPath: string;
+
+  beforeAll(async () => {
+    const { PATH: inheritedPath = "" } = process.env;
+
+    await ensureCliBuilt();
+
+    systemPath = inheritedPath;
+
+    const { binDirectory, configDirectory } = await createTestShellDirectory([
+      "autoload -Uz compinit",
+      "zmodload zsh/complist",
+      "compinit",
+      "zstyle ':completion:*' list-colors ''",
+      "zstyle ':completion:*' menu no",
+      "PS1='PROMPT> '",
+      'eval "$(devsync autocomplete zsh)"',
+    ]);
+    shellBinDirectory = binDirectory;
+    shellConfigDirectory = configDirectory;
+  });
+
+  afterAll(async () => {
+    await rm(shellConfigDirectory, {
+      force: true,
+      recursive: true,
+    });
+  });
+
+  const createZshSession = (
+    options?: Readonly<{
+      binDirectory?: string;
+      configDirectory?: string;
+    }>,
+  ) => {
+    return createPtySession({
+      args: ["-i"],
+      cwd: process.cwd(),
+      env: {
+        FORCE_COLOR: "0",
+        NODE_NO_WARNINGS: "1",
+        NO_COLOR: "1",
+        PATH: [options?.binDirectory ?? shellBinDirectory, systemPath].join(
+          delimiter,
+        ),
+        ZDOTDIR: options?.configDirectory ?? shellConfigDirectory,
+      },
+      file: "zsh",
+    });
+  };
+
+  it("lists root subcommands in interactive zsh after devsync tab tab", async () => {
+    const session = createZshSession();
+
+    try {
+      await session.waitFor("PROMPT> ");
+
+      session.write("devsync\t\t");
+
+      const output = await session.waitFor(
+        /autocomplete|profile|track/u,
+        10_000,
+      );
+
+      expect(output).toContain("autocomplete");
+      expect(output).toContain("profile");
+      expect(output).toContain("track");
+      expect(output).not.toContain("AGENTS.md");
+      expect(output).not.toContain("package.json");
+    } finally {
+      session.close();
+    }
+  }, 15_000);
+
+  it("still lists root subcommands after running devsync once in the same shell", async () => {
+    const session = createZshSession();
+
+    try {
+      await session.waitFor("PROMPT> ");
+
+      session.write("devsync\n");
+      await session.waitFor("COMMANDS");
+      await session.waitFor(/PROMPT> $/mu);
+
+      session.clearOutput();
+
+      session.write("devsync\t\t");
+
+      const output = await session.waitFor(
+        /autocomplete|profile|track/u,
+        10_000,
+      );
+
+      expect(output).toContain("autocomplete");
+      expect(output).toContain("profile");
+      expect(output).toContain("track");
+      expect(output).not.toContain("AGENTS.md");
+      expect(output).not.toContain("package.json");
+    } finally {
+      session.close();
+    }
+  }, 15_000);
+});
+
+describe("autocomplete pty e2e with compinit on every prompt", () => {
+  let reinitShellConfigDirectory: string;
+  let reinitShellBinDirectory: string;
+  let systemPath: string;
+
+  beforeAll(async () => {
+    const { PATH: inheritedPath = "" } = process.env;
+
+    await ensureCliBuilt();
+
+    systemPath = inheritedPath;
+
+    // Simulate the problematic pattern from use-omz + ez-compinit:
+    // A precmd hook calls compinit on every prompt, which resets _comps
+    // entries registered via compdef. The reinit hook is registered
+    // BEFORE the autocomplete eval, matching the real-world loading
+    // order where plugin managers add hooks before user completions.
+    const { binDirectory, configDirectory } = await createTestShellDirectory([
+      "autoload -Uz compinit add-zsh-hook",
+      "compinit",
+      "zstyle ':completion:*' menu no",
+      "__test_reinit_compinit() { compinit; }",
+      "add-zsh-hook precmd __test_reinit_compinit",
+      'eval "$(devsync autocomplete zsh)"',
+      "PS1='PROMPT> '",
+    ]);
+    reinitShellBinDirectory = binDirectory;
+    reinitShellConfigDirectory = configDirectory;
+  });
+
+  afterAll(async () => {
+    await rm(reinitShellConfigDirectory, {
+      force: true,
+      recursive: true,
+    });
+  });
+
+  it("lists root subcommands even when compinit runs on every prompt", async () => {
+    const session = createPtySession({
+      args: ["-i"],
+      cwd: process.cwd(),
+      env: {
+        FORCE_COLOR: "0",
+        NODE_NO_WARNINGS: "1",
+        NO_COLOR: "1",
+        PATH: [reinitShellBinDirectory, systemPath].join(delimiter),
+        ZDOTDIR: reinitShellConfigDirectory,
+      },
+      file: "zsh",
+    });
+
+    try {
+      await session.waitFor("PROMPT> ");
+
+      session.write("devsync\n");
+      await session.waitFor("COMMANDS");
+      await session.waitFor(/PROMPT> $/mu);
+
+      session.clearOutput();
+
+      session.write("devsync\t\t");
+
+      const output = await session.waitFor(
+        /autocomplete|profile|track/u,
+        10_000,
+      );
+
+      expect(output).toContain("autocomplete");
+      expect(output).toContain("profile");
+      expect(output).toContain("track");
+      expect(output).not.toContain("AGENTS.md");
+      expect(output).not.toContain("package.json");
+    } finally {
+      session.close();
+    }
+  }, 15_000);
+});

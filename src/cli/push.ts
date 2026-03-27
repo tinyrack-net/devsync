@@ -1,14 +1,13 @@
 import { buildCommand } from "@stricli/core";
-
+import { formatSyncPushResult } from "#app/lib/output.js";
+import { pushSync } from "#app/services/push.js";
 import {
   createProgressReporter,
   type DevsyncCliContext,
   isVerbose,
   print,
   verboseFlag,
-} from "#app/cli/common.js";
-import { formatSyncPushResult } from "#app/lib/output.js";
-import { pushSync } from "#app/services/push.js";
+} from "#app/services/terminal/cli-runtime.js";
 
 type PushFlags = {
   dryRun?: boolean;

@@ -12,6 +12,7 @@ const runCli = async (
   args: readonly string[],
   options?: Readonly<{
     cwd?: string;
+    env?: Readonly<Record<string, string>>;
   }>,
 ) => {
   return execa(process.execPath, [cliPath, ...args], {
@@ -20,6 +21,7 @@ const runCli = async (
       FORCE_COLOR: "0",
       NODE_NO_WARNINGS: "1",
       NO_COLOR: "1",
+      ...options?.env,
     },
   });
 };
@@ -54,6 +56,72 @@ const runBashCompletion = async (
         `COMP_CWORD=${currentWordIndex}`,
         "__devsync_complete",
         'printf "%s\\n" "${COMPREPLY[@]}"',
+      ].join("; "),
+    ],
+    {
+      cwd: options?.cwd,
+      env: {
+        FORCE_COLOR: "0",
+        NODE_NO_WARNINGS: "1",
+        NO_COLOR: "1",
+      },
+    },
+  );
+};
+
+const runZshCompletion = async (
+  words: readonly string[],
+  currentWord: number,
+  options?: Readonly<{
+    cwd?: string;
+  }>,
+) => {
+  const nodePath = shellQuote(process.execPath);
+  const cliEntryPath = shellQuote(cliPath);
+
+  return execa(
+    "zsh",
+    [
+      "-lc",
+      [
+        "set -euo pipefail",
+        'temp_dir="$(mktemp -d)"',
+        `printf '%s\\n' '#!/usr/bin/env bash' "exec ${nodePath} ${cliEntryPath} \\"\\$@\\"" >"$temp_dir/devsync"`,
+        'chmod +x "$temp_dir/devsync"',
+        "trap 'rm -rf \"$temp_dir\"' EXIT",
+        'export PATH="$temp_dir:$PATH"',
+        "function compdef() { :; }",
+        [
+          "function compadd() {",
+          '  local suffix=""',
+          "  while (( $# > 0 )); do",
+          '    case "$1" in',
+          "      --)",
+          "        shift",
+          "        break",
+          "        ;;",
+          "      -Q)",
+          "        shift",
+          "        ;;",
+          "      -S)",
+          '        suffix="$2"',
+          "        shift 2",
+          "        ;;",
+          "      *)",
+          "        shift",
+          "        ;;",
+          "    esac",
+          "  done",
+          '  local completion=""',
+          '  for completion in "$@"; do',
+          '    printf "%s%s\\n" "$completion" "$suffix"',
+          "  done",
+          "}",
+        ].join("; "),
+        'eval "$(devsync autocomplete zsh)"',
+        `words=(${words.map(shellQuote).join(" ")})`,
+        `CURRENT=${currentWord}`,
+        "__devsync_complete",
       ].join("; "),
     ],
     {
@@ -149,7 +217,25 @@ describe("autocomplete e2e", () => {
     const result = await runBashCompletion(["devsync", "aut"], 1);
 
     expect(result.exitCode).toBe(0);
-    expect(result.stdout.trim()).toBe("autocomplete");
+    expect(result.stdout.split("\n")).toContain("autocomplete ");
+    expect(result.stderr).toBe("");
+  });
+
+  it("offers root subcommands when bash completes the command token itself", async () => {
+    const result = await runBashCompletion(["devsync"], 0);
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout.split("\n")).toEqual(
+      expect.arrayContaining(["autocomplete ", "profile ", "track "]),
+    );
+    expect(result.stderr).toBe("");
+  });
+
+  it("adds a trailing space for unique bash subcommand completions", async () => {
+    const result = await runBashCompletion(["devsync", "pro"], 1);
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout.split("\n")).toContain("profile ");
     expect(result.stderr).toBe("");
   });
 
@@ -159,7 +245,7 @@ describe("autocomplete e2e", () => {
     });
 
     expect(result.exitCode).toBe(0);
-    expect(result.stdout.split("\n")).toContain("file-alpha.txt");
+    expect(result.stdout.split("\n")).toContain("file-alpha.txt ");
     expect(result.stderr).toBe("");
   });
 
@@ -171,6 +257,49 @@ describe("autocomplete e2e", () => {
         cwd: completionFixtureDirectory,
       },
     );
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout.split("\n")).toEqual(
+      expect.arrayContaining(["--mode ", "--profile ", "--verbose "]),
+    );
+    expect(result.stderr).toBe("");
+  });
+
+  it("adds a trailing space for unique zsh subcommand completions", async () => {
+    const result = await runZshCompletion(["devsync", "pro"], 2);
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout.split("\n")).toContain("profile");
+    expect(result.stderr).toBe("");
+  });
+
+  it("offers root subcommands when zsh completes the command token itself", async () => {
+    const result = await runZshCompletion(["devsync"], 1);
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout.split("\n")).toEqual(
+      expect.arrayContaining(["autocomplete", "profile", "track"]),
+    );
+    expect(result.stderr).toBe("");
+  });
+
+  it("proposes root subcommands when COMP_LINE has a trailing space", async () => {
+    const result = await runCli(["__complete", "devsync", ""], {
+      env: { COMP_LINE: "devsync " },
+    });
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout.split("\n")).toEqual(
+      expect.arrayContaining(["autocomplete", "profile", "track"]),
+    );
+    expect(result.stderr).toBe("");
+  });
+
+  it("proposes subcommand completions when COMP_LINE targets a command", async () => {
+    const result = await runCli(["__complete", "devsync", "track", ""], {
+      env: { COMP_LINE: "devsync track " },
+      cwd: completionFixtureDirectory,
+    });
 
     expect(result.exitCode).toBe(0);
     expect(result.stdout.split("\n")).toEqual(

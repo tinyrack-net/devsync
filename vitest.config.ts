@@ -15,7 +15,7 @@ export default defineConfig({
         "src/**/*.test.ts",
         "src/test/**",
         "src/index.ts",
-        "src/cli/commands/**",
+        "src/cli/**",
       ],
       include: ["src/**/*.ts"],
       provider: "v8",

@@ -1,16 +1,15 @@
 import { type Application, buildRouteMap } from "@stricli/core";
-
-import { buildAutocompleteRoute } from "#app/cli/commands/autocomplete.js";
-import cdCommand from "#app/cli/commands/cd.js";
-import doctorCommand from "#app/cli/commands/doctor.js";
-import initCommand from "#app/cli/commands/init.js";
-import profileRoute from "#app/cli/commands/profile/index.js";
-import pullCommand from "#app/cli/commands/pull.js";
-import pushCommand from "#app/cli/commands/push.js";
-import statusCommand from "#app/cli/commands/status.js";
-import trackCommand from "#app/cli/commands/track.js";
-import untrackCommand from "#app/cli/commands/untrack.js";
-import type { DevsyncCliContext } from "#app/cli/common.js";
+import { buildAutocompleteRoute } from "#app/cli/autocomplete.js";
+import cdCommand from "#app/cli/cd.js";
+import doctorCommand from "#app/cli/doctor.js";
+import initCommand from "#app/cli/init.js";
+import profileRoute from "#app/cli/profile/index.js";
+import pullCommand from "#app/cli/pull.js";
+import pushCommand from "#app/cli/push.js";
+import statusCommand from "#app/cli/status.js";
+import trackCommand from "#app/cli/track.js";
+import untrackCommand from "#app/cli/untrack.js";
+import type { DevsyncCliContext } from "#app/services/terminal/cli-runtime.js";
 
 export const buildRootRoute = (
   getApplication: () => Application<DevsyncCliContext>,

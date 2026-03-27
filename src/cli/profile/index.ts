@@ -1,7 +1,7 @@
 import { buildRouteMap } from "@stricli/core";
 
-import profileListCommand from "#app/cli/commands/profile/list.js";
-import profileUseCommand from "#app/cli/commands/profile/use.js";
+import profileListCommand from "#app/cli/profile/list.js";
+import profileUseCommand from "#app/cli/profile/use.js";
 
 const profileRoute = buildRouteMap({
   docs: {

@@ -5,8 +5,11 @@ import {
   proposeCompletions,
 } from "@stricli/core";
 
-import { type DevsyncCliContext, print } from "#app/cli/common.js";
 import { output } from "#app/lib/output.js";
+import {
+  type DevsyncCliContext,
+  print,
+} from "#app/services/terminal/cli-runtime.js";
 
 const AUTOCOMPLETE_COMMAND = "devsync __complete";
 const CLI_COMMAND_NAME = "devsync";
@@ -19,7 +22,9 @@ const buildBashAutocompleteScript = () => {
     "  local -a inputs",
     "  local rawCompletions completion",
     '  inputs=("${COMP_WORDS[@]}")',
-    "  if [[ ${COMP_CWORD:-0} -ge ${#inputs[@]} ]]; then",
+    '  if [[ ${#inputs[@]} -eq 1 && ${COMP_CWORD:-0} -eq 0 && "${inputs[0]}" == "devsync" ]]; then',
+    '    inputs+=("")',
+    "  elif [[ ${COMP_CWORD:-0} -ge ${#inputs[@]} ]]; then",
     '    inputs+=("")',
     "  fi",
     `  if ! rawCompletions="$(env -u COMP_LINE ${AUTOCOMPLETE_COMMAND} "\${inputs[@]}")"; then`,
@@ -32,7 +37,11 @@ const buildBashAutocompleteScript = () => {
     "  fi",
     "",
     "  while IFS= read -r completion; do",
-    '    COMPREPLY+=("$completion")',
+    '    if [[ "$completion" == */ ]]; then',
+    '      COMPREPLY+=("$completion")',
+    "    else",
+    '      COMPREPLY+=("${completion} ")',
+    "    fi",
     '  done <<< "$rawCompletions"',
     "",
     "  return 0",
@@ -42,6 +51,8 @@ const buildBashAutocompleteScript = () => {
 };
 
 const buildZshAutocompleteScript = () => {
+  const ensureFunctionName = "__devsync_ensure_completion";
+
   return [
     "if ! (( $+functions[compdef] )); then",
     "  autoload -Uz compinit",
@@ -50,10 +61,12 @@ const buildZshAutocompleteScript = () => {
     "",
     `${COMPLETION_FUNCTION_NAME}() {`,
     "  emulate -L zsh",
-    "  local -a inputs completions",
+    "  local -a directories inputs plainCompletions",
     "  local rawCompletions",
     '  inputs=("${words[@]}")',
-    "  if (( CURRENT > ${#inputs[@]} )); then",
+    '  if (( CURRENT == 1 && ${#inputs[@]} == 1 )) && [[ "${inputs[1]}" == "devsync" ]]; then',
+    '    inputs+=("")',
+    "  elif (( CURRENT > ${#inputs[@]} )); then",
     '    inputs+=("")',
     "  fi",
     `  if ! rawCompletions="$(env -u COMP_LINE ${AUTOCOMPLETE_COMMAND} "\${inputs[@]}")"; then`,
@@ -64,10 +77,32 @@ const buildZshAutocompleteScript = () => {
     "    return 0",
     "  fi",
     "",
-    '  completions=("${(@f)rawCompletions}")',
-    '  compadd -Q -S "" -- "${completions[@]}"',
+    "  directories=()",
+    "  plainCompletions=()",
+    '  local completion=""',
+    '  for completion in "${(@f)rawCompletions}"; do',
+    '    if [[ "$completion" == */ ]]; then',
+    '      directories+=("$completion")',
+    "    else",
+    '      plainCompletions+=("$completion")',
+    "    fi",
+    "  done",
+    "  if (( ${#plainCompletions[@]} > 0 )); then",
+    '    compadd -Q -- "${plainCompletions[@]}"',
+    "  fi",
+    "  if (( ${#directories[@]} > 0 )); then",
+    '    compadd -Q -S "" -- "${directories[@]}"',
+    "  fi",
     "}",
     `compdef ${COMPLETION_FUNCTION_NAME} devsync`,
+    "",
+    `${ensureFunctionName}() {`,
+    `  if (( $+functions[compdef] )) && [[ "\${_comps[devsync]}" != ${COMPLETION_FUNCTION_NAME} ]]; then`,
+    `    compdef ${COMPLETION_FUNCTION_NAME} devsync`,
+    "  fi",
+    "}",
+    "autoload -Uz add-zsh-hook",
+    `add-zsh-hook precmd ${ensureFunctionName}`,
   ];
 };
 
@@ -130,10 +165,6 @@ const resolveCompletionInputs = (inputs: readonly string[]) => {
   }
 
   const completionInputs = trimmedStart.split(/\s+/u);
-
-  if (/\s$/u.test(completionLine)) {
-    completionInputs.push("");
-  }
 
   return normalizeCompletionInputs(completionInputs);
 };
