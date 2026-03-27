@@ -16,99 +16,147 @@ const CLI_COMMAND_NAME = "devsync";
 const COMPLETION_FUNCTION_NAME = "__devsync_complete";
 type EmptyFlags = Record<never, never>;
 
-const buildBashAutocompleteScript = () => {
-  return [
-    `${COMPLETION_FUNCTION_NAME}() {`,
-    "  local -a inputs",
-    "  local rawCompletions completion",
-    '  inputs=("${COMP_WORDS[@]}")',
-    '  if [[ ${#inputs[@]} -eq 1 && ${COMP_CWORD:-0} -eq 0 && "${inputs[0]}" == "devsync" ]]; then',
-    '    inputs+=("")',
-    "  elif [[ ${COMP_CWORD:-0} -ge ${#inputs[@]} ]]; then",
-    '    inputs+=("")',
-    "  fi",
-    `  if ! rawCompletions="$(env -u COMP_LINE ${AUTOCOMPLETE_COMMAND} "\${inputs[@]}")"; then`,
-    "    return 1",
-    "  fi",
-    "",
-    "  COMPREPLY=()",
-    '  if [[ -z "$rawCompletions" ]]; then',
-    "    return 0",
-    "  fi",
-    "",
-    "  while IFS= read -r completion; do",
-    '    if [[ "$completion" == */ ]]; then',
-    '      COMPREPLY+=("$completion")',
-    "    else",
-    '      COMPREPLY+=("${completion} ")',
-    "    fi",
-    '  done <<< "$rawCompletions"',
-    "",
-    "  return 0",
-    "}",
-    `complete -o default -o nospace -F ${COMPLETION_FUNCTION_NAME} devsync`,
-  ];
-};
+const BASH_AUTOCOMPLETE_SCRIPT = `\
+${COMPLETION_FUNCTION_NAME}() {
+  local -a inputs
+  local rawCompletions completion
+  inputs=("\${COMP_WORDS[@]}")
+  if [[ \${#inputs[@]} -eq 1 && \${COMP_CWORD:-0} -eq 0 && "\${inputs[0]}" == "devsync" ]]; then
+    inputs+=("")
+  elif [[ \${COMP_CWORD:-0} -ge \${#inputs[@]} ]]; then
+    inputs+=("")
+  fi
+  if ! rawCompletions="$(env -u COMP_LINE ${AUTOCOMPLETE_COMMAND} "\${inputs[@]}")"; then
+    return 1
+  fi
 
-const buildZshAutocompleteScript = () => {
-  const ensureFunctionName = "__devsync_ensure_completion";
+  COMPREPLY=()
+  if [[ -z "$rawCompletions" ]]; then
+    return 0
+  fi
 
-  return [
-    "if ! (( $+functions[compdef] )); then",
-    "  autoload -Uz compinit",
-    "  compinit",
-    "fi",
-    "",
-    `${COMPLETION_FUNCTION_NAME}() {`,
-    "  emulate -L zsh",
-    "  local -a directories inputs plainCompletions",
-    "  local rawCompletions",
-    '  inputs=("${words[@]}")',
-    '  if (( CURRENT == 1 && ${#inputs[@]} == 1 )) && [[ "${inputs[1]}" == "devsync" ]]; then',
-    '    inputs+=("")',
-    "  elif (( CURRENT > ${#inputs[@]} )); then",
-    '    inputs+=("")',
-    "  fi",
-    `  if ! rawCompletions="$(env -u COMP_LINE ${AUTOCOMPLETE_COMMAND} "\${inputs[@]}")"; then`,
-    "    return 1",
-    "  fi",
-    "",
-    '  if [[ -z "$rawCompletions" ]]; then',
-    "    return 0",
-    "  fi",
-    "",
-    "  directories=()",
-    "  plainCompletions=()",
-    '  local completion=""',
-    '  for completion in "${(@f)rawCompletions}"; do',
-    '    if [[ "$completion" == */ ]]; then',
-    '      directories+=("$completion")',
-    "    else",
-    '      plainCompletions+=("$completion")',
-    "    fi",
-    "  done",
-    "  if (( ${#plainCompletions[@]} > 0 )); then",
-    '    compadd -Q -- "${plainCompletions[@]}"',
-    "  fi",
-    "  if (( ${#directories[@]} > 0 )); then",
-    '    compadd -Q -S "" -- "${directories[@]}"',
-    "  fi",
-    "}",
-    `compdef ${COMPLETION_FUNCTION_NAME} devsync`,
-    "",
-    `${ensureFunctionName}() {`,
-    `  if (( $+functions[compdef] )) && [[ "\${_comps[devsync]}" != ${COMPLETION_FUNCTION_NAME} ]]; then`,
-    `    compdef ${COMPLETION_FUNCTION_NAME} devsync`,
-    "  fi",
-    "}",
-    "autoload -Uz add-zsh-hook",
-    `add-zsh-hook precmd ${ensureFunctionName}`,
-  ];
-};
+  local IFS_TAB word desc
+  IFS_TAB=$'\\t'
+  local maxLen=0
+  local -a words descs
+  while IFS= read -r completion; do
+    word="\${completion%%"$IFS_TAB"*}"
+    if [[ "$completion" == *"$IFS_TAB"* ]]; then
+      desc="\${completion#*"$IFS_TAB"}"
+    else
+      desc=""
+    fi
+    words+=("$word")
+    descs+=("$desc")
+    if (( \${#word} > maxLen )); then
+      maxLen=\${#word}
+    fi
+  done <<< "$rawCompletions"
+
+  if (( \${#words[@]} > 1 )); then
+    local -a display
+    local i
+    for (( i=0; i<\${#words[@]}; i++ )); do
+      if [[ -n "\${descs[i]}" ]]; then
+        printf -v pad "%-\${maxLen}s" "\${words[i]}"
+        display+=("$pad -- \${descs[i]}")
+      else
+        display+=("\${words[i]}")
+      fi
+    done
+    printf '%s\\n' "\${display[@]}" >&2
+  fi
+
+  for word in "\${words[@]}"; do
+    if [[ "$word" == */ ]]; then
+      COMPREPLY+=("$word")
+    else
+      COMPREPLY+=("\${word} ")
+    fi
+  done
+
+  return 0
+}
+complete -o default -o nospace -F ${COMPLETION_FUNCTION_NAME} devsync
+`;
+
+const ENSURE_FUNCTION_NAME = "__devsync_ensure_completion";
+
+const ZSH_AUTOCOMPLETE_SCRIPT = `\
+if ! (( $+functions[compdef] )); then
+  autoload -Uz compinit
+  compinit
+fi
+
+${COMPLETION_FUNCTION_NAME}() {
+  emulate -L zsh
+  local -a directories inputs plainCompletions
+  local rawCompletions
+  inputs=("\${words[@]}")
+  if (( CURRENT == 1 && \${#inputs[@]} == 1 )) && [[ "\${inputs[1]}" == "devsync" ]]; then
+    inputs+=("")
+  elif (( CURRENT > \${#inputs[@]} )); then
+    inputs+=("")
+  fi
+  if ! rawCompletions="$(env -u COMP_LINE ${AUTOCOMPLETE_COMMAND} "\${inputs[@]}")"; then
+    return 1
+  fi
+
+  if [[ -z "$rawCompletions" ]]; then
+    return 0
+  fi
+
+  directories=()
+  plainCompletions=()
+  local -a plainDisplays dirDisplays
+  plainDisplays=()
+  dirDisplays=()
+  local IFS_TAB completion="" word desc
+  IFS_TAB=$'\\t'
+  for completion in "\${(@f)rawCompletions}"; do
+    word="\${completion%%"$IFS_TAB"*}"
+    if [[ "$completion" == *"$IFS_TAB"* ]]; then
+      desc="\${completion#*"$IFS_TAB"}"
+    else
+      desc=""
+    fi
+    if [[ "$word" == */ ]]; then
+      directories+=("$word")
+      if [[ -n "$desc" ]]; then
+        dirDisplays+=("$word -- $desc")
+      else
+        dirDisplays+=("$word")
+      fi
+    else
+      plainCompletions+=("$word")
+      if [[ -n "$desc" ]]; then
+        plainDisplays+=("$word -- $desc")
+      else
+        plainDisplays+=("$word")
+      fi
+    fi
+  done
+  if (( \${#plainCompletions[@]} > 0 )); then
+    compadd -Q -l -d plainDisplays -- "\${plainCompletions[@]}"
+  fi
+  if (( \${#directories[@]} > 0 )); then
+    compadd -Q -S "" -l -d dirDisplays -- "\${directories[@]}"
+  fi
+}
+compdef ${COMPLETION_FUNCTION_NAME} devsync
+
+${ENSURE_FUNCTION_NAME}() {
+  if (( $+functions[compdef] )) && [[ "\${_comps[devsync]}" != ${COMPLETION_FUNCTION_NAME} ]]; then
+    compdef ${COMPLETION_FUNCTION_NAME} devsync
+  fi
+}
+autoload -Uz add-zsh-hook
+add-zsh-hook precmd ${ENSURE_FUNCTION_NAME}
+`;
 
 const buildAutocompleteScriptCommand = (
   shell: "bash" | "zsh",
-  buildScript: () => readonly string[],
+  script: string,
 ) => {
   return buildCommand<EmptyFlags, [], DevsyncCliContext>({
     docs: {
@@ -116,7 +164,7 @@ const buildAutocompleteScriptCommand = (
       fullDescription: `Emit a ${shell} autocomplete script for use with \`eval "$(devsync autocomplete ${shell})"\`.`,
     },
     func: () => {
-      print(output(...buildScript()));
+      print(script);
     },
     parameters: {},
   });
@@ -124,11 +172,11 @@ const buildAutocompleteScriptCommand = (
 
 const bashAutocompleteCommand = buildAutocompleteScriptCommand(
   "bash",
-  buildBashAutocompleteScript,
+  BASH_AUTOCOMPLETE_SCRIPT,
 );
 const zshAutocompleteCommand = buildAutocompleteScriptCommand(
   "zsh",
-  buildZshAutocompleteScript,
+  ZSH_AUTOCOMPLETE_SCRIPT,
 );
 
 const isCliCommandToken = (input: string) => {
@@ -187,7 +235,13 @@ const buildCompleteCommand = (
         return;
       }
 
-      print(output(...completions.map((completion) => completion.completion)));
+      print(
+        output(
+          ...completions.map((c) =>
+            c.brief ? `${c.completion}\t${c.brief}` : c.completion,
+          ),
+        ),
+      );
     },
     parameters: {
       positional: {

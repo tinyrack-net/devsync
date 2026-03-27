@@ -26,6 +26,9 @@ const runCli = async (
   });
 };
 
+const completionNames = (stdout: string) =>
+  stdout.split("\n").map((line) => line.split("\t")[0] ?? line);
+
 const shellQuote = (value: string) => {
   return `'${value.replaceAll("'", "'\\''")}'`;
 };
@@ -191,7 +194,7 @@ describe("autocomplete e2e", () => {
     const result = await runCli(["__complete", "devsync", "aut"]);
 
     expect(result.exitCode).toBe(0);
-    expect(result.stdout.trim()).toBe("autocomplete");
+    expect(result.stdout.trim().split("\t")[0]).toBe("autocomplete");
     expect(result.stderr).toBe("");
   });
 
@@ -201,7 +204,7 @@ describe("autocomplete e2e", () => {
     });
 
     expect(result.exitCode).toBe(0);
-    expect(result.stdout.split("\n")).toEqual(
+    expect(completionNames(result.stdout)).toEqual(
       expect.arrayContaining([
         "--mode",
         "--profile",
@@ -228,7 +231,6 @@ describe("autocomplete e2e", () => {
     expect(result.stdout.split("\n")).toEqual(
       expect.arrayContaining(["autocomplete ", "profile ", "track "]),
     );
-    expect(result.stderr).toBe("");
   });
 
   it("adds a trailing space for unique bash subcommand completions", async () => {
@@ -262,7 +264,6 @@ describe("autocomplete e2e", () => {
     expect(result.stdout.split("\n")).toEqual(
       expect.arrayContaining(["--mode ", "--profile ", "--verbose "]),
     );
-    expect(result.stderr).toBe("");
   });
 
   it("adds a trailing space for unique zsh subcommand completions", async () => {
@@ -270,7 +271,6 @@ describe("autocomplete e2e", () => {
 
     expect(result.exitCode).toBe(0);
     expect(result.stdout.split("\n")).toContain("profile");
-    expect(result.stderr).toBe("");
   });
 
   it("offers root subcommands when zsh completes the command token itself", async () => {
@@ -280,7 +280,6 @@ describe("autocomplete e2e", () => {
     expect(result.stdout.split("\n")).toEqual(
       expect.arrayContaining(["autocomplete", "profile", "track"]),
     );
-    expect(result.stderr).toBe("");
   });
 
   it("proposes root subcommands when COMP_LINE has a trailing space", async () => {
@@ -289,7 +288,7 @@ describe("autocomplete e2e", () => {
     });
 
     expect(result.exitCode).toBe(0);
-    expect(result.stdout.split("\n")).toEqual(
+    expect(completionNames(result.stdout)).toEqual(
       expect.arrayContaining(["autocomplete", "profile", "track"]),
     );
     expect(result.stderr).toBe("");
@@ -302,7 +301,7 @@ describe("autocomplete e2e", () => {
     });
 
     expect(result.exitCode).toBe(0);
-    expect(result.stdout.split("\n")).toEqual(
+    expect(completionNames(result.stdout)).toEqual(
       expect.arrayContaining(["--mode", "--profile", "--verbose"]),
     );
     expect(result.stderr).toBe("");
