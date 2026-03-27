@@ -33,8 +33,9 @@ jobs:
 
       - name: Verify tag matches package version
         run: >-
-          node --input-type=module -e 'import pkg from "./package.json" with {
-          type: "json" }; const tag = process.env.GITHUB_REF_NAME; const
+          node --input-type=module -e 'import pkg from
+          "./packages/cli/package.json" with { type: "json" }; const tag =
+          process.env.GITHUB_REF_NAME; const
           expectedTag = `v${pkg.version}`; if (tag !== expectedTag) {
           console.error(`Tag ${tag} does not match package.json version
           ${expectedTag}`); process.exit(1); }'
@@ -46,7 +47,7 @@ jobs:
         run: npm run check
 
       - name: Verify published package contents
-        run: npm pack --dry-run
+        run: npm pack --dry-run --workspace @tinyrack/devsync
 
       - name: Publish package to npm
-        run: npm publish --provenance --access public
+        run: npm publish --workspace @tinyrack/devsync --provenance --access public

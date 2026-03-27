@@ -4,13 +4,14 @@ import { fileURLToPath } from "node:url";
 
 import { execa } from "execa";
 
-const repositoryRoot = fileURLToPath(new URL("../../../", import.meta.url));
+const packageRoot = fileURLToPath(new URL("../../../", import.meta.url));
+const repositoryRoot = fileURLToPath(new URL("../../../../", import.meta.url));
 const npmCommand = process.platform === "win32" ? "npm.cmd" : "npm";
 const buildLockDirectory = join(repositoryRoot, ".tmp", "cli-build-lock");
 const requiredBuildArtifacts = [
-  join(repositoryRoot, "dist", "index.js"),
-  join(repositoryRoot, "dist", "application.js"),
-  join(repositoryRoot, "dist", "cli", "untrack.js"),
+  join(packageRoot, "dist", "index.js"),
+  join(packageRoot, "dist", "application.js"),
+  join(packageRoot, "dist", "cli", "untrack.js"),
 ] as const;
 
 export const cliPath = fileURLToPath(

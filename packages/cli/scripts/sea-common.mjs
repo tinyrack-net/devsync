@@ -1,13 +1,13 @@
 import { spawn, spawnSync } from "node:child_process";
-import { builtinModules } from "node:module";
+import { builtinModules, createRequire } from "node:module";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
+const require = createRequire(import.meta.url);
+
 export const seaBuilderMinimumVersion = "25.5.0";
 export const repositoryRoot = fileURLToPath(new URL("../", import.meta.url));
-export const tscCliPath = fileURLToPath(
-  new URL("../node_modules/typescript/bin/tsc", import.meta.url),
-);
+export const tscCliPath = require.resolve("typescript/bin/tsc");
 export const distDirectory = join(repositoryRoot, "dist");
 export const seaDirectory = join(distDirectory, "sea");
 export const seaBundlePath = join(seaDirectory, "devsync.bundle.js");
