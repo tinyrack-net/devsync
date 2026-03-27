@@ -277,7 +277,11 @@ describe.skipIf(!isBashAvailable)("autocomplete bash pty e2e", () => {
 
       session.write("devsync \t\t");
 
-      const output = await session.waitFor(/autocomplete.*track/su, 10_000);
+      await session.waitFor("autocomplete", 10_000);
+      await session.waitFor("profile", 10_000);
+      await session.waitFor("track", 10_000);
+
+      const output = session.getOutput();
 
       expect(output).toContain("autocomplete");
       expect(output).toContain("profile");
@@ -301,7 +305,11 @@ describe.skipIf(!isBashAvailable)("autocomplete bash pty e2e", () => {
 
       session.write("devsync \t\t");
 
-      const output = await session.waitFor(/autocomplete.*track/su, 10_000);
+      await session.waitFor("autocomplete", 10_000);
+      await session.waitFor("profile", 10_000);
+      await session.waitFor("track", 10_000);
+
+      const output = session.getOutput();
 
       expect(output).toContain("autocomplete");
       expect(output).toContain("profile");
