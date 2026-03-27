@@ -7,10 +7,10 @@ import {
   repositoryRoot,
   runNodeScript,
   seaExecutablePath,
-} from "./sea-common.mjs";
+} from "./sea-common.ts";
 
 const buildSeaScriptPath = fileURLToPath(
-  new URL("./build-sea.mjs", import.meta.url),
+  new URL("./build-sea.ts", import.meta.url),
 );
 const smokeEnvironment = {
   FORCE_COLOR: "0",
@@ -19,7 +19,10 @@ const smokeEnvironment = {
   NO_COLOR: "1",
 };
 
-const assertCommandSucceeded = (label, result) => {
+const assertCommandSucceeded = (
+  label: string,
+  result: ReturnType<typeof captureCommand>,
+): void => {
   if (result.exitCode === 0) {
     return;
   }
@@ -32,7 +35,11 @@ const assertCommandSucceeded = (label, result) => {
   );
 };
 
-const assertIncludes = (label, actual, expected) => {
+const assertIncludes = (
+  label: string,
+  actual: string,
+  expected: string,
+): void => {
   if (actual.includes(expected)) {
     return;
   }
@@ -42,7 +49,7 @@ const assertIncludes = (label, actual, expected) => {
   );
 };
 
-const assertEmpty = (label, actual) => {
+const assertEmpty = (label: string, actual: string): void => {
   if (actual === "") {
     return;
   }
@@ -52,7 +59,7 @@ const assertEmpty = (label, actual) => {
   );
 };
 
-const runSeaExecutable = (args) => {
+const runSeaExecutable = (args: string[]) => {
   return captureCommand(seaExecutablePath, args, {
     cwd: repositoryRoot,
     env: smokeEnvironment,

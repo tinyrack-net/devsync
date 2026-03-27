@@ -1,13 +1,13 @@
 import { buildCommand } from "@stricli/core";
-import { formatSyncDoctorResult } from "#app/lib/output.js";
-import { runSyncDoctor } from "#app/services/doctor.js";
+import { formatSyncDoctorResult } from "#app/lib/output.ts";
+import { runSyncDoctor } from "#app/services/doctor.ts";
 import {
   createProgressReporter,
   type DevsyncCliContext,
   isVerbose,
   print,
   verboseFlag,
-} from "#app/services/terminal/cli-runtime.js";
+} from "#app/services/terminal/cli-runtime.ts";
 
 const doctorCommand = buildCommand<
   {

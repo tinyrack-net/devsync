@@ -1,13 +1,13 @@
 import { buildCommand } from "@stricli/core";
-import { formatSyncPullResult } from "#app/lib/output.js";
-import { pullSync } from "#app/services/pull.js";
+import { formatSyncPullResult } from "#app/lib/output.ts";
+import { pullSync } from "#app/services/pull.ts";
 import {
   createProgressReporter,
   type DevsyncCliContext,
   isVerbose,
   print,
   verboseFlag,
-} from "#app/services/terminal/cli-runtime.js";
+} from "#app/services/terminal/cli-runtime.ts";
 
 type PullFlags = {
   dryRun?: boolean;

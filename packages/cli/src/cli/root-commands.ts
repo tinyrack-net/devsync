@@ -1,12 +1,12 @@
-import cdCommand from "#app/cli/cd.js";
-import doctorCommand from "#app/cli/doctor.js";
-import initCommand from "#app/cli/init.js";
-import profileRoute from "#app/cli/profile/index.js";
-import pullCommand from "#app/cli/pull.js";
-import pushCommand from "#app/cli/push.js";
-import statusCommand from "#app/cli/status.js";
-import trackCommand from "#app/cli/track.js";
-import untrackCommand from "#app/cli/untrack.js";
+import cdCommand from "#app/cli/cd.ts";
+import doctorCommand from "#app/cli/doctor.ts";
+import initCommand from "#app/cli/init.ts";
+import profileRoute from "#app/cli/profile/index.ts";
+import pullCommand from "#app/cli/pull.ts";
+import pushCommand from "#app/cli/push.ts";
+import statusCommand from "#app/cli/status.ts";
+import trackCommand from "#app/cli/track.ts";
+import untrackCommand from "#app/cli/untrack.ts";
 
 export const rootCommandRoutes = {
   cd: cdCommand,

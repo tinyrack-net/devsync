@@ -3,16 +3,16 @@ import { join } from "node:path";
 
 import { afterEach, describe, expect, it } from "vitest";
 
-import { createInitialSyncConfig, formatSyncConfig } from "#app/config/sync.js";
-import type { ProgressReporter } from "#app/lib/progress.js";
-import { DevsyncError } from "#app/services/error.js";
-import { initializeSync } from "#app/services/init.js";
+import { createInitialSyncConfig, formatSyncConfig } from "#app/config/sync.ts";
+import type { ProgressReporter } from "#app/lib/progress.ts";
+import { DevsyncError } from "#app/services/error.ts";
+import { initializeSync } from "#app/services/init.ts";
 import {
   createAgeKeyPair,
   createTemporaryDirectory,
   runGit,
   writeIdentityFile,
-} from "../test/helpers/sync-fixture.js";
+} from "../test/helpers/sync-fixture.ts";
 
 const temporaryDirectories: string[] = [];
 

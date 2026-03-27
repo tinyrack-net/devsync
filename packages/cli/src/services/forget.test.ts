@@ -3,11 +3,11 @@ import { dirname, join } from "node:path";
 
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { createTemporaryDirectory } from "#app/test/helpers/sync-fixture.js";
+import { createTemporaryDirectory } from "#app/test/helpers/sync-fixture.ts";
 import {
   resolveArtifactRelativePath,
   resolveEntryArtifactPath,
-} from "./repo-artifacts.js";
+} from "./repo-artifacts.ts";
 
 const mocked = vi.hoisted(() => ({
   createSyncConfigDocument: vi.fn((config: unknown) => ({
@@ -20,9 +20,9 @@ const mocked = vi.hoisted(() => ({
   writeValidatedSyncConfig: vi.fn(),
 }));
 
-vi.mock("#app/config/sync.js", async () => {
-  const actual = await vi.importActual<typeof import("#app/config/sync.js")>(
-    "#app/config/sync.js",
+vi.mock("#app/config/sync.ts", async () => {
+  const actual = await vi.importActual<typeof import("#app/config/sync.ts")>(
+    "#app/config/sync.ts",
   );
 
   return {
@@ -31,21 +31,21 @@ vi.mock("#app/config/sync.js", async () => {
   };
 });
 
-vi.mock("./config-file.js", () => ({
+vi.mock("./config-file.ts", () => ({
   createSyncConfigDocument: mocked.createSyncConfigDocument,
   writeValidatedSyncConfig: mocked.writeValidatedSyncConfig,
 }));
 
-vi.mock("./paths.js", () => ({
+vi.mock("./paths.ts", () => ({
   resolveTrackedEntry: mocked.resolveTrackedEntry,
 }));
 
-vi.mock("./runtime.js", () => ({
+vi.mock("./runtime.ts", () => ({
   ensureSyncRepository: mocked.ensureSyncRepository,
   resolveSyncPaths: mocked.resolveSyncPaths,
 }));
 
-import { forgetSyncTarget } from "./forget.js";
+import { forgetSyncTarget } from "./forget.ts";
 
 const temporaryDirectories: string[] = [];
 

@@ -1,15 +1,15 @@
 import { isAbsolute, relative, resolve } from "node:path";
 
-import type { PlatformLocalPath } from "#app/config/platform.js";
+import type { PlatformLocalPath } from "#app/config/platform.ts";
 import {
   normalizeSyncRepoPath,
   type ResolvedSyncConfigEntry,
-} from "#app/config/sync.js";
-import { expandHomePath } from "#app/config/xdg.js";
+} from "#app/config/sync.ts";
+import { expandHomePath } from "#app/config/xdg.ts";
 
-import { isExplicitLocalPath } from "#app/lib/path.js";
+import { isExplicitLocalPath } from "#app/lib/path.ts";
 
-import { DevsyncError } from "./error.js";
+import { DevsyncError } from "./error.ts";
 
 export const resolveCommandTargetPath = (
   target: string,

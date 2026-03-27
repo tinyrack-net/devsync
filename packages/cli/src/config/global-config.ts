@@ -4,11 +4,11 @@ import { z } from "zod";
 import {
   resolveConfiguredAbsolutePath,
   resolveDevsyncGlobalConfigFilePath,
-} from "#app/config/xdg.js";
-import { ensureTrailingNewline } from "#app/lib/string.js";
-import { formatInputIssues } from "#app/lib/validation.js";
-import { DevsyncError } from "#app/services/error.js";
-import { normalizeSyncProfileName } from "./sync.js";
+} from "#app/config/xdg.ts";
+import { ensureTrailingNewline } from "#app/lib/string.ts";
+import { formatInputIssues } from "#app/lib/validation.ts";
+import { DevsyncError } from "#app/services/error.ts";
+import { normalizeSyncProfileName } from "./sync.ts";
 
 const optionalTrimmedStringSchema = z.string().trim().min(1).optional();
 

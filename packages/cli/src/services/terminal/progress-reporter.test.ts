@@ -8,12 +8,12 @@ const mocked = vi.hoisted(() => ({
   writeStderr: vi.fn(),
 }));
 
-vi.mock("#app/lib/output.js", () => ({
+vi.mock("#app/lib/output.ts", () => ({
   formatProgressMessage: mocked.formatProgressMessage,
   writeStderr: mocked.writeStderr,
 }));
 
-import { createCliProgressReporter } from "./progress-reporter.js";
+import { createCliProgressReporter } from "./progress-reporter.ts";
 
 afterEach(() => {
   vi.clearAllMocks();

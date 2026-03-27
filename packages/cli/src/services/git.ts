@@ -1,9 +1,9 @@
 import { execFile, spawn } from "node:child_process";
 import { promisify } from "node:util";
 
-import type { ProgressReporter } from "#app/lib/progress.js";
+import type { ProgressReporter } from "#app/lib/progress.ts";
 
-import { wrapUnknownError } from "./error.js";
+import { wrapUnknownError } from "./error.ts";
 
 const execFileAsync = promisify(execFile);
 

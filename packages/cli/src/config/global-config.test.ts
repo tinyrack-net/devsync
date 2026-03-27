@@ -4,7 +4,7 @@ import {
   isProfileActive,
   parseGlobalDevsyncConfig,
   resolveActiveProfileSelection,
-} from "./global-config.js";
+} from "./global-config.ts";
 
 describe("global config", () => {
   it("normalizes the active profile name", () => {

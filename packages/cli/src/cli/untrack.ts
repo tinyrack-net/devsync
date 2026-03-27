@@ -1,12 +1,12 @@
 import { buildCommand } from "@stricli/core";
-import { formatSyncForgetResult } from "#app/lib/output.js";
-import { forgetSyncTarget } from "#app/services/forget.js";
+import { formatSyncForgetResult } from "#app/lib/output.ts";
+import { forgetSyncTarget } from "#app/services/forget.ts";
 import {
   type DevsyncCliContext,
   isVerbose,
   print,
   verboseFlag,
-} from "#app/services/terminal/cli-runtime.js";
+} from "#app/services/terminal/cli-runtime.ts";
 
 type UntrackFlags = {
   verbose?: boolean;

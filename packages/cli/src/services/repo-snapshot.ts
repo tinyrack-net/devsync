@@ -5,23 +5,23 @@ import {
   resolveManagedSyncMode,
   resolveSyncArtifactsDirectoryPath,
   resolveSyncRule,
-} from "#app/config/sync.js";
-import { isExecutableMode } from "#app/lib/file-mode.js";
+} from "#app/config/sync.ts";
+import { isExecutableMode } from "#app/lib/file-mode.ts";
 import {
   type ProgressReporter,
   reportDetail,
   reportPhase,
-} from "#app/lib/progress.js";
-import { decryptSecretFile } from "./crypto.js";
-import { DevsyncError, wrapUnknownError } from "./error.js";
-import { getPathStats, listDirectoryEntries } from "./filesystem.js";
-import { addSnapshotNode, type SnapshotNode } from "./local-snapshot.js";
+} from "#app/lib/progress.ts";
+import { decryptSecretFile } from "./crypto.ts";
+import { DevsyncError, wrapUnknownError } from "./error.ts";
+import { getPathStats, listDirectoryEntries } from "./filesystem.ts";
+import { addSnapshotNode, type SnapshotNode } from "./local-snapshot.ts";
 import {
   assertStorageSafeRepoPath,
   collectArtifactNamespaces,
   parseArtifactRelativePath,
-} from "./repo-artifacts.js";
-import type { EffectiveSyncConfig } from "./runtime.js";
+} from "./repo-artifacts.ts";
+import type { EffectiveSyncConfig } from "./runtime.ts";
 
 type RepositorySnapshotConfig = EffectiveSyncConfig;
 

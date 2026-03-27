@@ -5,11 +5,11 @@ import {
   proposeCompletions,
 } from "@stricli/core";
 
-import { output } from "#app/lib/output.js";
+import { output } from "#app/lib/output.ts";
 import {
   type DevsyncCliContext,
   print,
-} from "#app/services/terminal/cli-runtime.js";
+} from "#app/services/terminal/cli-runtime.ts";
 
 const AUTOCOMPLETE_COMMAND = "devsync __complete";
 const CLI_COMMAND_NAME = "devsync";

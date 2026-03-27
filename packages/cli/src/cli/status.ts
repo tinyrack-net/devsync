@@ -1,13 +1,13 @@
 import { buildCommand } from "@stricli/core";
-import { formatSyncStatusResult } from "#app/lib/output.js";
-import { getSyncStatus } from "#app/services/status.js";
+import { formatSyncStatusResult } from "#app/lib/output.ts";
+import { getSyncStatus } from "#app/services/status.ts";
 import {
   createProgressReporter,
   type DevsyncCliContext,
   isVerbose,
   print,
   verboseFlag,
-} from "#app/services/terminal/cli-runtime.js";
+} from "#app/services/terminal/cli-runtime.ts";
 
 type StatusFlags = {
   profile?: string;

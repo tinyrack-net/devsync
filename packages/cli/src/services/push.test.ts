@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { buildPushPlanPreview, buildPushResultFromPlan } from "./push.js";
+import { buildPushPlanPreview, buildPushResultFromPlan } from "./push.ts";
 
 describe("push helpers", () => {
   it("builds a stable preview from created and deleted repository artifacts", () => {

@@ -5,6 +5,19 @@ import { fileURLToPath } from "node:url";
 
 const require = createRequire(import.meta.url);
 
+type CommandOptions = {
+  cwd?: string;
+  env?: NodeJS.ProcessEnv;
+  stdio?: "inherit" | "pipe";
+};
+
+type CommandResult = {
+  exitCode: number;
+  signal: NodeJS.Signals | null;
+  stderr: string;
+  stdout: string;
+};
+
 export const seaBuilderMinimumVersion = "25.5.0";
 export const repositoryRoot = fileURLToPath(new URL("../", import.meta.url));
 export const tscCliPath = require.resolve("typescript/bin/tsc");
@@ -25,7 +38,7 @@ const builtinSpecifiers = new Set(
   ),
 );
 
-const parseVersion = (version) => {
+const parseVersion = (version: string): number[] => {
   return version
     .replace(/^v/, "")
     .split(".")
@@ -34,7 +47,7 @@ const parseVersion = (version) => {
     });
 };
 
-const compareVersions = (left, right) => {
+const compareVersions = (left: number[], right: number[]): number => {
   const maxLength = Math.max(left.length, right.length);
 
   for (let index = 0; index < maxLength; index += 1) {
@@ -53,7 +66,7 @@ const compareVersions = (left, right) => {
   return 0;
 };
 
-const formatCommand = (command, args) => {
+const formatCommand = (command: string, args: string[]): string => {
   return [command, ...args]
     .map((segment) => {
       return /\s/.test(segment) ? JSON.stringify(segment) : segment;
@@ -61,11 +74,11 @@ const formatCommand = (command, args) => {
     .join(" ");
 };
 
-export const isNodeBuiltinSpecifier = (specifier) => {
+export const isNodeBuiltinSpecifier = (specifier: string): boolean => {
   return builtinSpecifiers.has(specifier);
 };
 
-export const ensureSeaBuilderNode = () => {
+export const ensureSeaBuilderNode = (): void => {
   if (
     compareVersions(
       parseVersion(process.version),
@@ -78,8 +91,12 @@ export const ensureSeaBuilderNode = () => {
   }
 };
 
-export const runCommand = async (command, args, options = {}) => {
-  await new Promise((resolve, reject) => {
+export const runCommand = async (
+  command: string,
+  args: string[],
+  options: CommandOptions = {},
+): Promise<void> => {
+  await new Promise<void>((resolve, reject) => {
     const child = spawn(command, args, {
       cwd: options.cwd ?? repositoryRoot,
       env: {
@@ -107,11 +124,19 @@ export const runCommand = async (command, args, options = {}) => {
   });
 };
 
-export const runNodeScript = async (scriptPath, args = [], options = {}) => {
+export const runNodeScript = async (
+  scriptPath: string,
+  args: string[] = [],
+  options: CommandOptions = {},
+): Promise<void> => {
   await runCommand(process.execPath, [scriptPath, ...args], options);
 };
 
-export const captureCommand = (command, args, options = {}) => {
+export const captureCommand = (
+  command: string,
+  args: string[],
+  options: CommandOptions = {},
+): CommandResult => {
   const result = spawnSync(command, args, {
     cwd: options.cwd ?? repositoryRoot,
     env: {

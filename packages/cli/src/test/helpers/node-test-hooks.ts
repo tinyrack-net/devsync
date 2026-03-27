@@ -16,7 +16,10 @@ const toSourceUrl = (relativePath: string) => {
 
 registerHooks({
   resolve: (specifier, context, nextResolve) => {
-    if (specifier.startsWith("#app/") && specifier.endsWith(".js")) {
+    if (
+      specifier.startsWith("#app/") &&
+      (specifier.endsWith(".js") || specifier.endsWith(".ts"))
+    ) {
       return {
         shortCircuit: true,
         url: toSourceUrl(`${specifier.slice("#app/".length, -3)}.ts`),
@@ -26,7 +29,7 @@ registerHooks({
     if (
       context.parentURL !== undefined &&
       (specifier.startsWith("./") || specifier.startsWith("../")) &&
-      specifier.endsWith(".js")
+      (specifier.endsWith(".js") || specifier.endsWith(".ts"))
     ) {
       const parentPath = fileURLToPath(context.parentURL);
 

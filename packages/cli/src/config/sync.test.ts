@@ -2,13 +2,13 @@ import { join } from "node:path";
 
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import * as platformConfig from "#app/config/platform.js";
-import { createTemporaryDirectory } from "#app/test/helpers/sync-fixture.js";
+import * as platformConfig from "#app/config/platform.ts";
+import { createTemporaryDirectory } from "#app/test/helpers/sync-fixture.ts";
 import {
   normalizeSyncProfileName,
   parseSyncConfig,
   resolveSyncRule,
-} from "./sync.js";
+} from "./sync.ts";
 
 afterEach(() => {
   vi.restoreAllMocks();

@@ -4,12 +4,12 @@ import { join } from "node:path";
 
 import { execa } from "execa";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { rootCommandNames } from "../src/cli/root-commands.js";
-import { cliNodeOptions } from "../src/test/helpers/cli-entry.js";
+import { rootCommandNames } from "../src/cli/root-commands.ts";
+import { cliNodeOptions } from "../src/test/helpers/cli-entry.ts";
 import {
   isBashAvailable,
   isZshAvailable,
-} from "../src/test/helpers/shell-availability.js";
+} from "../src/test/helpers/shell-availability.ts";
 
 const COMPLETE_COMMAND = 'env -u COMP_LINE devsync __complete "${inputs[@]}"';
 

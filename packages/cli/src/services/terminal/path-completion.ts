@@ -1,4 +1,4 @@
-import type { DevsyncCliContext } from "#app/services/terminal/cli-runtime.js";
+import type { DevsyncCliContext } from "#app/services/terminal/cli-runtime.ts";
 
 const HOME_PREFIX = "~";
 const HIDDEN_ENTRY_PREFIX = ".";

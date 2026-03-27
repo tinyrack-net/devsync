@@ -1,7 +1,6 @@
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { createRequire } from "node:module";
 import { join } from "node:path";
-
-import { build as viteBuild } from "vite";
 
 import {
   distDirectory,
@@ -14,7 +13,12 @@ import {
   seaDirectory,
   seaExecutablePath,
   tscCliPath,
-} from "./sea-common.mjs";
+} from "./sea-common.ts";
+
+const require = createRequire(import.meta.url);
+const { build: viteBuild } = require("vite") as {
+  build: (options: object) => Promise<void>;
+};
 
 const bundleOnly = process.argv.includes("--bundle-only");
 const distEntryPath = join(distDirectory, "index.js");
@@ -24,7 +28,7 @@ const importPatterns = [
   /^\s*export\s+.+?\s+from\s+["']([^"']+)["'];?$/gm,
 ];
 
-const buildDistribution = async () => {
+const buildDistribution = async (): Promise<void> => {
   console.log("Building dist/ output...");
   await runCommand(
     process.execPath,
@@ -35,14 +39,19 @@ const buildDistribution = async () => {
   );
 };
 
-const validateBundleImports = (bundleSource) => {
-  const unexpectedImports = new Set();
+const validateBundleImports = (bundleSource: string): void => {
+  const unexpectedImports = new Set<string>();
 
   for (const pattern of importPatterns) {
     let match = pattern.exec(bundleSource);
 
     while (match !== null) {
       const specifier = match[1];
+
+      if (specifier === undefined) {
+        match = pattern.exec(bundleSource);
+        continue;
+      }
 
       if (!isNodeBuiltinSpecifier(specifier)) {
         unexpectedImports.add(specifier);
@@ -59,7 +68,7 @@ const validateBundleImports = (bundleSource) => {
   }
 };
 
-const bundleForSea = async () => {
+const bundleForSea = async (): Promise<void> => {
   console.log("Bundling dist/index.js for SEA...");
   await rm(seaDirectory, { force: true, recursive: true });
   await mkdir(seaDirectory, { recursive: true });
@@ -78,7 +87,7 @@ const bundleForSea = async () => {
       outDir: seaDirectory,
       reportCompressedSize: false,
       rollupOptions: {
-        external: (specifier) => {
+        external: (specifier: string) => {
           return (
             typeof specifier === "string" && isNodeBuiltinSpecifier(specifier)
           );
@@ -99,11 +108,18 @@ const bundleForSea = async () => {
   console.log(`SEA bundle written to ${seaBundlePath}`);
 };
 
-const writeSeaConfig = async () => {
+const writeSeaConfig = async (): Promise<{
+  disableExperimentalSEAWarning: boolean;
+  main: string;
+  mainFormat: "module";
+  output: string;
+  useCodeCache: boolean;
+  useSnapshot: boolean;
+}> => {
   const seaConfig = {
     disableExperimentalSEAWarning: true,
     main: seaBundlePath,
-    mainFormat: "module",
+    mainFormat: "module" as const,
     output: seaExecutablePath,
     useCodeCache: false,
     useSnapshot: false,
@@ -113,7 +129,7 @@ const writeSeaConfig = async () => {
   return seaConfig;
 };
 
-const buildSeaExecutable = async () => {
+const buildSeaExecutable = async (): Promise<void> => {
   ensureSeaBuilderNode();
   console.log(`Generating SEA executable with Node.js ${process.version}...`);
   await rm(seaExecutablePath, { force: true });

@@ -15,9 +15,9 @@ import {
 } from "node:fs/promises";
 import { basename, dirname, join } from "node:path";
 
-import { buildExecutableMode, isExecutableMode } from "#app/lib/file-mode.js";
+import { buildExecutableMode, isExecutableMode } from "#app/lib/file-mode.ts";
 
-import { DevsyncError } from "./error.js";
+import { DevsyncError } from "./error.ts";
 
 export const pathExists = async (path: string) => {
   try {

@@ -21,22 +21,22 @@ const mocked = vi.hoisted(() => ({
   })),
 }));
 
-vi.mock("#app/config/sync.js", () => ({
+vi.mock("#app/config/sync.ts", () => ({
   resolveSyncConfigFilePath: mocked.resolveSyncConfigFilePath,
 }));
 
-vi.mock("./local-materialization.js", () => ({
+vi.mock("./local-materialization.ts", () => ({
   applyEntryMaterialization: mocked.applyEntryMaterialization,
   buildEntryMaterialization: mocked.buildEntryMaterialization,
   buildPullCounts: mocked.buildPullCounts,
   countDeletedLocalNodes: mocked.countDeletedLocalNodes,
 }));
 
-vi.mock("./repo-snapshot.js", () => ({
+vi.mock("./repo-snapshot.ts", () => ({
   buildRepositorySnapshot: mocked.buildRepositorySnapshot,
 }));
 
-vi.mock("./runtime.js", () => ({
+vi.mock("./runtime.ts", () => ({
   ensureSyncRepository: mocked.ensureSyncRepository,
   loadSyncConfig: mocked.loadSyncConfig,
   resolveSyncPaths: mocked.resolveSyncPaths,
@@ -47,7 +47,7 @@ import {
   buildPullPlanPreview,
   buildPullResultFromPlan,
   pullSync,
-} from "./pull.js";
+} from "./pull.ts";
 
 afterEach(() => {
   vi.clearAllMocks();

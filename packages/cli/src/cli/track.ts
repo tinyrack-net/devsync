@@ -1,17 +1,17 @@
 import { buildCommand } from "@stricli/core";
-import { formatSyncAddResult, formatSyncSetResult } from "#app/lib/output.js";
-import { trackSyncTarget } from "#app/services/add.js";
-import { DevsyncError } from "#app/services/error.js";
-import { assignSyncProfiles } from "#app/services/profile.js";
-import { setSyncTargetMode } from "#app/services/set.js";
+import { formatSyncAddResult, formatSyncSetResult } from "#app/lib/output.ts";
+import { trackSyncTarget } from "#app/services/add.ts";
+import { DevsyncError } from "#app/services/error.ts";
+import { assignSyncProfiles } from "#app/services/profile.ts";
+import { setSyncTargetMode } from "#app/services/set.ts";
 import {
   createProgressReporter,
   type DevsyncCliContext,
   isVerbose,
   print,
   verboseFlag,
-} from "#app/services/terminal/cli-runtime.js";
-import { proposePathCompletions } from "#app/services/terminal/path-completion.js";
+} from "#app/services/terminal/cli-runtime.ts";
+import { proposePathCompletions } from "#app/services/terminal/path-completion.ts";
 
 type TrackFlags = {
   mode: "ignore" | "normal" | "secret";

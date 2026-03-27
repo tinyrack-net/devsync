@@ -2,7 +2,7 @@ import { resolve } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
-import type { ResolvedSyncConfigEntry } from "#app/config/sync.js";
+import type { ResolvedSyncConfigEntry } from "#app/config/sync.ts";
 import {
   buildConfiguredHomeLocalPath,
   buildRepoPathWithinRoot,
@@ -10,7 +10,7 @@ import {
   resolveTrackedEntry,
   tryBuildRepoPathWithinRoot,
   tryNormalizeRepoPathInput,
-} from "#app/services/paths.js";
+} from "#app/services/paths.ts";
 
 const trackedEntry = (
   overrides: Partial<ResolvedSyncConfigEntry> = {},

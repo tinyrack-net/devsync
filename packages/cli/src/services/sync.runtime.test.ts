@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import type { ResolvedSyncConfig } from "#app/config/sync.js";
-import { buildEffectiveSyncConfig, type RuntimeAgeConfig } from "./runtime.js";
+import type { ResolvedSyncConfig } from "#app/config/sync.ts";
+import { buildEffectiveSyncConfig, type RuntimeAgeConfig } from "./runtime.ts";
 
 const testAge: RuntimeAgeConfig = {
   configuredIdentityFile: "$XDG_CONFIG_HOME/devsync/age/keys.txt",

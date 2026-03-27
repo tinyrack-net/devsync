@@ -13,28 +13,28 @@ const mocked = vi.hoisted(() => ({
   })),
 }));
 
-vi.mock("#app/config/sync.js", () => ({
+vi.mock("#app/config/sync.ts", () => ({
   resolveSyncConfigFilePath: mocked.resolveSyncConfigFilePath,
 }));
 
-vi.mock("./filesystem.js", () => ({
+vi.mock("./filesystem.ts", () => ({
   pathExists: mocked.pathExists,
 }));
 
-vi.mock("./git.js", () => ({
+vi.mock("./git.ts", () => ({
   ensureRepository: mocked.ensureRepository,
 }));
 
-vi.mock("./repo-snapshot.js", () => ({
+vi.mock("./repo-snapshot.ts", () => ({
   buildRepositorySnapshot: mocked.buildRepositorySnapshot,
 }));
 
-vi.mock("./runtime.js", () => ({
+vi.mock("./runtime.ts", () => ({
   loadSyncConfig: mocked.loadSyncConfig,
   resolveSyncPaths: mocked.resolveSyncPaths,
 }));
 
-import { runSyncDoctor } from "./doctor.js";
+import { runSyncDoctor } from "./doctor.ts";
 
 const createReporter = (verbose = false) => ({
   detail: vi.fn(),

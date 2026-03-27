@@ -3,13 +3,13 @@ import { join } from "node:path";
 
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { DevsyncError } from "#app/services/error.js";
-import { createTemporaryDirectory } from "#app/test/helpers/sync-fixture.js";
+import { DevsyncError } from "#app/services/error.ts";
+import { createTemporaryDirectory } from "#app/test/helpers/sync-fixture.ts";
 
 import {
   launchShellInDirectory,
   resolveShellCommandForPlatform,
-} from "./shell.js";
+} from "./shell.ts";
 
 const temporaryDirectories: string[] = [];
 

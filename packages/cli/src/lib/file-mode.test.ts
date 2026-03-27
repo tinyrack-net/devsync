@@ -7,7 +7,7 @@ import {
   isExecutableMode,
   isPermissionOctal,
   parsePermissionOctal,
-} from "#app/lib/file-mode.js";
+} from "#app/lib/file-mode.ts";
 
 describe("file mode helpers", () => {
   it("builds and detects executable modes", () => {

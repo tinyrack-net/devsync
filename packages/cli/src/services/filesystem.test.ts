@@ -12,7 +12,7 @@ import { join } from "node:path";
 
 import { afterEach, describe, expect, it } from "vitest";
 
-import { isExecutableMode } from "#app/lib/file-mode.js";
+import { isExecutableMode } from "#app/lib/file-mode.ts";
 import {
   copyFilesystemNode,
   getPathStats,
@@ -23,8 +23,8 @@ import {
   writeFileNode,
   writeSymlinkNode,
   writeTextFileAtomically,
-} from "#app/services/filesystem.js";
-import { createTemporaryDirectory } from "../test/helpers/sync-fixture.js";
+} from "#app/services/filesystem.ts";
+import { createTemporaryDirectory } from "../test/helpers/sync-fixture.ts";
 
 const temporaryDirectories: string[] = [];
 

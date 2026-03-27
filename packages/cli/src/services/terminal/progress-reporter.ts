@@ -1,5 +1,5 @@
-import { formatProgressMessage, writeStderr } from "#app/lib/output.js";
-import type { ProgressReporter } from "#app/lib/progress.js";
+import { formatProgressMessage, writeStderr } from "#app/lib/output.ts";
+import type { ProgressReporter } from "#app/lib/progress.ts";
 
 export const createCliProgressReporter = (
   options: Readonly<{

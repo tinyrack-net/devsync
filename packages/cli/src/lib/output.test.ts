@@ -21,7 +21,7 @@ import {
   verboseFooter,
   writeStderr,
   writeStdout,
-} from "./output.js";
+} from "./output.ts";
 
 // biome-ignore lint/suspicious/noControlCharactersInRegex: stripping ANSI escape sequences
 const ansiPattern = /\x1b\[[0-9;]*m/g;

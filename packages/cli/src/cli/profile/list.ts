@@ -1,12 +1,12 @@
 import { buildCommand } from "@stricli/core";
-import { formatSyncProfileListResult } from "#app/lib/output.js";
-import { listSyncProfiles } from "#app/services/profile.js";
+import { formatSyncProfileListResult } from "#app/lib/output.ts";
+import { listSyncProfiles } from "#app/services/profile.ts";
 import {
   type DevsyncCliContext,
   isVerbose,
   print,
   verboseFlag,
-} from "#app/services/terminal/cli-runtime.js";
+} from "#app/services/terminal/cli-runtime.ts";
 
 type ProfileListFlags = {
   verbose?: boolean;

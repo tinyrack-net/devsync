@@ -1,18 +1,18 @@
-import { resolveSyncConfigFilePath } from "#app/config/sync.js";
+import { resolveSyncConfigFilePath } from "#app/config/sync.ts";
 import {
   type ProgressReporter,
   reportDetail,
   reportPhase,
-} from "#app/lib/progress.js";
+} from "#app/lib/progress.ts";
 
-import { pathExists } from "./filesystem.js";
-import { ensureRepository } from "./git.js";
-import { buildRepositorySnapshot } from "./repo-snapshot.js";
+import { pathExists } from "./filesystem.ts";
+import { ensureRepository } from "./git.ts";
+import { buildRepositorySnapshot } from "./repo-snapshot.ts";
 import {
   type EffectiveSyncConfig,
   loadSyncConfig,
   resolveSyncPaths,
-} from "./runtime.js";
+} from "./runtime.ts";
 
 export type DoctorCheckLevel = "fail" | "ok" | "warn";
 

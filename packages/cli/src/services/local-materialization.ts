@@ -7,15 +7,15 @@ import {
   type ResolvedSyncConfigEntry,
   resolveManagedSyncMode,
   resolveSyncRule,
-} from "#app/config/sync.js";
-import { buildSearchableDirectoryMode } from "#app/lib/file-mode.js";
-import { buildDirectoryKey } from "#app/lib/path.js";
+} from "#app/config/sync.ts";
+import { buildSearchableDirectoryMode } from "#app/lib/file-mode.ts";
+import { buildDirectoryKey } from "#app/lib/path.ts";
 import {
   type ProgressReporter,
   reportDetail,
   reportPhase,
-} from "#app/lib/progress.js";
-import { DevsyncError } from "./error.js";
+} from "#app/lib/progress.ts";
+import { DevsyncError } from "./error.ts";
 import {
   copyFilesystemNode,
   getPathStats,
@@ -24,8 +24,8 @@ import {
   replacePathAtomically,
   writeFileNode,
   writeSymlinkNode,
-} from "./filesystem.js";
-import type { FileLikeSnapshotNode, SnapshotNode } from "./local-snapshot.js";
+} from "./filesystem.ts";
+import type { FileLikeSnapshotNode, SnapshotNode } from "./local-snapshot.ts";
 
 type MaterializationConfig = ResolvedSyncConfig &
   Readonly<{

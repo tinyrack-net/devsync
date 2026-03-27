@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { DevsyncError, formatDevsyncError, wrapUnknownError } from "./error.js";
+import { DevsyncError, formatDevsyncError, wrapUnknownError } from "./error.ts";
 
 describe("devsync error helpers", () => {
   it("formats strings and plain errors without extra decoration", () => {

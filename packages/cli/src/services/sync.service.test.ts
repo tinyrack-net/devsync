@@ -2,23 +2,23 @@ import { lstat, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
 import { afterEach, describe, expect, it, vi } from "vitest";
-import * as platformConfig from "#app/config/platform.js";
+import * as platformConfig from "#app/config/platform.ts";
 import {
   createAgeKeyPair,
   createTemporaryDirectory,
   writeIdentityFile,
-} from "../test/helpers/sync-fixture.js";
-import { trackSyncTarget } from "./add.js";
-import { initializeSync } from "./init.js";
+} from "../test/helpers/sync-fixture.ts";
+import { trackSyncTarget } from "./add.ts";
+import { initializeSync } from "./init.ts";
 import {
   assignSyncProfiles,
   clearSyncProfiles,
   listSyncProfiles,
   useSyncProfile,
-} from "./profile.js";
-import { pullSync } from "./pull.js";
-import { pushSync } from "./push.js";
-import { setSyncTargetMode } from "./set.js";
+} from "./profile.ts";
+import { pullSync } from "./pull.ts";
+import { pushSync } from "./push.ts";
+import { setSyncTargetMode } from "./set.ts";
 
 const temporaryDirectories: string[] = [];
 

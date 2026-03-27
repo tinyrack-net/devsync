@@ -3,28 +3,28 @@ import { join } from "node:path";
 import {
   resolveSyncArtifactsDirectoryPath,
   resolveSyncConfigFilePath,
-} from "#app/config/sync.js";
+} from "#app/config/sync.ts";
 import {
   type ProgressReporter,
   reportDetail,
   reportPhase,
-} from "#app/lib/progress.js";
+} from "#app/lib/progress.ts";
 
-import { removePathAtomically } from "./filesystem.js";
-import { buildLocalSnapshot, type SnapshotNode } from "./local-snapshot.js";
+import { removePathAtomically } from "./filesystem.ts";
+import { buildLocalSnapshot, type SnapshotNode } from "./local-snapshot.ts";
 import {
   buildArtifactKey,
   buildRepoArtifacts,
   collectExistingArtifactKeys,
   type RepoArtifact,
   writeArtifactsToDirectory,
-} from "./repo-artifacts.js";
+} from "./repo-artifacts.ts";
 import {
   type EffectiveSyncConfig,
   ensureSyncRepository,
   loadSyncConfig,
   resolveSyncPaths,
-} from "./runtime.js";
+} from "./runtime.ts";
 
 export type SyncPushRequest = Readonly<{
   dryRun: boolean;

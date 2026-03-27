@@ -1,16 +1,16 @@
 import { buildCommand } from "@stricli/core";
-import { resolveConfiguredAbsolutePath } from "#app/config/xdg.js";
-import { formatSyncInitResult } from "#app/lib/output.js";
-import { pathExists } from "#app/services/filesystem.js";
-import { defaultSyncIdentityFile, initializeSync } from "#app/services/init.js";
+import { resolveConfiguredAbsolutePath } from "#app/config/xdg.ts";
+import { formatSyncInitResult } from "#app/lib/output.ts";
+import { pathExists } from "#app/services/filesystem.ts";
+import { defaultSyncIdentityFile, initializeSync } from "#app/services/init.ts";
 import {
   createProgressReporter,
   type DevsyncCliContext,
   isVerbose,
   print,
   verboseFlag,
-} from "#app/services/terminal/cli-runtime.js";
-import { promptForSecret } from "#app/services/terminal/prompt.js";
+} from "#app/services/terminal/cli-runtime.ts";
+import { promptForSecret } from "#app/services/terminal/prompt.ts";
 
 type InitFlags = {
   identity?: string;

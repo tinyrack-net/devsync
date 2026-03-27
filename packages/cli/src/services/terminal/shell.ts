@@ -1,8 +1,8 @@
 import { spawn } from "node:child_process";
 
-import type { PlatformKey } from "#app/config/platform.js";
-import { detectCurrentPlatformKey } from "#app/config/platform.js";
-import { DevsyncError } from "#app/services/error.js";
+import type { PlatformKey } from "#app/config/platform.ts";
+import { detectCurrentPlatformKey } from "#app/config/platform.ts";
+import { DevsyncError } from "#app/services/error.ts";
 
 type ShellCommand = Readonly<{
   args: readonly string[];

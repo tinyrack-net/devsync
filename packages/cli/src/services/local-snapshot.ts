@@ -5,16 +5,16 @@ import {
   collectChildEntryPaths,
   type ResolvedSyncConfig,
   resolveManagedSyncMode,
-} from "#app/config/sync.js";
-import { isExecutableMode } from "#app/lib/file-mode.js";
+} from "#app/config/sync.ts";
+import { isExecutableMode } from "#app/lib/file-mode.ts";
 import {
   type ProgressReporter,
   reportDetail,
   reportPhase,
-} from "#app/lib/progress.js";
-import { DevsyncError } from "./error.js";
-import { getPathStats, listDirectoryEntries } from "./filesystem.js";
-import { assertStorageSafeRepoPath } from "./repo-artifacts.js";
+} from "#app/lib/progress.ts";
+import { DevsyncError } from "./error.ts";
+import { getPathStats, listDirectoryEntries } from "./filesystem.ts";
+import { assertStorageSafeRepoPath } from "./repo-artifacts.ts";
 
 type SnapshotConfig = ResolvedSyncConfig &
   Readonly<{

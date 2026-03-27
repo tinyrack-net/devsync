@@ -1,19 +1,19 @@
-import { resolveSyncConfigFilePath } from "#app/config/sync.js";
-import { type ProgressReporter, reportPhase } from "#app/lib/progress.js";
+import { resolveSyncConfigFilePath } from "#app/config/sync.ts";
+import { type ProgressReporter, reportPhase } from "#app/lib/progress.ts";
 import {
   applyEntryMaterialization,
   buildEntryMaterialization,
   buildPullCounts,
   countDeletedLocalNodes,
-} from "./local-materialization.js";
-import { buildRepositorySnapshot } from "./repo-snapshot.js";
+} from "./local-materialization.ts";
+import { buildRepositorySnapshot } from "./repo-snapshot.ts";
 
 import {
   type EffectiveSyncConfig,
   ensureSyncRepository,
   loadSyncConfig,
   resolveSyncPaths,
-} from "./runtime.js";
+} from "./runtime.ts";
 
 export type SyncPullRequest = Readonly<{
   dryRun: boolean;

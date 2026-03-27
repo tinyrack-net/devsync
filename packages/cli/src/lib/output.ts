@@ -1,22 +1,22 @@
 import { createColors } from "picocolors";
 
-import { ensureTrailingNewline } from "#app/lib/string.js";
-import type { SyncAddResult } from "#app/services/add.js";
-import type { SyncDoctorResult } from "#app/services/doctor.js";
-import { formatDevsyncError } from "#app/services/error.js";
-import type { SyncForgetResult } from "#app/services/forget.js";
-import type { SyncInitResult } from "#app/services/init.js";
+import { ensureTrailingNewline } from "#app/lib/string.ts";
+import type { SyncAddResult } from "#app/services/add.ts";
+import type { SyncDoctorResult } from "#app/services/doctor.ts";
+import { formatDevsyncError } from "#app/services/error.ts";
+import type { SyncForgetResult } from "#app/services/forget.ts";
+import type { SyncInitResult } from "#app/services/init.ts";
 import type {
   SyncProfileListResult,
   SyncProfileUpdateResult,
-} from "#app/services/profile.js";
-import type { SyncPullResult } from "#app/services/pull.js";
-import type { SyncPushResult } from "#app/services/push.js";
-import type { SyncSetResult } from "#app/services/set.js";
+} from "#app/services/profile.ts";
+import type { SyncPullResult } from "#app/services/pull.ts";
+import type { SyncPushResult } from "#app/services/push.ts";
+import type { SyncSetResult } from "#app/services/set.ts";
 import type {
   SyncStatusEntry,
   SyncStatusResult,
-} from "#app/services/status.js";
+} from "#app/services/status.ts";
 
 type OutputLine = false | null | string | undefined;
 type OutputTone = "default" | "error" | "success" | "warn";

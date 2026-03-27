@@ -2,24 +2,24 @@ import {
   resolveSyncConfigFilePath,
   type SyncConfigEntryKind,
   type SyncMode,
-} from "#app/config/sync.js";
-import { type ProgressReporter, reportPhase } from "#app/lib/progress.js";
+} from "#app/config/sync.ts";
+import { type ProgressReporter, reportPhase } from "#app/lib/progress.ts";
 
 import {
   buildPullPlan,
   buildPullPlanPreview,
   buildPullResultFromPlan,
-} from "./pull.js";
+} from "./pull.ts";
 import {
   buildPushPlan,
   buildPushPlanPreview,
   buildPushResultFromPlan,
-} from "./push.js";
+} from "./push.ts";
 import {
   ensureSyncRepository,
   loadSyncConfig,
   resolveSyncPaths,
-} from "./runtime.js";
+} from "./runtime.ts";
 
 export type SyncStatusEntry = Readonly<{
   kind: SyncConfigEntryKind;

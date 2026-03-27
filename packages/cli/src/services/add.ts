@@ -1,4 +1,4 @@
-import { resolveConfiguredIdentityFile } from "#app/config/global-config.js";
+import { resolveConfiguredIdentityFile } from "#app/config/global-config.ts";
 import {
   normalizeSyncProfileName,
   type PlatformSyncMode,
@@ -6,20 +6,20 @@ import {
   readSyncConfig,
   type SyncConfigEntryKind,
   type SyncMode,
-} from "#app/config/sync.js";
-import { doPathsOverlap } from "#app/lib/path.js";
+} from "#app/config/sync.ts";
+import { doPathsOverlap } from "#app/lib/path.ts";
 import {
   createSyncConfigDocument,
   writeValidatedSyncConfig,
-} from "./config-file.js";
-import { DevsyncError } from "./error.js";
-import { getPathStats } from "./filesystem.js";
+} from "./config-file.ts";
+import { DevsyncError } from "./error.ts";
+import { getPathStats } from "./filesystem.ts";
 import {
   buildConfiguredHomeLocalPath,
   buildRepoPathWithinRoot,
   resolveCommandTargetPath,
-} from "./paths.js";
-import { ensureSyncRepository, resolveSyncPaths } from "./runtime.js";
+} from "./paths.ts";
+import { ensureSyncRepository, resolveSyncPaths } from "./runtime.ts";
 
 export type SyncAddRequest = Readonly<{
   profiles?: readonly string[];

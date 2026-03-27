@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type {
   ResolvedSyncConfig,
   ResolvedSyncConfigEntry,
-} from "#app/config/sync.js";
+} from "#app/config/sync.ts";
 
 const mocked = vi.hoisted(() => ({
   buildConfiguredHomeLocalPath: vi.fn((repoPath: string) => ({
@@ -29,26 +29,26 @@ const mocked = vi.hoisted(() => ({
   writeValidatedSyncConfig: vi.fn(),
 }));
 
-vi.mock("#app/config/sync.js", () => ({
+vi.mock("#app/config/sync.ts", () => ({
   findOwningSyncEntry: mocked.findOwningSyncEntry,
   readSyncConfig: mocked.readSyncConfig,
   resolveEntryRelativeRepoPath: mocked.resolveEntryRelativeRepoPath,
 }));
 
-vi.mock("#app/lib/path.js", () => ({
+vi.mock("#app/lib/path.ts", () => ({
   isExplicitLocalPath: mocked.isExplicitLocalPath,
 }));
 
-vi.mock("./config-file.js", () => ({
+vi.mock("./config-file.ts", () => ({
   createSyncConfigDocument: mocked.createSyncConfigDocument,
   writeValidatedSyncConfig: mocked.writeValidatedSyncConfig,
 }));
 
-vi.mock("./filesystem.js", () => ({
+vi.mock("./filesystem.ts", () => ({
   getPathStats: mocked.getPathStats,
 }));
 
-vi.mock("./paths.js", () => ({
+vi.mock("./paths.ts", () => ({
   buildConfiguredHomeLocalPath: mocked.buildConfiguredHomeLocalPath,
   buildRepoPathWithinRoot: mocked.buildRepoPathWithinRoot,
   resolveCommandTargetPath: mocked.resolveCommandTargetPath,
@@ -56,12 +56,12 @@ vi.mock("./paths.js", () => ({
   tryNormalizeRepoPathInput: mocked.tryNormalizeRepoPathInput,
 }));
 
-vi.mock("./runtime.js", () => ({
+vi.mock("./runtime.ts", () => ({
   ensureSyncRepository: mocked.ensureSyncRepository,
   resolveSyncPaths: mocked.resolveSyncPaths,
 }));
 
-import { resolveSetTarget, setSyncTargetMode } from "./set.js";
+import { resolveSetTarget, setSyncTargetMode } from "./set.ts";
 
 const createConfig = (
   entries: readonly ResolvedSyncConfigEntry[],

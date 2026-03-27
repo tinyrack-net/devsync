@@ -1,13 +1,13 @@
-import { resolveDefaultLocalPath } from "#app/config/platform.js";
+import { resolveDefaultLocalPath } from "#app/config/platform.ts";
 import {
   formatSyncConfig,
   parseSyncConfig,
   type ResolvedSyncConfig,
   resolveSyncConfigFilePath,
   type SyncConfig,
-} from "#app/config/sync.js";
+} from "#app/config/sync.ts";
 
-import { writeTextFileAtomically } from "./filesystem.js";
+import { writeTextFileAtomically } from "./filesystem.ts";
 
 export const sortSyncConfigEntries = (
   entries: readonly SyncConfig["entries"][number][],

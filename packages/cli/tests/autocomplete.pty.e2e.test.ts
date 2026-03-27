@@ -3,13 +3,13 @@ import { tmpdir } from "node:os";
 import { delimiter, join } from "node:path";
 
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { rootCommandNames } from "../src/cli/root-commands.js";
-import { cliNodeOptions } from "../src/test/helpers/cli-entry.js";
-import { createPtySession } from "../src/test/helpers/pty.js";
+import { rootCommandNames } from "../src/cli/root-commands.ts";
+import { cliNodeOptions } from "../src/test/helpers/cli-entry.ts";
+import { createPtySession } from "../src/test/helpers/pty.ts";
 import {
   isBashAvailable,
   isZshAvailable,
-} from "../src/test/helpers/shell-availability.js";
+} from "../src/test/helpers/shell-availability.ts";
 
 const rootCommandsPattern = new RegExp(rootCommandNames.join("|"), "u");
 

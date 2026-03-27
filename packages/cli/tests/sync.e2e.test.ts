@@ -8,8 +8,8 @@ import { afterEach, describe, expect, it } from "vitest";
 import {
   createInitialSyncConfig,
   formatSyncConfig,
-} from "../src/config/sync.js";
-import { cliNodeOptions } from "../src/test/helpers/cli-entry.js";
+} from "../src/config/sync.ts";
+import { cliNodeOptions } from "../src/test/helpers/cli-entry.ts";
 import {
   createAgeKeyPair,
   createShellRecorderEnvironment,
@@ -17,7 +17,7 @@ import {
   gitTestEnvironment,
   stripAnsi,
   writeIdentityFile,
-} from "../src/test/helpers/sync-fixture.js";
+} from "../src/test/helpers/sync-fixture.ts";
 
 const temporaryDirectories: string[] = [];
 

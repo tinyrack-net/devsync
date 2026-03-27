@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   createSyncConfigDocument,
   sortSyncConfigEntries,
-} from "./config-file.js";
+} from "./config-file.ts";
 
 describe("config-file", () => {
   it("writes v7 directory entries", () => {

@@ -9,23 +9,23 @@ import {
   resolveSyncRule,
   syncDefaultProfile,
   syncSecretArtifactSuffix,
-} from "#app/config/sync.js";
-import { buildDirectoryKey } from "#app/lib/path.js";
+} from "#app/config/sync.ts";
+import { buildDirectoryKey } from "#app/lib/path.ts";
 import {
   type ProgressReporter,
   reportDetail,
   reportPhase,
-} from "#app/lib/progress.js";
-import { decryptSecretFile, encryptSecretFile } from "./crypto.js";
-import { DevsyncError } from "./error.js";
+} from "#app/lib/progress.ts";
+import { decryptSecretFile, encryptSecretFile } from "./crypto.ts";
+import { DevsyncError } from "./error.ts";
 import {
   getPathStats,
   listDirectoryEntries,
   writeFileNode,
   writeSymlinkNode,
-} from "./filesystem.js";
-import type { SnapshotNode } from "./local-snapshot.js";
-import type { EffectiveSyncConfig } from "./runtime.js";
+} from "./filesystem.ts";
+import type { SnapshotNode } from "./local-snapshot.ts";
+import type { EffectiveSyncConfig } from "./runtime.ts";
 
 type ArtifactConfig = EffectiveSyncConfig;
 

@@ -6,7 +6,7 @@ import {
   type GlobalDevsyncConfig,
   readGlobalDevsyncConfig,
   resolveConfiguredIdentityFile,
-} from "#app/config/global-config.js";
+} from "#app/config/global-config.ts";
 import {
   createInitialSyncConfig,
   formatSyncConfig,
@@ -14,24 +14,24 @@ import {
   readSyncConfig,
   resolveSyncArtifactsDirectoryPath,
   type SyncAgeConfig,
-} from "#app/config/sync.js";
-import { resolveConfiguredAbsolutePath } from "#app/config/xdg.js";
-import type { ProgressReporter } from "#app/lib/progress.js";
-import { reportPhase } from "#app/lib/progress.js";
+} from "#app/config/sync.ts";
+import { resolveConfiguredAbsolutePath } from "#app/config/xdg.ts";
+import type { ProgressReporter } from "#app/lib/progress.ts";
+import { reportPhase } from "#app/lib/progress.ts";
 
 import {
   createAgeIdentityFile,
   readAgeRecipientsFromIdentityFile,
   writeAgeIdentityFile,
-} from "./crypto.js";
-import { DevsyncError, wrapUnknownError } from "./error.js";
-import { pathExists, writeTextFileAtomically } from "./filesystem.js";
-import { ensureRepository, initializeRepository } from "./git.js";
+} from "./crypto.ts";
+import { DevsyncError, wrapUnknownError } from "./error.ts";
+import { pathExists, writeTextFileAtomically } from "./filesystem.ts";
+import { ensureRepository, initializeRepository } from "./git.ts";
 import {
   ensureSyncRepository,
   resolveAgeFromSyncConfig,
   resolveSyncPaths,
-} from "./runtime.js";
+} from "./runtime.ts";
 
 export type SyncInitRequest = Readonly<{
   ageIdentity?: string;

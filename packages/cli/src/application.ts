@@ -5,13 +5,13 @@ import {
   run,
   text_en,
 } from "@stricli/core";
-import { buildRootRoute } from "#app/cli/index.js";
-import { formatErrorMessage } from "#app/lib/output.js";
-import { currentVersion } from "#app/lib/version.js";
+import { buildRootRoute } from "#app/cli/index.ts";
+import { formatErrorMessage } from "#app/lib/output.ts";
+import { currentVersion } from "#app/lib/version.ts";
 import {
   createCliContext,
   type DevsyncCliContext,
-} from "#app/services/terminal/cli-runtime.js";
+} from "#app/services/terminal/cli-runtime.ts";
 
 type CommandError = Error & {
   exitCode?: number;

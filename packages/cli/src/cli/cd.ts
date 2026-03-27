@@ -1,12 +1,12 @@
 import { mkdir } from "node:fs/promises";
 
 import { buildCommand } from "@stricli/core";
-import { resolveDevsyncSyncDirectory } from "#app/config/xdg.js";
+import { resolveDevsyncSyncDirectory } from "#app/config/xdg.ts";
 import {
   type DevsyncCliContext,
   verboseFlag,
-} from "#app/services/terminal/cli-runtime.js";
-import { launchShellInDirectory } from "#app/services/terminal/shell.js";
+} from "#app/services/terminal/cli-runtime.ts";
+import { launchShellInDirectory } from "#app/services/terminal/shell.ts";
 
 const cdCommand = buildCommand<
   {

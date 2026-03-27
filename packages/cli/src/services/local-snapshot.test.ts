@@ -8,10 +8,10 @@ import type {
   ResolvedSyncConfigEntry,
   SyncConfigEntryKind,
   SyncMode,
-} from "#app/config/sync.js";
-import type { ProgressReporter } from "#app/lib/progress.js";
-import { buildLocalSnapshot } from "#app/services/local-snapshot.js";
-import { createTemporaryDirectory } from "../test/helpers/sync-fixture.js";
+} from "#app/config/sync.ts";
+import type { ProgressReporter } from "#app/lib/progress.ts";
+import { buildLocalSnapshot } from "#app/services/local-snapshot.ts";
+import { createTemporaryDirectory } from "../test/helpers/sync-fixture.ts";
 
 const temporaryDirectories: string[] = [];
 

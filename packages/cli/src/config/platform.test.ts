@@ -4,7 +4,7 @@ import {
   detectCurrentPlatformKey,
   resolveDefaultLocalPath,
   resolveLocalPathForPlatform,
-} from "#app/config/platform.js";
+} from "#app/config/platform.ts";
 
 vi.mock("node:os", async (importOriginal) => {
   const actual = await importOriginal<typeof import("node:os")>();

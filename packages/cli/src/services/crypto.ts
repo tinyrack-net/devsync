@@ -9,8 +9,8 @@ import {
   identityToRecipient,
 } from "age-encryption";
 
-import { ensureTrailingNewline } from "#app/lib/string.js";
-import { DevsyncError, wrapUnknownError } from "#app/services/error.js";
+import { ensureTrailingNewline } from "#app/lib/string.ts";
+import { DevsyncError, wrapUnknownError } from "#app/services/error.ts";
 
 export const resolveAgeIdentity = async (identity: string) => {
   const normalizedIdentity = identity.trim();

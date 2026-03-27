@@ -1,7 +1,7 @@
 import { type Application, buildRouteMap } from "@stricli/core";
-import { buildAutocompleteRoute } from "#app/cli/autocomplete.js";
-import { rootCommandRoutes } from "#app/cli/root-commands.js";
-import type { DevsyncCliContext } from "#app/services/terminal/cli-runtime.js";
+import { buildAutocompleteRoute } from "#app/cli/autocomplete.ts";
+import { rootCommandRoutes } from "#app/cli/root-commands.ts";
+import type { DevsyncCliContext } from "#app/services/terminal/cli-runtime.ts";
 
 export const buildRootRoute = (
   getApplication: () => Application<DevsyncCliContext>,

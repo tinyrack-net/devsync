@@ -8,11 +8,11 @@ import type {
   ResolvedSyncConfigEntry,
   SyncConfigEntryKind,
   SyncMode,
-} from "#app/config/sync.js";
-import { buildDirectoryKey } from "#app/lib/path.js";
-import type { ProgressReporter } from "#app/lib/progress.js";
-import { countDeletedLocalNodes } from "#app/services/local-materialization.js";
-import { createTemporaryDirectory } from "../test/helpers/sync-fixture.js";
+} from "#app/config/sync.ts";
+import { buildDirectoryKey } from "#app/lib/path.ts";
+import type { ProgressReporter } from "#app/lib/progress.ts";
+import { countDeletedLocalNodes } from "#app/services/local-materialization.ts";
+import { createTemporaryDirectory } from "../test/helpers/sync-fixture.ts";
 
 const temporaryDirectories: string[] = [];
 

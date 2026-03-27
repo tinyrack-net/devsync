@@ -11,11 +11,11 @@ import {
   readAgeRecipientsFromIdentityFile,
   resolveAgeIdentity,
   writeAgeIdentityFile,
-} from "#app/services/crypto.js";
+} from "#app/services/crypto.ts";
 import {
   createAgeKeyPair,
   createTemporaryDirectory,
-} from "../test/helpers/sync-fixture.js";
+} from "../test/helpers/sync-fixture.ts";
 
 const temporaryDirectories: string[] = [];
 

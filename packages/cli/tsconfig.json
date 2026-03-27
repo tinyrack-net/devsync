@@ -6,11 +6,13 @@
     "moduleResolution": "NodeNext",
     "baseUrl": ".",
     "paths": {
-      "#app/*.js": ["./src/*.ts"]
+      "#app/*.js": ["./src/*.ts"],
+      "#app/*.ts": ["./src/*.ts"]
     },
     "moduleDetection": "force",
     "types": ["node"],
     "resolveJsonModule": true,
+    "allowImportingTsExtensions": true,
     "verbatimModuleSyntax": true,
     "isolatedModules": true,
     "noEmit": true,
@@ -30,5 +32,10 @@
     "forceConsistentCasingInFileNames": true,
     "skipLibCheck": false
   },
-  "include": ["src/**/*.ts", "tests/**/*.e2e.test.ts", "vitest.config.ts"]
+  "include": [
+    "src/**/*.ts",
+    "scripts/**/*.ts",
+    "tests/**/*.e2e.test.ts",
+    "vitest.config.ts"
+  ]
 }

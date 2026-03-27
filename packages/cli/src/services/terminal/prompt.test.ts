@@ -3,7 +3,7 @@ import { Readable } from "node:stream";
 
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { promptForSecret } from "./prompt.js";
+import { promptForSecret } from "./prompt.ts";
 
 class FakeTTYInput extends EventEmitter {
   public isRaw = false;

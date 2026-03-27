@@ -24,31 +24,31 @@ const mocked = vi.hoisted(() => ({
   writeValidatedSyncConfig: vi.fn(),
 }));
 
-vi.mock("#app/config/global-config.js", () => ({
+vi.mock("#app/config/global-config.ts", () => ({
   formatGlobalDevsyncConfig: mocked.formatGlobalDevsyncConfig,
   readGlobalDevsyncConfig: mocked.readGlobalDevsyncConfig,
 }));
 
-vi.mock("#app/config/sync.js", () => ({
+vi.mock("#app/config/sync.ts", () => ({
   collectAllProfileNames: mocked.collectAllProfileNames,
   normalizeSyncProfileName: mocked.normalizeSyncProfileName,
   readSyncConfig: mocked.readSyncConfig,
 }));
 
-vi.mock("./config-file.js", () => ({
+vi.mock("./config-file.ts", () => ({
   createSyncConfigDocument: mocked.createSyncConfigDocument,
   writeValidatedSyncConfig: mocked.writeValidatedSyncConfig,
 }));
 
-vi.mock("./filesystem.js", () => ({
+vi.mock("./filesystem.ts", () => ({
   writeTextFileAtomically: mocked.writeTextFileAtomically,
 }));
 
-vi.mock("./paths.js", () => ({
+vi.mock("./paths.ts", () => ({
   resolveTrackedEntry: mocked.resolveTrackedEntry,
 }));
 
-vi.mock("./runtime.js", () => ({
+vi.mock("./runtime.ts", () => ({
   ensureSyncRepository: mocked.ensureSyncRepository,
   resolveSyncPaths: mocked.resolveSyncPaths,
 }));
@@ -58,7 +58,7 @@ import {
   clearSyncProfiles,
   listSyncProfiles,
   useSyncProfile,
-} from "./profile.js";
+} from "./profile.ts";
 
 afterEach(() => {
   vi.clearAllMocks();
