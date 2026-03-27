@@ -71,6 +71,13 @@ const runCliStreaming = async (
     stderr += chunk;
   });
 
+  const exitCodePromise = new Promise<number>((resolve, reject) => {
+    child.on("close", (code) => {
+      resolve(code ?? -1);
+    });
+    child.on("error", reject);
+  });
+
   const firstStderr = await new Promise<string>((resolve, reject) => {
     const onData = (chunk: string) => {
       cleanup();
@@ -94,12 +101,7 @@ const runCliStreaming = async (
     child.on("close", onClose);
     child.on("error", onError);
   });
-  const exitCode = await new Promise<number>((resolve, reject) => {
-    child.on("close", (code) => {
-      resolve(code ?? -1);
-    });
-    child.on("error", reject);
-  });
+  const exitCode = await exitCodePromise;
 
   return {
     exitCode,
@@ -482,7 +484,10 @@ describe("sync CLI e2e", () => {
 
     const result = await runCliStreaming(["push"], { env });
 
-    expect(result.exitCode).toBe(0);
+    expect(
+      result.exitCode,
+      `push exited with ${result.exitCode}\nstdout: ${result.stdout}\nstderr: ${result.stderr}`,
+    ).toBe(0);
     expect(stripAnsi(result.firstStderr)).toContain("Starting push...");
     expect(stripAnsi(result.stderr)).toContain("Scanning local files...");
     expect(stripAnsi(result.stdout)).toContain("Pushed to sync repository");
