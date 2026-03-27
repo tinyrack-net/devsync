@@ -1,6 +1,57 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { buildPullPlanPreview, buildPullResultFromPlan } from "./pull.js";
+const mocked = vi.hoisted(() => ({
+  applyEntryMaterialization: vi.fn(),
+  buildEntryMaterialization: vi.fn(),
+  buildPullCounts: vi.fn(() => ({
+    decryptedFileCount: 0,
+    directoryCount: 0,
+    plainFileCount: 0,
+    symlinkCount: 0,
+  })),
+  buildRepositorySnapshot: vi.fn(),
+  countDeletedLocalNodes: vi.fn(),
+  ensureSyncRepository: vi.fn(),
+  loadSyncConfig: vi.fn(),
+  resolveSyncConfigFilePath: vi.fn(
+    (syncDirectory: string) => `${syncDirectory}/manifest.json`,
+  ),
+  resolveSyncPaths: vi.fn(() => ({
+    syncDirectory: "/tmp/devsync",
+  })),
+}));
+
+vi.mock("#app/config/sync.js", () => ({
+  resolveSyncConfigFilePath: mocked.resolveSyncConfigFilePath,
+}));
+
+vi.mock("./local-materialization.js", () => ({
+  applyEntryMaterialization: mocked.applyEntryMaterialization,
+  buildEntryMaterialization: mocked.buildEntryMaterialization,
+  buildPullCounts: mocked.buildPullCounts,
+  countDeletedLocalNodes: mocked.countDeletedLocalNodes,
+}));
+
+vi.mock("./repo-snapshot.js", () => ({
+  buildRepositorySnapshot: mocked.buildRepositorySnapshot,
+}));
+
+vi.mock("./runtime.js", () => ({
+  ensureSyncRepository: mocked.ensureSyncRepository,
+  loadSyncConfig: mocked.loadSyncConfig,
+  resolveSyncPaths: mocked.resolveSyncPaths,
+}));
+
+import {
+  buildPullPlan,
+  buildPullPlanPreview,
+  buildPullResultFromPlan,
+  pullSync,
+} from "./pull.js";
+
+afterEach(() => {
+  vi.clearAllMocks();
+});
 
 describe("pull helpers", () => {
   it("builds a stable preview from desired and deleted local paths", () => {
@@ -61,5 +112,122 @@ describe("pull helpers", () => {
       symlinkCount: 0,
       syncDirectory: "/tmp/devsync",
     });
+  });
+});
+
+describe("pull planning", () => {
+  it("skips ignore-mode entries while planning materializations", async () => {
+    mocked.buildRepositorySnapshot.mockResolvedValueOnce(new Map());
+    mocked.buildEntryMaterialization.mockReturnValue({
+      desiredKeys: new Set([".config/app"]),
+      type: "absent",
+    });
+    mocked.countDeletedLocalNodes.mockResolvedValue(0);
+
+    const config = {
+      age: {
+        configuredIdentityFile: "$XDG_CONFIG_HOME/devsync/age/keys.txt",
+        identityFile: "/tmp/devsync/keys.txt",
+        recipients: ["age1recipient"],
+      },
+      entries: [
+        {
+          kind: "directory",
+          localPath: "/tmp/home/.config/app",
+          mode: "normal",
+          repoPath: ".config/app",
+        },
+        {
+          kind: "directory",
+          localPath: "/tmp/home/.config/app/node_modules",
+          mode: "ignore",
+          repoPath: ".config/app/node_modules",
+        },
+      ],
+      version: 7,
+    };
+
+    const plan = await buildPullPlan(config as never, "/tmp/devsync");
+
+    expect(mocked.buildEntryMaterialization).toHaveBeenCalledTimes(1);
+    expect(mocked.buildEntryMaterialization).toHaveBeenCalledWith(
+      config.entries[0],
+      expect.any(Map),
+      undefined,
+    );
+    expect(mocked.countDeletedLocalNodes).toHaveBeenCalledTimes(1);
+    expect(mocked.countDeletedLocalNodes).toHaveBeenCalledWith(
+      config.entries[0],
+      new Set([".config/app"]),
+      config,
+      expect.any(Set),
+      undefined,
+    );
+    expect(plan.materializations).toEqual([
+      {
+        desiredKeys: new Set([".config/app"]),
+        type: "absent",
+      },
+      undefined,
+    ]);
+    expect(plan.desiredKeys).toEqual(new Set([".config/app"]));
+  });
+
+  it("does not apply ignore-mode entries during pull", async () => {
+    const reporter = {
+      detail: vi.fn(),
+      phase: vi.fn(),
+      verbose: false,
+    };
+    const config = {
+      age: {
+        configuredIdentityFile: "$XDG_CONFIG_HOME/devsync/age/keys.txt",
+        identityFile: "/tmp/devsync/keys.txt",
+        recipients: ["age1recipient"],
+      },
+      entries: [
+        {
+          kind: "directory",
+          localPath: "/tmp/home/.config/app",
+          mode: "normal",
+          repoPath: ".config/app",
+        },
+        {
+          kind: "directory",
+          localPath: "/tmp/home/.config/app/node_modules",
+          mode: "ignore",
+          repoPath: ".config/app/node_modules",
+        },
+      ],
+      version: 7,
+    };
+
+    mocked.ensureSyncRepository.mockResolvedValueOnce(undefined);
+    mocked.loadSyncConfig.mockResolvedValueOnce({
+      effectiveConfig: config,
+    });
+    mocked.buildRepositorySnapshot.mockResolvedValueOnce(new Map());
+    mocked.buildEntryMaterialization.mockReturnValue({
+      desiredKeys: new Set([".config/app"]),
+      type: "absent",
+    });
+    mocked.countDeletedLocalNodes.mockResolvedValue(0);
+
+    await pullSync({ dryRun: false }, { HOME: "/tmp/home" }, reporter);
+
+    expect(mocked.applyEntryMaterialization).toHaveBeenCalledTimes(1);
+    expect(mocked.applyEntryMaterialization).toHaveBeenCalledWith(
+      config.entries[0],
+      {
+        desiredKeys: new Set([".config/app"]),
+        type: "absent",
+      },
+      config,
+      reporter,
+    );
+    expect(reporter.phase).toHaveBeenCalledWith("Applying .config/app...");
+    expect(reporter.phase).not.toHaveBeenCalledWith(
+      "Applying .config/app/node_modules...",
+    );
   });
 });

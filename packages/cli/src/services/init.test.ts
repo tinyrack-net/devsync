@@ -268,10 +268,19 @@ describe("init service", () => {
       createEnvironment(homeDirectory, xdgConfigHome),
     );
 
-    expect(result.alreadyInitialized).toBe(true);
+    expect(result.alreadyInitialized).toBe(false);
+    expect(result.generatedIdentity).toBe(false);
     expect(
       await readFile(join(xdgConfigHome, "devsync", "age", "keys.txt"), "utf8"),
     ).toBe(`${ageKeys.identity}\n`);
+    expect(
+      JSON.parse(
+        await readFile(join(xdgConfigHome, "devsync", "settings.json"), "utf8"),
+      ),
+    ).toMatchObject({
+      activeProfile: "default",
+      version: 3,
+    });
   });
 
   it("generates a new age identity when cloning a repo with manifest.json and no key is provided", async () => {
@@ -309,7 +318,8 @@ describe("init service", () => {
       createEnvironment(homeDirectory, xdgConfigHome),
     );
 
-    expect(result.alreadyInitialized).toBe(true);
+    expect(result.alreadyInitialized).toBe(false);
+    expect(result.generatedIdentity).toBe(true);
     const identityContent = await readFile(
       join(xdgConfigHome, "devsync", "age", "keys.txt"),
       "utf8",

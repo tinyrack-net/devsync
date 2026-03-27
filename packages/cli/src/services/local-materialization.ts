@@ -459,7 +459,7 @@ export const applyEntryMaterialization = async (
 };
 
 export const buildPullCounts = (
-  materializations: readonly EntryMaterialization[],
+  materializations: readonly (EntryMaterialization | undefined)[],
 ) => {
   let decryptedFileCount = 0;
   let directoryCount = 0;

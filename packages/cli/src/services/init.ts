@@ -233,6 +233,23 @@ const buildAlreadyInitializedResult = (
   };
 };
 
+const writeGlobalSettings = async (
+  globalConfigPath: string,
+  environment: NodeJS.ProcessEnv,
+) => {
+  const existingGlobalConfig = await readGlobalDevsyncConfig(environment);
+  const globalConfigToWrite: GlobalDevsyncConfig = {
+    activeProfile: existingGlobalConfig?.activeProfile ?? "default",
+    version: 3,
+  };
+
+  await mkdir(dirname(globalConfigPath), { recursive: true });
+  await writeTextFileAtomically(
+    globalConfigPath,
+    formatGlobalDevsyncConfig(globalConfigToWrite),
+  );
+};
+
 export const initializeSync = async (
   request: SyncInitRequest,
   environment: NodeJS.ProcessEnv,
@@ -344,14 +361,45 @@ export const initializeSync = async (
     const config = await readSyncConfig(syncDirectory, environment);
     assertInitRequestMatchesConfig(config.age, request, environment);
 
-    await resolveInitAgeBootstrap(request, environment, reporter);
+    const ageBootstrap = await resolveInitAgeBootstrap(
+      request,
+      environment,
+      reporter,
+    );
 
-    return buildAlreadyInitializedResult(config, environment, {
+    if (configExists) {
+      return buildAlreadyInitializedResult(config, environment, {
+        configPath,
+        gitAction,
+        gitSource,
+        syncDirectory,
+      });
+    }
+
+    reportPhase(reporter, "Writing global devsync settings...");
+    await writeGlobalSettings(globalConfigPath, environment);
+
+    const age =
+      config.age !== undefined
+        ? resolveAgeFromSyncConfig(config.age, environment)
+        : undefined;
+
+    return {
+      alreadyInitialized: false,
       configPath,
+      entryCount: config.entries.length,
       gitAction,
-      gitSource,
+      ...(gitSource === undefined ? {} : { gitSource }),
+      generatedIdentity: ageBootstrap.generatedIdentity,
+      identityFile:
+        age?.identityFile ??
+        resolveConfiguredAbsolutePath(
+          ageBootstrap.configuredIdentityFile,
+          environment,
+        ),
+      recipientCount: age?.recipients.length ?? 0,
       syncDirectory,
-    });
+    };
   }
 
   reportPhase(reporter, "Preparing sync encryption settings...");
@@ -363,16 +411,7 @@ export const initializeSync = async (
 
   // Write global settings.json (without age)
   reportPhase(reporter, "Writing global devsync settings...");
-  const existingGlobalConfig = await readGlobalDevsyncConfig(environment);
-  const globalConfigToWrite: GlobalDevsyncConfig = {
-    activeProfile: existingGlobalConfig?.activeProfile ?? "default",
-    version: 3,
-  };
-  await mkdir(dirname(globalConfigPath), { recursive: true });
-  await writeTextFileAtomically(
-    globalConfigPath,
-    formatGlobalDevsyncConfig(globalConfigToWrite),
-  );
+  await writeGlobalSettings(globalConfigPath, environment);
 
   // Write sync manifest with age
   const initialConfig = createInitialSyncConfig({

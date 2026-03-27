@@ -7,6 +7,7 @@ import {
 
 import { pathExists } from "./filesystem.js";
 import { ensureRepository } from "./git.js";
+import { buildRepositorySnapshot } from "./repo-snapshot.js";
 import {
   type EffectiveSyncConfig,
   loadSyncConfig,
@@ -46,6 +47,27 @@ const fail = (checkId: string, detail: string): DoctorCheck => ({
   detail,
   level: "fail",
 });
+
+const hasRestorableRepositoryArtifact = (
+  snapshot: ReadonlyMap<string, unknown>,
+  entry: EffectiveSyncConfig["entries"][number],
+) => {
+  if (snapshot.has(entry.repoPath)) {
+    return true;
+  }
+
+  if (entry.kind !== "directory") {
+    return false;
+  }
+
+  for (const repoPath of snapshot.keys()) {
+    if (repoPath.startsWith(`${entry.repoPath}/`)) {
+      return true;
+    }
+  }
+
+  return false;
+};
 
 export const runSyncDoctor = async (
   environment: NodeJS.ProcessEnv,
@@ -134,11 +156,21 @@ export const runSyncDoctor = async (
   );
 
   const missingEntries = config.entries.filter((entry) => {
-    return !environment || entry.localPath.length > 0;
+    return (
+      entry.mode !== "ignore" && (!environment || entry.localPath.length > 0)
+    );
   });
 
   let missingCount = 0;
   let checkedLocalPathCount = 0;
+  const missingButRestorableEntries = new Set<string>();
+
+  reportPhase(reporter, "Scanning repository artifacts...");
+  const repositorySnapshot = await buildRepositorySnapshot(
+    syncDirectory,
+    config,
+    reporter,
+  );
 
   reportPhase(reporter, "Checking tracked local paths...");
   for (const entry of missingEntries) {
@@ -154,13 +186,23 @@ export const runSyncDoctor = async (
     }
 
     if (!(await pathExists(entry.localPath))) {
+      if (hasRestorableRepositoryArtifact(repositorySnapshot, entry)) {
+        missingButRestorableEntries.add(entry.repoPath);
+        continue;
+      }
+
       missingCount += 1;
     }
   }
 
   checks.push(
     missingCount === 0
-      ? ok("local-paths", "All tracked local paths currently exist.")
+      ? ok(
+          "local-paths",
+          missingButRestorableEntries.size === 0
+            ? "All tracked local paths currently exist."
+            : `All missing local paths are already restorable from the sync repository (${missingButRestorableEntries.size} entr${missingButRestorableEntries.size === 1 ? "y" : "ies"}).`,
+        )
       : warn(
           "local-paths",
           `${missingCount} tracked local path${missingCount === 1 ? " is" : "s are"} missing.`,

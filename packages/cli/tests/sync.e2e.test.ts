@@ -5,6 +5,10 @@ import { join } from "node:path";
 import { execa } from "execa";
 import { afterEach, beforeAll, describe, expect, it } from "vitest";
 
+import {
+  createInitialSyncConfig,
+  formatSyncConfig,
+} from "../src/config/sync.js";
 import { cliPath, ensureCliBuilt } from "../src/test/helpers/cli-entry.js";
 import {
   createAgeKeyPair,
@@ -207,6 +211,57 @@ describe("sync CLI e2e", () => {
     expect(
       await readFile(join(xdgConfigHome, "devsync", "age", "keys.txt"), "utf8"),
     ).toBe(`${ageKeys.identity}\n`);
+  });
+
+  it("does not warn about an existing config when cloning a repository with an existing manifest", async () => {
+    const workspace = await createWorkspace();
+    const homeDirectory = join(workspace, "home");
+    const xdgConfigHome = join(workspace, "xdg");
+    const sourceRepository = join(workspace, "remote-sync");
+    const ageKeys = await createAgeKeyPair();
+
+    await execa("git", ["init", "-b", "main", sourceRepository], {
+      cwd: workspace,
+    });
+    await writeFile(
+      join(sourceRepository, "manifest.json"),
+      formatSyncConfig(
+        createInitialSyncConfig({
+          identityFile: "$XDG_CONFIG_HOME/devsync/age/keys.txt",
+          recipients: [ageKeys.recipient],
+        }),
+      ),
+      "utf8",
+    );
+    await execa("git", ["add", "manifest.json"], {
+      cwd: sourceRepository,
+    });
+    await execa(
+      "git",
+      ["commit", "-m", "initial manifest", "--author", "test <test@test.com>"],
+      {
+        cwd: sourceRepository,
+        env: {
+          ...process.env,
+          GIT_AUTHOR_EMAIL: "test@example.com",
+          GIT_AUTHOR_NAME: "Test User",
+          GIT_COMMITTER_EMAIL: "test@example.com",
+          GIT_COMMITTER_NAME: "Test User",
+        },
+      },
+    );
+
+    const result = await runCli(
+      ["init", sourceRepository, "--key", ageKeys.identity],
+      {
+        env: createSyncEnvironment(homeDirectory, xdgConfigHome),
+      },
+    );
+
+    expect(stripAnsi(result.stdout)).toContain("Initialized sync directory");
+    expect(stripAnsi(result.stdout)).not.toContain(
+      "Sync directory already initialized",
+    );
   });
 
   it("rejects an invalid supplied age key during init", async () => {

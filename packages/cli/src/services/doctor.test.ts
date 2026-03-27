@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 const mocked = vi.hoisted(() => ({
+  buildRepositorySnapshot: vi.fn(),
   ensureRepository: vi.fn(),
   loadSyncConfig: vi.fn(),
   pathExists: vi.fn(),
@@ -24,6 +25,10 @@ vi.mock("./git.js", () => ({
   ensureRepository: mocked.ensureRepository,
 }));
 
+vi.mock("./repo-snapshot.js", () => ({
+  buildRepositorySnapshot: mocked.buildRepositorySnapshot,
+}));
+
 vi.mock("./runtime.js", () => ({
   loadSyncConfig: mocked.loadSyncConfig,
   resolveSyncPaths: mocked.resolveSyncPaths,
@@ -40,11 +45,13 @@ const createReporter = (verbose = false) => ({
 const createLoadedConfig = (options: {
   activeProfile?: string;
   entryLocalPaths: readonly string[];
+  entryModes?: readonly ("normal" | "secret" | "ignore")[];
   identityFile?: string;
   recipientCount?: number;
 }) => {
   const identityFile = options.identityFile ?? "/tmp/devsync/keys.txt";
   const entries = options.entryLocalPaths.map((localPath, index) => ({
+    mode: options.entryModes?.[index] ?? "normal",
     localPath,
     repoPath: `.config/item-${index}`,
   }));
@@ -144,6 +151,7 @@ describe("sync doctor", () => {
         entryLocalPaths: ["/tmp/home/.ssh/id_ed25519"],
       }),
     );
+    mocked.buildRepositorySnapshot.mockResolvedValueOnce(new Map());
     mocked.pathExists.mockImplementation(async (path: string) => {
       return (
         path !== "/tmp/devsync/keys.txt" && path !== "/tmp/home/.ssh/id_ed25519"
@@ -195,6 +203,7 @@ describe("sync doctor", () => {
       ["Checking sync repository..."],
       ["Loading sync configuration..."],
       ["Checking age identity..."],
+      ["Scanning repository artifacts..."],
       ["Checking tracked local paths..."],
     ]);
     expect(mocked.pathExists).toHaveBeenCalledWith("/tmp/devsync/keys.txt");
@@ -214,6 +223,7 @@ describe("sync doctor", () => {
         recipientCount: 2,
       }),
     );
+    mocked.buildRepositorySnapshot.mockResolvedValueOnce(new Map());
     mocked.pathExists.mockImplementation(async (path: string) => {
       return path !== "/tmp/missing-a" && path !== "/tmp/missing-b";
     });
@@ -256,6 +266,7 @@ describe("sync doctor", () => {
         entryLocalPaths: [],
       }),
     );
+    mocked.buildRepositorySnapshot.mockResolvedValueOnce(new Map());
     mocked.pathExists.mockResolvedValueOnce(true);
 
     const result = await runSyncDoctor({ HOME: "/tmp/home" }, createReporter());
@@ -273,5 +284,54 @@ describe("sync doctor", () => {
       level: "ok",
     });
     expect(mocked.pathExists).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not warn when missing local paths are already restorable from the sync repository", async () => {
+    mocked.ensureRepository.mockResolvedValueOnce(undefined);
+    mocked.loadSyncConfig.mockResolvedValueOnce(
+      createLoadedConfig({
+        entryLocalPaths: ["/tmp/home/.gitconfig"],
+      }),
+    );
+    mocked.buildRepositorySnapshot.mockResolvedValueOnce(
+      new Map([[".config/item-0", { type: "file" }]]),
+    );
+    mocked.pathExists.mockImplementation(async (path: string) => {
+      return path === "/tmp/devsync/keys.txt";
+    });
+
+    const result = await runSyncDoctor({ HOME: "/tmp/home" }, createReporter());
+
+    expect(result.hasWarnings).toBe(false);
+    expect(result.checks).toContainEqual({
+      checkId: "local-paths",
+      detail:
+        "All missing local paths are already restorable from the sync repository (1 entry).",
+      level: "ok",
+    });
+  });
+
+  it("skips ignore-mode entries when checking missing local paths", async () => {
+    mocked.ensureRepository.mockResolvedValueOnce(undefined);
+    mocked.loadSyncConfig.mockResolvedValueOnce(
+      createLoadedConfig({
+        entryLocalPaths: ["/tmp/missing-ignore", "/tmp/missing-normal"],
+        entryModes: ["ignore", "normal"],
+      }),
+    );
+    mocked.buildRepositorySnapshot.mockResolvedValueOnce(new Map());
+    mocked.pathExists.mockImplementation(async (path: string) => {
+      return path === "/tmp/devsync/keys.txt";
+    });
+
+    const result = await runSyncDoctor({ HOME: "/tmp/home" }, createReporter());
+
+    expect(result.checks).toContainEqual({
+      checkId: "local-paths",
+      detail: "1 tracked local path is missing.",
+      level: "warn",
+    });
+    expect(mocked.pathExists).not.toHaveBeenCalledWith("/tmp/missing-ignore");
+    expect(mocked.pathExists).toHaveBeenCalledWith("/tmp/missing-normal");
   });
 });

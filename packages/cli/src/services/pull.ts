@@ -36,7 +36,10 @@ export type PullPlan = Readonly<{
   deletedLocalCount: number;
   desiredKeys: ReadonlySet<string>;
   existingKeys: ReadonlySet<string>;
-  materializations: readonly ReturnType<typeof buildEntryMaterialization>[];
+  materializations: readonly (
+    | ReturnType<typeof buildEntryMaterialization>
+    | undefined
+  )[];
 }>;
 
 export const buildPullPlan = async (
@@ -52,6 +55,10 @@ export const buildPullPlan = async (
   );
   reportPhase(reporter, "Planning local materializations...");
   const materializations = config.entries.map((entry) => {
+    if (entry.mode === "ignore") {
+      return undefined;
+    }
+
     return buildEntryMaterialization(entry, snapshot, reporter);
   });
 
@@ -79,7 +86,11 @@ export const buildPullPlan = async (
   return {
     counts: buildPullCounts(materializations),
     deletedLocalCount,
-    desiredKeys: new Set(materializations.flatMap((m) => [...m.desiredKeys])),
+    desiredKeys: new Set(
+      materializations.flatMap((m) =>
+        m === undefined ? [] : [...m.desiredKeys],
+      ),
+    ),
     existingKeys,
     materializations,
   };
