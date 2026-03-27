@@ -8,11 +8,16 @@ import { generateIdentity, identityToRecipient } from "age-encryption";
 
 const execFileAsync = promisify(execFile);
 
-const gitTestEnvironment = {
+export const gitTestEnvironment = {
   GIT_AUTHOR_EMAIL: "test@example.com",
   GIT_AUTHOR_NAME: "Test User",
   GIT_COMMITTER_EMAIL: "test@example.com",
   GIT_COMMITTER_NAME: "Test User",
+  GIT_CONFIG_COUNT: "1",
+  GIT_CONFIG_KEY_0: "commit.gpgsign",
+  GIT_CONFIG_NOSYSTEM: "1",
+  GIT_CONFIG_VALUE_0: "false",
+  GIT_CONFIG_GLOBAL: "/dev/null",
 };
 
 export const createTemporaryDirectory = async (prefix: string) => {

@@ -4,7 +4,7 @@ import { delimiter, join } from "node:path";
 
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { rootCommandNames } from "../src/cli/root-commands.js";
-import { cliPath, ensureCliBuilt } from "../src/test/helpers/cli-entry.js";
+import { cliNodeOptions } from "../src/test/helpers/cli-entry.js";
 import { createPtySession } from "../src/test/helpers/pty.js";
 import {
   isBashAvailable,
@@ -12,6 +12,10 @@ import {
 } from "../src/test/helpers/shell-availability.js";
 
 const rootCommandsPattern = new RegExp(rootCommandNames.join("|"), "u");
+
+const shellQuote = (value: string) => {
+  return `'${value.replaceAll("'", "'\\''")}'`;
+};
 
 const createTestShellDirectory = async (
   rcLines: readonly string[],
@@ -24,11 +28,13 @@ const createTestShellDirectory = async (
 
   await mkdir(binDirectory, { recursive: true });
 
+  const cliCommand = [process.execPath, ...cliNodeOptions]
+    .map((value) => shellQuote(value))
+    .join(" ");
+
   await writeFile(
     join(binDirectory, "devsync"),
-    ["#!/usr/bin/env bash", `exec ${process.execPath} ${cliPath} "$@"`].join(
-      "\n",
-    ),
+    ["#!/usr/bin/env bash", `exec ${cliCommand} "$@"`].join("\n"),
   );
   await chmod(join(binDirectory, "devsync"), 0o755);
 
@@ -45,8 +51,6 @@ describe.skipIf(!isZshAvailable)("autocomplete zsh pty e2e", () => {
   beforeAll(async () => {
     const { PATH: inheritedPath = "" } = process.env;
 
-    await ensureCliBuilt();
-
     systemPath = inheritedPath;
 
     const { binDirectory, configDirectory } = await createTestShellDirectory(
@@ -56,7 +60,7 @@ describe.skipIf(!isZshAvailable)("autocomplete zsh pty e2e", () => {
         "compinit",
         "zstyle ':completion:*' list-colors ''",
         "zstyle ':completion:*' menu no",
-        "PS1='PROMPT> '",
+        "PROMPT='PROMPT> '",
         'eval "$(devsync autocomplete zsh)"',
       ],
       ".zshrc",
@@ -98,7 +102,7 @@ describe.skipIf(!isZshAvailable)("autocomplete zsh pty e2e", () => {
     const session = createZshSession();
 
     try {
-      await session.waitFor("PROMPT> ");
+      await session.waitFor("PROMPT> ", 10_000);
 
       session.write("devsync\t\t");
 
@@ -118,7 +122,7 @@ describe.skipIf(!isZshAvailable)("autocomplete zsh pty e2e", () => {
     const session = createZshSession();
 
     try {
-      await session.waitFor("PROMPT> ");
+      await session.waitFor("PROMPT> ", 10_000);
 
       session.write("devsync\n");
       await session.waitFor("COMMANDS");
@@ -151,8 +155,6 @@ describe.skipIf(!isZshAvailable)(
     beforeAll(async () => {
       const { PATH: inheritedPath = "" } = process.env;
 
-      await ensureCliBuilt();
-
       systemPath = inheritedPath;
 
       // Simulate the problematic pattern from use-omz + ez-compinit:
@@ -168,7 +170,7 @@ describe.skipIf(!isZshAvailable)(
           "__test_reinit_compinit() { compinit; }",
           "add-zsh-hook precmd __test_reinit_compinit",
           'eval "$(devsync autocomplete zsh)"',
-          "PS1='PROMPT> '",
+          "PROMPT='PROMPT> '",
         ],
         ".zshrc",
       );
@@ -198,7 +200,7 @@ describe.skipIf(!isZshAvailable)(
       });
 
       try {
-        await session.waitFor("PROMPT> ");
+        await session.waitFor("PROMPT> ", 10_000);
 
         session.write("devsync\n");
         await session.waitFor("COMMANDS");
@@ -229,8 +231,6 @@ describe.skipIf(!isBashAvailable)("autocomplete bash pty e2e", () => {
 
   beforeAll(async () => {
     const { PATH: inheritedPath = "" } = process.env;
-
-    await ensureCliBuilt();
 
     systemPath = inheritedPath;
 

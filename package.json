@@ -2,27 +2,10 @@
   "name": "devsync",
   "private": true,
   "type": "module",
-  "workspaces": [
-    "packages/*"
-  ],
+  "packageManager": "pnpm@10.33.0",
   "scripts": {
-    "dev": "npm run -w @tinyrack/devsync dev",
-    "build": "npm run -w @tinyrack/devsync build",
-    "clean": "npm run -w @tinyrack/devsync clean",
-    "sea:bundle": "npm run -w @tinyrack/devsync sea:bundle",
-    "sea:build": "npm run -w @tinyrack/devsync sea:build",
-    "sea:smoke": "npm run -w @tinyrack/devsync sea:smoke",
-    "start": "npm run -w @tinyrack/devsync start",
-    "typecheck": "npm run -w @tinyrack/devsync typecheck",
-    "test": "npm run -w @tinyrack/devsync test",
-    "test:watch": "npm run -w @tinyrack/devsync test:watch",
-    "coverage": "npm run -w @tinyrack/devsync coverage",
-    "check": "npm run typecheck && biome check . && npm run test",
-    "check:fix": "biome check --write .",
     "format": "biome format --write .",
-    "release:patch": "npm run -w @tinyrack/devsync release:patch",
-    "release:minor": "npm run -w @tinyrack/devsync release:minor",
-    "release:major": "npm run -w @tinyrack/devsync release:major"
+    "format:check": "biome check ."
   },
   "devDependencies": {
     "@biomejs/biome": "^2.3.10"

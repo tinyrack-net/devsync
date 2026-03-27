@@ -39,8 +39,9 @@ describe("detectCurrentPlatformKey", () => {
   it("maps linux to linux", async () => {
     const os = await import("node:os");
     vi.mocked(os.platform).mockReturnValue("linux");
+    vi.mocked(os.release).mockReturnValue("6.6.0");
 
-    expect(detectCurrentPlatformKey()).toBe("linux");
+    expect(detectCurrentPlatformKey({})).toBe("linux");
   });
 
   it("maps linux with WSL markers to wsl", async () => {

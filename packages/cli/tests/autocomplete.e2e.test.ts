@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { execa } from "execa";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { rootCommandNames } from "../src/cli/root-commands.js";
-import { cliPath, ensureCliBuilt } from "../src/test/helpers/cli-entry.js";
+import { cliNodeOptions } from "../src/test/helpers/cli-entry.js";
 import {
   isBashAvailable,
   isZshAvailable,
@@ -20,7 +20,7 @@ const runCli = async (
     env?: Readonly<Record<string, string>>;
   }>,
 ) => {
-  return execa(process.execPath, [cliPath, ...args], {
+  return execa(process.execPath, [...cliNodeOptions, ...args], {
     cwd: options?.cwd,
     env: {
       FORCE_COLOR: "0",
@@ -49,8 +49,9 @@ const runBashCompletion = async (
     cwd?: string;
   }>,
 ) => {
-  const nodePath = shellQuote(process.execPath);
-  const cliEntryPath = shellQuote(cliPath);
+  const cliCommand = [process.execPath, ...cliNodeOptions]
+    .map((value) => shellQuote(value))
+    .join(" ");
 
   return execa(
     "bash",
@@ -59,7 +60,7 @@ const runBashCompletion = async (
       [
         "set -euo pipefail",
         'temp_dir="$(mktemp -d)"',
-        `printf '%s\\n' '#!/usr/bin/env bash' "exec ${nodePath} ${cliEntryPath} \\"\\$@\\"" >"$temp_dir/devsync"`,
+        `printf '%s\\n' '#!/usr/bin/env bash' "exec ${cliCommand} \\"\\$@\\"" >"$temp_dir/devsync"`,
         'chmod +x "$temp_dir/devsync"',
         "trap 'rm -rf \"$temp_dir\"' EXIT",
         'export PATH="$temp_dir:$PATH"',
@@ -88,8 +89,9 @@ const runZshCompletion = async (
     cwd?: string;
   }>,
 ) => {
-  const nodePath = shellQuote(process.execPath);
-  const cliEntryPath = shellQuote(cliPath);
+  const cliCommand = [process.execPath, ...cliNodeOptions]
+    .map((value) => shellQuote(value))
+    .join(" ");
 
   return execa(
     "zsh",
@@ -98,7 +100,7 @@ const runZshCompletion = async (
       [
         "set -euo pipefail",
         'temp_dir="$(mktemp -d)"',
-        `printf '%s\\n' '#!/usr/bin/env bash' "exec ${nodePath} ${cliEntryPath} \\"\\$@\\"" >"$temp_dir/devsync"`,
+        `printf '%s\\n' '#!/usr/bin/env bash' "exec ${cliCommand} \\"\\$@\\"" >"$temp_dir/devsync"`,
         'chmod +x "$temp_dir/devsync"',
         "trap 'rm -rf \"$temp_dir\"' EXIT",
         'export PATH="$temp_dir:$PATH"',
@@ -151,8 +153,6 @@ describe("autocomplete e2e", () => {
   let completionFixtureDirectory: string;
 
   beforeAll(async () => {
-    await ensureCliBuilt();
-
     completionFixtureDirectory = await mkdtemp(
       join(tmpdir(), "devsync-autocomplete-"),
     );

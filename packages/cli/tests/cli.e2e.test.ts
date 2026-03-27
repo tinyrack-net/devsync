@@ -1,8 +1,8 @@
 import { execa } from "execa";
-import { beforeAll, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 import packageJson from "../package.json" with { type: "json" };
 import { rootCommandNames } from "../src/cli/root-commands.js";
-import { cliPath, ensureCliBuilt } from "../src/test/helpers/cli-entry.js";
+import { cliNodeOptions } from "../src/test/helpers/cli-entry.js";
 
 const runCli = async (
   args: readonly string[],
@@ -11,17 +11,13 @@ const runCli = async (
     reject?: boolean;
   }>,
 ) => {
-  return execa(process.execPath, [cliPath, ...args], {
+  return execa(process.execPath, [...cliNodeOptions, ...args], {
     env: options?.env,
     reject: options?.reject,
   });
 };
 
 describe("CLI e2e", () => {
-  beforeAll(async () => {
-    await ensureCliBuilt();
-  });
-
   it("shows the version from the real entrypoint", async () => {
     const result = await runCli(["--version"]);
 

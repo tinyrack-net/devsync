@@ -38,13 +38,13 @@ Core capabilities:
 Requirements:
 
 - Node.js 24+
-- npm
+- pnpm
 - git
 
 Install globally:
 
 ```bash
-npm install -g @tinyrack/devsync
+pnpm add -g @tinyrack/devsync
 devsync --help
 ```
 
@@ -57,8 +57,8 @@ npx @tinyrack/devsync --help
 Run from this checkout:
 
 ```bash
-npm install
-npm run start -- --help
+pnpm install
+pnpm start -- --help
 ```
 
 The published package name is `@tinyrack/devsync`, and the installed command is `devsync`.
@@ -75,20 +75,20 @@ Requirements for SEA builds:
 Build the executable:
 
 ```bash
-npm run sea:build
+pnpm sea:build
 ./packages/cli/dist/sea/devsync --version
 ```
 
 Run the dedicated smoke test:
 
 ```bash
-npm run sea:smoke
+pnpm sea:smoke
 ```
 
 Notes:
 
 - The SEA output is written to `packages/cli/dist/sea/devsync` on Unix-like systems and `packages/cli/dist/sea/devsync.exe` on Windows.
-- `npm run sea:bundle` creates only the single-file bundled entry that feeds SEA generation.
+- `pnpm sea:bundle` creates only the single-file bundled entry that feeds SEA generation.
 - The initial SEA workflow is local-platform only. Cross-platform release generation and code signing are separate concerns.
 
 ## 3. Quickstart
@@ -428,38 +428,38 @@ devsync track --help
 Run the CLI locally:
 
 ```bash
-npm run start -- --help
+pnpm start -- --help
 ```
 
 Watch mode:
 
 ```bash
-npm run dev
+pnpm dev
 ```
 
 Validation:
 
 ```bash
-npm run typecheck
+pnpm typecheck
 biome check .
-npm run test
+pnpm test
 ```
 
 Or run everything at once:
 
 ```bash
-npm run check
+pnpm check
 ```
 
 ## Release
 
-- CI runs `npm run check` on every push and pull request.
-- npm publishing runs automatically for Git tags matching `v*.*.*`.
+- CI runs `pnpm check` on every push and pull request.
+- Package publishing runs automatically for Git tags matching `v*.*.*`.
 - The release workflow expects the pushed tag to match `package.json` `version`.
 
 Typical release flow:
 
 ```bash
-npm version patch
+pnpm version patch
 git push --follow-tags
 ```

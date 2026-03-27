@@ -43,20 +43,20 @@
 
 After every code change, run all validation steps before finishing:
 
-1. `npm run typecheck`
+1. `pnpm --filter @tinyrack/devsync typecheck`
 2. `biome check .`
-3. `npm run test`
+3. `pnpm --filter @tinyrack/devsync test`
 
-You may run `npm run check` if it still covers all of the validation steps above.
+You may run `pnpm --filter @tinyrack/devsync check` if it still covers all of the validation steps above.
 Do not consider work complete if any validation step fails.
 
 ## Useful Commands
 
-- Development: `npm run dev`
-- Run CLI: `npm run start`
-- Type-check: `npm run typecheck`
+- Development: `pnpm --filter @tinyrack/devsync dev`
+- Run CLI: `pnpm --filter @tinyrack/devsync start`
+- Type-check: `pnpm --filter @tinyrack/devsync typecheck`
 - Lint/format validation: `biome check .`
-- Tests: `npm run test`
-- Full validation: `npm run check`
-- Auto-fix formatting/lint issues: `npm run check:fix`
-- Format: `npm run format`
+- Tests: `pnpm --filter @tinyrack/devsync test`
+- Full validation: `pnpm --filter @tinyrack/devsync check`
+- Auto-fix formatting/lint issues: `pnpm --filter @tinyrack/devsync check:fix`
+- Format: `pnpm format`

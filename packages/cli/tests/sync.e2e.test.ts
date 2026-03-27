@@ -3,17 +3,18 @@ import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
 import { execa } from "execa";
-import { afterEach, beforeAll, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 
 import {
   createInitialSyncConfig,
   formatSyncConfig,
 } from "../src/config/sync.js";
-import { cliPath, ensureCliBuilt } from "../src/test/helpers/cli-entry.js";
+import { cliNodeOptions } from "../src/test/helpers/cli-entry.js";
 import {
   createAgeKeyPair,
   createShellRecorderEnvironment,
   createTemporaryDirectory,
+  gitTestEnvironment,
   stripAnsi,
   writeIdentityFile,
 } from "../src/test/helpers/sync-fixture.js";
@@ -37,7 +38,7 @@ const runCli = async (
     reject?: boolean;
   }>,
 ) => {
-  return execa(process.execPath, [cliPath, ...args], {
+  return execa(process.execPath, [...cliNodeOptions, ...args], {
     cwd: options?.cwd,
     env: options?.env,
     input: options?.input,
@@ -52,7 +53,7 @@ const runCliStreaming = async (
     env?: NodeJS.ProcessEnv;
   }>,
 ) => {
-  const child = spawn(process.execPath, [cliPath, ...args], {
+  const child = spawn(process.execPath, [...cliNodeOptions, ...args], {
     cwd: options?.cwd,
     env: {
       ...process.env,
@@ -125,6 +126,23 @@ const createSyncEnvironment = (
   };
 };
 
+const runGit = async (
+  args: readonly string[],
+  options?: Readonly<{
+    cwd?: string;
+    env?: NodeJS.ProcessEnv;
+  }>,
+) => {
+  return execa("git", [...args], {
+    cwd: options?.cwd,
+    env: {
+      ...process.env,
+      ...gitTestEnvironment,
+      ...options?.env,
+    },
+  });
+};
+
 afterEach(async () => {
   while (temporaryDirectories.length > 0) {
     const directory = temporaryDirectories.pop();
@@ -136,10 +154,6 @@ afterEach(async () => {
 });
 
 describe("sync CLI e2e", () => {
-  beforeAll(async () => {
-    await ensureCliBuilt();
-  });
-
   it("generates a default age identity for bare init", async () => {
     const workspace = await createWorkspace();
     const homeDirectory = join(workspace, "home");
@@ -193,7 +207,7 @@ describe("sync CLI e2e", () => {
     const sourceRepository = join(workspace, "remote-sync");
     const ageKeys = await createAgeKeyPair();
 
-    await execa("git", ["init", "-b", "main", sourceRepository], {
+    await runGit(["init", "-b", "main", sourceRepository], {
       cwd: workspace,
     });
 
@@ -220,7 +234,7 @@ describe("sync CLI e2e", () => {
     const sourceRepository = join(workspace, "remote-sync");
     const ageKeys = await createAgeKeyPair();
 
-    await execa("git", ["init", "-b", "main", sourceRepository], {
+    await runGit(["init", "-b", "main", sourceRepository], {
       cwd: workspace,
     });
     await writeFile(
@@ -233,16 +247,14 @@ describe("sync CLI e2e", () => {
       ),
       "utf8",
     );
-    await execa("git", ["add", "manifest.json"], {
+    await runGit(["add", "manifest.json"], {
       cwd: sourceRepository,
     });
-    await execa(
-      "git",
+    await runGit(
       ["commit", "-m", "initial manifest", "--author", "test <test@test.com>"],
       {
         cwd: sourceRepository,
         env: {
-          ...process.env,
           GIT_AUTHOR_EMAIL: "test@example.com",
           GIT_AUTHOR_NAME: "Test User",
           GIT_COMMITTER_EMAIL: "test@example.com",
@@ -284,7 +296,7 @@ describe("sync CLI e2e", () => {
     const sourceRepository = join(workspace, "remote-sync");
     const ageKeys = await createAgeKeyPair();
 
-    await execa("git", ["init", "-b", "main", sourceRepository], {
+    await runGit(["init", "-b", "main", sourceRepository], {
       cwd: workspace,
     });
 

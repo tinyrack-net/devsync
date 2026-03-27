@@ -21,15 +21,20 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v4
 
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.0
+
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 24
-          cache: npm
+          cache: pnpm
           registry-url: https://registry.npmjs.org
 
       - name: Install dependencies
-        run: npm ci
+        run: pnpm install --frozen-lockfile
 
       - name: Verify tag matches package version
         run: >-
@@ -41,13 +46,13 @@ jobs:
           ${expectedTag}`); process.exit(1); }'
 
       - name: Build
-        run: npm run build
+        run: pnpm --filter @tinyrack/devsync build
 
       - name: Run validation
-        run: npm run check
+        run: pnpm --filter @tinyrack/devsync check
 
       - name: Verify published package contents
-        run: npm pack --dry-run --workspace @tinyrack/devsync
+        run: pnpm --filter @tinyrack/devsync pack --dry-run
 
       - name: Publish package to npm
-        run: npm publish --workspace @tinyrack/devsync --provenance --access public
+        run: pnpm --filter @tinyrack/devsync publish --provenance --access public --no-git-checks
