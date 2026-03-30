@@ -10,6 +10,7 @@ import {
   formatSyncConfig,
 } from "../src/config/sync.ts";
 import { cliNodeOptions } from "../src/test/helpers/cli-entry.ts";
+import { createPtySession } from "../src/test/helpers/pty.ts";
 import {
   createAgeKeyPair,
   createShellRecorderEnvironment,
@@ -309,6 +310,116 @@ describe("sync CLI e2e", () => {
     expect(
       await readFile(join(xdgConfigHome, "devsync", "age", "keys.txt"), "utf8"),
     ).toBe(`${ageKeys.identity}\n`);
+  });
+
+  it("does not warn about an existing config when cloning a repository with an existing manifest and reading the key from stdin", async () => {
+    const workspace = await createWorkspace();
+    const homeDirectory = join(workspace, "home");
+    const xdgConfigHome = join(workspace, "xdg");
+    const sourceRepository = join(workspace, "remote-sync");
+    const ageKeys = await createAgeKeyPair();
+
+    await runGit(["init", "-b", "main", sourceRepository], {
+      cwd: workspace,
+    });
+    await writeFile(
+      join(sourceRepository, "manifest.json"),
+      formatSyncConfig(
+        createInitialSyncConfig({
+          identityFile: "$XDG_CONFIG_HOME/devsync/age/keys.txt",
+          recipients: [ageKeys.recipient],
+        }),
+      ),
+      "utf8",
+    );
+    await runGit(["add", "manifest.json"], {
+      cwd: sourceRepository,
+    });
+    await runGit(
+      ["commit", "-m", "initial manifest", "--author", "test <test@test.com>"],
+      {
+        cwd: sourceRepository,
+        env: {
+          GIT_AUTHOR_EMAIL: "test@example.com",
+          GIT_AUTHOR_NAME: "Test User",
+          GIT_COMMITTER_EMAIL: "test@example.com",
+          GIT_COMMITTER_NAME: "Test User",
+        },
+      },
+    );
+
+    const result = await runCli(["init", sourceRepository], {
+      env: createSyncEnvironment(homeDirectory, xdgConfigHome),
+      input: `${ageKeys.identity}\n`,
+    });
+
+    expect(stripAnsi(result.stdout)).toContain("Initialized sync directory");
+    expect(stripAnsi(result.stdout)).not.toContain(
+      "Sync directory already initialized",
+    );
+  });
+
+  it("does not warn about an existing config when cloning a repository with an existing manifest and entering the key interactively", async () => {
+    const workspace = await createWorkspace();
+    const homeDirectory = join(workspace, "home");
+    const xdgConfigHome = join(workspace, "xdg");
+    const sourceRepository = join(workspace, "remote-sync");
+    const ageKeys = await createAgeKeyPair();
+
+    await runGit(["init", "-b", "main", sourceRepository], {
+      cwd: workspace,
+    });
+    await writeFile(
+      join(sourceRepository, "manifest.json"),
+      formatSyncConfig(
+        createInitialSyncConfig({
+          identityFile: "$XDG_CONFIG_HOME/devsync/age/keys.txt",
+          recipients: [ageKeys.recipient],
+        }),
+      ),
+      "utf8",
+    );
+    await runGit(["add", "manifest.json"], {
+      cwd: sourceRepository,
+    });
+    await runGit(
+      ["commit", "-m", "initial manifest", "--author", "test <test@test.com>"],
+      {
+        cwd: sourceRepository,
+        env: {
+          GIT_AUTHOR_EMAIL: "test@example.com",
+          GIT_AUTHOR_NAME: "Test User",
+          GIT_COMMITTER_EMAIL: "test@example.com",
+          GIT_COMMITTER_NAME: "Test User",
+        },
+      },
+    );
+
+    const session = createPtySession({
+      args: [...cliNodeOptions, "init", sourceRepository],
+      cwd: workspace,
+      env: {
+        ...createSyncEnvironment(homeDirectory, xdgConfigHome),
+        FORCE_COLOR: "0",
+        NODE_NO_WARNINGS: "1",
+        NO_COLOR: "1",
+      },
+      file: process.execPath,
+    });
+
+    try {
+      await session.waitFor("Enter an age private key", 10_000);
+      session.write(`${ageKeys.identity}\r`);
+
+      const output = await session.waitFor(
+        "Initialized sync directory",
+        10_000,
+      );
+
+      expect(output).not.toContain("Sync directory already initialized");
+    } finally {
+      session.close();
+    }
   });
 
   it("launches a shell in the sync directory via cd command", async () => {
