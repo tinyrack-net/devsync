@@ -1,0 +1,177 @@
+---
+title: 플랫폼별 경로
+description: Windows, macOS, Linux, WSL에서 같은 설정 파일을 서로 다른 경로로 관리하는 방법을 알아봐요.
+---
+
+import { Aside, Tabs, TabItem } from "@astrojs/starlight/components";
+
+일부 도구는 플랫폼에 따라 설정 파일을 다른 위치에 저장해요. 예를 들어 Neovim의 설정은 Linux와 macOS에서는 `~/.config/nvim`이지만, Windows에서는 `%APPDATA%\Local\nvim`이에요. Devsync는 이런 상황을 위해 `manifest.json`에서 플랫폼별 `localPath` 변형을 지원해요.
+
+---
+
+## 문제 상황
+
+Linux에서 `devsync track ~/.config/nvim`을 실행하면 Linux 경로가 항목에 기록돼요. Windows에서는 같은 논리적 항목에 다른 경로가 필요해요. 플랫폼 경로 지원이 없다면 기기마다 별도의 매니페스트 항목을 만들어야 하고, 충돌이 생길 수 있어요.
+
+---
+
+## 플랫폼 키
+
+Devsync는 `manifest.json`에서 네 가지 플랫폼 키를 지원해요.
+
+| 키 | 플랫폼 |
+|---|---|
+| `win` | Windows |
+| `mac` | macOS |
+| `linux` | Linux |
+| `wsl` | Windows Subsystem for Linux |
+
+`wsl`은 `linux`와 별도의 플랫폼으로 취급돼요. WSL 환경에서 실행된 Devsync는 `linux` 키가 아닌 `wsl` 키를 사용해요.
+
+---
+
+## localPath 형식
+
+단일 플랫폼 항목은 문자열을 사용해요.
+
+```json
+{
+  "localPath": ".config/nvim",
+  "mode": "normal",
+  "profiles": []
+}
+```
+
+멀티 플랫폼 항목은 `default` 키와 플랫폼별 오버라이드가 포함된 객체를 사용해요.
+
+```json
+{
+  "localPath": {
+    "default": ".config/nvim",
+    "win": "AppData/Local/nvim",
+    "wsl": ".config/nvim"
+  },
+  "mode": "normal",
+  "profiles": []
+}
+```
+
+push와 pull 시 현재 플랫폼에 맞는 값을 선택하고, 해당 키가 없으면 `default`로 대체돼요.
+
+---
+
+## 플랫폼별 경로 설정하기
+
+`devsync track`은 현재 플랫폼의 경로를 기록해요. 다른 플랫폼의 경로를 추가하려면 `manifest.json`을 직접 편집해야 해요.
+
+<Tabs>
+  <TabItem label="1단계: 현재 기기에서 추적">
+    ```bash
+    # Linux/macOS에서
+    devsync track ~/.config/nvim
+
+    # Windows에서
+    devsync track ~/AppData/Local/nvim
+    ```
+
+    현재 플랫폼의 경로가 문자열로 기록된 항목이 생성돼요.
+  </TabItem>
+
+  <TabItem label="2단계: manifest.json 편집">
+    sync 저장소 안의 `manifest.json`을 열어요.
+
+    ```bash
+    devsync cd
+    vim manifest.json
+    ```
+
+    문자열을 객체로 변경해요.
+
+    ```json
+    {
+      "localPath": {
+        "default": ".config/nvim",
+        "win": "AppData/Local/nvim"
+      },
+      "mode": "normal",
+      "profiles": []
+    }
+    ```
+
+    저장하고 나와요.
+  </TabItem>
+
+  <TabItem label="3단계: Push 및 커밋">
+    ```bash
+    # 아직 devsync cd 셸 안이라면
+    git add manifest.json
+    git commit -m "Add Windows path for nvim config"
+    git push
+    exit
+    ```
+  </TabItem>
+</Tabs>
+
+---
+
+## 자주 사용하는 크로스 플랫폼 설정 예시
+
+### Neovim
+
+```json
+{
+  "localPath": {
+    "default": ".config/nvim",
+    "win": "AppData/Local/nvim"
+  },
+  "mode": "normal",
+  "profiles": []
+}
+```
+
+### VS Code 설정
+
+```json
+{
+  "localPath": {
+    "default": ".config/Code/User/settings.json",
+    "mac": "Library/Application Support/Code/User/settings.json",
+    "win": "AppData/Roaming/Code/User/settings.json"
+  },
+  "mode": "normal",
+  "profiles": []
+}
+```
+
+### SSH 설정
+
+```json
+{
+  "localPath": ".ssh/config",
+  "mode": "secret",
+  "profiles": []
+}
+```
+
+SSH 설정은 모든 플랫폼에서 `~/.ssh/config`이므로 플랫폼 변형이 필요 없어요.
+
+---
+
+## WSL 관련 참고사항
+
+<Aside type="note">
+WSL은 `linux`와 별도의 `wsl` 플랫폼 키를 사용해요. WSL에서 Devsync를 실행하면 `wsl` 경로가 있으면 그 값을 사용하고, 없으면 `default`로 대체돼요.
+
+Linux(비 WSL)에서도 Devsync를 사용한다면 `linux` 키(또는 `default`)를 사용해요. 두 가지를 모두 지정할 수 있어요.
+
+```json
+{
+  "localPath": {
+    "default": ".config/nvim",
+    "wsl": ".config/nvim",
+    "linux": ".config/nvim",
+    "win": "AppData/Local/nvim"
+  }
+}
+```
+</Aside>

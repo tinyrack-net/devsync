@@ -1,0 +1,188 @@
+---
+title: Multi-Device Workflow
+description: A complete walkthrough for setting up devsync on your first machine and replicating your config on additional devices.
+---
+
+import { Aside, Steps } from "@astrojs/starlight/components";
+
+This guide walks through the full devsync workflow: from initial setup on your first machine, to syncing your config to a second device, to the day-to-day routine of keeping everything in sync.
+
+---
+
+## First Machine: Initial Setup
+
+<Steps>
+
+1. **Install devsync and initialize**
+
+   ```bash
+   npm install -g @tinyrack/devsync
+   devsync init
+   ```
+
+   Press Enter when prompted for an age key — a new key pair is generated automatically. Note the private key printed during init and store it securely.
+
+2. **Track your files**
+
+   ```bash
+   devsync track ~/.gitconfig
+   devsync track ~/.zshrc
+   devsync track ~/.config/nvim
+   devsync track ~/.ssh/config --mode secret
+   ```
+
+   Assign machine-specific files to a profile if needed:
+
+   ```bash
+   devsync track ~/.config/work-tool --profile work
+   devsync profile use work
+   ```
+
+3. **Preview what will be pushed**
+
+   ```bash
+   devsync status
+   ```
+
+   Or do a dry run:
+
+   ```bash
+   devsync push --dry-run
+   ```
+
+4. **Push to the sync repository**
+
+   ```bash
+   devsync push
+   ```
+
+5. **Publish to a remote Git repository**
+
+   ```bash
+   devsync cd
+   git remote add origin https://github.com/yourname/dotfiles.git
+   git add .
+   git commit -m "Initial sync"
+   git push -u origin main
+   exit
+   ```
+
+</Steps>
+
+---
+
+## Second Machine: Connecting to an Existing Repository
+
+<Steps>
+
+1. **Install devsync**
+
+   ```bash
+   npm install -g @tinyrack/devsync
+   ```
+
+2. **Initialize with the existing repository and your age private key**
+
+   ```bash
+   devsync init https://github.com/yourname/dotfiles.git --key AGE-SECRET-KEY-1...
+   ```
+
+   This clones the repository into `~/.config/devsync/sync/` and registers your age key.
+
+3. **Set the active profile** (if applicable)
+
+   ```bash
+   devsync profile use work
+   ```
+
+4. **Preview what will be applied**
+
+   ```bash
+   devsync pull --dry-run
+   ```
+
+5. **Apply the config**
+
+   ```bash
+   devsync pull
+   ```
+
+   All tracked files are written to their local paths. Secret files are decrypted automatically.
+
+</Steps>
+
+---
+
+## Day-to-Day Workflow
+
+After the initial setup, the typical daily workflow is:
+
+### Making a change on one machine
+
+```bash
+# 1. Edit your config normally
+vim ~/.zshrc
+
+# 2. Preview what changed
+devsync status
+
+# 3. Push to the sync repository
+devsync push
+
+# 4. Commit and push to git
+devsync cd
+git add .
+git commit -m "Update zsh aliases"
+git push
+exit
+```
+
+### Picking up changes on another machine
+
+```bash
+# 1. Pull from git
+devsync cd
+git pull
+exit
+
+# 2. Preview what would be applied
+devsync pull --dry-run
+
+# 3. Apply
+devsync pull
+```
+
+<Aside type="note">
+Devsync does not automatically run `git pull` or `git push` — you manage git history yourself. This keeps devsync simple and avoids merge conflicts inside the tool.
+</Aside>
+
+---
+
+## Resolving Conflicts
+
+Because devsync does not auto-commit, conflicts are standard git merge conflicts. If two machines both modified the same tracked file and both pushed:
+
+```bash
+devsync cd
+git pull
+# → CONFLICT in .gitconfig (or whichever file)
+# Resolve the conflict manually
+git add .
+git commit -m "Merge: resolve .gitconfig conflict"
+exit
+
+# Then pull to apply the resolved state locally
+devsync pull
+```
+
+---
+
+## Validating Your Setup
+
+If something seems off, use the `doctor` command to check your configuration, age key, and tracked paths:
+
+```bash
+devsync doctor
+```
+
+This reports any issues such as a missing age key, unreachable tracked paths, or a broken manifest.

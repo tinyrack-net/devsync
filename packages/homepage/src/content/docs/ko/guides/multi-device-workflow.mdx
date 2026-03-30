@@ -1,0 +1,188 @@
+---
+title: 멀티 디바이스 워크플로우
+description: 첫 번째 기기 초기 설정부터 다른 기기에 설정을 복제하고, 이후 일상적인 동기화 루틴까지 전체 흐름을 알아봐요.
+---
+
+import { Aside, Steps } from "@astrojs/starlight/components";
+
+이 문서에서는 Devsync의 전체 워크플로우를 다뤄요. 첫 번째 기기 초기 설정, 두 번째 기기로의 동기화, 그리고 매일매일의 동기화 루틴까지 순서대로 살펴봐요.
+
+---
+
+## 첫 번째 기기: 초기 설정
+
+<Steps>
+
+1. **Devsync 설치 및 초기화**
+
+   ```bash
+   npm install -g @tinyrack/devsync
+   devsync init
+   ```
+
+   age 키 입력 프롬프트에서 엔터를 누르면 새 키 쌍이 자동으로 생성돼요. init 시 출력되는 개인키를 안전한 곳에 보관해 두세요.
+
+2. **파일 추적 등록**
+
+   ```bash
+   devsync track ~/.gitconfig
+   devsync track ~/.zshrc
+   devsync track ~/.config/nvim
+   devsync track ~/.ssh/config --mode secret
+   ```
+
+   기기 특화 파일이 있다면 프로파일로 지정해요.
+
+   ```bash
+   devsync track ~/.config/work-tool --profile work
+   devsync profile use work
+   ```
+
+3. **변경 사항 미리 보기**
+
+   ```bash
+   devsync status
+   ```
+
+   또는 dry-run으로 확인해요.
+
+   ```bash
+   devsync push --dry-run
+   ```
+
+4. **sync 저장소에 반영**
+
+   ```bash
+   devsync push
+   ```
+
+5. **Git 원격 저장소에 올리기**
+
+   ```bash
+   devsync cd
+   git remote add origin https://github.com/yourname/dotfiles.git
+   git add .
+   git commit -m "Initial sync"
+   git push -u origin main
+   exit
+   ```
+
+</Steps>
+
+---
+
+## 두 번째 기기: 기존 저장소 연동
+
+<Steps>
+
+1. **Devsync 설치**
+
+   ```bash
+   npm install -g @tinyrack/devsync
+   ```
+
+2. **기존 저장소와 age 개인키로 초기화**
+
+   ```bash
+   devsync init https://github.com/yourname/dotfiles.git --key AGE-SECRET-KEY-1...
+   ```
+
+   저장소가 `~/.config/devsync/sync/`에 클론되고 age 키가 등록돼요.
+
+3. **활성 프로파일 설정** (해당하는 경우)
+
+   ```bash
+   devsync profile use work
+   ```
+
+4. **적용될 내용 미리 보기**
+
+   ```bash
+   devsync pull --dry-run
+   ```
+
+5. **설정 적용**
+
+   ```bash
+   devsync pull
+   ```
+
+   추적된 모든 파일이 로컬 경로에 저장돼요. 시크릿 파일은 자동으로 복호화돼요.
+
+</Steps>
+
+---
+
+## 일상적인 워크플로우
+
+초기 설정이 끝난 후의 일상적인 흐름이에요.
+
+### 한 기기에서 변경하기
+
+```bash
+# 1. 평소처럼 설정 파일 편집
+vim ~/.zshrc
+
+# 2. 변경된 내용 확인
+devsync status
+
+# 3. sync 저장소에 반영
+devsync push
+
+# 4. git commit 및 push
+devsync cd
+git add .
+git commit -m "Update zsh aliases"
+git push
+exit
+```
+
+### 다른 기기에서 변경 사항 가져오기
+
+```bash
+# 1. git에서 pull
+devsync cd
+git pull
+exit
+
+# 2. 적용될 내용 미리 보기
+devsync pull --dry-run
+
+# 3. 적용
+devsync pull
+```
+
+<Aside type="note">
+Devsync는 `git pull`이나 `git push`를 자동으로 실행하지 않아요. git 히스토리는 직접 관리해요. 이 덕분에 Devsync 내부에서 머지 충돌이 발생하지 않아요.
+</Aside>
+
+---
+
+## 충돌 해결
+
+Devsync는 자동 커밋을 하지 않기 때문에 충돌은 일반적인 git 머지 충돌이에요. 두 기기에서 같은 파일을 수정하고 각각 push했다면:
+
+```bash
+devsync cd
+git pull
+# → .gitconfig (또는 해당 파일)에서 CONFLICT 발생
+# 충돌을 직접 해결해요
+git add .
+git commit -m "Merge: resolve .gitconfig conflict"
+exit
+
+# 해결된 상태를 로컬에 적용해요
+devsync pull
+```
+
+---
+
+## 설정 상태 점검
+
+뭔가 이상하다 싶으면 `doctor` 명령으로 설정, age 키, 추적 경로 상태를 한 번에 확인할 수 있어요.
+
+```bash
+devsync doctor
+```
+
+age 키 누락, 도달할 수 없는 추적 경로, 손상된 매니페스트 같은 문제를 알려줘요.

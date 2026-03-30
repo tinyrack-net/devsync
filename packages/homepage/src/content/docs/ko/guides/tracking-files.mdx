@@ -1,0 +1,136 @@
+---
+title: 파일 추적하기
+description: 파일과 디렉터리를 동기화 대상으로 등록하는 방법과 저장소에 어떻게 미러링되는지 알아봐요.
+---
+
+import { Aside, FileTree } from "@astrojs/starlight/components";
+
+Devsync가 파일을 동기화하려면 먼저 **추적 등록**을 해야 해요. 추적은 경로를 `manifest.json`에 등록해서 push와 pull 시에 포함되도록 하는 과정이에요.
+
+---
+
+## 단일 파일 추적
+
+```bash
+devsync track ~/.gitconfig
+devsync track ~/.zshrc
+```
+
+추적 등록 후 `devsync push`를 실행하면 파일이 sync 저장소에 미러링돼요.
+
+---
+
+## 디렉터리 추적
+
+디렉터리 전체를 추적할 수도 있어요. 그 안의 모든 파일이 재귀적으로 push와 pull에 포함돼요.
+
+```bash
+devsync track ~/.config/nvim
+devsync track ~/.config/fish
+```
+
+<Aside type="note">
+디렉터리를 추적하면 하위 트리 전체가 포함돼요. 나중에 추적된 디렉터리 안에 새 파일을 추가해도 다음 push에 자동으로 포함돼요 — 따로 추적 등록을 할 필요가 없어요.
+</Aside>
+
+---
+
+## 여러 경로 한 번에 추적
+
+한 번의 명령으로 여러 경로를 전달할 수 있어요.
+
+```bash
+devsync track ~/.gitconfig ~/.zshrc ~/.config/nvim
+```
+
+같은 명령에 포함된 모든 항목은 동일한 모드와 프로파일 옵션으로 등록돼요.
+
+---
+
+## 모드를 지정해서 추적
+
+기본적으로 파일은 `normal` 모드로 추적돼요. 다른 모드를 사용하려면 `--mode` 옵션을 써요.
+
+```bash
+devsync track ~/.ssh/config --mode secret
+devsync track ~/.config/local-only --mode ignore
+```
+
+각 모드에 대한 자세한 설명은 [동기화 모드](/ko/guides/sync-modes)를 참고해요.
+
+---
+
+## 프로파일을 지정해서 추적
+
+특정 프로파일에 파일을 지정하려면 `--profile` 옵션을 써요.
+
+```bash
+devsync track ~/.config/work-tool --profile work
+devsync track ~/.config/nvim --profile work --profile personal
+```
+
+프로파일 지정이 없는 항목은 활성 프로파일에 관계없이 항상 push와 pull에 포함돼요.
+
+자세한 내용은 [프로파일](/ko/guides/profiles)을 참고해요.
+
+---
+
+## 저장소에서의 미러 구조
+
+`devsync push`를 실행하면 추적된 파일들이 홈 디렉터리를 기준으로 한 상대 경로 구조를 그대로 유지하면서 sync 디렉터리에 복사돼요.
+
+예를 들면:
+
+| 로컬 경로 | 저장소 아티팩트 |
+|---|---|
+| `~/.gitconfig` | `sync/default/.gitconfig` |
+| `~/.config/nvim/init.lua` | `sync/default/.config/nvim/init.lua` |
+| `~/.ssh/config` (secret) | `sync/default/.ssh/config.devsync.secret` |
+
+`default` 부분은 프로파일 네임스페이스예요. `work` 프로파일에 지정된 항목은 `sync/work/` 아래에 저장돼요.
+
+<FileTree>
+- ~/.config/devsync/sync/
+  - manifest.json
+  - default/
+    - .gitconfig
+    - .zshrc
+    - .config/
+      - nvim/
+        - init.lua
+    - .ssh/
+      - config.devsync.secret
+  - work/
+    - .config/
+      - work-tool/
+        - settings.json
+</FileTree>
+
+---
+
+## 추적 해제
+
+파일 추적을 중단하려면 `devsync untrack`을 사용해요.
+
+```bash
+devsync untrack ~/.gitconfig
+```
+
+이 명령은 `manifest.json`에서 항목을 제거해요. 로컬 파일이나 sync 저장소의 기존 아티팩트는 **삭제되지 않아요**. 아티팩트를 직접 제거하려면 `devsync cd`로 sync 저장소에 들어가서 수동으로 삭제하면 돼요.
+
+---
+
+## 추적 상태 확인
+
+`devsync status`를 사용하면 추적된 모든 항목의 현재 상태를 확인할 수 있어요 — 마지막 push 이후 무엇이 변경됐는지, 새로 생긴 것은 무엇인지, 삭제된 것은 무엇인지 볼 수 있어요.
+
+```bash
+devsync status
+```
+
+`--dry-run` 옵션을 사용하면 실제로 적용하지 않고 어떤 내용이 쓰여질지 미리 확인할 수 있어요.
+
+```bash
+devsync push --dry-run
+devsync pull --dry-run
+```

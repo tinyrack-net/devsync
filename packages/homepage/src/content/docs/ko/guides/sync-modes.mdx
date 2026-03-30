@@ -1,0 +1,101 @@
+---
+title: 동기화 모드
+description: normal, secret, ignore 세 가지 동기화 모드와 각각의 사용 시점을 알아봐요.
+---
+
+import { Aside } from "@astrojs/starlight/components";
+
+추적된 항목마다 **동기화 모드**가 있어요. 이 모드는 push와 pull 시에 Devsync가 파일을 어떻게 처리할지 결정해요. 모드는 세 가지예요: `normal`, `secret`, `ignore`.
+
+---
+
+## normal
+
+기본 모드예요. 파일을 변환 없이 그대로 저장소에 복사해요.
+
+```bash
+devsync track ~/.gitconfig
+devsync track ~/.zshrc
+devsync track ~/.config/nvim
+```
+
+**이런 파일에 적합해요:**
+- 편집기 설정 (`.vimrc`, `init.lua`, VS Code 설정)
+- 셸 설정 (`.zshrc`, `.bashrc`, `.bash_profile`)
+- Git 설정 (`.gitconfig`)
+- 도구 설정 (`.tmux.conf`, `.wezterm.lua`, `starship.toml`)
+- 민감한 정보가 없는 파일
+
+저장소에 저장되는 파일 이름은 원본과 동일해요.
+
+---
+
+## secret
+
+파일을 [age](https://age-encryption.org/)로 암호화한 후 저장소에 저장해요. 저장된 아티팩트에는 `.devsync.secret` 확장자가 붙어요.
+
+```bash
+devsync track ~/.ssh/config --mode secret
+devsync track ~/.config/gh/hosts.yml --mode secret
+devsync track ~/.aws/credentials --mode secret
+```
+
+**이런 파일에 적합해요:**
+- SSH 설정 및 키
+- API 토큰과 인증 정보
+- 실제 시크릿이 담긴 `.env` 파일
+- git 히스토리에 평문으로 노출되면 안 되는 모든 파일
+
+`pull` 시에는 암호화된 아티팩트가 age 개인키로 자동 복호화된 뒤 디스크에 저장돼요.
+
+<Aside type="caution">
+secret 모드는 파일 **내용**을 암호화하지만, **파일 이름과 경로**는 저장소에 그대로 보여요. 경로 자체가 민감한 정보라면 secret 모드를 쓰더라도 주의가 필요해요.
+</Aside>
+
+### 저장소에서의 모습
+
+`~/.ssh/config`를 `--mode secret`으로 추적하면 다음 위치에 저장돼요.
+
+```
+~/.config/devsync/sync/default/.ssh/config.devsync.secret
+```
+
+---
+
+## ignore
+
+항목이 `manifest.json`에 등록되지만 push와 pull 시에 완전히 건너뛰어요. 파일을 읽거나 쓰거나 전송하지 않아요.
+
+```bash
+devsync track ~/.config/some-tool/cache --mode ignore
+devsync track ~/.local/share/generated-config --mode ignore
+```
+
+**이런 파일에 적합해요:**
+- 기기 특화 설정으로 동기화는 필요 없지만 추적은 해두고 싶은 파일 (예: 호스트명에 의존하는 설정)
+- 기록만 남기고 복제할 필요는 없는 생성 파일이나 캐시
+- 매니페스트에서 제거하지 않고 일시적으로 비활성화하고 싶은 항목
+
+---
+
+## 모드 변경하기
+
+추적된 항목의 모드를 변경하려면 새로운 `--mode` 옵션과 함께 `devsync track`을 다시 실행해요. 기존 항목이 교체돼요.
+
+```bash
+# normal로 추적 중이었다면
+devsync track ~/.ssh/config
+
+# secret으로 업그레이드
+devsync track ~/.ssh/config --mode secret
+```
+
+---
+
+## 모드 요약
+
+| 모드 | 저장소에 저장 | 암호화 | push/pull 동기화 |
+|---|---|---|---|
+| `normal` | 예 | 아니요 | 예 |
+| `secret` | 예 (`.devsync.secret`) | 예 (age) | 예 |
+| `ignore` | 아니요 | — | 아니요 |

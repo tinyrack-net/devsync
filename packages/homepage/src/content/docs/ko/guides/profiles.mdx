@@ -1,0 +1,145 @@
+---
+title: 프로파일
+description: 프로파일을 사용해 기기나 환경에 따라 동기화할 설정의 하위 집합을 선택해요.
+---
+
+import { Aside, Steps } from "@astrojs/starlight/components";
+
+프로파일은 추적 항목을 이름이 붙은 그룹으로 분류하고, 활성 프로파일에 속하는 항목만 선택적으로 동기화할 수 있게 해줘요. 기기마다 다른 설정 하위 집합이 필요할 때 유용해요.
+
+---
+
+## 프로파일이 해결하는 문제
+
+모든 추적 파일이 모든 기기에 필요하지는 않아요. 예를 들면:
+
+- 업무용 인증 정보는 업무용 기기에만 동기화돼야 해요
+- GPU 튜닝 설정은 데스크톱에만 필요해요
+- Linux 전용 셸 스크립트는 Mac에서 가져올 필요가 없어요
+
+프로파일이 없다면 환경마다 별도의 저장소를 만들어야 해요. 프로파일을 사용하면 단일 저장소로 모든 기기를 처리할 수 있고, 각 기기는 필요한 항목만 적용해요.
+
+---
+
+## 전역 항목 vs 프로파일 항목
+
+추적된 항목은 **전역(global)** 이거나 **프로파일 지정(profile-scoped)** 이에요.
+
+- **전역** — 프로파일 지정 없음. 활성 프로파일에 관계없이 항상 push와 pull에 포함돼요.
+- **프로파일 지정** — 하나 이상의 프로파일에 지정됨. 활성 프로파일이 일치할 때만 포함돼요.
+
+```bash
+# 전역 — 모든 기기에서 동기화
+devsync track ~/.gitconfig
+devsync track ~/.zshrc
+
+# work 프로파일 전용
+devsync track ~/.config/work-vpn --profile work
+
+# desktop 프로파일 전용
+devsync track ~/.config/gpu-settings --profile desktop
+
+# work와 linux 프로파일 모두에 지정
+devsync track ~/.config/some-tool --profile work --profile linux
+```
+
+---
+
+## 활성 프로파일 설정
+
+활성 프로파일은 `~/.config/devsync/settings.json`에 저장돼요.
+
+```bash
+# 활성 프로파일을 "work"로 설정
+devsync profile use work
+
+# 활성 프로파일 해제 (전역 항목만 처리)
+devsync profile use
+```
+
+활성 프로파일이 설정되면 `devsync push`와 `devsync pull`은 전역 항목 **더하기** 활성 프로파일에 지정된 항목을 포함해요.
+
+---
+
+## 프로파일 목록 보기
+
+```bash
+devsync profile list
+```
+
+`manifest.json`에 있는 모든 프로파일 이름과 현재 활성 프로파일을 보여줘요.
+
+---
+
+## 단일 실행에서 프로파일 임시 지정
+
+`--profile` 옵션을 사용하면 `settings.json`을 변경하지 않고 한 번의 명령에서만 프로파일을 임시로 지정할 수 있어요.
+
+```bash
+devsync push --profile work
+devsync pull --profile personal
+devsync status --profile desktop
+```
+
+공용 기기에서 특정 프로파일을 테스트하거나 가져올 때 유용해요.
+
+---
+
+## 예시: 업무용과 개인용 설정 분리
+
+<Steps>
+
+1. 업무용 기기에서 업무 관련 파일을 `--profile work`로 추적해요.
+
+   ```bash
+   devsync track ~/.gitconfig                       # 전역
+   devsync track ~/.zshrc                           # 전역
+   devsync track ~/.config/work-tool --profile work
+   devsync track ~/.ssh/work-key --mode secret --profile work
+   ```
+
+2. 업무용 기기의 활성 프로파일을 설정해요.
+
+   ```bash
+   devsync profile use work
+   ```
+
+3. Push해요.
+
+   ```bash
+   devsync push
+   ```
+
+4. 개인 기기에서는 다른 프로파일을 설정하거나 프로파일 없이 사용해요.
+
+   ```bash
+   devsync profile use personal
+   devsync pull
+   ```
+
+   전역 항목(`.gitconfig`, `.zshrc`)만 적용돼요. 업무 전용 파일은 저장되지 않아요.
+
+</Steps>
+
+---
+
+## 저장소에서의 프로파일 구조
+
+프로파일 지정 항목은 sync 디렉터리 안에 프로파일 이름으로 된 하위 디렉터리에 저장돼요.
+
+```
+~/.config/devsync/sync/
+├── manifest.json
+├── default/          ← 전역 항목
+│   ├── .gitconfig
+│   └── .zshrc
+└── work/             ← work 프로파일 항목
+    ├── .config/
+    │   └── work-tool/
+    └── .ssh/
+        └── work-key.devsync.secret
+```
+
+<Aside type="note">
+여러 프로파일에 지정된 항목(예: `--profile work --profile linux`)은 저장소에 한 번만 저장되고, 두 프로파일 중 하나가 활성화되면 적용돼요.
+</Aside>

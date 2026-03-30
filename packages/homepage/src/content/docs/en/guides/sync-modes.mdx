@@ -1,0 +1,101 @@
+---
+title: Sync Modes
+description: Learn about the three sync modes — normal, secret, and ignore — and when to use each one.
+---
+
+import { Aside, Tabs, TabItem } from "@astrojs/starlight/components";
+
+Every tracked entry has a **sync mode** that controls how devsync handles it during push and pull. There are three modes: `normal`, `secret`, and `ignore`.
+
+---
+
+## normal
+
+The default mode. The file is copied to the repository exactly as-is, with no transformation applied.
+
+```bash
+devsync track ~/.gitconfig
+devsync track ~/.zshrc
+devsync track ~/.config/nvim
+```
+
+**Good for:**
+- Editor configs (`.vimrc`, `init.lua`, VS Code settings)
+- Shell configs (`.zshrc`, `.bashrc`, `.bash_profile`)
+- Git config (`.gitconfig`)
+- Tool configs (`.tmux.conf`, `.wezterm.lua`, `starship.toml`)
+- Any file that contains no sensitive information
+
+The mirrored file in the repository has the same name as the original.
+
+---
+
+## secret
+
+The file is encrypted with [age](https://age-encryption.org/) before being written to the repository. The stored artifact has a `.devsync.secret` extension.
+
+```bash
+devsync track ~/.ssh/config --mode secret
+devsync track ~/.config/gh/hosts.yml --mode secret
+devsync track ~/.aws/credentials --mode secret
+```
+
+**Good for:**
+- SSH config and keys
+- API tokens and credentials
+- `.env` files with real secrets
+- Anything that should not appear in plaintext in your git history
+
+During `pull`, the encrypted artifact is automatically decrypted using your age private key before being written to disk.
+
+<Aside type="caution">
+Secret mode encrypts the file content, but the **filename and path** are still visible in the repository. Avoid using secret mode if the path itself is sensitive.
+</Aside>
+
+### What it looks like in the repository
+
+A file tracked as `~/.ssh/config` with `--mode secret` is stored as:
+
+```
+~/.config/devsync/sync/default/.ssh/config.devsync.secret
+```
+
+---
+
+## ignore
+
+The entry is registered in `manifest.json` but skipped entirely during push and pull. No file is read, written, or transferred.
+
+```bash
+devsync track ~/.config/some-tool/cache --mode ignore
+devsync track ~/.local/share/generated-config --mode ignore
+```
+
+**Good for:**
+- Machine-specific configs that should be tracked but not synced (e.g., hostname-dependent settings)
+- Generated or cached files that you want to note but not replicate
+- Entries you want to temporarily disable without removing from the manifest
+
+---
+
+## Changing a Mode
+
+To change the mode of a tracked entry, run `devsync track` again with the new `--mode` flag. The existing entry is replaced:
+
+```bash
+# Originally tracked as normal
+devsync track ~/.ssh/config
+
+# Upgrade to secret
+devsync track ~/.ssh/config --mode secret
+```
+
+---
+
+## Mode Summary
+
+| Mode | Stored in repo | Encrypted | Synced on push/pull |
+|---|---|---|---|
+| `normal` | Yes | No | Yes |
+| `secret` | Yes (`.devsync.secret`) | Yes (age) | Yes |
+| `ignore` | No | — | No |

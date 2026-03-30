@@ -1,0 +1,131 @@
+---
+title: How It Works
+description: Understand the mental model behind devsync — how files flow between your machine and the repository.
+---
+
+import { Aside, FileTree, Steps } from "@astrojs/starlight/components";
+
+Devsync is built around a single idea: **your local files are always the source of truth**. The repository is a sync artifact, not the canonical version of your config.
+
+This guide explains the mental model, how data flows between your machine and the repository, and how the internal structure is organized.
+
+---
+
+## The Mental Model
+
+Most dotfile tools treat the repository as the canonical state. You edit files through the tool, and the tool writes to both the repository and your local filesystem.
+
+Devsync inverts this. You edit `~/.zshrc` directly in your editor — no special command needed. When you're ready to sync, you run `devsync push`, which reads your current local files and mirrors them into the repository.
+
+```
+Your editor → local files → devsync push → sync repository → git push → remote
+                                                                          ↓
+other machine ← devsync pull ← sync repository ← git pull ← remote
+```
+
+The benefit is that your editing workflow stays completely natural. The trade-off is that the repository state reflects the last push, not the current state of your local files.
+
+---
+
+## Data Flow
+
+### Push
+
+When you run `devsync push`, devsync:
+
+<Steps>
+
+1. Loads `manifest.json` and determines the active profile
+2. Walks the local file tree for each tracked path
+3. Compares local files with the existing artifacts in the sync directory
+4. Encrypts any `secret`-mode files using age before writing
+5. Writes the mirrored artifacts to the sync directory
+6. Reports what changed
+
+</Steps>
+
+### Pull
+
+When you run `devsync pull`, devsync:
+
+<Steps>
+
+1. Loads `manifest.json` and determines the active profile
+2. Reads the artifacts present in the sync directory
+3. Decrypts any `secret` artifacts using your age private key
+4. Writes files to their local paths, creating parent directories as needed
+5. Applies file permissions
+6. Reports what changed
+
+</Steps>
+
+<Aside type="note">
+Neither `push` nor `pull` creates a git commit. You manage git history yourself inside the sync directory with `devsync cd`.
+</Aside>
+
+---
+
+## Directory Structure
+
+All devsync state lives under `~/.config/devsync/`:
+
+<FileTree>
+- ~/.config/devsync/
+  - sync/                     Git repository (synced files stored here)
+    - .git/
+    - manifest.json           Config and tracking registry
+    - default/                Artifacts for the default (global) profile
+      - .gitconfig            Mirrored from ~/.gitconfig
+      - .config/
+        - nvim/               Mirrored from ~/.config/nvim
+    - work/                   Artifacts for the "work" profile
+      - ...
+  - age/
+    - keys.txt                Age private key (for decrypting secrets)
+  - settings.json             Global settings (active profile, etc.)
+</FileTree>
+
+### manifest.json
+
+The manifest is the central registry. Every tracked path has an entry describing its source path, sync mode, and optional profile assignments:
+
+```json
+{
+  "entries": [
+    {
+      "localPath": ".gitconfig",
+      "mode": "normal",
+      "profiles": []
+    },
+    {
+      "localPath": ".ssh/config",
+      "mode": "secret",
+      "profiles": []
+    },
+    {
+      "localPath": {
+        "default": ".config/nvim",
+        "win": "AppData/Local/nvim"
+      },
+      "mode": "normal",
+      "profiles": ["linux", "mac"]
+    }
+  ]
+}
+```
+
+Paths in `localPath` are relative to your home directory (`~`).
+
+---
+
+## How This Differs from stow and chezmoi
+
+| | devsync | chezmoi | stow |
+|---|---|---|---|
+| Source of truth | Local files | Repository | Repository |
+| Edit workflow | Open file directly | `chezmoi edit` | Edit in repo |
+| Home directory | Unmodified | Unmodified | Symlinks |
+| Template support | No | Yes | No |
+| Per-machine content | Profiles / platform paths | Templates | Overlays |
+
+Devsync prioritizes **keeping your editing workflow natural**. If you already have a comfortable setup and just want it replicated across machines, devsync gets out of your way.

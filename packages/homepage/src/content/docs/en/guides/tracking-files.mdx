@@ -1,0 +1,136 @@
+---
+title: Tracking Files
+description: How to register files and directories as sync targets, and how they are mirrored in the repository.
+---
+
+import { Aside, Steps, FileTree } from "@astrojs/starlight/components";
+
+Before devsync can sync a file, you need to **track** it. Tracking registers the path in `manifest.json` so devsync knows to include it during push and pull.
+
+---
+
+## Tracking a Single File
+
+```bash
+devsync track ~/.gitconfig
+devsync track ~/.zshrc
+```
+
+After tracking, run `devsync push` to mirror the file into the sync repository.
+
+---
+
+## Tracking a Directory
+
+You can track an entire directory. All files inside it, recursively, will be included during push and pull.
+
+```bash
+devsync track ~/.config/nvim
+devsync track ~/.config/fish
+```
+
+<Aside type="note">
+Tracking a directory tracks its entire subtree. If you add a new file inside a tracked directory later, it will automatically be included in the next push — you don't need to track it separately.
+</Aside>
+
+---
+
+## Tracking Multiple Paths at Once
+
+Pass multiple paths in a single command:
+
+```bash
+devsync track ~/.gitconfig ~/.zshrc ~/.config/nvim
+```
+
+All entries are created with the same mode and profile options provided in that command.
+
+---
+
+## Tracking with a Mode
+
+By default, files are tracked in `normal` mode. To use a different mode:
+
+```bash
+devsync track ~/.ssh/config --mode secret
+devsync track ~/.config/local-only --mode ignore
+```
+
+See [Sync Modes](/en/guides/sync-modes) for a full explanation of each mode.
+
+---
+
+## Tracking with a Profile
+
+To assign a file to one or more profiles, use `--profile`:
+
+```bash
+devsync track ~/.config/work-tool --profile work
+devsync track ~/.config/nvim --profile work --profile personal
+```
+
+Entries with no profile are always included during push and pull, regardless of the active profile.
+
+See [Profiles](/en/guides/profiles) for more details.
+
+---
+
+## How Files Are Mirrored in the Repository
+
+When you run `devsync push`, tracked files are copied into the sync directory using a path structure that mirrors their location relative to your home directory.
+
+For example:
+
+| Local path | Repository artifact |
+|---|---|
+| `~/.gitconfig` | `sync/default/.gitconfig` |
+| `~/.config/nvim/init.lua` | `sync/default/.config/nvim/init.lua` |
+| `~/.ssh/config` (secret) | `sync/default/.ssh/config.devsync.secret` |
+
+The `default` segment is the profile namespace. Entries assigned to a profile named `work` would be stored under `sync/work/`.
+
+<FileTree>
+- ~/.config/devsync/sync/
+  - manifest.json
+  - default/
+    - .gitconfig
+    - .zshrc
+    - .config/
+      - nvim/
+        - init.lua
+    - .ssh/
+      - config.devsync.secret
+  - work/
+    - .config/
+      - work-tool/
+        - settings.json
+</FileTree>
+
+---
+
+## Untracking a File
+
+To stop tracking a file, use `devsync untrack`:
+
+```bash
+devsync untrack ~/.gitconfig
+```
+
+This removes the entry from `manifest.json`. It does **not** delete the local file or the existing artifact in the sync repository. You can remove the artifact manually with `devsync cd` if needed.
+
+---
+
+## Checking What Is Tracked
+
+Use `devsync status` to see the current state of all tracked entries — what has changed since the last push, what is new, and what has been deleted:
+
+```bash
+devsync status
+```
+
+Use `--dry-run` with push or pull to preview what would be written without actually applying anything:
+
+```bash
+devsync push --dry-run
+devsync pull --dry-run
+```
