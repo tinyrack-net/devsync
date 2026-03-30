@@ -3,7 +3,7 @@ title: 시작하기
 description: devsync를 설치하고 첫 동기화를 실행해요.
 ---
 
-import { Tabs, TabItem, Aside } from "@astrojs/starlight/components";
+import { Tabs, TabItem, Steps, FileTree, Aside } from "@astrojs/starlight/components";
 
 ## 설치
 
@@ -31,67 +31,71 @@ import { Tabs, TabItem, Aside } from "@astrojs/starlight/components";
 
 ## 새로운 저장소로 시작하기
 
-### 저장소 초기화
+<Steps>
 
-```bash
-devsync init
-```
+1. **저장소 초기화**
 
-실행하면 age 개인키 입력 여부를 물어봐요. 처음 시작이라면 그냥 엔터를 누르면 새 키를 자동으로 생성해요.
+   ```bash
+   devsync init
+   ```
 
-초기화가 완료되면 `~/.config/devsync/` 아래에 다음 구조가 만들어져요.
+   실행하면 age 개인키 입력 여부를 물어봐요. 처음 시작이라면 그냥 엔터를 누르면 새 키를 자동으로 생성해요.
 
-```
-~/.config/devsync/
-├── sync/          # Git 저장소 (동기화 아티팩트가 저장되는 곳)
-├── age/
-│   └── keys.txt   # age 개인키 (시크릿 파일 복호화에 사용)
-└── settings.json  # 활성 프로파일 등 전역 설정
-```
+   초기화가 완료되면 `~/.config/devsync/` 아래에 다음 구조가 만들어져요.
 
-<Aside type="caution">
-`age/keys.txt`는 시크릿 파일을 복호화하는 데 사용하는 개인키예요. 이 파일을 잃어버리면 암호화된 파일을 복원할 수 없으니 안전한 곳에 별도로 백업해 두세요.
-</Aside>
+   <FileTree>
+   - ~/.config/devsync/
+     - sync/          Git 저장소 (동기화 파일이 저장되는 곳)
+     - age/
+       - keys.txt     age 개인키 (시크릿 파일 복호화에 사용)
+     - settings.json  전역 설정 (활성 프로파일 등)
+   </FileTree>
 
-### 파일 추적 등록
+   <Aside type="caution">
+   `age/keys.txt`는 시크릿 파일을 복호화하는 데 사용하는 개인키예요. 이 파일을 잃어버리면 암호화된 파일을 복원할 수 없으니 **안전한 곳에 별도로 백업해 두세요.**
+   </Aside>
 
-동기화할 파일이나 디렉터리를 `track` 명령으로 등록해요.
+2. **파일 추적 등록**
 
-```bash
-devsync track ~/.gitconfig
-devsync track ~/.zshrc
-devsync track ~/.config/nvim
-```
+   동기화할 파일이나 디렉터리를 `track` 명령으로 등록해요.
 
-민감한 파일은 `--mode secret`으로 등록하면 저장소에 암호화되어 저장돼요.
+   ```bash
+   devsync track ~/.gitconfig
+   devsync track ~/.zshrc
+   devsync track ~/.config/nvim
+   ```
 
-```bash
-devsync track ~/.ssh/config --mode secret
-```
+   민감한 파일은 `--mode secret`으로 등록하면 저장소에 암호화되어 저장돼요.
 
-### 저장소에 반영
+   ```bash
+   devsync track ~/.ssh/config --mode secret
+   ```
 
-```bash
-devsync push
-```
+3. **저장소에 반영**
 
-로컬 파일들을 `~/.config/devsync/sync/` 안에 미러링해요. 이 시점에는 아직 git commit이 만들어지지 않아요.
+   ```bash
+   devsync push
+   ```
 
-### Git 원격 저장소에 올리기
+   로컬 파일들을 `~/.config/devsync/sync/` 안에 미러링해요. 이 시점에는 아직 git commit이 만들어지지 않아요.
 
-`devsync cd`로 sync 저장소 디렉터리 안으로 들어가서 직접 git 명령을 실행해요.
+4. **Git 원격 저장소에 올리기**
 
-```bash
-devsync cd
-```
+   `devsync cd`로 sync 저장소 디렉터리 안으로 들어가서 직접 git 명령을 실행해요.
 
-```bash
-git remote add origin https://github.com/yourname/dotfiles.git
-git add .
-git commit -m "Initial sync"
-git push -u origin main
-exit
-```
+   ```bash
+   devsync cd
+   ```
+
+   ```bash
+   git remote add origin https://github.com/yourname/dotfiles.git
+   git add .
+   git commit -m "Initial sync"
+   git push -u origin main
+   exit
+   ```
+
+</Steps>
 
 ---
 
@@ -113,11 +117,11 @@ devsync init https://github.com/yourname/dotfiles.git --key AGE-SECRET-KEY-...
 ```
 </Aside>
 
-### 로컬에 복원
+이후 파일을 원래 경로에 복원해요.
 
 ```bash
 devsync pull
 ```
 
-저장소의 파일들을 원래 경로에 복원해요. 시크릿 파일은 age 키로 자동 복호화되어 저장돼요.
+시크릿 파일은 age 키로 자동 복호화되어 저장돼요.
 

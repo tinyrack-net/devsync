@@ -3,18 +3,128 @@ title: Getting Started
 description: Install devsync and run your first sync.
 ---
 
-## Install
+import { Tabs, TabItem, Steps, FileTree, Aside } from "@astrojs/starlight/components";
+
+## Installation
+
+<Tabs>
+  <TabItem label="npm">
+    ```bash
+    npm install -g @tinyrack/devsync
+    ```
+  </TabItem>
+  <TabItem label="pnpm">
+    ```bash
+    pnpm add -g @tinyrack/devsync
+    ```
+  </TabItem>
+  <TabItem label="yarn">
+    ```bash
+    yarn global add @tinyrack/devsync
+    ```
+  </TabItem>
+</Tabs>
+
+After installation, verify it's working:
 
 ```bash
-pnpm add -g @tinyrack/devsync
+devsync --version
 ```
 
-## Run
+---
+
+## Start with a new repository
+
+<Steps>
+
+1. **Initialize devsync**
+
+   ```bash
+   devsync init
+   ```
+
+   You'll be asked if you want to provide an existing age private key. If this is your first time, just press Enter — a new key will be generated automatically.
+
+   After initialization, the following structure is created under `~/.config/devsync/`:
+
+   <FileTree>
+   - ~/.config/devsync/
+     - sync/          Git repository where synced files are stored
+     - age/
+       - keys.txt     age private key used to decrypt secret files
+     - settings.json  Global settings (active profile, etc.)
+   </FileTree>
+
+   <Aside type="caution">
+   `age/keys.txt` is the private key used to decrypt your secret files. If you lose it, encrypted files cannot be recovered. **Back it up somewhere safe.**
+   </Aside>
+
+2. **Track files**
+
+   Register the files or directories you want to sync:
+
+   ```bash
+   devsync track ~/.gitconfig
+   devsync track ~/.zshrc
+   devsync track ~/.config/nvim
+   ```
+
+   For sensitive files, use `--mode secret` to store them encrypted in the repository:
+
+   ```bash
+   devsync track ~/.ssh/config --mode secret
+   ```
+
+3. **Push to the sync repository**
+
+   ```bash
+   devsync push
+   ```
+
+   This mirrors your local files into `~/.config/devsync/sync/`. No git commit is created at this point.
+
+4. **Publish to a remote Git repository**
+
+   Use `devsync cd` to enter the sync repository directory, then run git commands directly:
+
+   ```bash
+   devsync cd
+   ```
+
+   ```bash
+   git remote add origin https://github.com/yourname/dotfiles.git
+   git add .
+   git commit -m "Initial sync"
+   git push -u origin main
+   exit
+   ```
+
+</Steps>
+
+---
+
+## Connect an existing repository
+
+If you're setting up a new machine and already have a dotfiles repository, pass the repository URL to `init`:
 
 ```bash
-devsync --help
+devsync init https://github.com/yourname/dotfiles.git
 ```
 
-## Next step
+You'll be prompted to enter your age private key. Enter the key you backed up from your original machine.
 
-Add your real onboarding flow here once the homepage content is finalized.
+<Aside>
+The age private key is a string starting with `AGE-SECRET-KEY-`. If you have the key in a file, you can pass it directly with `--key`:
+
+```bash
+devsync init https://github.com/yourname/dotfiles.git --key AGE-SECRET-KEY-...
+```
+</Aside>
+
+After cloning, restore your files to their original paths:
+
+```bash
+devsync pull
+```
+
+Secret files are automatically decrypted using your age key.
