@@ -52,9 +52,9 @@ export default defineConfig({
       },
       sidebar: [
         {
-          label: "Guide",
+          label: "Overview",
           translations: {
-            ko: "소개",
+            ko: "시작하기",
           },
           items: [
             { slug: "intro" },
@@ -67,13 +67,13 @@ export default defineConfig({
             ko: "가이드",
           },
           items: [
-            { slug: "guides/how-it-works" },
-            { slug: "guides/sync-modes" },
             { slug: "guides/tracking-files" },
+            { slug: "guides/sync-modes" },
             { slug: "guides/syncing-secrets" },
             { slug: "guides/profiles" },
-            { slug: "guides/multi-device-workflow" },
             { slug: "guides/platform-specific-paths" },
+            { slug: "guides/multi-device-workflow" },
+            { slug: "guides/how-it-works" },
             { slug: "guides/shell-autocomplete" },
           ],
         },
@@ -85,13 +85,13 @@ export default defineConfig({
           items: [
             { slug: "reference/init" },
             { slug: "reference/track" },
-            { slug: "reference/untrack" },
-            { slug: "reference/status" },
             { slug: "reference/push" },
             { slug: "reference/pull" },
-            { slug: "reference/doctor" },
+            { slug: "reference/status" },
+            { slug: "reference/untrack" },
             { slug: "reference/cd" },
             { slug: "reference/profile" },
+            { slug: "reference/doctor" },
             { slug: "reference/autocomplete" },
           ],
         },
