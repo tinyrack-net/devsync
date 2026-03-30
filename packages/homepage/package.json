@@ -12,8 +12,11 @@
     "dev": "astro dev",
     "build": "astro build",
     "preview": "astro preview",
+    "preview:worker": "wrangler dev",
     "start": "astro dev",
-    "typecheck": "astro-check"
+    "typecheck": "astro-check",
+    "deploy": "wrangler deploy",
+    "deploy:dry-run": "wrangler deploy --dry-run"
   },
   "dependencies": {
     "@astrojs/starlight": "^0.38.2",
@@ -26,6 +29,7 @@
   },
   "devDependencies": {
     "@astrojs/check": "^0.9.4",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "wrangler": "^4.78.0"
   }
 }

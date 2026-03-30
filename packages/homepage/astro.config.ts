@@ -52,7 +52,10 @@ export default defineConfig({
           translations: {
             ko: "가이드",
           },
-          items: [{ slug: "getting-started" }],
+          items: [
+            { slug: "intro" },
+            { slug: "getting-started" },
+          ],
         },
       ],
     }),
