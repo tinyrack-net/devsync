@@ -1,6 +1,6 @@
 ---
 title: devsync pull
-description: 동기화 저장소의 아티팩트를 로컬 파일에 적용해요.
+description: 동기화 저장소의 파일을 로컬에 적용해요.
 ---
 
 import { Aside, Tabs, TabItem } from "@astrojs/starlight/components";
@@ -13,9 +13,9 @@ devsync pull
 
 ## 설명
 
-`devsync pull`은 동기화 저장소(`~/.config/devsync/sync/`)의 아티팩트를 읽어 대응하는 로컬 경로에 파일을 복원해요. [`devsync push`](/ko/reference/push)의 반대 방향이에요.
+`devsync pull`은 동기화 저장소(`~/.config/devsync/sync/`)의 파일을 읽어 대응하는 로컬 경로에 복원해요. [`devsync push`](/ko/reference/push)의 반대 방향이에요.
 
-`mode: secret`으로 등록된 항목은 로컬에 쓰기 전에 설정된 age identity로 복호화돼요. 복호화된 원본 내용만 로컬 경로에 기록되고, 저장소의 `.devsync.secret` 아티팩트는 변경되지 않아요.
+`mode: secret`으로 등록된 항목은 로컬에 쓰기 전에 설정된 age identity로 복호화돼요. 복호화된 원본 내용만 로컬 경로에 기록되고, 저장소의 `.devsync.secret` 파일은 변경되지 않아요.
 
 각 파일을 쓴 뒤에는 원래 파일 권한을 복원해요.
 
@@ -76,5 +76,5 @@ devsync pull
 </Aside>
 
 <Aside type="caution">
-  `mode: ignore`인 항목은 pull 시에도 완전히 건너뛰어요. 저장소에 해당 아티팩트가 있어도 로컬에 쓰지 않아요.
+  `mode: ignore`인 항목은 pull 시에도 완전히 건너뛰어요. 저장소에 해당 파일이 있어도 로컬에 쓰지 않아요.
 </Aside>

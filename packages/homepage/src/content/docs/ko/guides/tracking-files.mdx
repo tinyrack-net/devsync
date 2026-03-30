@@ -1,6 +1,6 @@
 ---
 title: 파일 추적하기
-description: 파일과 디렉터리를 동기화 대상으로 등록하는 방법과 저장소에 어떻게 미러링되는지 알아봐요.
+description: 파일과 디렉터리를 동기화 대상으로 등록하는 방법
 ---
 
 import { Aside, FileTree } from "@astrojs/starlight/components";
@@ -81,7 +81,7 @@ devsync track ~/.config/nvim --profile work --profile personal
 
 예를 들면:
 
-| 로컬 경로 | 저장소 아티팩트 |
+| 로컬 경로 | 저장소 경로 |
 |---|---|
 | `~/.gitconfig` | `sync/default/.gitconfig` |
 | `~/.config/nvim/init.lua` | `sync/default/.config/nvim/init.lua` |
@@ -116,7 +116,7 @@ devsync track ~/.config/nvim --profile work --profile personal
 devsync untrack ~/.gitconfig
 ```
 
-이 명령은 `manifest.json`에서 항목을 제거해요. 로컬 파일이나 sync 저장소의 기존 아티팩트는 **삭제되지 않아요**. 아티팩트를 직접 제거하려면 `devsync cd`로 sync 저장소에 들어가서 수동으로 삭제하면 돼요.
+이 명령은 `manifest.json`에서 항목을 제거해요. 로컬 파일이나 sync 저장소의 기존 파일은 **삭제되지 않아요**. 직접 제거하려면 `devsync cd`로 sync 저장소에 들어가서 수동으로 삭제하면 돼요.
 
 ---
 

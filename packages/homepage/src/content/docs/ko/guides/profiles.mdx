@@ -1,6 +1,6 @@
 ---
 title: 프로파일
-description: 프로파일을 사용해 기기나 환경에 따라 동기화할 설정의 하위 집합을 선택해요.
+description: 기기나 환경에 따라 동기화 대상을 선택적으로 관리하는 방법
 ---
 
 import { Aside, Steps } from "@astrojs/starlight/components";
@@ -130,10 +130,10 @@ devsync status --profile desktop
 ```
 ~/.config/devsync/sync/
 ├── manifest.json
-├── default/          ← 전역 항목
+├── default/           ← 전역 항목
 │   ├── .gitconfig
 │   └── .zshrc
-└── work/             ← work 프로파일 항목
+└── work/              ← work 프로파일 항목
     ├── .config/
     │   └── work-tool/
     └── .ssh/
