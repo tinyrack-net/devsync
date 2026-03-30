@@ -46,7 +46,7 @@ devsync track ~/.aws/credentials --mode secret
 - `.env` files with real secrets
 - Anything that should not appear in plaintext in your git history
 
-During `pull`, the encrypted artifact is automatically decrypted using your age private key before being written to disk.
+During `pull`, devsync decrypts the artifact with your age private key before writing it to disk.
 
 <Aside type="caution">
 Secret mode encrypts the file content, but the **filename and path** are still visible in the repository. Avoid using secret mode if the path itself is sensitive.

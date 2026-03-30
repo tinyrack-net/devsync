@@ -3,13 +3,13 @@ title: Devsync
 description: A CLI tool that syncs your development environment config files with Git.
 ---
 
-`Devsync` is a **CLI tool that syncs your development environment config files (dotfiles) with Git**. It's designed for developers who want to keep a consistent environment across multiple machines.
+`Devsync` is a **CLI tool that syncs your development environment config files (dotfiles) with Git**. Keep a consistent environment across multiple machines.
 
 ---
 
 ## What Devsync can do
 
-- **Track files and directories**: Register files and folders in your home directory as sync targets with the `track` command.
+- **Track files and directories**: Register files and folders as sync targets with `track`.
 - **Push / Pull sync**: Use `push` to mirror your local config into the repository, and `pull` to apply the repository state back to your local machine.
 - **Secret encryption**: Safely store and sync sensitive files like tokens and keys using age encryption.
 - **Profiles**: Assign different profiles per machine to selectively sync a subset of your config.
@@ -29,4 +29,4 @@ With `chezmoi`, you edit files through `chezmoi edit ~/.zshrc` rather than direc
 
 Devsync works in the opposite direction. **Your local files are always the source of truth.** The repository is just a sync artifact. When you want to edit `~/.zshrc`, just open it in your editor. When you're ready to sync, run `devsync push`.
 
-There are trade-offs: Devsync doesn't have the powerful template-based file transformation that `chezmoi` offers. It's not designed for complex scenarios where config content needs to differ per machine — it's designed to **keep your editing workflow natural while syncing your config across devices**.
+There are trade-offs: Devsync doesn't have the powerful template-based file transformation that `chezmoi` offers. It's not designed for complex scenarios where config content needs to differ per machine — it **keeps your editing workflow natural while syncing config across devices**.

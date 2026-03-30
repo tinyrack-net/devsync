@@ -43,7 +43,7 @@ devsync --version
    devsync init
    ```
 
-   You'll be asked if you want to provide an existing age private key. If this is your first time, just press Enter — a new key will be generated automatically.
+   You'll be asked for an age private key. Press Enter to generate a new one automatically.
 
    After initialization, the following structure is created under `~/.config/devsync/`:
 
@@ -127,4 +127,4 @@ After cloning, restore your files to their original paths:
 devsync pull
 ```
 
-Secret files are automatically decrypted using your age key.
+Devsync automatically decrypts secret files with your age key.
