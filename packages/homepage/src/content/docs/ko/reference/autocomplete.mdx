@@ -1,6 +1,6 @@
 ---
 title: devsync autocomplete
-description: devsync 명령어와 플래그의 셸 자동완성을 설치해요.
+description: Devsync 명령어와 플래그의 셸 자동완성을 설치해요.
 ---
 
 import { Aside, Tabs, TabItem } from "@astrojs/starlight/components";
@@ -15,7 +15,7 @@ devsync autocomplete powershell
 
 ## 설명
 
-`devsync autocomplete`는 셸별 자동완성 스크립트를 표준 출력으로 출력해요. 이 스크립트를 셸 설정 파일에서 평가하면 devsync의 모든 명령어, 서브 커맨드, 플래그에 대한 탭 자동완성이 활성화돼요.
+`devsync autocomplete`는 셸별 자동완성 스크립트를 표준 출력으로 출력해요. 이 스크립트를 셸 설정 파일에서 평가하면 Devsync의 모든 명령어, 서브 커맨드, 플래그에 대한 탭 자동완성이 활성화돼요.
 
 자동완성은 내부적으로 `devsync __complete` 서브 커맨드가 처리해요. 탭을 누를 때마다 셸이 이 명령을 호출해요. `__complete`를 직접 호출할 필요는 없어요.
 
@@ -92,5 +92,5 @@ devsync autocomplete zsh > ~/.zsh/completions/_devsync
 ## 참고
 
 <Aside type="note">
-  devsync를 새 버전으로 업데이트해서 명령어나 플래그가 추가됐다면, 셸을 재시작하거나 자동완성 스크립트를 다시 불러와야 변경 사항이 반영돼요. 셸 설정 파일에서 `eval`로 불러오는 방식을 사용하면 새 셸 세션마다 자동으로 최신 상태가 적용돼요.
+  Devsync를 새 버전으로 업데이트해서 명령어나 플래그가 추가됐다면, 셸을 재시작하거나 자동완성 스크립트를 다시 불러와야 변경 사항이 반영돼요. 셸 설정 파일에서 `eval`로 불러오는 방식을 사용하면 새 셸 세션마다 자동으로 최신 상태가 적용돼요.
 </Aside>

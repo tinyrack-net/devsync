@@ -1,13 +1,13 @@
 ---
 title: Troubleshooting
-description: Solutions to common devsync issues.
+description: Solutions to common Devsync issues.
 ---
 
 import { Aside } from "@astrojs/starlight/components";
 
 ## Running `devsync doctor`
 
-`devsync doctor` inspects your local devsync setup and reports any problems it finds. It checks:
+`devsync doctor` inspects your local Devsync setup and reports any problems it finds. It checks:
 
 - **Repository validity** — whether `~/.config/devsync/sync/` exists and is a valid Git repository
 - **Manifest integrity** — whether `manifest.json` is present and syntactically valid
@@ -145,14 +145,14 @@ Encrypted files cannot be recovered without the original age private key. There 
 
 ## Resetting devsync
 
-If you want to start completely fresh, remove the entire devsync configuration directory:
+If you want to start completely fresh, remove the entire Devsync configuration directory:
 
 ```bash
 rm -rf ~/.config/devsync/
 ```
 
 <Aside type="caution">
-This removes your age key, sync repository, and all devsync settings. Your **original local files are never touched** — only the devsync configuration is deleted.
+This removes your age key, sync repository, and all Devsync settings. Your **original local files are never touched** — only the Devsync configuration is deleted.
 </Aside>
 
 After resetting, re-initialize:

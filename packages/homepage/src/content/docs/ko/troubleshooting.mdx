@@ -7,7 +7,7 @@ import { Aside } from "@astrojs/starlight/components";
 
 ## `devsync doctor` 실행하기
 
-`devsync doctor`는 로컬 devsync 설정을 검사하고 문제가 있는 항목을 알려줘요. 다음 항목들을 확인해요.
+`devsync doctor`는 로컬 Devsync 설정을 검사하고 문제가 있는 항목을 알려줘요. 다음 항목들을 확인해요.
 
 - **저장소 유효성** — `~/.config/devsync/sync/`가 존재하고 올바른 Git 저장소인지
 - **매니페스트 무결성** — `manifest.json`이 존재하고 문법적으로 올바른지
@@ -72,7 +72,7 @@ exit
 
 **원인:** `~/.config/devsync/sync/`가 삭제됐거나 이 기기에서 `devsync init`을 실행한 적이 없는 경우예요.
 
-**해결 방법:** devsync를 다시 초기화해요. 기존 dotfiles 저장소가 있다면 URL을 함께 전달해요.
+**해결 방법:** Devsync를 다시 초기화해요. 기존 dotfiles 저장소가 있다면 URL을 함께 전달해요.
 
 ```bash
 devsync init https://github.com/yourname/dotfiles.git
@@ -143,16 +143,16 @@ devsync pull
 
 ---
 
-## devsync 초기화(리셋)하기
+## Devsync 초기화(리셋)하기
 
-완전히 처음부터 다시 시작하고 싶다면 devsync 설정 디렉터리 전체를 삭제해요.
+완전히 처음부터 다시 시작하고 싶다면 Devsync 설정 디렉터리 전체를 삭제해요.
 
 ```bash
 rm -rf ~/.config/devsync/
 ```
 
 <Aside type="caution">
-이 명령은 age 키, sync 저장소, 모든 devsync 설정을 삭제해요. **로컬에 있는 원본 파일은 건드리지 않아요** — devsync 설정만 삭제돼요.
+이 명령은 age 키, sync 저장소, 모든 Devsync 설정을 삭제해요. **로컬에 있는 원본 파일은 건드리지 않아요** — Devsync 설정만 삭제돼요.
 </Aside>
 
 삭제 후 다시 초기화해요.

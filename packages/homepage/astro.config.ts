@@ -19,7 +19,7 @@ export default defineConfig({
   },
   integrations: [
     starlight({
-      title: "devsync",
+      title: "Devsync",
       description:
         "Git-backed configuration sync for your development environment.",
       defaultLocale: "en",
@@ -43,7 +43,7 @@ export default defineConfig({
       plugins: [
         starlightThemeBlack({
           footerText:
-            "devsync · MIT License · [GitHub](https://github.com/tinyrack-net/devsync)",
+            "Devsync · MIT License · [GitHub](https://github.com/tinyrack-net/devsync)",
         }),
       ],
       customCss: ["./src/styles/tailwind.css"],
