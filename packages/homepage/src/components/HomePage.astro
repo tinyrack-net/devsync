@@ -22,7 +22,7 @@ const { actions, body, description, lang, tagline, title } = Astro.props;
 <StarlightPage frontmatter={{ title, description, template: "splash", hero: {} }}>
   <main class="not-content" lang={lang}>
     <section
-      class="homepage-hero relative flex flex-col items-center overflow-hidden bg-white px-6 py-24 sm:py-32 dark:bg-zinc-950"
+      class="homepage-hero relative flex min-h-[calc(100dvh-var(--sl-nav-height))] flex-col items-center justify-center overflow-hidden bg-[var(--background)] px-6 py-24 sm:py-32"
     >
       <div
         class="pointer-events-none absolute inset-x-0 top-0 flex justify-center opacity-0 dark:opacity-100"
@@ -115,8 +115,7 @@ const { actions, body, description, lang, tagline, title } = Astro.props;
     display: none;
   }
   /* Match Starlight's page background to hero section background — prevents color seams */
-  [data-theme="dark"]:has(.homepage-hero) {
-    --sl-color-bg: #09090b;
-    background-color: #09090b;
+  body:has(.homepage-hero) {
+    background-color: var(--background);
   }
 </style>

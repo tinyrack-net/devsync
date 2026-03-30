@@ -2,6 +2,7 @@ import starlight from "@astrojs/starlight";
 import tailwindcss from "@tailwindcss/vite";
 import type { AstroUserConfig } from "astro";
 import { defineConfig } from "astro/config";
+import starlightThemeBlack from "starlight-theme-black";
 
 export default defineConfig({
   site: "https://devsync.tinyrack.net",
@@ -34,6 +35,12 @@ export default defineConfig({
           label: "GitHub",
           href: "https://github.com/tinyrack-net/devsync",
         },
+      ],
+      plugins: [
+        starlightThemeBlack({
+          footerText:
+            "devsync · MIT License · [GitHub](https://github.com/tinyrack-net/devsync)",
+        }),
       ],
       customCss: ["./src/styles/tailwind.css"],
       components: {
