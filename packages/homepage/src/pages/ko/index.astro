@@ -11,9 +11,12 @@ import HomePage from "../../components/HomePage.astro";
       variant: "secondary",
     },
   ]}
-  body="홈 디렉터리 파일을 Git 저장소에 미러링하고, 명시적인 push와 pull로 어느 장비에서든 복원합니다. 데몬도 없고, 마법도 없습니다."
-  description="마법 없이 dotfile을 Git으로 동기화하는 CLI입니다."
+  body={[
+    "설정 파일을 그대로 편집하고, push하면 끝이에요.",
+    "어느 기기에서든 pull 한 번으로 복원하세요.",
+  ].join("\n")}
+  description="dotfile을 Git으로 동기화하는 CLI"
   lang="ko"
-  tagline="마법 없는 dotfile 동기화."
+  tagline="내 설정, 어디서든 그대로."
   title="devsync"
 />

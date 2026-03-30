@@ -11,9 +11,12 @@ import HomePage from "../../components/HomePage.astro";
       variant: "secondary",
     },
   ]}
-  body="Track files and directories under your home directory, mirror them into a Git repository, and restore them on any machine. No daemon. No magic."
-  description="Git-backed dotfile sync for developers who want reproducibility without magic."
+  body={[
+    "Edit your config files as usual, then push.",
+    "Restore on any machine with a single pull.",
+  ].join("\n")}
+  description="A CLI that syncs dotfiles with Git."
   lang="en"
-  tagline="Dotfile sync without the magic."
+  tagline="Your config, anywhere."
   title="devsync"
 />
