@@ -1,0 +1,96 @@
+---
+title: devsync track
+description: Register local files or directories as sync targets.
+---
+
+import { Aside, Steps, Code, Tabs, TabItem } from "@astrojs/starlight/components";
+
+## Synopsis
+
+```bash
+devsync track <path> [<path>...]
+```
+
+## Description
+
+`devsync track` registers one or more local paths in `manifest.json` so that devsync knows to include them in future `push` and `pull` operations.
+
+Paths must reside under your home directory (`$HOME`). They are stored in the manifest as home-relative paths and are resolved back to absolute paths at runtime.
+
+If a path is already tracked, running `track` again updates its mode and profile assignments without creating a duplicate entry.
+
+Repository artifacts are stored at `~/.config/devsync/sync/{profile}/{relative-home-path}` (or at the root level for entries not assigned to a profile).
+
+## Arguments
+
+| Argument | Description |
+|----------|-------------|
+| `path` | One or more absolute or `~`-prefixed paths to track. At least one path is required. |
+
+## Options
+
+| Flag | Description |
+|------|-------------|
+| `--mode normal\|secret\|ignore` | Sync mode for the path. Defaults to `normal`. |
+| `--profile NAME` | Assign the entry to a named profile. Can be repeated to assign to multiple profiles. Omit to create a global entry (synced regardless of active profile). |
+| `--verbose` | Print detailed output. |
+
+## Sync modes
+
+| Mode | Description |
+|------|-------------|
+| `normal` | Stores the file or directory content as-is in the repository. |
+| `secret` | Encrypts the file with age before writing to the repository. The artifact is stored as `{filename}.devsync.secret`. The original file is never written to the repository unencrypted. |
+| `ignore` | Registers the path in the manifest but skips it entirely during `push` and `pull`. Useful for acknowledging a path without syncing it. |
+
+## Examples
+
+<Tabs>
+  <TabItem label="Single file">
+    ```bash
+    # Track ~/.gitconfig with the default (normal) mode
+    devsync track ~/.gitconfig
+    ```
+  </TabItem>
+  <TabItem label="Multiple files">
+    ```bash
+    # Track several dotfiles at once
+    devsync track ~/.gitconfig ~/.zshrc ~/.tmux.conf
+    ```
+  </TabItem>
+  <TabItem label="Secret mode">
+    ```bash
+    # Track an SSH private key — encrypted before storing in the repo
+    devsync track ~/.ssh/id_ed25519 --mode secret
+    ```
+  </TabItem>
+  <TabItem label="With profile">
+    ```bash
+    # Track VS Code settings only for the "work" profile
+    devsync track ~/.config/Code/User/settings.json --profile work
+    ```
+  </TabItem>
+  <TabItem label="Directory">
+    ```bash
+    # Track an entire config directory
+    devsync track ~/.config/nvim
+    ```
+  </TabItem>
+  <TabItem label="Override child mode">
+    ```bash
+    # Track the whole .ssh directory normally, but encrypt the private key
+    devsync track ~/.ssh
+    devsync track ~/.ssh/id_ed25519 --mode secret
+    ```
+  </TabItem>
+</Tabs>
+
+## Notes
+
+<Aside type="note">
+  You can track child paths inside an already-tracked directory. The more specific (deeper) entry's mode takes precedence during push and pull. This is useful for encrypting individual sensitive files inside a directory that is otherwise synced normally.
+</Aside>
+
+<Aside type="note">
+  `devsync track` only updates `manifest.json`. Run [`devsync push`](/en/reference/push) afterward to actually copy the file into the sync repository.
+</Aside>

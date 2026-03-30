@@ -1,0 +1,90 @@
+---
+title: devsync push
+description: Mirror local files into the sync repository.
+---
+
+import { Aside, Tabs, TabItem } from "@astrojs/starlight/components";
+
+## Synopsis
+
+```bash
+devsync push
+```
+
+## Description
+
+`devsync push` reads the current state of every tracked local file and updates the artifacts in the sync repository (`~/.config/devsync/sync/`) to match. **Local files are always the source of truth** — `push` only writes *from* local *to* the repository, never the other way.
+
+For entries with `mode: secret`, the file content is encrypted with age before being written to the repository. The artifact is stored with a `.devsync.secret` extension so it is never accidentally committed in plaintext.
+
+After pushing, the sync repository directory contains an up-to-date snapshot of your config. You can then use `git commit` and `git push` inside that directory (accessible via [`devsync cd`](/en/reference/cd)) to ship the snapshot to a remote.
+
+`push` does **not** create git commits automatically.
+
+## Options
+
+| Flag | Description |
+|------|-------------|
+| `--dry-run` | Preview what would be written without actually making any changes. |
+| `--profile NAME` | Override the active profile for this single run. Does not persist to `settings.json`. |
+| `--verbose` | Show per-entry and per-file detail during the operation. |
+
+## Examples
+
+<Tabs>
+  <TabItem label="Basic">
+    ```bash
+    # Push all tracked files to the sync repository
+    devsync push
+    ```
+  </TabItem>
+  <TabItem label="Dry run">
+    ```bash
+    # Preview what push would change without writing
+    devsync push --dry-run
+    ```
+  </TabItem>
+  <TabItem label="Profile override">
+    ```bash
+    # Push only entries for the "work" profile (one-time override)
+    devsync push --profile work
+    ```
+  </TabItem>
+  <TabItem label="Verbose">
+    ```bash
+    # See every file written during push
+    devsync push --verbose
+    ```
+  </TabItem>
+</Tabs>
+
+## Typical workflow
+
+```bash
+# 1. Edit your config as usual
+vim ~/.zshrc
+
+# 2. Check what changed
+devsync status
+
+# 3. Push local changes to the sync repository
+devsync push
+
+# 4. Commit and push with git
+devsync cd
+# (now inside ~/.config/devsync/sync/)
+git add -A
+git commit -m "update zshrc"
+git push
+exit
+```
+
+## Notes
+
+<Aside type="note">
+  `push` does not contact any remote. It only writes to the local sync repository directory. Syncing to a remote git host is a separate manual step using git.
+</Aside>
+
+<Aside type="caution">
+  Entries with `mode: ignore` are skipped entirely — neither read nor written — even if they exist in both locations.
+</Aside>

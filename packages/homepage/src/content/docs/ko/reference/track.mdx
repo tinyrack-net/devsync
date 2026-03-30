@@ -1,0 +1,96 @@
+---
+title: devsync track
+description: 로컬 파일이나 디렉터리를 동기화 대상으로 등록해요.
+---
+
+import { Aside, Tabs, TabItem } from "@astrojs/starlight/components";
+
+## 형식
+
+```bash
+devsync track <path> [<path>...]
+```
+
+## 설명
+
+`devsync track`은 하나 이상의 로컬 경로를 `manifest.json`에 등록해서 이후 `push`와 `pull` 작업에 포함되도록 해요.
+
+경로는 홈 디렉터리(`$HOME`) 하위에 있어야 해요. manifest에는 홈 기준 상대 경로로 저장되며, 실행 시에는 절대 경로로 변환돼요.
+
+이미 추적 중인 경로에 `track`을 다시 실행하면 기존 항목의 모드나 프로파일만 업데이트되고 중복 항목은 생기지 않아요.
+
+저장소 아티팩트는 `~/.config/devsync/sync/{profile}/{홈 기준 상대 경로}`에 저장돼요. 프로파일이 없는 항목은 루트 레벨에 저장돼요.
+
+## 인수
+
+| 인수 | 설명 |
+|------|------|
+| `path` | 추적할 절대 경로 또는 `~`로 시작하는 경로. 하나 이상 필수예요. |
+
+## 옵션
+
+| 플래그 | 설명 |
+|--------|------|
+| `--mode normal\|secret\|ignore` | 동기화 모드. 기본값은 `normal`이에요. |
+| `--profile NAME` | 항목을 특정 프로파일에 할당해요. 반복 사용해서 여러 프로파일에 동시 할당할 수 있어요. 생략하면 전역 항목이 돼요. |
+| `--verbose` | 상세 출력을 표시해요. |
+
+## 동기화 모드
+
+| 모드 | 설명 |
+|------|------|
+| `normal` | 파일 또는 디렉터리 내용을 그대로 저장소에 저장해요. |
+| `secret` | 저장소에 쓰기 전에 age로 파일을 암호화해요. 아티팩트는 `{파일명}.devsync.secret`으로 저장되고, 원본 파일은 절대 평문으로 저장되지 않아요. |
+| `ignore` | manifest에 경로를 등록하지만 `push`와 `pull` 시에는 완전히 건너뛰어요. 동기화하지 않으면서 경로 존재를 기록해 두고 싶을 때 유용해요. |
+
+## 예시
+
+<Tabs>
+  <TabItem label="단일 파일">
+    ```bash
+    # ~/.gitconfig를 기본(normal) 모드로 추적
+    devsync track ~/.gitconfig
+    ```
+  </TabItem>
+  <TabItem label="여러 파일">
+    ```bash
+    # 여러 dotfile을 한 번에 추적
+    devsync track ~/.gitconfig ~/.zshrc ~/.tmux.conf
+    ```
+  </TabItem>
+  <TabItem label="시크릿 모드">
+    ```bash
+    # SSH 개인 키를 암호화해서 저장소에 저장
+    devsync track ~/.ssh/id_ed25519 --mode secret
+    ```
+  </TabItem>
+  <TabItem label="프로파일 지정">
+    ```bash
+    # VS Code 설정을 "work" 프로파일에만 할당
+    devsync track ~/.config/Code/User/settings.json --profile work
+    ```
+  </TabItem>
+  <TabItem label="디렉터리">
+    ```bash
+    # 설정 디렉터리 전체를 추적
+    devsync track ~/.config/nvim
+    ```
+  </TabItem>
+  <TabItem label="자식 경로 모드 재정의">
+    ```bash
+    # .ssh 전체는 normal 모드로, 개인 키만 secret 모드로
+    devsync track ~/.ssh
+    devsync track ~/.ssh/id_ed25519 --mode secret
+    ```
+  </TabItem>
+</Tabs>
+
+## 참고
+
+<Aside type="note">
+  이미 추적 중인 디렉터리 안의 하위 경로도 개별적으로 등록할 수 있어요. push/pull 시에는 더 구체적인(깊은) 경로의 모드가 우선 적용돼요. 디렉터리는 normal로 두고 특정 파일만 secret으로 암호화할 때 활용할 수 있어요.
+</Aside>
+
+<Aside type="note">
+  `devsync track`은 `manifest.json`만 업데이트해요. 실제로 파일을 동기화 저장소에 복사하려면 [`devsync push`](/ko/reference/push)를 실행해야 해요.
+</Aside>

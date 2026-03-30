@@ -1,0 +1,105 @@
+---
+title: devsync profile
+description: List available profiles and switch the active profile.
+---
+
+import { Aside, Tabs, TabItem } from "@astrojs/starlight/components";
+
+## Synopsis
+
+```bash
+devsync profile list
+devsync profile use [profile]
+```
+
+## Description
+
+Profiles let you organize tracked entries by machine or context. When a profile is active, `push`, `pull`, and `status` only operate on entries that either belong to that profile or have no profile assigned (global entries).
+
+Profile names are free-form strings (e.g. `work`, `personal`, `home-mac`). They are stored in `manifest.json` alongside the entries that reference them. The active profile is persisted in `~/.config/devsync/settings.json`.
+
+---
+
+## `profile list`
+
+Lists all profile names referenced across all entries in `manifest.json`. Highlights the profile currently set as active.
+
+### Options
+
+| Flag | Description |
+|------|-------------|
+| `--verbose` | Print detailed output. |
+
+### Example
+
+```bash
+devsync profile list
+```
+
+```
+Available profiles:
+  work
+  personal
+* home-mac   ← active
+```
+
+---
+
+## `profile use`
+
+Sets the active profile in `~/.config/devsync/settings.json`. Subsequent `push`, `pull`, and `status` invocations will use this profile unless overridden with `--profile`.
+
+Omit the profile name argument to **clear** the active profile. When no profile is active, only global entries (those with no profile assigned) are included in sync operations.
+
+### Arguments
+
+| Argument | Description |
+|----------|-------------|
+| `profile` | Optional. The name of the profile to activate. Omit to clear the active profile. |
+
+### Options
+
+| Flag | Description |
+|------|-------------|
+| `--verbose` | Print detailed output. |
+
+### Examples
+
+<Tabs>
+  <TabItem label="Switch profile">
+    ```bash
+    # Activate the "work" profile
+    devsync profile use work
+    ```
+  </TabItem>
+  <TabItem label="Clear profile">
+    ```bash
+    # Clear the active profile — only global entries will sync
+    devsync profile use
+    ```
+  </TabItem>
+</Tabs>
+
+---
+
+## Profiles and the `--profile` flag
+
+The `--profile` flag on `push`, `pull`, and `status` provides a **one-time override** without changing the active profile in `settings.json`.
+
+```bash
+# Temporarily check status for the "personal" profile
+devsync status --profile personal
+
+# The active profile is unchanged after this command
+devsync profile list   # still shows the previous active profile
+```
+
+## Notes
+
+<Aside type="note">
+  A tracked entry assigned to a profile is only synced when that profile (or an override via `--profile`) is active. Entries with no profile assigned are always synced, regardless of the active profile.
+</Aside>
+
+<Aside type="note">
+  Profile names are case-sensitive. `Work` and `work` are treated as different profiles.
+</Aside>

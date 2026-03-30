@@ -1,0 +1,105 @@
+---
+title: devsync profile
+description: 사용 가능한 프로파일을 확인하고 활성 프로파일을 전환해요.
+---
+
+import { Aside, Tabs, TabItem } from "@astrojs/starlight/components";
+
+## 형식
+
+```bash
+devsync profile list
+devsync profile use [profile]
+```
+
+## 설명
+
+프로파일을 사용하면 기기나 컨텍스트별로 추적 항목을 구분할 수 있어요. 프로파일이 활성화되면 `push`, `pull`, `status`는 해당 프로파일에 속한 항목과 프로파일이 없는 전역 항목만 처리해요.
+
+프로파일 이름은 자유롭게 지정할 수 있어요(예: `work`, `personal`, `home-mac`). 이름은 각 항목과 함께 `manifest.json`에 저장되고, 활성 프로파일은 `~/.config/devsync/settings.json`에 저장돼요.
+
+---
+
+## `profile list`
+
+`manifest.json`의 모든 항목에서 참조된 프로파일 이름을 나열해요. 현재 활성화된 프로파일을 함께 표시해요.
+
+### 옵션
+
+| 플래그 | 설명 |
+|--------|------|
+| `--verbose` | 상세 출력을 표시해요. |
+
+### 예시
+
+```bash
+devsync profile list
+```
+
+```
+사용 가능한 프로파일:
+  work
+  personal
+* home-mac   ← 활성
+```
+
+---
+
+## `profile use`
+
+`~/.config/devsync/settings.json`에 활성 프로파일을 설정해요. 이후의 `push`, `pull`, `status`는 `--profile`로 재정의하지 않는 한 이 프로파일을 사용해요.
+
+프로파일 이름 인수를 생략하면 활성 프로파일이 **해제**돼요. 활성 프로파일이 없으면 프로파일이 지정되지 않은 전역 항목만 동기화 작업에 포함돼요.
+
+### 인수
+
+| 인수 | 설명 |
+|------|------|
+| `profile` | 선택 사항. 활성화할 프로파일 이름. 생략하면 활성 프로파일을 해제해요. |
+
+### 옵션
+
+| 플래그 | 설명 |
+|--------|------|
+| `--verbose` | 상세 출력을 표시해요. |
+
+### 예시
+
+<Tabs>
+  <TabItem label="프로파일 전환">
+    ```bash
+    # "work" 프로파일 활성화
+    devsync profile use work
+    ```
+  </TabItem>
+  <TabItem label="프로파일 해제">
+    ```bash
+    # 활성 프로파일 해제 — 전역 항목만 동기화
+    devsync profile use
+    ```
+  </TabItem>
+</Tabs>
+
+---
+
+## 프로파일과 `--profile` 플래그
+
+`push`, `pull`, `status`의 `--profile` 플래그는 `settings.json`의 활성 프로파일을 바꾸지 않고 **해당 실행에만 일회성으로** 프로파일을 재정의해요.
+
+```bash
+# "personal" 프로파일로 상태를 일시 확인
+devsync status --profile personal
+
+# 이 명령 실행 후에도 활성 프로파일은 변경되지 않아요
+devsync profile list   # 기존 활성 프로파일 그대로 표시
+```
+
+## 참고
+
+<Aside type="note">
+  프로파일에 할당된 추적 항목은 해당 프로파일(또는 `--profile` 재정의)이 활성화된 경우에만 동기화돼요. 프로파일이 지정되지 않은 항목은 활성 프로파일에 관계없이 항상 동기화돼요.
+</Aside>
+
+<Aside type="note">
+  프로파일 이름은 대소문자를 구분해요. `Work`와 `work`는 서로 다른 프로파일이에요.
+</Aside>

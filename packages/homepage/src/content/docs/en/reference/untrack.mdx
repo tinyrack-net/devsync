@@ -1,0 +1,55 @@
+---
+title: devsync untrack
+description: Stop tracking a path and remove it from the manifest.
+---
+
+import { Aside } from "@astrojs/starlight/components";
+
+## Synopsis
+
+```bash
+devsync untrack <path>
+```
+
+## Description
+
+`devsync untrack` removes a path from `manifest.json`, so it is no longer included in future `push` or `pull` operations.
+
+The command accepts both a local absolute path (e.g. `~/.gitconfig`) and a repository-relative path (the path as stored inside the sync repository, e.g. `.gitconfig`). Either form resolves to the same manifest entry.
+
+Untracking a path does **not** delete the file from your local disk, nor does it remove the existing artifact from the sync repository. The removal takes effect on the next `push` or `pull`.
+
+## Arguments
+
+| Argument | Description |
+|----------|-------------|
+| `path` | The local absolute path or repository-relative path to remove from tracking. |
+
+## Options
+
+| Flag | Description |
+|------|-------------|
+| `--verbose` | Print detailed output. |
+
+## Examples
+
+```bash
+# Untrack by local path
+devsync untrack ~/.gitconfig
+
+# Untrack using a tilde-prefixed path
+devsync untrack ~/.config/nvim
+
+# Untrack using a repository-relative path
+devsync untrack .gitconfig
+```
+
+## Notes
+
+<Aside type="note">
+  After untracking, the artifact in the sync repository (`~/.config/devsync/sync/`) still exists. To remove it permanently, open the sync directory with [`devsync cd`](/en/reference/cd) and delete the file manually, then commit the change.
+</Aside>
+
+<Aside type="caution">
+  Untracking a directory does **not** automatically untrack child paths that were individually registered. Remove those entries separately with their own `untrack` calls, or inspect `manifest.json` directly.
+</Aside>

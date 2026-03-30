@@ -1,0 +1,71 @@
+---
+title: devsync status
+description: push와 pull이 변경할 내용을 미리 확인해요.
+---
+
+import { Aside } from "@astrojs/starlight/components";
+
+## 형식
+
+```bash
+devsync status
+```
+
+## 설명
+
+`devsync status`는 추적 중인 로컬 파일과 동기화 저장소(`~/.config/devsync/sync/`)의 아티팩트를 비교해서 차이를 보고해요. 아무것도 변경하지 않아요.
+
+한 번에 두 가지를 확인할 수 있어요:
+
+- **`push`가 저장소에 쓸 내용** — 저장소 아티팩트와 다른 로컬 파일
+- **`pull`이 로컬에 복원할 내용** — 로컬 파일과 다른 저장소 아티팩트
+
+`push`나 `pull`을 실행하기 전에 `status`로 현재 동기화 상태를 파악하는 것을 권장해요.
+
+변경 사항이 있어도 종료 코드는 항상 `0`이에요. 스크립트나 pre-commit 훅에서 안전하게 사용할 수 있어요.
+
+## 옵션
+
+| 플래그 | 설명 |
+|--------|------|
+| `--profile NAME` | 이번 실행에 한해 활성 프로파일을 재정의해요. `settings.json`에는 저장되지 않아요. |
+| `--verbose` | 항목별·파일별 상세 내용을 표시해요. |
+
+## 예시
+
+```bash
+# 활성 프로파일 기준으로 동기화 상태 확인
+devsync status
+
+# 프로파일을 전환하지 않고 특정 프로파일의 상태 확인
+devsync status --profile work
+
+# 파일별 상세 차이 표시
+devsync status --verbose
+```
+
+## 출력 예시
+
+```
+→ Push 예정 (로컬 → 저장소):
+  ~ .gitconfig
+  + .zshrc
+
+← Pull 예정 (저장소 → 로컬):
+  ~ .config/nvim/init.lua
+```
+
+| 기호 | 의미 |
+|------|------|
+| `+` | 한쪽에만 존재하는 파일 (추가 예정) |
+| `~` | 양쪽에 존재하지만 내용이 다른 파일 (변경 예정) |
+
+## 참고
+
+<Aside type="note">
+  `devsync status`는 `manifest.json`을 읽고 파일 내용을 비교해요. `git status`를 실행하거나 원격 저장소와 통신하지 않아요. 동기화 저장소의 git 상태는 [`devsync cd`](/ko/reference/cd)로 진입한 뒤 `git status`로 확인할 수 있어요.
+</Aside>
+
+<Aside type="note">
+  `--profile` 플래그는 이번 실행에만 영향을 주고, `settings.json`에 저장된 활성 프로파일은 변경되지 않아요.
+</Aside>
