@@ -11,6 +11,10 @@ export default defineConfig({
     "/": "/en/",
   },
   vite: {
+    server: {
+      host: '0.0.0.0',
+      allowedHosts: true,
+    },
     plugins: [tailwindcss()] as NonNullable<AstroUserConfig["vite"]>["plugins"],
   },
   integrations: [
@@ -50,11 +54,54 @@ export default defineConfig({
         {
           label: "Guide",
           translations: {
-            ko: "가이드",
+            ko: "소개",
           },
           items: [
             { slug: "intro" },
             { slug: "getting-started" },
+          ],
+        },
+        {
+          label: "Guides",
+          translations: {
+            ko: "가이드",
+          },
+          items: [
+            { slug: "guides/how-it-works" },
+            { slug: "guides/sync-modes" },
+            { slug: "guides/tracking-files" },
+            { slug: "guides/syncing-secrets" },
+            { slug: "guides/profiles" },
+            { slug: "guides/multi-device-workflow" },
+            { slug: "guides/platform-specific-paths" },
+            { slug: "guides/shell-autocomplete" },
+          ],
+        },
+        {
+          label: "Command Reference",
+          translations: {
+            ko: "명령어 레퍼런스",
+          },
+          items: [
+            { slug: "reference/init" },
+            { slug: "reference/track" },
+            { slug: "reference/untrack" },
+            { slug: "reference/status" },
+            { slug: "reference/push" },
+            { slug: "reference/pull" },
+            { slug: "reference/doctor" },
+            { slug: "reference/cd" },
+            { slug: "reference/profile" },
+            { slug: "reference/autocomplete" },
+          ],
+        },
+        {
+          label: "Troubleshooting",
+          translations: {
+            ko: "문제 해결",
+          },
+          items: [
+            { slug: "troubleshooting" },
           ],
         },
       ],

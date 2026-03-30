@@ -1,0 +1,162 @@
+---
+title: Troubleshooting
+description: Solutions to common devsync issues.
+---
+
+import { Aside } from "@astrojs/starlight/components";
+
+## Running `devsync doctor`
+
+`devsync doctor` inspects your local devsync setup and reports any problems it finds. It checks:
+
+- **Repository validity** — whether `~/.config/devsync/sync/` exists and is a valid Git repository
+- **Manifest integrity** — whether `manifest.json` is present and syntactically valid
+- **Age key** — whether `~/.config/devsync/age/keys.txt` exists and is readable
+- **Tracked paths** — whether every path registered in the manifest actually exists on disk
+
+Run it any time you suspect something is wrong:
+
+```bash
+devsync doctor
+```
+
+If doctor reports failures, read the output carefully — each failure message includes the affected component and a suggested next step. The sections below cover the most common failures in detail.
+
+---
+
+## Common Issues
+
+### "Age key not found" or decryption errors
+
+**Cause:** `~/.config/devsync/age/keys.txt` is missing or has been corrupted.
+
+**Fix:** Re-register your age private key:
+
+```bash
+devsync init --key AGE-SECRET-KEY-...
+```
+
+<Aside type="caution">
+If you no longer have the original `AGE-SECRET-KEY-...` value, encrypted files stored in the repository **cannot be recovered**. Always back up your age key in a password manager or other secure location.
+</Aside>
+
+---
+
+### "Tracked path does not exist"
+
+**Cause:** A file or directory that was previously tracked has been moved or deleted from your local machine.
+
+**Fix:** Either restore the file to its original path, or remove it from tracking:
+
+```bash
+devsync untrack ~/.path/to/missing/file
+```
+
+---
+
+### "manifest.json is invalid"
+
+**Cause:** The manifest file was manually edited and now contains a syntax error.
+
+**Fix:** Open the sync directory and correct the JSON:
+
+```bash
+devsync cd
+# edit manifest.json to fix the syntax error
+exit
+```
+
+---
+
+### "Repository not found" / sync directory missing
+
+**Cause:** `~/.config/devsync/sync/` was deleted or `devsync init` was never run on this machine.
+
+**Fix:** Re-initialize devsync. Pass your remote repository URL to restore from an existing dotfiles repo:
+
+```bash
+devsync init https://github.com/yourname/dotfiles.git
+```
+
+Or initialize fresh without a remote:
+
+```bash
+devsync init
+```
+
+---
+
+### Changes not appearing after push
+
+**Cause:** `devsync push` mirrors files into the local sync directory but does **not** create a Git commit. Your remote repository is unchanged until you commit and push manually.
+
+**Fix:** After running `devsync push`, enter the sync directory and commit:
+
+```bash
+devsync cd
+git add .
+git commit -m "Update dotfiles"
+git push
+exit
+```
+
+---
+
+### Pull does not restore all files
+
+**Cause:** Some files are assigned to a profile other than the one currently active. `devsync pull` only restores files belonging to the active profile.
+
+**Fix:** Check which profile is active and switch if needed:
+
+```bash
+devsync profile list
+devsync profile use <name>
+devsync pull
+```
+
+Or pull a specific profile without switching:
+
+```bash
+devsync pull --profile <name>
+```
+
+---
+
+## Recovering Encrypted Files
+
+Encrypted files (`.devsync.secret`) can only be decrypted with the original age private key used when `devsync init` was first run.
+
+**If you still have the key:**
+
+```bash
+devsync init --key AGE-SECRET-KEY-...
+devsync pull
+```
+
+**If you have lost the key:**
+
+<Aside type="caution">
+Encrypted files cannot be recovered without the original age private key. There is no backdoor or recovery mechanism.
+</Aside>
+
+**Recommendation:** Store your `AGE-SECRET-KEY-...` value in a password manager (1Password, Bitwarden, etc.) immediately after running `devsync init` for the first time.
+
+---
+
+## Resetting devsync
+
+If you want to start completely fresh, remove the entire devsync configuration directory:
+
+```bash
+rm -rf ~/.config/devsync/
+```
+
+<Aside type="caution">
+This removes your age key, sync repository, and all devsync settings. Your **original local files are never touched** — only the devsync configuration is deleted.
+</Aside>
+
+After resetting, re-initialize:
+
+```bash
+devsync init
+```
