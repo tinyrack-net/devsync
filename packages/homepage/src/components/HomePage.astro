@@ -22,7 +22,7 @@ const { actions, body, description, lang, tagline, title } = Astro.props;
 <StarlightPage frontmatter={{ title, description, template: "splash", hero: {} }}>
   <main class="not-content" lang={lang}>
     <section
-      class="homepage-hero relative flex min-h-[calc(100dvh-var(--sl-nav-height))] flex-col items-center justify-center overflow-hidden bg-[var(--background)] px-6 py-24 sm:py-32"
+      class="homepage-hero relative flex flex-col items-center overflow-hidden bg-[var(--background)] px-6 py-24 sm:py-32"
     >
       <div
         class="pointer-events-none absolute inset-x-0 top-0 flex justify-center opacity-0 dark:opacity-100"
@@ -109,6 +109,23 @@ const { actions, body, description, lang, tagline, title } = Astro.props;
   /* Remove Starlight's sl-markdown-content spacing rules */
   body:has(.homepage-hero) .sl-markdown-content > * + * {
     margin-top: 0;
+  }
+  /* Remove theme's markdown-wrapper padding on the landing page */
+  body:has(.homepage-hero) .markdown-wrapper {
+    padding-top: 0;
+    padding-bottom: 0;
+  }
+  /* Make the flex chain from main.main down to the hero section fill available height */
+  body:has(.homepage-hero) main.main > main,
+  body:has(.homepage-hero) .markdown-wrapper,
+  body:has(.homepage-hero) .sl-markdown-content,
+  body:has(.homepage-hero) .not-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+  }
+  body:has(.homepage-hero) .homepage-hero {
+    flex: 1;
   }
   /* Hide the empty Starlight footer on landing page */
   body:has(.homepage-hero) footer {
