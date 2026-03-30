@@ -7,86 +7,13 @@ import HomePage from "../../components/HomePage.astro";
     { href: "/ko/getting-started/", label: "시작하기" },
     {
       href: "https://github.com/tinyrack-net/devsync",
-      label: "GitHub 보기",
+      label: "GitHub →",
       variant: "secondary",
     },
   ]}
-  capabilities={[
-    {
-      name: "시크릿 동기화",
-      body: "대상을 secret 모드로 추적하면 저장소 아티팩트를 age로 암호화해서 보관합니다.",
-    },
-    {
-      name: "프로필 레이어",
-      body: "work, personal 같은 프로필에 항목을 할당하고 manifest를 바꾸지 않고 활성 레이어만 전환할 수 있습니다.",
-    },
-    {
-      name: "상태와 진단",
-      body: "doctor와 status로 저장소 상태, 설정 유효성, 로컬과 원격 변경 예정 사항을 먼저 확인할 수 있습니다.",
-    },
-    {
-      name: "저장소 셸 진입",
-      body: "devsync cd로 동기화 저장소 위치에 바로 들어가서 파일을 확인하거나 직접 커밋할 수 있습니다.",
-    },
-  ]}
-  commandPreview={`$ devsync init git@github.com:tinyrack-net/devsync.git
-$ devsync track ~/.gitconfig ~/.config/nvim --mode normal
-$ devsync track ~/.ssh/config --mode secret
-$ devsync status
-$ devsync push
-$ devsync pull
-$ devsync profile use work
-$ devsync doctor`}
-  description="개발 환경 설정을 Git 기반으로 동기화하는 도구입니다."
-  features={[
-    {
-      eyebrow: "Git 기반",
-      title: "설정을 복사본 묶음이 아니라 저장소처럼 다룹니다",
-      body: "devsync는 추적한 파일과 디렉터리를 XDG 설정 디렉터리 아래 전용 Git 저장소로 미러링해서 변경 이력과 검토 과정을 명확하게 유지합니다.",
-    },
-    {
-      eyebrow: "홈 디렉터리 중심",
-      title: "장비에서 실제로 중요한 설정만 추적합니다",
-      body: "닷파일, 앱 설정 디렉터리, 그 안의 하위 경로까지 등록해 새 장비와 오래 쓰는 워크스테이션 사이에서 같은 구성을 유지할 수 있습니다.",
-    },
-    {
-      eyebrow: "신중한 자동화",
-      title: "덮어쓰기 전에 무엇이 바뀌는지 먼저 봅니다",
-      body: "push와 pull 앞에 status, dry-run, doctor가 있어서 조용히 움직이는 백그라운드 동기화가 아니라 예측 가능한 CLI 흐름을 유지합니다.",
-    },
-  ]}
-  intro="devsync는 개발 환경 설정을 Git 워크플로로 동기화하기 위한 개인용 CLI입니다. 홈 디렉터리 아래의 추적 대상을 관리하고, 이를 로컬 동기화 저장소에 미러링한 뒤, 명시적인 push와 pull 단계로 다시 복원합니다."
+  body="홈 디렉터리 파일을 Git 저장소에 미러링하고, 명시적인 push와 pull로 어느 장비에서든 복원합니다. 데몬도 없고, 마법도 없습니다."
+  description="마법 없이 dotfile을 Git으로 동기화하는 CLI입니다."
   lang="ko"
-  sectionLabels={{
-    capabilities: "추가 기능",
-    commandPreview: "CLI 표면은 작고 직접적입니다.",
-    featureEyebrow: "왜 devsync인가",
-    featureTitle: "내 개발 환경을 내가 통제하는 흐름에 맞춰 설계했습니다.",
-    workflow: "일반적인 흐름",
-    workflowTitle: "실제 CLI 동작과 맞는 작업 순서입니다.",
-  }}
-  steps={[
-    {
-      command: "devsync init [repository]",
-      title: "로컬 동기화 저장소를 준비합니다",
-      body: "XDG 설정 디렉터리 아래에 저장소를 만들거나 클론하고, 이후 명령이 사용할 설정을 저장합니다.",
-    },
-    {
-      command: "devsync track <path...>",
-      title: "파일, 디렉터리, 시크릿을 등록합니다",
-      body: "로컬 대상을 추적하고 sync 모드를 정하며, 필요하면 프로필 제약도 함께 지정합니다.",
-    },
-    {
-      command: "devsync status",
-      title: "push와 pull 예정 변경을 확인합니다",
-      body: "무언가를 쓰기 전에 로컬 상태와 저장소 아티팩트를 비교해 어느 방향으로 무엇이 이동하는지 먼저 봅니다.",
-    },
-    {
-      command: "devsync push / pull",
-      title: "변경을 의도적으로 반영합니다",
-      body: "push는 로컬 상태를 저장소에 기록하고, pull은 저장소 아티팩트를 장비에 복원합니다. secret 항목은 필요한 시점에 암복호화됩니다.",
-    },
-  ]}
-  tagline="Git 워크플로를 숨기지 않으면서 개발 환경을 재현 가능하게 유지합니다."
+  tagline="마법 없는 dotfile 동기화."
   title="devsync"
 />

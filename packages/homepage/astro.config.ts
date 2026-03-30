@@ -36,6 +36,9 @@ export default defineConfig({
         },
       ],
       customCss: ["./src/styles/tailwind.css"],
+      components: {
+        Hero: "./src/components/OverrideHero.astro",
+      },
       sidebar: [
         {
           label: "Guide",
