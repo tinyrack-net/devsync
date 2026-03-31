@@ -11,15 +11,35 @@ type Props = {
   actions: Action[];
   body: string;
   description: string;
+  keywords: string;
   lang: "en" | "ko";
   tagline: string;
   title: string;
 };
 
-const { actions, body, description, lang, tagline, title } = Astro.props;
+const { actions, body, description, keywords, lang, tagline, title } = Astro.props;
+
+const ogLocale = lang === "ko" ? "ko_KR" : "en_US";
 ---
 
-<StarlightPage frontmatter={{ title, description, template: "splash", hero: {} }}>
+<StarlightPage
+  frontmatter={{
+    title,
+    description,
+    template: "splash",
+    hero: {},
+    head: [
+      {
+        tag: "meta",
+        attrs: { name: "keywords", content: keywords },
+      },
+      {
+        tag: "meta",
+        attrs: { property: "og:locale", content: ogLocale },
+      },
+    ],
+  }}
+>
   <main class="not-content" lang={lang}>
     <section
       class="homepage-hero relative flex flex-col items-center overflow-hidden bg-[var(--background)] px-6 py-24 sm:py-32"

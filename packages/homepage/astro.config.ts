@@ -12,7 +12,7 @@ export default defineConfig({
   },
   vite: {
     server: {
-      host: '0.0.0.0',
+      host: "0.0.0.0",
       allowedHosts: true,
     },
     plugins: [tailwindcss()] as NonNullable<AstroUserConfig["vite"]>["plugins"],
@@ -22,6 +22,16 @@ export default defineConfig({
       title: "Devsync",
       description:
         "Git-backed configuration sync for your development environment.",
+      head: [
+        {
+          tag: "meta",
+          attrs: { name: "twitter:card", content: "summary" },
+        },
+        {
+          tag: "meta",
+          attrs: { property: "og:site_name", content: "Devsync" },
+        },
+      ],
       defaultLocale: "en",
       locales: {
         en: {
@@ -56,10 +66,7 @@ export default defineConfig({
           translations: {
             ko: "시작하기",
           },
-          items: [
-            { slug: "intro" },
-            { slug: "getting-started" },
-          ],
+          items: [{ slug: "intro" }, { slug: "getting-started" }],
         },
         {
           label: "Guides",
@@ -100,9 +107,7 @@ export default defineConfig({
           translations: {
             ko: "문제 해결",
           },
-          items: [
-            { slug: "troubleshooting" },
-          ],
+          items: [{ slug: "troubleshooting" }],
         },
       ],
     }),
