@@ -25,7 +25,7 @@ type ResolveShellCommandOptions = Readonly<{
   ) => Promise<WindowsProcessInfo | undefined>;
 }>;
 
-const windowsShellNames = new Set([
+const windowsShellNames = new Set<string>([
   "bash",
   "cmd",
   "fish",

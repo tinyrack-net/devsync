@@ -2,7 +2,6 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
   detectCurrentPlatformKey,
-  resolveDefaultLocalPath,
   resolveLocalPathForPlatform,
 } from "#app/config/platform.ts";
 
@@ -120,16 +119,5 @@ describe("resolveLocalPathForPlatform", () => {
         "wsl",
       ),
     ).toBe("$XDG_CONFIG_HOME/app-linux");
-  });
-});
-
-describe("resolveDefaultLocalPath", () => {
-  it("returns default from object", () => {
-    expect(
-      resolveDefaultLocalPath({
-        default: "~/.config/app",
-        linux: "$XDG_CONFIG_HOME/app",
-      }),
-    ).toBe("~/.config/app");
   });
 });

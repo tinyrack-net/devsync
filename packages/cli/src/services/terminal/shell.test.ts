@@ -194,12 +194,12 @@ describe("shell launcher", () => {
 
     mockEnv.DEVSYNC_CD_ARGS = JSON.stringify([shellScript]);
     mockEnv.DEVSYNC_CD_COMMAND = process.execPath;
-    process.env["DEVSYNC_SHELL_MARKER"] = markerFile;
+    Reflect.set(process.env, "DEVSYNC_SHELL_MARKER", markerFile);
 
     try {
       await launchShellInDirectory(syncDirectory);
     } finally {
-      delete process.env["DEVSYNC_SHELL_MARKER"];
+      Reflect.deleteProperty(process.env, "DEVSYNC_SHELL_MARKER");
     }
 
     expect(await readFile(markerFile, "utf8")).toBe(syncDirectory);

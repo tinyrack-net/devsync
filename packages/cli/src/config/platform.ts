@@ -50,9 +50,3 @@ export const resolveLocalPathForPlatform = (
 
   return localPath[key] ?? localPath.default;
 };
-
-export const resolveDefaultLocalPath = (
-  localPath: PlatformLocalPath,
-): string => {
-  return localPath.default;
-};

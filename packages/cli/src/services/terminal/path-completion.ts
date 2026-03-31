@@ -2,7 +2,11 @@ import type { DevsyncCliContext } from "#app/services/terminal/cli-runtime.ts";
 
 const HOME_PREFIX = "~";
 const HIDDEN_ENTRY_PREFIX = ".";
-const RECOVERABLE_ERROR_CODES = new Set(["EACCES", "ENOENT", "ENOTDIR"]);
+const RECOVERABLE_ERROR_CODES = new Set<string>([
+  "EACCES",
+  "ENOENT",
+  "ENOTDIR",
+]);
 const SHELL_PATH_SEPARATOR = "/";
 
 type CompletionBase = Readonly<{
