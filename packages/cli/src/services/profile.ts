@@ -7,13 +7,13 @@ import {
   normalizeSyncProfileName,
   readSyncConfig,
 } from "#app/config/sync.ts";
-
+import { ENV } from "#app/lib/env.ts";
+import { DevsyncError } from "#app/lib/error.ts";
+import { writeTextFileAtomically } from "#app/lib/filesystem.ts";
 import {
   createSyncConfigDocument,
   writeValidatedSyncConfig,
 } from "./config-file.ts";
-import { DevsyncError } from "./error.ts";
-import { writeTextFileAtomically } from "./filesystem.ts";
 import { resolveTrackedEntry } from "./paths.ts";
 import { ensureSyncRepository, resolveSyncPaths } from "./runtime.ts";
 
@@ -55,16 +55,14 @@ type SyncProfileAssignResult = Readonly<{
   syncDirectory: string;
 }>;
 
-export const listSyncProfiles = async (
-  environment: NodeJS.ProcessEnv,
-): Promise<SyncProfileListResult> => {
-  const { syncDirectory, globalConfigPath } = resolveSyncPaths(environment);
+export const listSyncProfiles = async (): Promise<SyncProfileListResult> => {
+  const { syncDirectory, globalConfigPath } = resolveSyncPaths();
 
   await ensureSyncRepository(syncDirectory);
 
   const [globalConfig, syncConfig] = await Promise.all([
-    readGlobalDevsyncConfig(environment),
-    readSyncConfig(syncDirectory, environment),
+    readGlobalDevsyncConfig(),
+    readSyncConfig(syncDirectory, ENV),
   ]);
 
   return {
@@ -92,14 +90,13 @@ export const listSyncProfiles = async (
 
 export const useSyncProfile = async (
   profile: string,
-  environment: NodeJS.ProcessEnv,
 ): Promise<SyncProfileUpdateResult> => {
   const normalizedProfile = normalizeSyncProfileName(profile);
-  const { syncDirectory, globalConfigPath } = resolveSyncPaths(environment);
+  const { syncDirectory, globalConfigPath } = resolveSyncPaths();
 
   await ensureSyncRepository(syncDirectory);
 
-  const syncConfig = await readSyncConfig(syncDirectory, environment);
+  const syncConfig = await readSyncConfig(syncDirectory, ENV);
   const knownProfiles = collectAllProfileNames(syncConfig.entries);
   const warning = knownProfiles.includes(normalizedProfile)
     ? undefined
@@ -123,10 +120,8 @@ export const useSyncProfile = async (
   };
 };
 
-export const clearSyncProfiles = async (
-  environment: NodeJS.ProcessEnv,
-): Promise<SyncProfileUpdateResult> => {
-  const { syncDirectory, globalConfigPath } = resolveSyncPaths(environment);
+export const clearSyncProfiles = async (): Promise<SyncProfileUpdateResult> => {
+  const { syncDirectory, globalConfigPath } = resolveSyncPaths();
 
   await ensureSyncRepository(syncDirectory);
 
@@ -144,7 +139,6 @@ export const clearSyncProfiles = async (
 
 export const assignSyncProfiles = async (
   request: SyncProfileAssignRequest,
-  environment: NodeJS.ProcessEnv,
   cwd: string,
 ): Promise<SyncProfileAssignResult> => {
   const target = request.target.trim();
@@ -156,12 +150,12 @@ export const assignSyncProfiles = async (
     });
   }
 
-  const { syncDirectory, configPath } = resolveSyncPaths(environment);
+  const { syncDirectory, configPath } = resolveSyncPaths();
 
   await ensureSyncRepository(syncDirectory);
 
-  const config = await readSyncConfig(syncDirectory, environment);
-  const entry = resolveTrackedEntry(target, config.entries, environment, cwd);
+  const config = await readSyncConfig(syncDirectory, ENV);
+  const entry = resolveTrackedEntry(target, config.entries, cwd);
 
   if (entry === undefined) {
     throw new DevsyncError(`No tracked sync entry matches: ${target}`, {
@@ -202,7 +196,7 @@ export const assignSyncProfiles = async (
     }),
   });
 
-  await writeValidatedSyncConfig(syncDirectory, nextConfig, environment);
+  await writeValidatedSyncConfig(syncDirectory, nextConfig);
 
   return {
     action: "assigned",

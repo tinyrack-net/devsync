@@ -40,7 +40,7 @@ vi.mock("./config-file.ts", () => ({
   writeValidatedSyncConfig: mocked.writeValidatedSyncConfig,
 }));
 
-vi.mock("./filesystem.ts", () => ({
+vi.mock("#app/lib/filesystem.ts", () => ({
   writeTextFileAtomically: mocked.writeTextFileAtomically,
 }));
 
@@ -93,7 +93,7 @@ describe("sync profiles service", () => {
     });
     mocked.collectAllProfileNames.mockReturnValueOnce(["default", "work"]);
 
-    await expect(listSyncProfiles({ HOME: "/tmp/home" })).resolves.toEqual({
+    await expect(listSyncProfiles()).resolves.toEqual({
       activeProfile: "work",
       activeProfileMode: "single",
       assignments: [
@@ -123,7 +123,7 @@ describe("sync profiles service", () => {
     });
     mocked.collectAllProfileNames.mockReturnValueOnce([]);
 
-    const result = await listSyncProfiles({ HOME: "/tmp/home" });
+    const result = await listSyncProfiles();
 
     expect(result.activeProfile).toBeUndefined();
     expect(result.activeProfileMode).toBe("none");
@@ -137,9 +137,7 @@ describe("sync profiles service", () => {
     });
     mocked.collectAllProfileNames.mockReturnValueOnce(["default"]);
 
-    await expect(
-      useSyncProfile(" Work ", { HOME: "/tmp/home" }),
-    ).resolves.toEqual({
+    await expect(useSyncProfile(" Work ")).resolves.toEqual({
       action: "use",
       activeProfile: "work",
       globalConfigPath: "/tmp/devsync/global.json",
@@ -163,13 +161,13 @@ describe("sync profiles service", () => {
     });
     mocked.collectAllProfileNames.mockReturnValueOnce(["work"]);
 
-    const result = await useSyncProfile("work", { HOME: "/tmp/home" });
+    const result = await useSyncProfile("work");
 
     expect(result.warning).toBeUndefined();
   });
 
   it("clears the active profile from the global config", async () => {
-    await expect(clearSyncProfiles({ HOME: "/tmp/home" })).resolves.toEqual({
+    await expect(clearSyncProfiles()).resolves.toEqual({
       action: "clear",
       globalConfigPath: "/tmp/devsync/global.json",
       syncDirectory: "/tmp/devsync",
@@ -181,11 +179,7 @@ describe("sync profiles service", () => {
 
   it("rejects blank assignment targets before touching the repository", async () => {
     await expect(
-      assignSyncProfiles(
-        { profiles: ["work"], target: "   " },
-        { HOME: "/tmp/home" },
-        "/tmp/cwd",
-      ),
+      assignSyncProfiles({ profiles: ["work"], target: "   " }, "/tmp/cwd"),
     ).rejects.toThrowError("Target path is required.");
     expect(mocked.ensureSyncRepository).not.toHaveBeenCalled();
   });
@@ -199,7 +193,6 @@ describe("sync profiles service", () => {
     await expect(
       assignSyncProfiles(
         { profiles: ["work"], target: "~/.gitconfig" },
-        { HOME: "/tmp/home" },
         "/tmp/cwd",
       ),
     ).rejects.toThrowError("No tracked sync entry matches: ~/.gitconfig");
@@ -220,7 +213,6 @@ describe("sync profiles service", () => {
     await expect(
       assignSyncProfiles(
         { profiles: [" WORK ", "default"], target: "~/.gitconfig" },
-        { HOME: "/tmp/home" },
         "/tmp/cwd",
       ),
     ).resolves.toEqual({
@@ -249,7 +241,6 @@ describe("sync profiles service", () => {
 
     const result = await assignSyncProfiles(
       { profiles: ["work"], target: "~/.gitconfig" },
-      { HOME: "/tmp/home" },
       "/tmp/cwd",
     );
 
@@ -284,7 +275,6 @@ describe("sync profiles service", () => {
           ],
         },
       },
-      { HOME: "/tmp/home" },
     );
   });
 
@@ -304,7 +294,6 @@ describe("sync profiles service", () => {
 
     await assignSyncProfiles(
       { profiles: [], target: "~/.gitconfig" },
-      { HOME: "/tmp/home" },
       "/tmp/cwd",
     );
 

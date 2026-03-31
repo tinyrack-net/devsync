@@ -25,8 +25,8 @@ const profileUseCommand = buildCommand<
   async func(flags, profile) {
     const result =
       profile !== undefined
-        ? await useSyncProfile(profile, process.env)
-        : await clearSyncProfiles(process.env);
+        ? await useSyncProfile(profile)
+        : await clearSyncProfiles();
 
     print(
       formatSyncProfileUpdateResult(result, {

@@ -44,7 +44,7 @@ vi.mock("./config-file.ts", () => ({
   writeValidatedSyncConfig: mocked.writeValidatedSyncConfig,
 }));
 
-vi.mock("./filesystem.ts", () => ({
+vi.mock("#app/lib/filesystem.ts", () => ({
   getPathStats: mocked.getPathStats,
 }));
 
@@ -117,13 +117,7 @@ afterEach(() => {
 describe("sync set service", () => {
   it("rejects blank set targets", async () => {
     await expect(
-      resolveSetTarget(
-        "   ",
-        createConfig([]),
-        { HOME: "/tmp/home" },
-        "/tmp/cwd",
-        "/tmp/home",
-      ),
+      resolveSetTarget("   ", createConfig([]), "/tmp/cwd", "/tmp/home"),
     ).rejects.toThrowError("Target path is required.");
   });
 
@@ -139,7 +133,6 @@ describe("sync set service", () => {
       resolveSetTarget(
         "/tmp/home/.ssh/id_ed25519",
         createConfig([]),
-        { HOME: "/tmp/home" },
         "/tmp/cwd",
         "/tmp/home",
       ),
@@ -164,7 +157,6 @@ describe("sync set service", () => {
       resolveSetTarget(
         "/tmp/home/.config/app/config.json",
         createConfig([entry]),
-        { HOME: "/tmp/home" },
         "/tmp/cwd",
         "/tmp/home",
       ),
@@ -190,7 +182,6 @@ describe("sync set service", () => {
       resolveSetTarget(
         "/tmp/home/.config/other/file",
         createConfig([directoryEntry()]),
-        { HOME: "/tmp/home" },
         "/tmp/cwd",
         "/tmp/home",
       ),
@@ -206,13 +197,7 @@ describe("sync set service", () => {
     mocked.tryNormalizeRepoPathInput.mockReturnValueOnce(undefined);
 
     await expect(
-      resolveSetTarget(
-        "../outside",
-        createConfig([]),
-        { HOME: "/tmp/home" },
-        "/tmp/cwd",
-        "/tmp/home",
-      ),
+      resolveSetTarget("../outside", createConfig([]), "/tmp/cwd", "/tmp/home"),
     ).rejects.toThrowError(
       "Sync set target is not a valid local or repository path.",
     );
@@ -232,7 +217,6 @@ describe("sync set service", () => {
       resolveSetTarget(
         ".gitconfig",
         createConfig([entry]),
-        { HOME: "/tmp/home" },
         "/tmp/cwd",
         "/tmp/home",
       ),
@@ -264,7 +248,6 @@ describe("sync set service", () => {
       resolveSetTarget(
         ".config/app/nested/config.json",
         createConfig([entry]),
-        { HOME: "/tmp/home" },
         "/tmp/cwd",
         "/tmp/home",
       ),
@@ -290,7 +273,6 @@ describe("sync set service", () => {
       resolveSetTarget(
         ".config/other/file",
         createConfig([directoryEntry()]),
-        { HOME: "/tmp/home" },
         "/tmp/cwd",
         "/tmp/home",
       ),
@@ -313,11 +295,7 @@ describe("sync set service", () => {
     mocked.getPathStats.mockResolvedValueOnce(fileStats);
 
     await expect(
-      setSyncTargetMode(
-        { mode: "secret", target: ".gitconfig" },
-        { HOME: "/tmp/home" },
-        "/tmp/cwd",
-      ),
+      setSyncTargetMode({ mode: "secret", target: ".gitconfig" }, "/tmp/cwd"),
     ).resolves.toEqual({
       action: "unchanged",
       configPath: "/tmp/devsync/manifest.json",
@@ -347,7 +325,6 @@ describe("sync set service", () => {
 
     const result = await setSyncTargetMode(
       { mode: "secret", target: ".gitconfig" },
-      { HOME: "/tmp/home" },
       "/tmp/cwd",
     );
 
@@ -385,7 +362,6 @@ describe("sync set service", () => {
 
     const result = await setSyncTargetMode(
       { mode: "secret", target: ".config/app/private.txt" },
-      { HOME: "/tmp/home" },
       "/tmp/cwd",
     );
 
@@ -439,7 +415,6 @@ describe("sync set service", () => {
     await expect(
       setSyncTargetMode(
         { mode: "normal", target: ".config/app/notes.txt" },
-        { HOME: "/tmp/home" },
         "/tmp/cwd",
       ),
     ).resolves.toEqual({

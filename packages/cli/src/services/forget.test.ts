@@ -77,7 +77,7 @@ afterEach(async () => {
 describe("sync forget service", () => {
   it("rejects blank targets without touching the repository", async () => {
     await expect(
-      forgetSyncTarget({ target: "   " }, { HOME: "/tmp/home" }, "/tmp/cwd"),
+      forgetSyncTarget({ target: "   " }, "/tmp/cwd"),
     ).rejects.toThrowError("Target path is required.");
     expect(mocked.ensureSyncRepository).not.toHaveBeenCalled();
   });
@@ -97,11 +97,7 @@ describe("sync forget service", () => {
     mocked.resolveTrackedEntry.mockReturnValueOnce(undefined);
 
     await expect(
-      forgetSyncTarget(
-        { target: "~/.gitconfig" },
-        { HOME: "/tmp/home" },
-        "/tmp/cwd",
-      ),
+      forgetSyncTarget({ target: "~/.gitconfig" }, "/tmp/cwd"),
     ).rejects.toThrowError("No tracked sync entry matches: ~/.gitconfig");
   });
 
@@ -160,7 +156,6 @@ describe("sync forget service", () => {
 
     const result = await forgetSyncTarget(
       { target: "~/.config/tool/token.txt" },
-      { HOME: "/tmp/home" },
       "/tmp/cwd",
     );
 
@@ -176,16 +171,12 @@ describe("sync forget service", () => {
       entries: [siblingEntry],
       version: 7,
     });
-    expect(mocked.writeValidatedSyncConfig).toHaveBeenCalledWith(
-      workspace,
-      {
-        document: {
-          entries: [siblingEntry],
-          version: 7,
-        },
+    expect(mocked.writeValidatedSyncConfig).toHaveBeenCalledWith(workspace, {
+      document: {
+        entries: [siblingEntry],
+        version: 7,
       },
-      { HOME: "/tmp/home" },
-    );
+    });
     await expect(access(defaultPlainPath)).rejects.toThrowError();
     await expect(access(workPlainPath)).rejects.toThrowError();
     await expect(access(defaultSecretPath)).rejects.toThrowError();
@@ -221,7 +212,6 @@ describe("sync forget service", () => {
 
     const result = await forgetSyncTarget(
       { target: "~/.config/app" },
-      { HOME: "/tmp/home" },
       "/tmp/cwd",
     );
 

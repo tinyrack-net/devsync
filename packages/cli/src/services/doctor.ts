@@ -1,12 +1,11 @@
 import { resolveSyncConfigFilePath } from "#app/config/sync.ts";
+import { pathExists } from "#app/lib/filesystem.ts";
+import { ensureRepository } from "#app/lib/git.ts";
 import {
   type ProgressReporter,
   reportDetail,
   reportPhase,
 } from "#app/lib/progress.ts";
-
-import { pathExists } from "./filesystem.ts";
-import { ensureRepository } from "./git.ts";
 import { buildRepositorySnapshot } from "./repo-snapshot.ts";
 import {
   type EffectiveSyncConfig,
@@ -70,11 +69,10 @@ const hasRestorableRepositoryArtifact = (
 };
 
 export const runSyncDoctor = async (
-  environment: NodeJS.ProcessEnv,
   reporter?: ProgressReporter,
 ): Promise<SyncDoctorResult> => {
   reportPhase(reporter, "Running doctor checks...");
-  const { syncDirectory } = resolveSyncPaths(environment);
+  const { syncDirectory } = resolveSyncPaths();
   const configPath = resolveSyncConfigFilePath(syncDirectory);
   const checks: DoctorCheck[] = [];
 
@@ -103,10 +101,7 @@ export const runSyncDoctor = async (
 
   try {
     reportPhase(reporter, "Loading sync configuration...");
-    const { effectiveConfig, fullConfig } = await loadSyncConfig(
-      syncDirectory,
-      environment,
-    );
+    const { effectiveConfig, fullConfig } = await loadSyncConfig(syncDirectory);
 
     config = effectiveConfig;
     checks.push(
@@ -156,9 +151,7 @@ export const runSyncDoctor = async (
   );
 
   const missingEntries = config.entries.filter((entry) => {
-    return (
-      entry.mode !== "ignore" && (!environment || entry.localPath.length > 0)
-    );
+    return entry.mode !== "ignore" && entry.localPath.length > 0;
   });
 
   let missingCount = 0;

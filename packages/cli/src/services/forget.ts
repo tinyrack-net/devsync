@@ -6,17 +6,18 @@ import {
   readSyncConfig,
   resolveSyncArtifactsDirectoryPath,
 } from "#app/config/sync.ts";
+import { ENV } from "#app/lib/env.ts";
+import { DevsyncError } from "#app/lib/error.ts";
+import {
+  getPathStats,
+  listDirectoryEntries,
+  removePathAtomically,
+} from "#app/lib/filesystem.ts";
 import { isPathEqualOrNested } from "#app/lib/path.ts";
 import {
   createSyncConfigDocument,
   writeValidatedSyncConfig,
 } from "./config-file.ts";
-import { DevsyncError } from "./error.ts";
-import {
-  getPathStats,
-  listDirectoryEntries,
-  removePathAtomically,
-} from "./filesystem.ts";
 import { resolveTrackedEntry } from "./paths.ts";
 import {
   collectArtifactNamespaces,
@@ -182,7 +183,6 @@ const removeTrackedEntryArtifacts = async (
 
 export const forgetSyncTarget = async (
   request: SyncForgetRequest,
-  environment: NodeJS.ProcessEnv,
   cwd: string,
 ): Promise<SyncForgetResult> => {
   const target = request.target.trim();
@@ -191,12 +191,12 @@ export const forgetSyncTarget = async (
     throw new DevsyncError("Target path is required.");
   }
 
-  const { syncDirectory, configPath } = resolveSyncPaths(environment);
+  const { syncDirectory, configPath } = resolveSyncPaths();
 
   await ensureSyncRepository(syncDirectory);
 
-  const config = await readSyncConfig(syncDirectory, environment);
-  const entry = resolveTrackedEntry(target, config.entries, environment, cwd);
+  const config = await readSyncConfig(syncDirectory, ENV);
+  const entry = resolveTrackedEntry(target, config.entries, cwd);
 
   if (entry === undefined) {
     throw new DevsyncError(`No tracked sync entry matches: ${target}`);
@@ -211,7 +211,7 @@ export const forgetSyncTarget = async (
     }),
   });
 
-  await writeValidatedSyncConfig(syncDirectory, nextConfig, environment);
+  await writeValidatedSyncConfig(syncDirectory, nextConfig);
   await removeTrackedEntryArtifacts(syncDirectory, entry);
 
   return {

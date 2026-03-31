@@ -8,13 +8,14 @@ import {
   resolveEntryRelativeRepoPath,
   type SyncMode,
 } from "#app/config/sync.ts";
+import { ENV } from "#app/lib/env.ts";
+import { DevsyncError } from "#app/lib/error.ts";
+import { getPathStats } from "#app/lib/filesystem.ts";
 import { isExplicitLocalPath } from "#app/lib/path.ts";
 import {
   createSyncConfigDocument,
   writeValidatedSyncConfig,
 } from "./config-file.ts";
-import { DevsyncError } from "./error.ts";
-import { getPathStats } from "./filesystem.ts";
 import {
   buildConfiguredHomeLocalPath,
   buildRepoPathWithinRoot,
@@ -67,7 +68,6 @@ const computeLocalPath = (entry: ResolvedSyncConfigEntry, repoPath: string) => {
 export const resolveSetTarget = async (
   target: string,
   config: Awaited<ReturnType<typeof readSyncConfig>>,
-  environment: NodeJS.ProcessEnv,
   cwd: string,
   homeDirectory: string,
 ) => {
@@ -81,11 +81,7 @@ export const resolveSetTarget = async (
   }
 
   const explicit = isExplicitLocalPath(trimmedTarget);
-  const localTargetPath = resolveCommandTargetPath(
-    trimmedTarget,
-    environment,
-    cwd,
-  );
+  const localTargetPath = resolveCommandTargetPath(trimmedTarget, cwd);
   const localRepoPath = explicit
     ? buildRepoPathWithinRoot(localTargetPath, homeDirectory, "Sync set target")
     : tryBuildRepoPathWithinRoot(
@@ -207,19 +203,16 @@ export const resolveSetTarget = async (
 
 export const setSyncTargetMode = async (
   request: SyncSetRequest,
-  environment: NodeJS.ProcessEnv,
   cwd: string,
 ): Promise<SyncSetResult> => {
-  const { syncDirectory, configPath, homeDirectory } =
-    resolveSyncPaths(environment);
+  const { syncDirectory, configPath, homeDirectory } = resolveSyncPaths();
 
   await ensureSyncRepository(syncDirectory);
 
-  const config = await readSyncConfig(syncDirectory, environment);
+  const config = await readSyncConfig(syncDirectory, ENV);
   const target = await resolveSetTarget(
     request.target,
     config,
-    environment,
     cwd,
     homeDirectory,
   );
@@ -262,7 +255,7 @@ export const setSyncTargetMode = async (
     });
 
     if (action !== "unchanged") {
-      await writeValidatedSyncConfig(syncDirectory, nextConfig, environment);
+      await writeValidatedSyncConfig(syncDirectory, nextConfig);
     }
 
     return buildResult(action);
@@ -302,7 +295,7 @@ export const setSyncTargetMode = async (
       }),
     });
 
-    await writeValidatedSyncConfig(syncDirectory, nextConfig, environment);
+    await writeValidatedSyncConfig(syncDirectory, nextConfig);
 
     return buildResult("updated");
   }
@@ -329,7 +322,7 @@ export const setSyncTargetMode = async (
     entries: [...config.entries, newEntry],
   });
 
-  await writeValidatedSyncConfig(syncDirectory, nextConfig, environment);
+  await writeValidatedSyncConfig(syncDirectory, nextConfig);
 
   return buildResult("added");
 };

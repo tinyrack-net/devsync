@@ -6,17 +6,12 @@ import {
   type ResolvedSyncConfigEntry,
 } from "#app/config/sync.ts";
 import { expandHomePath } from "#app/config/xdg.ts";
-
+import { ENV } from "#app/lib/env.ts";
+import { DevsyncError } from "#app/lib/error.ts";
 import { isExplicitLocalPath } from "#app/lib/path.ts";
 
-import { DevsyncError } from "./error.ts";
-
-export const resolveCommandTargetPath = (
-  target: string,
-  environment: NodeJS.ProcessEnv,
-  cwd: string,
-) => {
-  return resolve(cwd, expandHomePath(target, environment));
+export const resolveCommandTargetPath = (target: string, cwd: string) => {
+  return resolve(cwd, expandHomePath(target, ENV));
 };
 
 export const buildRepoPathWithinRoot = (
@@ -84,10 +79,9 @@ export const tryNormalizeRepoPathInput = (value: string) => {
 export const resolveTrackedEntry = (
   target: string,
   entries: readonly ResolvedSyncConfigEntry[],
-  environment: NodeJS.ProcessEnv,
   cwd: string,
 ): ResolvedSyncConfigEntry | undefined => {
-  const resolvedTargetPath = resolveCommandTargetPath(target, environment, cwd);
+  const resolvedTargetPath = resolveCommandTargetPath(target, cwd);
   const byLocalPath = entries.filter(
     (entry) => entry.localPath === resolvedTargetPath,
   );

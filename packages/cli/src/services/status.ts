@@ -45,7 +45,6 @@ export type SyncStatusResult = Readonly<{
 }>;
 
 export const getSyncStatus = async (
-  environment: NodeJS.ProcessEnv,
   options: Readonly<{
     profile?: string;
     reporter?: ProgressReporter;
@@ -54,7 +53,7 @@ export const getSyncStatus = async (
   const reporter = options.reporter;
 
   reportPhase(reporter, "Analyzing sync status...");
-  const { syncDirectory } = resolveSyncPaths(environment);
+  const { syncDirectory } = resolveSyncPaths();
   const configPath = resolveSyncConfigFilePath(syncDirectory);
 
   reportPhase(reporter, "Checking sync repository...");
@@ -63,7 +62,6 @@ export const getSyncStatus = async (
   reportPhase(reporter, "Loading sync configuration...");
   const { effectiveConfig, fullConfig } = await loadSyncConfig(
     syncDirectory,
-    environment,
     options,
   );
   reportPhase(reporter, "Building push plan...");

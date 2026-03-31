@@ -1,6 +1,10 @@
 import { resolve } from "node:path";
 
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+
+vi.mock("#app/lib/env.ts", () => ({
+  ENV: { HOME: "/tmp/home", XDG_CONFIG_HOME: "/tmp/home/.config" },
+}));
 
 import type { ResolvedSyncConfigEntry } from "#app/config/sync.ts";
 import {
@@ -30,12 +34,12 @@ const trackedEntry = (
 
 describe("path helpers", () => {
   it("resolves command targets from cwd and home prefixes", () => {
-    expect(
-      resolveCommandTargetPath("~/bundle", { HOME: "/tmp/home" }, "/tmp/cwd"),
-    ).toBe(resolve("/tmp/home", "bundle"));
-    expect(
-      resolveCommandTargetPath("./bundle", { HOME: "/tmp/home" }, "/tmp/cwd"),
-    ).toBe(resolve("/tmp/cwd", "bundle"));
+    expect(resolveCommandTargetPath("~/bundle", "/tmp/cwd")).toBe(
+      resolve("/tmp/home", "bundle"),
+    );
+    expect(resolveCommandTargetPath("./bundle", "/tmp/cwd")).toBe(
+      resolve("/tmp/cwd", "bundle"),
+    );
   });
 
   it("builds repository paths within a root", () => {
@@ -87,12 +91,7 @@ describe("path helpers", () => {
     });
 
     expect(
-      resolveTrackedEntry(
-        ".config/tool/settings.json",
-        [entry],
-        { HOME: "/tmp/home" },
-        "/tmp/cwd",
-      ),
+      resolveTrackedEntry(".config/tool/settings.json", [entry], "/tmp/cwd"),
     ).toEqual(entry);
   });
 
@@ -110,7 +109,6 @@ describe("path helpers", () => {
             repoPath: ".gitconfig-work",
           }),
         ],
-        { HOME: "/tmp/home" },
         "/tmp/cwd",
       );
     }).toThrowError(/Multiple tracked sync entries match/u);

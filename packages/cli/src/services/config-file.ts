@@ -6,8 +6,8 @@ import {
   resolveSyncConfigFilePath,
   type SyncConfig,
 } from "#app/config/sync.ts";
-
-import { writeTextFileAtomically } from "./filesystem.ts";
+import { ENV } from "#app/lib/env.ts";
+import { writeTextFileAtomically } from "#app/lib/filesystem.ts";
 
 export const sortSyncConfigEntries = (
   entries: readonly SyncConfig["entries"][number][],
@@ -51,7 +51,7 @@ export const createSyncConfigDocument = (
 export const writeValidatedSyncConfig = async (
   syncDirectory: string,
   config: SyncConfig,
-  environment: NodeJS.ProcessEnv,
+  environment = ENV,
 ) => {
   const resolvedConfig = parseSyncConfig(config, environment);
   const nextConfig = createSyncConfigDocument(resolvedConfig);

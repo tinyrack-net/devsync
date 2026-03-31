@@ -128,23 +128,18 @@ export const buildPullResultFromPlan = (
 
 export const pullSync = async (
   request: SyncPullRequest,
-  environment: NodeJS.ProcessEnv,
   reporter?: ProgressReporter,
 ): Promise<SyncPullResult> => {
   reportPhase(reporter, "Starting pull...");
-  const { syncDirectory } = resolveSyncPaths(environment);
+  const { syncDirectory } = resolveSyncPaths();
 
   reportPhase(reporter, "Checking sync repository...");
   await ensureSyncRepository(syncDirectory);
 
   reportPhase(reporter, "Loading sync configuration...");
-  const { effectiveConfig: config } = await loadSyncConfig(
-    syncDirectory,
-    environment,
-    {
-      ...(request.profile === undefined ? {} : { profile: request.profile }),
-    },
-  );
+  const { effectiveConfig: config } = await loadSyncConfig(syncDirectory, {
+    ...(request.profile === undefined ? {} : { profile: request.profile }),
+  });
   const plan = await buildPullPlan(config, syncDirectory, reporter);
 
   for (let index = 0; index < config.entries.length; index += 1) {

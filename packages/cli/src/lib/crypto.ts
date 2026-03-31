@@ -8,10 +8,13 @@ import {
   generateIdentity,
   identityToRecipient,
 } from "age-encryption";
-
+import { DevsyncError, wrapUnknownError } from "#app/lib/error.ts";
 import { ensureTrailingNewline } from "#app/lib/string.ts";
-import { DevsyncError, wrapUnknownError } from "#app/services/error.ts";
 
+/**
+ * @description
+ * Validates and normalizes a single age identity for devsync use.
+ */
 export const resolveAgeIdentity = async (identity: string) => {
   const normalizedIdentity = identity.trim();
 
@@ -35,6 +38,10 @@ export const resolveAgeIdentity = async (identity: string) => {
   }
 };
 
+/**
+ * @description
+ * Reads usable age identities from an identity file.
+ */
 export const readAgeIdentityLines = async (identityFile: string) => {
   const contents = await readFile(identityFile, "utf8");
   const identities = contents
@@ -58,6 +65,10 @@ export const readAgeIdentityLines = async (identityFile: string) => {
   return identities;
 };
 
+/**
+ * @description
+ * Derives the unique recipient list represented by an identity file.
+ */
 export const readAgeRecipientsFromIdentityFile = async (
   identityFile: string,
 ) => {
@@ -85,6 +96,10 @@ export const readAgeRecipientsFromIdentityFile = async (
   return [...new Set(recipients)];
 };
 
+/**
+ * @description
+ * Generates and persists a new age identity file for devsync.
+ */
 export const createAgeIdentityFile = async (identityFile: string) => {
   const identity = await generateIdentity();
   const recipient = await identityToRecipient(identity);
@@ -98,6 +113,10 @@ export const createAgeIdentityFile = async (identityFile: string) => {
   };
 };
 
+/**
+ * @description
+ * Persists a supplied age identity after validating it.
+ */
 export const writeAgeIdentityFile = async (
   identityFile: string,
   identity: string,
@@ -114,6 +133,10 @@ export const writeAgeIdentityFile = async (
   return resolvedIdentity;
 };
 
+/**
+ * @description
+ * Encrypts secret file contents for the configured recipients.
+ */
 export const encryptSecretFile = async (
   contents: Uint8Array,
   recipients: readonly string[],
@@ -129,6 +152,10 @@ export const encryptSecretFile = async (
   return armor.encode(ciphertext);
 };
 
+/**
+ * @description
+ * Decrypts an armored secret artifact with identities from the configured file.
+ */
 export const decryptSecretFile = async (
   armoredCiphertext: string,
   identityFile: string,

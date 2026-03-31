@@ -17,11 +17,11 @@ vi.mock("#app/config/sync.ts", () => ({
   resolveSyncConfigFilePath: mocked.resolveSyncConfigFilePath,
 }));
 
-vi.mock("./filesystem.ts", () => ({
+vi.mock("#app/lib/filesystem.ts", () => ({
   pathExists: mocked.pathExists,
 }));
 
-vi.mock("./git.ts", () => ({
+vi.mock("#app/lib/git.ts", () => ({
   ensureRepository: mocked.ensureRepository,
 }));
 
@@ -88,7 +88,7 @@ describe("sync doctor", () => {
     mocked.ensureRepository.mockRejectedValueOnce("not-a-repo");
     const reporter = createReporter();
 
-    const result = await runSyncDoctor({ HOME: "/tmp/home" }, reporter);
+    const result = await runSyncDoctor(reporter);
 
     expect(result).toEqual({
       checks: [
@@ -117,7 +117,7 @@ describe("sync doctor", () => {
     );
     const reporter = createReporter();
 
-    const result = await runSyncDoctor({ HOME: "/tmp/home" }, reporter);
+    const result = await runSyncDoctor(reporter);
 
     expect(result).toEqual({
       checks: [
@@ -159,7 +159,7 @@ describe("sync doctor", () => {
     });
     const reporter = createReporter(true);
 
-    const result = await runSyncDoctor({ HOME: "/tmp/home" }, reporter);
+    const result = await runSyncDoctor(reporter);
 
     expect(result.hasFailures).toBe(true);
     expect(result.hasWarnings).toBe(true);
@@ -229,7 +229,7 @@ describe("sync doctor", () => {
     });
     const reporter = createReporter(false);
 
-    const result = await runSyncDoctor({ HOME: "/tmp/home" }, reporter);
+    const result = await runSyncDoctor(reporter);
 
     expect(result.hasFailures).toBe(false);
     expect(result.hasWarnings).toBe(true);
@@ -269,7 +269,7 @@ describe("sync doctor", () => {
     mocked.buildRepositorySnapshot.mockResolvedValueOnce(new Map());
     mocked.pathExists.mockResolvedValueOnce(true);
 
-    const result = await runSyncDoctor({ HOME: "/tmp/home" }, createReporter());
+    const result = await runSyncDoctor(createReporter());
 
     expect(result.hasFailures).toBe(false);
     expect(result.hasWarnings).toBe(true);
@@ -300,7 +300,7 @@ describe("sync doctor", () => {
       return path === "/tmp/devsync/keys.txt";
     });
 
-    const result = await runSyncDoctor({ HOME: "/tmp/home" }, createReporter());
+    const result = await runSyncDoctor(createReporter());
 
     expect(result.hasWarnings).toBe(false);
     expect(result.checks).toContainEqual({
@@ -324,7 +324,7 @@ describe("sync doctor", () => {
       return path === "/tmp/devsync/keys.txt";
     });
 
-    const result = await runSyncDoctor({ HOME: "/tmp/home" }, createReporter());
+    const result = await runSyncDoctor(createReporter());
 
     expect(result.checks).toContainEqual({
       checkId: "local-paths",

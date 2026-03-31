@@ -11,7 +11,7 @@ import {
   readAgeRecipientsFromIdentityFile,
   resolveAgeIdentity,
   writeAgeIdentityFile,
-} from "#app/services/crypto.ts";
+} from "#app/lib/crypto.ts";
 import {
   createAgeKeyPair,
   createTemporaryDirectory,

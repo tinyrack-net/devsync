@@ -24,7 +24,7 @@ const profileListCommand = buildCommand<
   },
   async func(flags) {
     print(
-      formatSyncProfileListResult(await listSyncProfiles(process.env), {
+      formatSyncProfileListResult(await listSyncProfiles(), {
         verbose: isVerbose(flags.verbose),
       }),
     );

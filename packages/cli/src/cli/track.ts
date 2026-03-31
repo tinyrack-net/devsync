@@ -1,7 +1,7 @@
 import { buildCommand } from "@stricli/core";
+import { DevsyncError } from "#app/lib/error.ts";
 import { formatSyncAddResult, formatSyncSetResult } from "#app/lib/output.ts";
 import { trackSyncTarget } from "#app/services/add.ts";
-import { DevsyncError } from "#app/services/error.ts";
 import { assignSyncProfiles } from "#app/services/profile.ts";
 import { setSyncTargetMode } from "#app/services/set.ts";
 import {
@@ -29,7 +29,6 @@ const trackCommand = buildCommand<TrackFlags, string[], DevsyncCliContext>({
     const verbose = isVerbose(flags.verbose);
     const profiles = [...(flags.profile ?? [])];
     const progress = createProgressReporter(verbose);
-    const environment = process.env;
     const cwd = process.cwd();
 
     progress.phase(
@@ -46,7 +45,6 @@ const trackCommand = buildCommand<TrackFlags, string[], DevsyncCliContext>({
             profiles: profiles.length > 0 ? profiles : undefined,
             target,
           },
-          environment,
           cwd,
         );
 
@@ -62,7 +60,6 @@ const trackCommand = buildCommand<TrackFlags, string[], DevsyncCliContext>({
               mode: flags.mode,
               target,
             },
-            environment,
             cwd,
           );
 
@@ -70,7 +67,6 @@ const trackCommand = buildCommand<TrackFlags, string[], DevsyncCliContext>({
             const isProfileClear = profiles.length === 1 && profiles[0] === "";
             await assignSyncProfiles(
               { profiles: isProfileClear ? [] : profiles, target },
-              environment,
               cwd,
             );
           }

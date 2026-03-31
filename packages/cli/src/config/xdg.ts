@@ -1,10 +1,9 @@
 import { homedir } from "node:os";
 import { isAbsolute, resolve } from "node:path";
 
-const readTrimmedEnvironmentValue = (
-  environment: NodeJS.ProcessEnv,
-  key: string,
-) => {
+import { ENV, type Env } from "#app/lib/env.ts";
+
+const readTrimmedEnvironmentValue = (environment: Env, key: string) => {
   const value = environment[key];
 
   if (value === undefined) {
@@ -19,9 +18,7 @@ const readTrimmedEnvironmentValue = (
 const bracedXdgConfigHomeToken = "${XDG_CONFIG_HOME}";
 const bracedXdgConfigHomePrefix = `${bracedXdgConfigHomeToken}/`;
 
-export const resolveHomeDirectory = (
-  environment: NodeJS.ProcessEnv = process.env,
-) => {
+export const resolveHomeDirectory = (environment: Env = ENV) => {
   const configuredValue = readTrimmedEnvironmentValue(environment, "HOME");
 
   if (configuredValue !== undefined) {
@@ -31,9 +28,7 @@ export const resolveHomeDirectory = (
   return resolve(homedir());
 };
 
-export const resolveXdgConfigHome = (
-  environment: NodeJS.ProcessEnv = process.env,
-) => {
+export const resolveXdgConfigHome = (environment: Env = ENV) => {
   const configuredValue = readTrimmedEnvironmentValue(
     environment,
     "XDG_CONFIG_HOME",
@@ -46,34 +41,23 @@ export const resolveXdgConfigHome = (
   return resolve(resolveHomeDirectory(environment), ".config");
 };
 
-export const resolveDevsyncConfigDirectory = (
-  environment: NodeJS.ProcessEnv = process.env,
-) => {
+export const resolveDevsyncConfigDirectory = (environment: Env = ENV) => {
   return resolve(resolveXdgConfigHome(environment), "devsync");
 };
 
-export const resolveDevsyncGlobalConfigFilePath = (
-  environment: NodeJS.ProcessEnv = process.env,
-) => {
+export const resolveDevsyncGlobalConfigFilePath = (environment: Env = ENV) => {
   return resolve(resolveDevsyncConfigDirectory(environment), "settings.json");
 };
 
-export const resolveDevsyncSyncDirectory = (
-  environment: NodeJS.ProcessEnv = process.env,
-) => {
+export const resolveDevsyncSyncDirectory = (environment: Env = ENV) => {
   return resolve(resolveDevsyncConfigDirectory(environment), "repository");
 };
 
-export const resolveDevsyncAgeDirectory = (
-  environment: NodeJS.ProcessEnv = process.env,
-) => {
+export const resolveDevsyncAgeDirectory = (environment: Env = ENV) => {
   return resolve(resolveDevsyncConfigDirectory(environment), "age");
 };
 
-export const expandHomePath = (
-  value: string,
-  environment: NodeJS.ProcessEnv = process.env,
-) => {
+export const expandHomePath = (value: string, environment: Env = ENV) => {
   let expandedValue = value.trim();
 
   if (expandedValue === "~") {
@@ -88,10 +72,7 @@ export const expandHomePath = (
   return expandedValue;
 };
 
-export const expandConfiguredPath = (
-  value: string,
-  environment: NodeJS.ProcessEnv = process.env,
-) => {
+export const expandConfiguredPath = (value: string, environment: Env = ENV) => {
   let expandedValue = expandHomePath(value, environment);
 
   if (expandedValue === "$XDG_CONFIG_HOME") {
@@ -115,7 +96,7 @@ export const expandConfiguredPath = (
 
 export const resolveConfiguredAbsolutePath = (
   value: string,
-  environment: NodeJS.ProcessEnv = process.env,
+  environment: Env = ENV,
 ) => {
   const expandedValue = expandConfiguredPath(value, environment);
 
@@ -130,7 +111,7 @@ export const resolveConfiguredAbsolutePath = (
 
 export const expandWindowsEnvVars = (
   value: string,
-  environment: NodeJS.ProcessEnv = process.env,
+  environment: Env = ENV,
 ): string => {
   return value.replace(/%([^%]+)%/g, (_match, varName: string) => {
     const envValue = readTrimmedEnvironmentValue(environment, varName);
@@ -145,7 +126,7 @@ export const expandWindowsEnvVars = (
 
 export const expandPlatformConfiguredPath = (
   value: string,
-  environment: NodeJS.ProcessEnv = process.env,
+  environment: Env = ENV,
 ): string => {
   let expanded = value.trim();
 
@@ -158,7 +139,7 @@ export const expandPlatformConfiguredPath = (
 
 export const resolvePlatformConfiguredAbsolutePath = (
   value: string,
-  environment: NodeJS.ProcessEnv = process.env,
+  environment: Env = ENV,
 ) => {
   const expandedValue = expandPlatformConfiguredPath(value, environment);
 
@@ -173,7 +154,7 @@ export const resolvePlatformConfiguredAbsolutePath = (
 
 export const resolveHomeConfiguredAbsolutePath = (
   value: string,
-  environment: NodeJS.ProcessEnv = process.env,
+  environment: Env = ENV,
 ) => {
   const expandedValue = expandHomePath(value, environment);
 

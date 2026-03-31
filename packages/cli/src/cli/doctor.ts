@@ -24,10 +24,7 @@ const doctorCommand = buildCommand<
   },
   async func(flags) {
     const verbose = isVerbose(flags.verbose);
-    const result = await runSyncDoctor(
-      process.env,
-      createProgressReporter(verbose),
-    );
+    const result = await runSyncDoctor(createProgressReporter(verbose));
 
     print(formatSyncDoctorResult(result, { verbose }));
 

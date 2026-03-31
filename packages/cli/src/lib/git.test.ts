@@ -2,13 +2,12 @@ import { rm } from "node:fs/promises";
 import { join } from "node:path";
 
 import { afterEach, describe, expect, it } from "vitest";
-
-import { DevsyncError } from "#app/services/error.ts";
+import { DevsyncError } from "#app/lib/error.ts";
 import {
   ensureGitRepository,
   ensureRepository,
   initializeRepository,
-} from "#app/services/git.ts";
+} from "#app/lib/git.ts";
 import {
   createTemporaryDirectory,
   runGit,

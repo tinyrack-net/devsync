@@ -1,5 +1,7 @@
 import { platform, release } from "node:os";
 
+import { ENV, type Env } from "#app/lib/env.ts";
+
 export type PlatformKey = "win" | "mac" | "linux" | "wsl";
 
 export type PlatformLocalPath = Readonly<{
@@ -10,15 +12,9 @@ export type PlatformLocalPath = Readonly<{
   wsl?: string;
 }>;
 
-const isWslEnvironment = (
-  environment: NodeJS.ProcessEnv = process.env,
-): boolean => {
-  const wslEnvironment = environment as NodeJS.ProcessEnv & {
-    WSL_DISTRO_NAME?: string;
-    WSL_INTEROP?: string;
-  };
-  const wslDistroName = wslEnvironment.WSL_DISTRO_NAME;
-  const wslInterop = wslEnvironment.WSL_INTEROP;
+const isWslEnvironment = (environment: Env = ENV): boolean => {
+  const wslDistroName = environment.WSL_DISTRO_NAME;
+  const wslInterop = environment.WSL_INTEROP;
 
   return (
     Boolean(wslDistroName?.trim() || wslInterop?.trim()) ||
@@ -27,7 +23,7 @@ const isWslEnvironment = (
 };
 
 export const detectCurrentPlatformKey = (
-  environment: NodeJS.ProcessEnv = process.env,
+  environment: Env = ENV,
 ): PlatformKey => {
   switch (platform()) {
     case "win32":
@@ -44,7 +40,7 @@ export const detectCurrentPlatformKey = (
 export const resolveLocalPathForPlatform = (
   localPath: PlatformLocalPath,
   platformKey?: PlatformKey,
-  environment: NodeJS.ProcessEnv = process.env,
+  environment: Env = ENV,
 ): string => {
   const key = platformKey ?? detectCurrentPlatformKey(environment);
 

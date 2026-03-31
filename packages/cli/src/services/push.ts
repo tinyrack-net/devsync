@@ -4,13 +4,12 @@ import {
   resolveSyncArtifactsDirectoryPath,
   resolveSyncConfigFilePath,
 } from "#app/config/sync.ts";
+import { removePathAtomically } from "#app/lib/filesystem.ts";
 import {
   type ProgressReporter,
   reportDetail,
   reportPhase,
 } from "#app/lib/progress.ts";
-
-import { removePathAtomically } from "./filesystem.ts";
 import { buildLocalSnapshot, type SnapshotNode } from "./local-snapshot.ts";
 import {
   buildArtifactKey,
@@ -149,23 +148,18 @@ export const buildPushResultFromPlan = (
 
 export const pushSync = async (
   request: SyncPushRequest,
-  environment: NodeJS.ProcessEnv,
   reporter?: ProgressReporter,
 ): Promise<SyncPushResult> => {
   reportPhase(reporter, "Starting push...");
-  const { syncDirectory } = resolveSyncPaths(environment);
+  const { syncDirectory } = resolveSyncPaths();
 
   reportPhase(reporter, "Checking sync repository...");
   await ensureSyncRepository(syncDirectory);
 
   reportPhase(reporter, "Loading sync configuration...");
-  const { effectiveConfig: config } = await loadSyncConfig(
-    syncDirectory,
-    environment,
-    {
-      ...(request.profile === undefined ? {} : { profile: request.profile }),
-    },
-  );
+  const { effectiveConfig: config } = await loadSyncConfig(syncDirectory, {
+    ...(request.profile === undefined ? {} : { profile: request.profile }),
+  });
   const plan = await buildPushPlan(config, syncDirectory, reporter);
 
   if (!request.dryRun) {

@@ -213,7 +213,7 @@ describe("pull planning", () => {
     });
     mocked.countDeletedLocalNodes.mockResolvedValue(0);
 
-    await pullSync({ dryRun: false }, { HOME: "/tmp/home" }, reporter);
+    await pullSync({ dryRun: false }, reporter);
 
     expect(mocked.applyEntryMaterialization).toHaveBeenCalledTimes(1);
     expect(mocked.applyEntryMaterialization).toHaveBeenCalledWith(

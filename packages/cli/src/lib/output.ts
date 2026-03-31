@@ -1,9 +1,8 @@
 import { createColors } from "picocolors";
-
+import { formatDevsyncError } from "#app/lib/error.ts";
 import { ensureTrailingNewline } from "#app/lib/string.ts";
 import type { SyncAddResult } from "#app/services/add.ts";
 import type { SyncDoctorResult } from "#app/services/doctor.ts";
-import { formatDevsyncError } from "#app/services/error.ts";
 import type { SyncForgetResult } from "#app/services/forget.ts";
 import type { SyncInitResult } from "#app/services/init.ts";
 import type {
@@ -41,6 +40,10 @@ const style = {
   default: (value: string) => colors.bold(colors.cyan(value)),
 };
 
+/**
+ * @description
+ * Removes non-renderable output fragments before they are joined into text.
+ */
 const compactLines = (lines: OutputLine[]) => {
   return lines.filter(
     (line): line is string =>
@@ -48,6 +51,10 @@ const compactLines = (lines: OutputLine[]) => {
   );
 };
 
+/**
+ * @description
+ * Selects the leading symbol used for a given output tone.
+ */
 const toneIcon = (tone: OutputTone) => {
   switch (tone) {
     case "error":
@@ -61,6 +68,10 @@ const toneIcon = (tone: OutputTone) => {
   }
 };
 
+/**
+ * @description
+ * Selects the text styling function for a given output tone.
+ */
 const toneStyle = (tone: OutputTone) => {
   switch (tone) {
     case "error":
@@ -74,6 +85,10 @@ const toneStyle = (tone: OutputTone) => {
   }
 };
 
+/**
+ * @description
+ * Builds count labels with the correct singular or plural noun.
+ */
 const pluralize = (
   count: number,
   singular: string,
@@ -82,10 +97,18 @@ const pluralize = (
   return `${count} ${count === 1 ? singular : plural}`;
 };
 
+/**
+ * @description
+ * Normalizes messages that should be displayed without a trailing period.
+ */
 const stripTrailingPeriod = (value: string) => {
   return value.endsWith(".") ? value.slice(0, -1) : value;
 };
 
+/**
+ * @description
+ * Maps doctor check identifiers to the labels shown in CLI output.
+ */
 const normalizeDoctorCheckId = (checkId: string) => {
   switch (checkId) {
     case "age":
@@ -97,6 +120,10 @@ const normalizeDoctorCheckId = (checkId: string) => {
   }
 };
 
+/**
+ * @description
+ * Formats sync mode change actions for result output.
+ */
 const formatSetAction = (action: SyncSetResult["action"]) => {
   switch (action) {
     case "added":
@@ -110,6 +137,10 @@ const formatSetAction = (action: SyncSetResult["action"]) => {
   }
 };
 
+/**
+ * @description
+ * Formats the optional explanation attached to a sync mode result.
+ */
 const formatSetReason = (result: SyncSetResult) => {
   switch (result.reason) {
     case "already-set":
@@ -119,6 +150,10 @@ const formatSetReason = (result: SyncSetResult) => {
   }
 };
 
+/**
+ * @description
+ * Summarizes doctor check outcomes for the command heading.
+ */
 const formatDoctorSummary = (checks: SyncDoctorResult["checks"]) => {
   const counts = checks.reduce(
     (accumulator, check) => {
@@ -140,6 +175,10 @@ const formatDoctorSummary = (checks: SyncDoctorResult["checks"]) => {
   ].join(", ");
 };
 
+/**
+ * @description
+ * Formats a single doctor check row for terminal output.
+ */
 const formatDoctorCheck = (
   check: SyncDoctorResult["checks"][number],
   labelWidth: number,
@@ -154,6 +193,10 @@ const formatDoctorCheck = (
   return `${OUTPUT_INDENT}${toneStyle(tone)(toneIcon(tone))} ${style.detail(normalizeDoctorCheckId(check.checkId).padEnd(labelWidth))} ${style.value(stripTrailingPeriod(check.detail))}`;
 };
 
+/**
+ * @description
+ * Formats one tracked sync entry for the status view.
+ */
 const formatStatusEntry = (
   entry: SyncStatusEntry,
   widths: Readonly<{
@@ -170,18 +213,34 @@ const formatStatusEntry = (
   return `${OUTPUT_INDENT}${style.value(entry.repoPath.padEnd(widths.repoPath))}  ${style.value(entry.kind.padEnd(widths.kind))}  ${style.value(entry.mode.padEnd(widths.mode))}  ${style.detail("->")} ${style.value(entry.localPath)}${profileSuffix}`;
 };
 
+/**
+ * @description
+ * Joins output lines into a newline-terminated CLI message.
+ */
 export const output = (...lines: OutputLine[]) => {
   return ensureTrailingNewline(compactLines(lines).join("\n"));
 };
 
+/**
+ * @description
+ * Writes preformatted output directly to stdout.
+ */
 export const writeStdout = (value: string) => {
   process.stdout.write(value);
 };
 
+/**
+ * @description
+ * Writes preformatted output directly to stderr.
+ */
 export const writeStderr = (value: string) => {
   process.stderr.write(value);
 };
 
+/**
+ * @description
+ * Formats progress updates for phase and detail reporting.
+ */
 export const formatProgressMessage = (
   message: string,
   options: ProgressFormatOptions = {},
@@ -193,16 +252,28 @@ export const formatProgressMessage = (
   );
 };
 
+/**
+ * @description
+ * Builds a styled heading line for command output.
+ */
 export const heading = (text: string, tone: OutputTone = "default") => {
   const icon = toneIcon(tone);
 
   return toneStyle(tone)(text.length > 0 ? `${icon} ${text}` : icon);
 };
 
+/**
+ * @description
+ * Formats a labeled key-value line for command output.
+ */
 export const kv = (label: string, value: number | string, labelWidth = 9) => {
   return `${OUTPUT_INDENT}${style.detail(label.padEnd(labelWidth))} ${style.value(String(value))}`;
 };
 
+/**
+ * @description
+ * Formats compact command statistics on a single line.
+ */
 export const statLine = (...pairs: readonly StatPair[]) => {
   return `${OUTPUT_INDENT}${pairs
     .map(
@@ -212,10 +283,18 @@ export const statLine = (...pairs: readonly StatPair[]) => {
     .join("  ")}`;
 };
 
+/**
+ * @description
+ * Builds a styled section heading for multi-part output.
+ */
 export const section = (title: string, leadingBlank = true) => {
   return `${leadingBlank ? "\n" : ""}${style.section(title)}`;
 };
 
+/**
+ * @description
+ * Adds verbose-only footer metadata to formatted command results.
+ */
 export const verboseFooter = (
   result: Readonly<{
     configPath: string;
@@ -234,10 +313,18 @@ export const verboseFooter = (
   ];
 };
 
+/**
+ * @description
+ * Formats supported error values as styled CLI error output.
+ */
 export const formatErrorMessage = (message: Error | string) => {
   return output(...formatDevsyncError(message).split("\n").map(style.error));
 };
 
+/**
+ * @description
+ * Formats the result of initializing a sync directory.
+ */
 export const formatSyncInitResult = (
   result: SyncInitResult,
   _options: FormatterOptions = {},
@@ -276,6 +363,10 @@ export const formatSyncInitResult = (
   );
 };
 
+/**
+ * @description
+ * Formats the result of tracking or updating a sync target.
+ */
 export const formatSyncAddResult = (
   result: SyncAddResult,
   options: FormatterOptions = {},
@@ -298,6 +389,10 @@ export const formatSyncAddResult = (
   );
 };
 
+/**
+ * @description
+ * Formats the result of removing a tracked sync target.
+ */
 export const formatSyncForgetResult = (
   result: SyncForgetResult,
   options: FormatterOptions = {},
@@ -313,6 +408,10 @@ export const formatSyncForgetResult = (
   );
 };
 
+/**
+ * @description
+ * Formats the result of changing a sync mode override.
+ */
 export const formatSyncSetResult = (
   result: SyncSetResult,
   options: FormatterOptions = {},
@@ -334,6 +433,10 @@ export const formatSyncSetResult = (
   );
 };
 
+/**
+ * @description
+ * Formats push results and artifact counts for CLI output.
+ */
 export const formatSyncPushResult = (
   result: SyncPushResult,
   options: FormatterOptions = {},
@@ -356,6 +459,10 @@ export const formatSyncPushResult = (
   );
 };
 
+/**
+ * @description
+ * Formats pull results and local change counts for CLI output.
+ */
 export const formatSyncPullResult = (
   result: SyncPullResult,
   options: FormatterOptions = {},
@@ -378,6 +485,10 @@ export const formatSyncPullResult = (
   );
 };
 
+/**
+ * @description
+ * Formats the sync status view, including tracked entries and planned changes.
+ */
 export const formatSyncStatusResult = (
   result: SyncStatusResult,
   options: FormatterOptions = {},
@@ -426,6 +537,10 @@ export const formatSyncStatusResult = (
   );
 };
 
+/**
+ * @description
+ * Formats doctor findings and their overall health summary.
+ */
 export const formatSyncDoctorResult = (
   result: SyncDoctorResult,
   options: FormatterOptions = {},
@@ -445,6 +560,10 @@ export const formatSyncDoctorResult = (
   );
 };
 
+/**
+ * @description
+ * Formats the available profiles and their current assignments.
+ */
 export const formatSyncProfileListResult = (
   result: SyncProfileListResult,
   options: FormatterOptions = {},
@@ -480,6 +599,10 @@ export const formatSyncProfileListResult = (
   );
 };
 
+/**
+ * @description
+ * Formats the result of changing the active sync profile.
+ */
 export const formatSyncProfileUpdateResult = (
   result: SyncProfileUpdateResult,
   options: FormatterOptions = {},

@@ -4,6 +4,10 @@ export type DevsyncErrorOptions = Readonly<{
   hint?: string;
 }>;
 
+/**
+ * @description
+ * Removes empty lines before error details are rendered or stored.
+ */
 const compactLines = (lines: readonly (string | undefined)[]) => {
   return lines.filter((line): line is string => {
     return typeof line === "string" && line.trim().length > 0;
@@ -24,6 +28,10 @@ export class DevsyncError extends Error {
   }
 }
 
+/**
+ * @description
+ * Renders supported error values into the user-facing devsync error format.
+ */
 export const formatDevsyncError = (error: DevsyncError | Error | string) => {
   if (typeof error === "string") {
     return error;
@@ -40,6 +48,10 @@ export const formatDevsyncError = (error: DevsyncError | Error | string) => {
   ]).join("\n");
 };
 
+/**
+ * @description
+ * Wraps unknown failures in a DevsyncError with normalized detail lines.
+ */
 export const wrapUnknownError = (
   message: string,
   error: unknown,

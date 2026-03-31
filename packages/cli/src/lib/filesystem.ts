@@ -14,25 +14,29 @@ import {
   writeFile,
 } from "node:fs/promises";
 import { basename, dirname, join } from "node:path";
-
+import { DevsyncError } from "#app/lib/error.ts";
 import { buildExecutableMode, isExecutableMode } from "#app/lib/file-mode.ts";
 
-import { DevsyncError } from "./error.ts";
-
+/**
+ * @description
+ * Checks whether a filesystem path currently exists.
+ */
 export const pathExists = async (path: string) => {
   try {
     await access(path);
-
     return true;
   } catch (error: unknown) {
     if (error instanceof Error && "code" in error && error.code === "ENOENT") {
       return false;
     }
-
     throw error;
   }
 };
 
+/**
+ * @description
+ * Reads path metadata while treating missing paths as an absent result.
+ */
 export const getPathStats = async (path: string) => {
   try {
     return await lstat(path);
@@ -40,19 +44,25 @@ export const getPathStats = async (path: string) => {
     if (error instanceof Error && "code" in error && error.code === "ENOENT") {
       return undefined;
     }
-
     throw error;
   }
 };
 
+/**
+ * @description
+ * Lists directory entries in a stable name-sorted order.
+ */
 export const listDirectoryEntries = async (path: string) => {
   const entries = await readdir(path, { withFileTypes: true });
-
   return entries.sort((left, right) => {
     return left.name.localeCompare(right.name);
   });
 };
 
+/**
+ * @description
+ * Writes a regular file node with the permissions devsync should preserve.
+ */
 export const writeFileNode = async (
   path: string,
   node: Readonly<{
@@ -66,12 +76,20 @@ export const writeFileNode = async (
   await chmod(path, fileMode ?? buildExecutableMode(node.executable));
 };
 
+/**
+ * @description
+ * Replaces a path with a symlink node and its target.
+ */
 export const writeSymlinkNode = async (path: string, linkTarget: string) => {
   await mkdir(dirname(path), { recursive: true });
   await rm(path, { force: true, recursive: true });
   await symlink(linkTarget, path);
 };
 
+/**
+ * @description
+ * Copies a filesystem node into the sync layout while preserving supported node types.
+ */
 export const copyFilesystemNode = async (
   sourcePath: string,
   targetPath: string,
@@ -110,6 +128,10 @@ export const copyFilesystemNode = async (
   });
 };
 
+/**
+ * @description
+ * Swaps a staged path into place with rollback protection for the previous target.
+ */
 export const replacePathAtomically = async (
   targetPath: string,
   nextPath: string,
@@ -143,6 +165,10 @@ export const replacePathAtomically = async (
   }
 };
 
+/**
+ * @description
+ * Removes a path through a temporary rename so deletion is completed atomically.
+ */
 export const removePathAtomically = async (targetPath: string) => {
   const stats = await getPathStats(targetPath);
 
@@ -159,6 +185,10 @@ export const removePathAtomically = async (targetPath: string) => {
   await rm(backupPath, { force: true, recursive: true });
 };
 
+/**
+ * @description
+ * Writes text content through a staging directory before replacing the target file.
+ */
 export const writeTextFileAtomically = async (
   targetPath: string,
   contents: string,

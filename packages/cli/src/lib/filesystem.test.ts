@@ -23,7 +23,7 @@ import {
   writeFileNode,
   writeSymlinkNode,
   writeTextFileAtomically,
-} from "#app/services/filesystem.ts";
+} from "#app/lib/filesystem.ts";
 import { createTemporaryDirectory } from "../test/helpers/sync-fixture.ts";
 
 const temporaryDirectories: string[] = [];

@@ -24,7 +24,7 @@ const cdCommand = buildCommand<
     const syncDirectory = resolveDevsyncSyncDirectory();
 
     await mkdir(syncDirectory, { recursive: true });
-    await launchShellInDirectory(syncDirectory, process.env);
+    await launchShellInDirectory(syncDirectory);
   },
   parameters: {
     flags: {

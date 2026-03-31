@@ -18,9 +18,9 @@ import {
   resolveDevsyncSyncDirectory,
   resolveHomeDirectory,
 } from "#app/config/xdg.ts";
-
-import { DevsyncError } from "./error.ts";
-import { ensureGitRepository } from "./git.ts";
+import { ENV } from "#app/lib/env.ts";
+import { DevsyncError } from "#app/lib/error.ts";
+import { ensureGitRepository } from "#app/lib/git.ts";
 
 export type RuntimeAgeConfig = Readonly<{
   configuredIdentityFile: string;
@@ -48,16 +48,14 @@ export type LoadedSyncConfig = Readonly<{
   globalConfig?: GlobalDevsyncConfig;
 }>;
 
-export const resolveSyncPaths = (
-  environment: NodeJS.ProcessEnv = process.env,
-): SyncPaths => {
-  const syncDirectory = resolveDevsyncSyncDirectory(environment);
+export const resolveSyncPaths = (): SyncPaths => {
+  const syncDirectory = resolveDevsyncSyncDirectory(ENV);
 
   return {
     artifactsDirectory: resolveSyncArtifactsDirectoryPath(syncDirectory),
     configPath: resolveSyncConfigFilePath(syncDirectory),
-    globalConfigPath: resolveDevsyncGlobalConfigFilePath(environment),
-    homeDirectory: resolveHomeDirectory(environment),
+    globalConfigPath: resolveDevsyncGlobalConfigFilePath(ENV),
+    homeDirectory: resolveHomeDirectory(ENV),
     syncDirectory,
   };
 };
@@ -68,11 +66,10 @@ export const ensureSyncRepository = async (syncDirectory: string) => {
 
 export const resolveAgeFromSyncConfig = (
   age: SyncAgeConfig,
-  environment: NodeJS.ProcessEnv,
 ): RuntimeAgeConfig => {
   return {
     configuredIdentityFile: age.identityFile,
-    identityFile: resolveConfiguredIdentityFile(age.identityFile, environment),
+    identityFile: resolveConfiguredIdentityFile(age.identityFile, ENV),
     recipients: age.recipients,
   };
 };
@@ -105,13 +102,12 @@ export const buildEffectiveSyncConfig = (
 
 export const loadSyncConfig = async (
   syncDirectory: string,
-  environment: NodeJS.ProcessEnv,
   options: Readonly<{
     profile?: string;
   }> = {},
 ): Promise<LoadedSyncConfig> => {
-  const fullConfig = await readSyncConfig(syncDirectory, environment);
-  const globalConfig = await readGlobalDevsyncConfig(environment);
+  const fullConfig = await readSyncConfig(syncDirectory, ENV);
+  const globalConfig = await readGlobalDevsyncConfig(ENV);
   const selection =
     options.profile === undefined
       ? resolveActiveProfileSelection(globalConfig)
@@ -131,7 +127,7 @@ export const loadSyncConfig = async (
     });
   }
 
-  const age = resolveAgeFromSyncConfig(rawAge, environment);
+  const age = resolveAgeFromSyncConfig(rawAge);
 
   return {
     effectiveConfig: buildEffectiveSyncConfig(fullConfig, selection, age),

@@ -4,6 +4,10 @@ export type ProgressReporter = Readonly<{
   verbose: boolean;
 }>;
 
+/**
+ * @description
+ * Sends a high-level progress update when a reporter is available.
+ */
 export const reportPhase = (
   reporter: ProgressReporter | undefined,
   message: string,
@@ -11,6 +15,10 @@ export const reportPhase = (
   reporter?.phase(message);
 };
 
+/**
+ * @description
+ * Sends a verbose progress detail when a reporter is available.
+ */
 export const reportDetail = (
   reporter: ProgressReporter | undefined,
   message: string,

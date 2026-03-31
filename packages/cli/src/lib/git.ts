@@ -1,12 +1,14 @@
 import { execFile, spawn } from "node:child_process";
 import { promisify } from "node:util";
-
+import { wrapUnknownError } from "#app/lib/error.ts";
 import type { ProgressReporter } from "#app/lib/progress.ts";
-
-import { wrapUnknownError } from "./error.ts";
 
 const execFileAsync = promisify(execFile);
 
+/**
+ * @description
+ * Runs a git command and normalizes failures into concise errors.
+ */
 const runGitCommand = async (
   args: readonly string[],
   options?: Readonly<{ cwd?: string }>,
@@ -39,6 +41,10 @@ const runGitCommand = async (
   }
 };
 
+/**
+ * @description
+ * Streams git progress lines to the reporter as complete messages arrive.
+ */
 const forwardGitProgressChunk = (
   reporter: ProgressReporter | undefined,
   state: { remainder: string },
@@ -62,6 +68,10 @@ const forwardGitProgressChunk = (
   }
 };
 
+/**
+ * @description
+ * Flushes any final buffered git progress line to the reporter.
+ */
 const flushGitProgressChunk = (
   reporter: ProgressReporter | undefined,
   state: { remainder: string },
@@ -77,6 +87,10 @@ const flushGitProgressChunk = (
   }
 };
 
+/**
+ * @description
+ * Runs a git command while collecting output and forwarding verbose progress.
+ */
 const runStreamingGitCommand = async (
   args: readonly string[],
   options?: Readonly<{
@@ -149,10 +163,18 @@ const runStreamingGitCommand = async (
   });
 };
 
+/**
+ * @description
+ * Verifies that a directory is already a git working tree.
+ */
 export const ensureRepository = async (directory: string) => {
   await runGitCommand(["-C", directory, "rev-parse", "--is-inside-work-tree"]);
 };
 
+/**
+ * @description
+ * Creates a sync repository locally or clones it from a remote source.
+ */
 export const initializeRepository = async (
   directory: string,
   source?: string,
@@ -178,6 +200,10 @@ export const initializeRepository = async (
   };
 };
 
+/**
+ * @description
+ * Ensures the sync directory is a usable git repository for devsync commands.
+ */
 export const ensureGitRepository = async (syncDirectory: string) => {
   try {
     await ensureRepository(syncDirectory);

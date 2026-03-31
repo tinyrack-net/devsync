@@ -8,14 +8,8 @@ import {
   resolveManagedSyncMode,
   resolveSyncRule,
 } from "#app/config/sync.ts";
+import { DevsyncError } from "#app/lib/error.ts";
 import { buildSearchableDirectoryMode } from "#app/lib/file-mode.ts";
-import { buildDirectoryKey } from "#app/lib/path.ts";
-import {
-  type ProgressReporter,
-  reportDetail,
-  reportPhase,
-} from "#app/lib/progress.ts";
-import { DevsyncError } from "./error.ts";
 import {
   copyFilesystemNode,
   getPathStats,
@@ -24,7 +18,13 @@ import {
   replacePathAtomically,
   writeFileNode,
   writeSymlinkNode,
-} from "./filesystem.ts";
+} from "#app/lib/filesystem.ts";
+import { buildDirectoryKey } from "#app/lib/path.ts";
+import {
+  type ProgressReporter,
+  reportDetail,
+  reportPhase,
+} from "#app/lib/progress.ts";
 import type { FileLikeSnapshotNode, SnapshotNode } from "./local-snapshot.ts";
 
 type MaterializationConfig = ResolvedSyncConfig &

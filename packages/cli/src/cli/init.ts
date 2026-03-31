@@ -1,7 +1,8 @@
 import { buildCommand } from "@stricli/core";
 import { resolveConfiguredAbsolutePath } from "#app/config/xdg.ts";
+import { ENV } from "#app/lib/env.ts";
+import { pathExists } from "#app/lib/filesystem.ts";
 import { formatSyncInitResult } from "#app/lib/output.ts";
-import { pathExists } from "#app/services/filesystem.ts";
 import { defaultSyncIdentityFile, initializeSync } from "#app/services/init.ts";
 import {
   createProgressReporter,
@@ -33,7 +34,7 @@ const initCommand = buildCommand<InitFlags, [string?], DevsyncCliContext>({
       flags.identity?.trim() || defaultSyncIdentityFile;
     const identityFile = resolveConfiguredAbsolutePath(
       configuredIdentityFile,
-      process.env,
+      ENV,
     );
     const shouldPrompt =
       requestedKey === undefined && !(await pathExists(identityFile));
@@ -57,7 +58,6 @@ const initCommand = buildCommand<InitFlags, [string?], DevsyncCliContext>({
           recipients: flags.recipient ?? [],
           repository,
         },
-        process.env,
         progress,
       ),
       { verbose },

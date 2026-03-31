@@ -24,7 +24,6 @@ const untrackCommand = buildCommand<UntrackFlags, [string], DevsyncCliContext>({
         {
           target,
         },
-        process.env,
         process.cwd(),
       ),
       { verbose: isVerbose(flags.verbose) },

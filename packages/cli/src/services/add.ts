@@ -7,13 +7,14 @@ import {
   type SyncConfigEntryKind,
   type SyncMode,
 } from "#app/config/sync.ts";
+import { ENV } from "#app/lib/env.ts";
+import { DevsyncError } from "#app/lib/error.ts";
+import { getPathStats } from "#app/lib/filesystem.ts";
 import { doPathsOverlap } from "#app/lib/path.ts";
 import {
   createSyncConfigDocument,
   writeValidatedSyncConfig,
 } from "./config-file.ts";
-import { DevsyncError } from "./error.ts";
-import { getPathStats } from "./filesystem.ts";
 import {
   buildConfiguredHomeLocalPath,
   buildRepoPathWithinRoot,
@@ -136,7 +137,6 @@ const buildAddEntryCandidate = async (
 
 export const trackSyncTarget = async (
   request: SyncAddRequest,
-  environment: NodeJS.ProcessEnv,
   cwd: string,
 ): Promise<SyncAddResult> => {
   const target = request.target.trim();
@@ -148,15 +148,14 @@ export const trackSyncTarget = async (
     });
   }
 
-  const { syncDirectory, configPath, homeDirectory } =
-    resolveSyncPaths(environment);
+  const { syncDirectory, configPath, homeDirectory } = resolveSyncPaths();
 
   await ensureSyncRepository(syncDirectory);
 
-  const config = await readSyncConfig(syncDirectory, environment);
+  const config = await readSyncConfig(syncDirectory, ENV);
   const identityFile =
     config.age !== undefined
-      ? resolveConfiguredIdentityFile(config.age.identityFile, environment)
+      ? resolveConfiguredIdentityFile(config.age.identityFile, ENV)
       : undefined;
   const isProfileClear =
     request.profiles !== undefined &&
@@ -165,7 +164,7 @@ export const trackSyncTarget = async (
   const effectiveProfiles = isProfileClear ? [] : request.profiles;
 
   const candidate = await buildAddEntryCandidate(
-    resolveCommandTargetPath(target, environment, cwd),
+    resolveCommandTargetPath(target, cwd),
     syncDirectory,
     homeDirectory,
     {
@@ -204,7 +203,7 @@ export const trackSyncTarget = async (
       entries: [...config.entries, candidate],
     });
 
-    await writeValidatedSyncConfig(syncDirectory, nextConfig, environment);
+    await writeValidatedSyncConfig(syncDirectory, nextConfig);
 
     return {
       alreadyTracked,
@@ -257,7 +256,7 @@ export const trackSyncTarget = async (
       }),
     });
 
-    await writeValidatedSyncConfig(syncDirectory, nextConfig, environment);
+    await writeValidatedSyncConfig(syncDirectory, nextConfig);
   }
 
   return {

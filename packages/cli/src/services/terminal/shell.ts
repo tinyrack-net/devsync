@@ -2,7 +2,8 @@ import { spawn } from "node:child_process";
 
 import type { PlatformKey } from "#app/config/platform.ts";
 import { detectCurrentPlatformKey } from "#app/config/platform.ts";
-import { DevsyncError } from "#app/services/error.ts";
+import { ENV } from "#app/lib/env.ts";
+import { DevsyncError } from "#app/lib/error.ts";
 
 type ShellCommand = Readonly<{
   args: readonly string[];
@@ -21,16 +22,8 @@ type ResolveShellCommandOptions = Readonly<{
   initialWindowsProcessId?: number;
   inspectWindowsProcess?: (
     processId: number,
-    environment: NodeJS.ProcessEnv,
   ) => Promise<WindowsProcessInfo | undefined>;
 }>;
-
-type ShellEnvironment = NodeJS.ProcessEnv & {
-  COMSPEC?: string;
-  DEVSYNC_CD_ARGS?: string;
-  DEVSYNC_CD_COMMAND?: string;
-  SHELL?: string;
-};
 
 const windowsShellNames = new Set([
   "bash",
@@ -181,10 +174,7 @@ const parseWindowsProcessInfo = (
   };
 };
 
-const inspectWindowsProcess = async (
-  processId: number,
-  environment: NodeJS.ProcessEnv,
-) => {
+const inspectWindowsProcess = async (processId: number) => {
   return await new Promise<WindowsProcessInfo | undefined>((resolve) => {
     const child = spawn(
       "powershell.exe",
@@ -197,7 +187,7 @@ const inspectWindowsProcess = async (
         String(processId),
       ],
       {
-        env: environment,
+        env: process.env,
         stdio: ["ignore", "pipe", "ignore"],
         windowsHide: true,
       },
@@ -249,27 +239,22 @@ const createShellCommandFromProcess = (
   };
 };
 
-const resolveShellOverride = (
-  environment: NodeJS.ProcessEnv = process.env,
-): ShellCommand | undefined => {
-  const shellEnvironment = environment as ShellEnvironment;
-  const command = trimConfiguredValue(shellEnvironment.DEVSYNC_CD_COMMAND);
+const resolveShellOverride = (): ShellCommand | undefined => {
+  const command = trimConfiguredValue(ENV.DEVSYNC_CD_COMMAND);
 
   if (command === undefined) {
     return undefined;
   }
 
   return {
-    args: parseShellArgsOverride(shellEnvironment.DEVSYNC_CD_ARGS),
+    args: parseShellArgsOverride(ENV.DEVSYNC_CD_ARGS),
     command,
   };
 };
 
 const resolveWindowsShellCommand = async (
-  environment: NodeJS.ProcessEnv,
   options: ResolveShellCommandOptions,
 ): Promise<ShellCommand> => {
-  const shellEnvironment = environment as ShellEnvironment;
   const inspect = options.inspectWindowsProcess ?? inspectWindowsProcess;
   const visited = new Set<number>();
   let processId = options.initialWindowsProcessId ?? process.ppid;
@@ -282,7 +267,7 @@ const resolveWindowsShellCommand = async (
   ) {
     visited.add(processId);
 
-    const processInfo = await inspect(processId, environment);
+    const processInfo = await inspect(processId);
 
     if (processInfo === undefined) {
       break;
@@ -299,45 +284,36 @@ const resolveWindowsShellCommand = async (
 
   return {
     args: [],
-    command: trimConfiguredValue(shellEnvironment.COMSPEC) ?? "cmd.exe",
+    command: trimConfiguredValue(ENV.COMSPEC) ?? "cmd.exe",
   };
 };
 
 export const resolveShellCommandForPlatform = async (
   platformKey: PlatformKey,
-  environment: NodeJS.ProcessEnv = process.env,
   options: ResolveShellCommandOptions = {},
 ): Promise<ShellCommand> => {
-  const shellEnvironment = environment as ShellEnvironment;
-  const override = resolveShellOverride(environment);
+  const override = resolveShellOverride();
 
   if (override !== undefined) {
     return override;
   }
 
   if (platformKey === "win") {
-    return await resolveWindowsShellCommand(environment, options);
+    return await resolveWindowsShellCommand(options);
   }
 
   return {
     args: [],
-    command: trimConfiguredValue(shellEnvironment.SHELL) ?? "/bin/sh",
+    command: trimConfiguredValue(ENV.SHELL) ?? "/bin/sh",
   };
 };
 
-export const resolveShellCommand = async (
-  environment: NodeJS.ProcessEnv = process.env,
-) => {
-  return await resolveShellCommandForPlatform(
-    detectCurrentPlatformKey(environment),
-    environment,
-  );
+export const resolveShellCommand = async () => {
+  return await resolveShellCommandForPlatform(detectCurrentPlatformKey());
 };
 
-const createShellFailureHint = (
-  environment: NodeJS.ProcessEnv = process.env,
-) => {
-  return detectCurrentPlatformKey(environment) === "win"
+const createShellFailureHint = () => {
+  return detectCurrentPlatformKey() === "win"
     ? "Set DEVSYNC_CD_COMMAND or COMSPEC to a valid shell executable."
     : "Set SHELL or DEVSYNC_CD_COMMAND to a valid shell executable.";
 };
@@ -362,16 +338,13 @@ const createShellExitError = (
   return error;
 };
 
-export const launchShellInDirectory = async (
-  directory: string,
-  environment: NodeJS.ProcessEnv = process.env,
-) => {
-  const { args, command } = await resolveShellCommand(environment);
+export const launchShellInDirectory = async (directory: string) => {
+  const { args, command } = await resolveShellCommand();
 
   await new Promise<void>((resolve, reject) => {
     const child = spawn(command, [...args], {
       cwd: directory,
-      env: environment,
+      env: process.env,
       stdio: "inherit",
     });
     let settled = false;
@@ -393,7 +366,7 @@ export const launchShellInDirectory = async (
               `Shell: ${command}`,
               error instanceof Error ? error.message : String(error),
             ],
-            hint: createShellFailureHint(environment),
+            hint: createShellFailureHint(),
           }),
         );
       });

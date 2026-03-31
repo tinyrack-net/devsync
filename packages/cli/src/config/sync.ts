@@ -15,11 +15,12 @@ import {
   resolveHomeDirectory,
   resolvePlatformConfiguredAbsolutePath,
 } from "#app/config/xdg.ts";
+import { ENV, type Env } from "#app/lib/env.ts";
+import { DevsyncError } from "#app/lib/error.ts";
 import { parsePermissionOctal } from "#app/lib/file-mode.ts";
 import { doPathsOverlap } from "#app/lib/path.ts";
 import { ensureTrailingNewline } from "#app/lib/string.ts";
 import { formatInputIssues } from "#app/lib/validation.ts";
-import { DevsyncError } from "#app/services/error.ts";
 
 export const syncConfigFileName = "manifest.json";
 export const syncSecretArtifactSuffix = ".devsync.secret";
@@ -310,7 +311,7 @@ export const resolveEntryRelativeRepoPath = (
 
 const resolveSyncEntryLocalPath = (
   value: PlatformLocalPath,
-  environment: NodeJS.ProcessEnv,
+  environment: Env,
   platformKey: PlatformKey,
 ) => {
   const homeDirectory = resolveHomeDirectory(environment);
@@ -370,7 +371,7 @@ const resolveSyncEntryLocalPath = (
 
 export const deriveRepoPathFromLocalPath = (
   localPath: PlatformLocalPath,
-  environment: NodeJS.ProcessEnv,
+  environment: Env,
 ) => {
   const homeDirectory = resolveHomeDirectory(environment);
   const defaultPath = resolveDefaultLocalPath(localPath);
@@ -562,7 +563,7 @@ const applyEntryInheritance = (
 
 export const parseSyncConfig = (
   input: unknown,
-  environment: NodeJS.ProcessEnv = process.env,
+  environment: Env = ENV,
 ): ResolvedSyncConfig => {
   const platformKey = detectCurrentPlatformKey(environment);
   const result = syncConfigSchema.safeParse(input);
@@ -639,9 +640,7 @@ export const formatSyncConfig = (config: SyncConfig) => {
   return ensureTrailingNewline(JSON.stringify(config, null, 2));
 };
 
-export const resolveSyncConfigPath = (
-  environment: NodeJS.ProcessEnv = process.env,
-) => {
+export const resolveSyncConfigPath = (environment: Env = ENV) => {
   return posix.join(
     resolveDevsyncSyncDirectory(environment).replaceAll("\\", "/"),
     syncConfigFileName,
@@ -660,7 +659,7 @@ export const resolveSyncArtifactsDirectoryPath = (syncDirectory: string) => {
 
 export const readSyncConfig = async (
   syncDirectory: string = resolveDevsyncSyncDirectory(),
-  environment: NodeJS.ProcessEnv = process.env,
+  environment: Env = ENV,
 ) => {
   try {
     const contents = await readFile(

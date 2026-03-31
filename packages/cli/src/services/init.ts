@@ -16,17 +16,17 @@ import {
   type SyncAgeConfig,
 } from "#app/config/sync.ts";
 import { resolveConfiguredAbsolutePath } from "#app/config/xdg.ts";
-import type { ProgressReporter } from "#app/lib/progress.ts";
-import { reportPhase } from "#app/lib/progress.ts";
-
 import {
   createAgeIdentityFile,
   readAgeRecipientsFromIdentityFile,
   writeAgeIdentityFile,
-} from "./crypto.ts";
-import { DevsyncError, wrapUnknownError } from "./error.ts";
-import { pathExists, writeTextFileAtomically } from "./filesystem.ts";
-import { ensureRepository, initializeRepository } from "./git.ts";
+} from "#app/lib/crypto.ts";
+import { ENV } from "#app/lib/env.ts";
+import { DevsyncError, wrapUnknownError } from "#app/lib/error.ts";
+import { pathExists, writeTextFileAtomically } from "#app/lib/filesystem.ts";
+import { ensureRepository, initializeRepository } from "#app/lib/git.ts";
+import type { ProgressReporter } from "#app/lib/progress.ts";
+import { reportPhase } from "#app/lib/progress.ts";
 import {
   ensureSyncRepository,
   resolveAgeFromSyncConfig,
@@ -65,14 +65,13 @@ const normalizeRecipients = (recipients: readonly string[]) => {
 
 const resolveInitAgeBootstrap = async (
   request: SyncInitRequest,
-  environment: NodeJS.ProcessEnv,
   reporter?: ProgressReporter,
 ) => {
   const configuredIdentityFile =
     request.identityFile?.trim() || defaultSyncIdentityFile;
   const identityFile = resolveConfiguredAbsolutePath(
     configuredIdentityFile,
-    environment,
+    ENV,
   );
   const explicitRecipients = normalizeRecipients(request.recipients);
 
@@ -148,7 +147,6 @@ const resolveInitAgeBootstrap = async (
 const assertInitRequestMatchesConfig = (
   age: SyncAgeConfig | undefined,
   request: SyncInitRequest,
-  environment: NodeJS.ProcessEnv,
 ) => {
   if (age === undefined) {
     return;
@@ -183,11 +181,11 @@ const assertInitRequestMatchesConfig = (
 
   const resolvedIdentity = resolveConfiguredIdentityFile(
     request.identityFile,
-    environment,
+    ENV,
   );
   const configuredIdentity = resolveConfiguredIdentityFile(
     age.identityFile,
-    environment,
+    ENV,
   );
 
   if (resolvedIdentity !== configuredIdentity) {
@@ -207,7 +205,6 @@ const assertInitRequestMatchesConfig = (
 
 const buildAlreadyInitializedResult = (
   config: Awaited<ReturnType<typeof readSyncConfig>>,
-  environment: NodeJS.ProcessEnv,
   base: Readonly<{
     configPath: string;
     gitAction: SyncInitResult["gitAction"];
@@ -216,9 +213,7 @@ const buildAlreadyInitializedResult = (
   }>,
 ): SyncInitResult => {
   const age =
-    config.age !== undefined
-      ? resolveAgeFromSyncConfig(config.age, environment)
-      : undefined;
+    config.age !== undefined ? resolveAgeFromSyncConfig(config.age) : undefined;
 
   return {
     alreadyInitialized: true,
@@ -233,11 +228,8 @@ const buildAlreadyInitializedResult = (
   };
 };
 
-const writeGlobalSettings = async (
-  globalConfigPath: string,
-  environment: NodeJS.ProcessEnv,
-) => {
-  const existingGlobalConfig = await readGlobalDevsyncConfig(environment);
+const writeGlobalSettings = async (globalConfigPath: string) => {
+  const existingGlobalConfig = await readGlobalDevsyncConfig();
   const globalConfigToWrite: GlobalDevsyncConfig = {
     activeProfile: existingGlobalConfig?.activeProfile ?? "default",
     version: 3,
@@ -252,12 +244,10 @@ const writeGlobalSettings = async (
 
 export const initializeSync = async (
   request: SyncInitRequest,
-  environment: NodeJS.ProcessEnv,
   reporter?: ProgressReporter,
 ): Promise<SyncInitResult> => {
   reportPhase(reporter, "Initializing sync directory...");
-  const { syncDirectory, configPath, globalConfigPath } =
-    resolveSyncPaths(environment);
+  const { syncDirectory, configPath, globalConfigPath } = resolveSyncPaths();
   const configExists = await pathExists(configPath);
 
   if (configExists) {
@@ -265,12 +255,12 @@ export const initializeSync = async (
     await ensureSyncRepository(syncDirectory);
 
     reportPhase(reporter, "Loading the existing sync manifest...");
-    const config = await readSyncConfig(syncDirectory, environment);
-    assertInitRequestMatchesConfig(config.age, request, environment);
+    const config = await readSyncConfig(syncDirectory, ENV);
+    assertInitRequestMatchesConfig(config.age, request);
 
-    await resolveInitAgeBootstrap(request, environment, reporter);
+    await resolveInitAgeBootstrap(request, reporter);
 
-    return buildAlreadyInitializedResult(config, environment, {
+    return buildAlreadyInitializedResult(config, {
       configPath,
       gitAction: "existing",
       syncDirectory,
@@ -358,17 +348,13 @@ export const initializeSync = async (
 
   if (await pathExists(configPath)) {
     reportPhase(reporter, "Loading the existing sync manifest...");
-    const config = await readSyncConfig(syncDirectory, environment);
-    assertInitRequestMatchesConfig(config.age, request, environment);
+    const config = await readSyncConfig(syncDirectory, ENV);
+    assertInitRequestMatchesConfig(config.age, request);
 
-    const ageBootstrap = await resolveInitAgeBootstrap(
-      request,
-      environment,
-      reporter,
-    );
+    const ageBootstrap = await resolveInitAgeBootstrap(request, reporter);
 
     if (configExists) {
-      return buildAlreadyInitializedResult(config, environment, {
+      return buildAlreadyInitializedResult(config, {
         configPath,
         gitAction,
         gitSource,
@@ -377,11 +363,11 @@ export const initializeSync = async (
     }
 
     reportPhase(reporter, "Writing global devsync settings...");
-    await writeGlobalSettings(globalConfigPath, environment);
+    await writeGlobalSettings(globalConfigPath);
 
     const age =
       config.age !== undefined
-        ? resolveAgeFromSyncConfig(config.age, environment)
+        ? resolveAgeFromSyncConfig(config.age)
         : undefined;
 
     return {
@@ -393,25 +379,18 @@ export const initializeSync = async (
       generatedIdentity: ageBootstrap.generatedIdentity,
       identityFile:
         age?.identityFile ??
-        resolveConfiguredAbsolutePath(
-          ageBootstrap.configuredIdentityFile,
-          environment,
-        ),
+        resolveConfiguredAbsolutePath(ageBootstrap.configuredIdentityFile, ENV),
       recipientCount: age?.recipients.length ?? 0,
       syncDirectory,
     };
   }
 
   reportPhase(reporter, "Preparing sync encryption settings...");
-  const ageBootstrap = await resolveInitAgeBootstrap(
-    request,
-    environment,
-    reporter,
-  );
+  const ageBootstrap = await resolveInitAgeBootstrap(request, reporter);
 
   // Write global settings.json (without age)
   reportPhase(reporter, "Writing global devsync settings...");
-  await writeGlobalSettings(globalConfigPath, environment);
+  await writeGlobalSettings(globalConfigPath);
 
   // Write sync manifest with age
   const initialConfig = createInitialSyncConfig({
@@ -420,7 +399,7 @@ export const initializeSync = async (
   });
 
   reportPhase(reporter, "Writing sync manifest...");
-  parseSyncConfig(initialConfig, environment);
+  parseSyncConfig(initialConfig, ENV);
   await writeFile(configPath, formatSyncConfig(initialConfig), "utf8");
 
   return {
@@ -432,7 +411,7 @@ export const initializeSync = async (
     generatedIdentity: ageBootstrap.generatedIdentity,
     identityFile: resolveConfiguredAbsolutePath(
       ageBootstrap.configuredIdentityFile,
-      environment,
+      ENV,
     ),
     recipientCount: ageBootstrap.recipients.length,
     syncDirectory,

@@ -29,7 +29,6 @@ const pullCommand = buildCommand<PullFlags, [], DevsyncCliContext>({
           dryRun: flags.dryRun ?? false,
           profile: flags.profile,
         },
-        process.env,
         createProgressReporter(verbose),
       ),
       { verbose },

@@ -5,9 +5,10 @@ import {
   resolveConfiguredAbsolutePath,
   resolveDevsyncGlobalConfigFilePath,
 } from "#app/config/xdg.ts";
+import { ENV, type Env } from "#app/lib/env.ts";
+import { DevsyncError } from "#app/lib/error.ts";
 import { ensureTrailingNewline } from "#app/lib/string.ts";
 import { formatInputIssues } from "#app/lib/validation.ts";
-import { DevsyncError } from "#app/services/error.ts";
 import { normalizeSyncProfileName } from "./sync.ts";
 
 const optionalTrimmedStringSchema = z.string().trim().min(1).optional();
@@ -50,7 +51,7 @@ export type ActiveProfileSelection = Readonly<
 
 export const resolveConfiguredIdentityFile = (
   value: string,
-  environment: NodeJS.ProcessEnv,
+  environment: Env,
 ) => {
   try {
     return resolveConfiguredAbsolutePath(value, environment);
@@ -90,9 +91,7 @@ export const formatGlobalDevsyncConfig = (config: GlobalDevsyncConfig) => {
   return ensureTrailingNewline(JSON.stringify(config, null, 2));
 };
 
-export const readGlobalDevsyncConfig = async (
-  environment: NodeJS.ProcessEnv = process.env,
-) => {
+export const readGlobalDevsyncConfig = async (environment: Env = ENV) => {
   const filePath = resolveDevsyncGlobalConfigFilePath(environment);
 
   try {

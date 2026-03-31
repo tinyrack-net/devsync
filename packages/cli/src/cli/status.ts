@@ -23,7 +23,7 @@ const statusCommand = buildCommand<StatusFlags, [], DevsyncCliContext>({
   async func(flags) {
     const verbose = isVerbose(flags.verbose);
     const output = formatSyncStatusResult(
-      await getSyncStatus(process.env, {
+      await getSyncStatus({
         profile: flags.profile,
         reporter: createProgressReporter(verbose),
       }),
