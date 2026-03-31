@@ -6,6 +6,7 @@ import {
   text_en,
 } from "@stricli/core";
 import { buildRootRoute } from "#app/cli/index.ts";
+import { CONSTANTS } from "#app/config/constants.ts";
 import { formatErrorMessage } from "#app/lib/output.ts";
 import { currentVersion } from "#app/lib/version.ts";
 import {
@@ -84,7 +85,7 @@ application = buildApplication(rootRoute, {
     defaultLocale: "en",
     loadText: () => devsyncText,
   },
-  name: "devsync",
+  name: CONSTANTS.APP.NAME,
   scanner: {
     caseStyle: "allow-kebab-for-camel",
   },

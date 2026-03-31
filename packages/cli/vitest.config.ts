@@ -11,12 +11,7 @@ export default defineConfig({
     environment: "node",
     include: ["src/**/*.test.ts", "tests/**/*.e2e.test.ts"],
     coverage: {
-      exclude: [
-        "src/**/*.test.ts",
-        "src/test/**",
-        "src/index.ts",
-        "src/cli/**",
-      ],
+      exclude: ["src/**/*.test.ts", "src/test/**", "src/index.ts"],
       include: ["src/**/*.ts"],
       provider: "v8",
       reporter: ["text", "lcov"],

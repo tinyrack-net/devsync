@@ -1,4 +1,5 @@
 import { buildCommand } from "@stricli/core";
+import { CONSTANTS } from "#app/config/constants.ts";
 import { DevsyncError } from "#app/lib/error.ts";
 import { formatSyncAddResult, formatSyncSetResult } from "#app/lib/output.ts";
 import { trackSyncTarget } from "#app/services/add.ts";
@@ -83,9 +84,9 @@ const trackCommand = buildCommand<TrackFlags, string[], DevsyncCliContext>({
     flags: {
       mode: {
         brief: "Sync mode for the tracked targets",
-        default: "normal",
+        default: CONSTANTS.SYNC.MODES[0],
         kind: "enum",
-        values: ["normal", "secret", "ignore"],
+        values: CONSTANTS.SYNC.MODES,
       },
       profile: {
         brief: "Restrict syncing to specific profiles",
