@@ -1,6 +1,6 @@
 import { buildCommand } from "@stricli/core";
 import { formatSyncDoctorResult } from "#app/lib/output.ts";
-import { runSyncDoctor } from "#app/services/doctor.ts";
+import { runDoctor } from "#app/services/doctor.ts";
 import {
   createProgressReporter,
   type DevsyncCliContext,
@@ -24,7 +24,7 @@ const doctorCommand = buildCommand<
   },
   async func(flags) {
     const verbose = isVerbose(flags.verbose);
-    const result = await runSyncDoctor(createProgressReporter(verbose));
+    const result = await runDoctor(createProgressReporter(verbose));
 
     print(formatSyncDoctorResult(result, { verbose }));
 

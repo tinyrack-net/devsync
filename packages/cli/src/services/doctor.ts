@@ -68,7 +68,7 @@ const hasRestorableRepositoryArtifact = (
   return false;
 };
 
-export const runSyncDoctor = async (
+export const runDoctor = async (
   reporter?: ProgressReporter,
 ): Promise<SyncDoctorResult> => {
   reportPhase(reporter, "Running doctor checks...");
