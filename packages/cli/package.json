@@ -59,9 +59,9 @@
     "check": "pnpm run typecheck && biome check . && pnpm run test",
     "check:fix": "biome check --write .",
     "format": "biome format --write .",
-    "release:patch": "pnpm version patch --message \"chore(release): %s\"",
-    "release:minor": "pnpm version minor --message \"chore(release): %s\"",
-    "release:major": "pnpm version major --message \"chore(release): %s\""
+    "release:patch": "node scripts/release.ts patch",
+    "release:minor": "node scripts/release.ts minor",
+    "release:major": "node scripts/release.ts major"
   },
   "dependencies": {
     "@stricli/core": "^1.2.6",
