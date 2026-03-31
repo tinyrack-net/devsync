@@ -4,10 +4,7 @@ import { dirname, join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { createTemporaryDirectory } from "#app/test/helpers/sync-fixture.ts";
-import {
-  resolveArtifactRelativePath,
-  resolveEntryArtifactPath,
-} from "./repo-artifacts.ts";
+import { resolveArtifactRelativePath } from "./repo-artifacts.ts";
 
 const mocked = vi.hoisted(() => ({
   createSyncConfigDocument: vi.fn((config: unknown) => ({
@@ -115,12 +112,22 @@ describe("sync forget service", () => {
       profiles: [],
       repoPath: ".gitconfig",
     };
-    const defaultPlainPath = resolveEntryArtifactPath(
+    const defaultPlainPath = join(
       workspace,
-      entry,
-      "default",
+      ...resolveArtifactRelativePath({
+        category: "plain",
+        profile: "default",
+        repoPath: entry.repoPath,
+      }).split("/"),
     );
-    const workPlainPath = resolveEntryArtifactPath(workspace, entry, "work");
+    const workPlainPath = join(
+      workspace,
+      ...resolveArtifactRelativePath({
+        category: "plain",
+        profile: "work",
+        repoPath: entry.repoPath,
+      }).split("/"),
+    );
     const defaultSecretPath = join(
       workspace,
       ...resolveArtifactRelativePath({
@@ -191,7 +198,14 @@ describe("sync forget service", () => {
       profiles: ["work"],
       repoPath: ".config/app",
     };
-    const plainRoot = resolveEntryArtifactPath(workspace, entry, "default");
+    const plainRoot = join(
+      workspace,
+      ...resolveArtifactRelativePath({
+        category: "plain",
+        profile: "default",
+        repoPath: entry.repoPath,
+      }).split("/"),
+    );
     const siblingPath = join(workspace, "default", ".config", "keep.txt");
 
     await mkdir(join(plainRoot, "nested"), { recursive: true });

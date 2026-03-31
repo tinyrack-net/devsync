@@ -1,9 +1,6 @@
 import { join } from "node:path";
 
-import {
-  resolveSyncArtifactsDirectoryPath,
-  resolveSyncConfigFilePath,
-} from "#app/config/sync.ts";
+import { resolveSyncConfigFilePath } from "#app/config/sync.ts";
 import { removePathAtomically } from "#app/lib/filesystem.ts";
 import {
   type ProgressReporter,
@@ -163,7 +160,7 @@ export const pushSync = async (
   const plan = await buildPushPlan(config, syncDirectory, reporter);
 
   if (!request.dryRun) {
-    const artifactsDirectory = resolveSyncArtifactsDirectoryPath(syncDirectory);
+    const artifactsDirectory = syncDirectory;
     const staleArtifactKeys = [...plan.existingArtifactKeys].filter((key) => {
       return !plan.desiredArtifactKeys.has(key);
     });

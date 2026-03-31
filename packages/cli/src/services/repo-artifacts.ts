@@ -5,7 +5,6 @@ import {
   findOwningSyncEntry,
   hasReservedSyncArtifactSuffixSegment,
   type ResolvedSyncConfigEntry,
-  resolveSyncArtifactsDirectoryPath,
   resolveSyncRule,
   syncDefaultProfile,
   syncSecretArtifactSuffix,
@@ -150,28 +149,6 @@ export const parseArtifactRelativePath = (relativePath: string) => {
     repoPath: repoPathSegments.join("/"),
     secret,
   };
-};
-
-export const resolveEntryArtifactRelativePath = (
-  entry: Pick<ResolvedSyncConfigEntry, "repoPath">,
-  profile: string,
-) => {
-  return resolveArtifactRelativePath({
-    category: "plain",
-    profile,
-    repoPath: entry.repoPath,
-  });
-};
-
-export const resolveEntryArtifactPath = (
-  artifactsDirectory: string,
-  entry: Pick<ResolvedSyncConfigEntry, "repoPath">,
-  profile: string,
-) => {
-  return join(
-    artifactsDirectory,
-    ...resolveEntryArtifactRelativePath(entry, profile).split("/"),
-  );
 };
 
 export const buildRepoArtifacts = async (
@@ -320,7 +297,7 @@ export const collectExistingArtifactKeys = async (
   reporter?: ProgressReporter,
 ) => {
   const keys = new Set<string>();
-  const artifactsDirectory = resolveSyncArtifactsDirectoryPath(syncDirectory);
+  const artifactsDirectory = syncDirectory;
   const namespaces = collectArtifactNamespaces(config.entries);
   let discoveredArtifactCount = 0;
 

@@ -1,11 +1,7 @@
 import { lstat, readFile, readlink } from "node:fs/promises";
 import { join } from "node:path";
 
-import {
-  resolveManagedSyncMode,
-  resolveSyncArtifactsDirectoryPath,
-  resolveSyncRule,
-} from "#app/config/sync.ts";
+import { resolveManagedSyncMode, resolveSyncRule } from "#app/config/sync.ts";
 import { decryptSecretFile } from "#app/lib/crypto.ts";
 import { DevsyncError, wrapUnknownError } from "#app/lib/error.ts";
 import { isExecutableMode } from "#app/lib/file-mode.ts";
@@ -261,7 +257,7 @@ export const buildRepositorySnapshot = async (
   reporter?: ProgressReporter,
 ) => {
   const snapshot = new Map<string, SnapshotNode>();
-  const artifactsDirectory = resolveSyncArtifactsDirectoryPath(syncDirectory);
+  const artifactsDirectory = syncDirectory;
   const namespaces = collectArtifactNamespaces(config.entries);
   const progressState = { scannedStorageEntryCount: 0 };
 

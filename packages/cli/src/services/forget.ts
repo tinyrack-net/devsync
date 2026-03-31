@@ -4,7 +4,6 @@ import { dirname, join, posix } from "node:path";
 import {
   type ResolvedSyncConfigEntry,
   readSyncConfig,
-  resolveSyncArtifactsDirectoryPath,
 } from "#app/config/sync.ts";
 import { ENV } from "#app/lib/env.ts";
 import { DevsyncError } from "#app/lib/error.ts";
@@ -23,7 +22,6 @@ import {
   collectArtifactNamespaces,
   isSecretArtifactPath,
   resolveArtifactRelativePath,
-  resolveEntryArtifactPath,
 } from "./repo-artifacts.ts";
 import { ensureSyncRepository, resolveSyncPaths } from "./runtime.ts";
 
@@ -81,7 +79,7 @@ const collectEntryArtifactCounts = async (
   syncDirectory: string,
   entry: ResolvedSyncConfigEntry,
 ) => {
-  const artifactsRoot = resolveSyncArtifactsDirectoryPath(syncDirectory);
+  const artifactsRoot = syncDirectory;
   const counts = {
     plain: 0,
     secret: 0,
@@ -89,14 +87,16 @@ const collectEntryArtifactCounts = async (
   const namespaces = collectArtifactNamespaces([entry]);
 
   for (const profile of namespaces) {
+    const plainRelativePath = resolveArtifactRelativePath({
+      category: "plain",
+      profile,
+      repoPath: entry.repoPath,
+    });
+
     await collectRepoArtifactCounts(
-      resolveEntryArtifactPath(artifactsRoot, entry, profile),
+      join(artifactsRoot, ...plainRelativePath.split("/")),
       counts,
-      resolveArtifactRelativePath({
-        category: "plain",
-        profile,
-        repoPath: entry.repoPath,
-      }),
+      plainRelativePath,
     );
 
     if (entry.kind !== "directory") {
@@ -156,11 +156,18 @@ const removeTrackedEntryArtifacts = async (
   syncDirectory: string,
   entry: ResolvedSyncConfigEntry,
 ) => {
-  const artifactsRoot = resolveSyncArtifactsDirectoryPath(syncDirectory);
+  const artifactsRoot = syncDirectory;
   const namespaces = collectArtifactNamespaces([entry]);
 
   for (const profile of namespaces) {
-    const plainPath = resolveEntryArtifactPath(artifactsRoot, entry, profile);
+    const plainPath = join(
+      artifactsRoot,
+      ...resolveArtifactRelativePath({
+        category: "plain",
+        profile,
+        repoPath: entry.repoPath,
+      }).split("/"),
+    );
 
     await removePathAtomically(plainPath);
     await pruneEmptyParentDirectories(dirname(plainPath), artifactsRoot);
