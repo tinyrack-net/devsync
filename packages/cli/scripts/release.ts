@@ -13,9 +13,9 @@ async function main() {
   try {
     console.log(`🚀 Starting release: ${releaseType}`);
 
-    // Run pnpm run release:{type}
-    console.log(`📦 Running: pnpm run release:${releaseType}`);
-    await execa("pnpm", ["run", `release:${releaseType}`], {
+    // Bump version with pnpm
+    console.log(`📦 Running: pnpm version ${releaseType}`);
+    await execa("pnpm", ["version", releaseType], {
       stdio: "inherit",
       cwd: process.cwd(),
     });
