@@ -4,36 +4,36 @@ import { DevsyncError } from "#app/lib/error.ts";
 import type { DevsyncCliContext } from "#app/services/terminal/cli-runtime.ts";
 
 const mocked = vi.hoisted(() => ({
-  assignSyncProfiles: vi.fn(),
-  clearSyncProfiles: vi.fn(),
+  assignProfiles: vi.fn(),
+  clearActiveProfile: vi.fn(),
   createProgressReporter: vi.fn(),
-  forgetSyncTarget: vi.fn(),
-  formatSyncAddResult: vi.fn(),
-  formatSyncDoctorResult: vi.fn(),
-  formatSyncForgetResult: vi.fn(),
-  formatSyncInitResult: vi.fn(),
-  formatSyncProfileListResult: vi.fn(),
-  formatSyncProfileUpdateResult: vi.fn(),
-  formatSyncPullResult: vi.fn(),
-  formatSyncPushResult: vi.fn(),
-  formatSyncSetResult: vi.fn(),
-  formatSyncStatusResult: vi.fn(),
-  getSyncStatus: vi.fn(),
-  initializeSync: vi.fn(),
+  formatTrackResult: vi.fn(),
+  formatDoctorResult: vi.fn(),
+  formatInitResult: vi.fn(),
+  formatProfileListResult: vi.fn(),
+  formatProfileUpdateResult: vi.fn(),
+  formatPullResult: vi.fn(),
+  formatPushResult: vi.fn(),
+  formatSetModeResult: vi.fn(),
+  formatStatusResult: vi.fn(),
+  getStatus: vi.fn(),
+  initializeSyncDirectory: vi.fn(),
   launchShellInDirectory: vi.fn(),
-  listSyncProfiles: vi.fn(),
+  listProfiles: vi.fn(),
   mkdir: vi.fn(),
   pathExists: vi.fn(),
   print: vi.fn(),
   promptForSecret: vi.fn(),
-  pullSync: vi.fn(),
-  pushSync: vi.fn(),
+  pullChanges: vi.fn(),
+  pushChanges: vi.fn(),
   resolveConfiguredAbsolutePath: vi.fn(),
   resolveDevsyncSyncDirectory: vi.fn(),
-  runDoctor: vi.fn(),
-  setSyncTargetMode: vi.fn(),
-  trackSyncTarget: vi.fn(),
-  useSyncProfile: vi.fn(),
+  runDoctorChecks: vi.fn(),
+  setTargetMode: vi.fn(),
+  trackTarget: vi.fn(),
+  formatUntrackResult: vi.fn(),
+  untrackTarget: vi.fn(),
+  setActiveProfile: vi.fn(),
 }));
 
 vi.mock("node:fs/promises", () => ({
@@ -54,56 +54,56 @@ vi.mock("#app/lib/filesystem.ts", () => ({
 }));
 
 vi.mock("#app/lib/output.ts", () => ({
-  formatSyncAddResult: mocked.formatSyncAddResult,
-  formatSyncDoctorResult: mocked.formatSyncDoctorResult,
-  formatSyncForgetResult: mocked.formatSyncForgetResult,
-  formatSyncInitResult: mocked.formatSyncInitResult,
-  formatSyncProfileListResult: mocked.formatSyncProfileListResult,
-  formatSyncProfileUpdateResult: mocked.formatSyncProfileUpdateResult,
-  formatSyncPullResult: mocked.formatSyncPullResult,
-  formatSyncPushResult: mocked.formatSyncPushResult,
-  formatSyncSetResult: mocked.formatSyncSetResult,
-  formatSyncStatusResult: mocked.formatSyncStatusResult,
+  formatTrackResult: mocked.formatTrackResult,
+  formatDoctorResult: mocked.formatDoctorResult,
+  formatInitResult: mocked.formatInitResult,
+  formatProfileListResult: mocked.formatProfileListResult,
+  formatProfileUpdateResult: mocked.formatProfileUpdateResult,
+  formatPullResult: mocked.formatPullResult,
+  formatPushResult: mocked.formatPushResult,
+  formatSetModeResult: mocked.formatSetModeResult,
+  formatStatusResult: mocked.formatStatusResult,
+  formatUntrackResult: mocked.formatUntrackResult,
 }));
 
-vi.mock("#app/services/add.ts", () => ({
-  trackSyncTarget: mocked.trackSyncTarget,
+vi.mock("#app/services/track.ts", () => ({
+  trackTarget: mocked.trackTarget,
 }));
 
 vi.mock("#app/services/doctor.ts", () => ({
-  runDoctor: mocked.runDoctor,
+  runDoctorChecks: mocked.runDoctorChecks,
 }));
 
-vi.mock("#app/services/forget.ts", () => ({
-  forgetSyncTarget: mocked.forgetSyncTarget,
+vi.mock("#app/services/untrack.ts", () => ({
+  untrackTarget: mocked.untrackTarget,
 }));
 
 vi.mock("#app/services/init.ts", () => ({
   defaultSyncIdentityFile: "$XDG_CONFIG_HOME/devsync/keys.txt",
-  initializeSync: mocked.initializeSync,
+  initializeSyncDirectory: mocked.initializeSyncDirectory,
 }));
 
 vi.mock("#app/services/profile.ts", () => ({
-  assignSyncProfiles: mocked.assignSyncProfiles,
-  clearSyncProfiles: mocked.clearSyncProfiles,
-  listSyncProfiles: mocked.listSyncProfiles,
-  useSyncProfile: mocked.useSyncProfile,
+  assignProfiles: mocked.assignProfiles,
+  clearActiveProfile: mocked.clearActiveProfile,
+  listProfiles: mocked.listProfiles,
+  setActiveProfile: mocked.setActiveProfile,
 }));
 
 vi.mock("#app/services/pull.ts", () => ({
-  pullSync: mocked.pullSync,
+  pullChanges: mocked.pullChanges,
 }));
 
 vi.mock("#app/services/push.ts", () => ({
-  pushSync: mocked.pushSync,
+  pushChanges: mocked.pushChanges,
 }));
 
 vi.mock("#app/services/set.ts", () => ({
-  setSyncTargetMode: mocked.setSyncTargetMode,
+  setTargetMode: mocked.setTargetMode,
 }));
 
 vi.mock("#app/services/status.ts", () => ({
-  getSyncStatus: mocked.getSyncStatus,
+  getStatus: mocked.getStatus,
 }));
 
 vi.mock("#app/services/terminal/cli-runtime.ts", () => ({
@@ -174,32 +174,35 @@ beforeEach(() => {
   progressReporter.verbose = false;
 
   mocked.createProgressReporter.mockReturnValue(progressReporter);
-  mocked.formatSyncAddResult.mockReturnValue("track output");
-  mocked.formatSyncDoctorResult.mockReturnValue("doctor output");
-  mocked.formatSyncForgetResult.mockReturnValue("forget output");
-  mocked.formatSyncInitResult.mockReturnValue("init output");
-  mocked.formatSyncProfileListResult.mockReturnValue("profile list output");
-  mocked.formatSyncProfileUpdateResult.mockReturnValue("profile update output");
-  mocked.formatSyncPullResult.mockReturnValue("pull output");
-  mocked.formatSyncPushResult.mockReturnValue("push output");
-  mocked.formatSyncSetResult.mockReturnValue("set output");
-  mocked.formatSyncStatusResult.mockReturnValue("status output");
+  mocked.formatTrackResult.mockReturnValue("track output");
+  mocked.formatDoctorResult.mockReturnValue("doctor output");
+  mocked.formatUntrackResult.mockReturnValue("untrack output");
+  mocked.formatInitResult.mockReturnValue("init output");
+  mocked.formatProfileListResult.mockReturnValue("profile list output");
+  mocked.formatProfileUpdateResult.mockReturnValue("profile update output");
+  mocked.formatPullResult.mockReturnValue("pull output");
+  mocked.formatPushResult.mockReturnValue("push output");
+  mocked.formatSetModeResult.mockReturnValue("set output");
+  mocked.formatStatusResult.mockReturnValue("status output");
   mocked.resolveConfiguredAbsolutePath.mockReturnValue("/tmp/keys.txt");
   mocked.resolveDevsyncSyncDirectory.mockReturnValue("/tmp/devsync");
   mocked.pathExists.mockResolvedValue(true);
   mocked.promptForSecret.mockResolvedValue(undefined);
-  mocked.initializeSync.mockResolvedValue({ step: "init" });
-  mocked.trackSyncTarget.mockResolvedValue({ step: "track" });
-  mocked.setSyncTargetMode.mockResolvedValue({ step: "set" });
-  mocked.assignSyncProfiles.mockResolvedValue(undefined);
-  mocked.listSyncProfiles.mockResolvedValue({ step: "list" });
-  mocked.useSyncProfile.mockResolvedValue({ step: "use" });
-  mocked.clearSyncProfiles.mockResolvedValue({ step: "clear" });
-  mocked.pullSync.mockResolvedValue({ step: "pull" });
-  mocked.pushSync.mockResolvedValue({ step: "push" });
-  mocked.getSyncStatus.mockResolvedValue({ step: "status" });
-  mocked.forgetSyncTarget.mockResolvedValue({ step: "forget" });
-  mocked.runDoctor.mockResolvedValue({ hasFailures: false, step: "doctor" });
+  mocked.initializeSyncDirectory.mockResolvedValue({ step: "init" });
+  mocked.trackTarget.mockResolvedValue({ step: "track" });
+  mocked.setTargetMode.mockResolvedValue({ step: "set" });
+  mocked.assignProfiles.mockResolvedValue(undefined);
+  mocked.listProfiles.mockResolvedValue({ step: "list" });
+  mocked.setActiveProfile.mockResolvedValue({ step: "use" });
+  mocked.clearActiveProfile.mockResolvedValue({ step: "clear" });
+  mocked.pullChanges.mockResolvedValue({ step: "pull" });
+  mocked.pushChanges.mockResolvedValue({ step: "push" });
+  mocked.getStatus.mockResolvedValue({ step: "status" });
+  mocked.untrackTarget.mockResolvedValue({ step: "untrack" });
+  mocked.runDoctorChecks.mockResolvedValue({
+    hasFailures: false,
+    step: "doctor",
+  });
   mocked.mkdir.mockResolvedValue(undefined);
   mocked.launchShellInDirectory.mockResolvedValue(undefined);
 });
@@ -222,7 +225,7 @@ describe("CLI command modules", () => {
     );
 
     expect(mocked.promptForSecret).not.toHaveBeenCalled();
-    expect(mocked.initializeSync).toHaveBeenCalledWith(
+    expect(mocked.initializeSyncDirectory).toHaveBeenCalledWith(
       {
         ageIdentity: "AGE-SECRET-KEY-123",
         generateAgeIdentity: false,
@@ -232,7 +235,7 @@ describe("CLI command modules", () => {
       },
       progressReporter,
     );
-    expect(mocked.formatSyncInitResult).toHaveBeenCalledWith(
+    expect(mocked.formatInitResult).toHaveBeenCalledWith(
       { step: "init" },
       { verbose: true },
     );
@@ -248,7 +251,7 @@ describe("CLI command modules", () => {
     expect(mocked.promptForSecret).toHaveBeenCalledWith(
       "Enter an age private key (leave empty to generate a new one): ",
     );
-    expect(mocked.initializeSync).toHaveBeenCalledWith(
+    expect(mocked.initializeSyncDirectory).toHaveBeenCalledWith(
       {
         ageIdentity: undefined,
         generateAgeIdentity: true,
@@ -260,14 +263,14 @@ describe("CLI command modules", () => {
     );
   });
 
-  it("tracks new targets and formats add output", async () => {
+  it("tracks new targets and formats track output", async () => {
     await runCommand(
       trackCommand,
       { mode: "secret", profile: ["work"], verbose: true },
       ".gitconfig",
     );
 
-    expect(mocked.trackSyncTarget).toHaveBeenCalledWith(
+    expect(mocked.trackTarget).toHaveBeenCalledWith(
       {
         mode: "secret",
         profiles: ["work"],
@@ -275,7 +278,7 @@ describe("CLI command modules", () => {
       },
       process.cwd(),
     );
-    expect(mocked.formatSyncAddResult).toHaveBeenCalledWith(
+    expect(mocked.formatTrackResult).toHaveBeenCalledWith(
       { step: "track" },
       { verbose: true },
     );
@@ -283,7 +286,7 @@ describe("CLI command modules", () => {
   });
 
   it("falls back to mode updates when tracking finds an existing target", async () => {
-    mocked.trackSyncTarget.mockRejectedValue(
+    mocked.trackTarget.mockRejectedValue(
       new DevsyncError("existing target", {
         code: "TARGET_NOT_FOUND",
       }),
@@ -295,21 +298,21 @@ describe("CLI command modules", () => {
       ".config/nvim",
     );
 
-    expect(mocked.setSyncTargetMode).toHaveBeenCalledWith(
+    expect(mocked.setTargetMode).toHaveBeenCalledWith(
       {
         mode: "ignore",
         target: ".config/nvim",
       },
       process.cwd(),
     );
-    expect(mocked.assignSyncProfiles).toHaveBeenCalledWith(
+    expect(mocked.assignProfiles).toHaveBeenCalledWith(
       {
         profiles: [],
         target: ".config/nvim",
       },
       process.cwd(),
     );
-    expect(mocked.formatSyncSetResult).toHaveBeenCalledWith(
+    expect(mocked.formatSetModeResult).toHaveBeenCalledWith(
       { step: "set" },
       { verbose: false },
     );
@@ -321,9 +324,9 @@ describe("CLI command modules", () => {
     await runCommand(profileUseCommand, { verbose: false }, "work");
     await runCommand(profileUseCommand, { verbose: true });
 
-    expect(mocked.listSyncProfiles).toHaveBeenCalledTimes(1);
-    expect(mocked.useSyncProfile).toHaveBeenCalledWith("work");
-    expect(mocked.clearSyncProfiles).toHaveBeenCalledTimes(1);
+    expect(mocked.listProfiles).toHaveBeenCalledTimes(1);
+    expect(mocked.setActiveProfile).toHaveBeenCalledWith("work");
+    expect(mocked.clearActiveProfile).toHaveBeenCalledTimes(1);
     expect(mocked.print).toHaveBeenNthCalledWith(1, "profile list output");
     expect(mocked.print).toHaveBeenNthCalledWith(2, "profile update output");
     expect(mocked.print).toHaveBeenNthCalledWith(3, "profile update output");
@@ -342,21 +345,21 @@ describe("CLI command modules", () => {
     });
     await runCommand(statusCommand, { profile: "work", verbose: true });
 
-    expect(mocked.pullSync).toHaveBeenCalledWith(
+    expect(mocked.pullChanges).toHaveBeenCalledWith(
       {
         dryRun: true,
         profile: "work",
       },
       progressReporter,
     );
-    expect(mocked.pushSync).toHaveBeenCalledWith(
+    expect(mocked.pushChanges).toHaveBeenCalledWith(
       {
         dryRun: true,
         profile: "work",
       },
       progressReporter,
     );
-    expect(mocked.getSyncStatus).toHaveBeenCalledWith({
+    expect(mocked.getStatus).toHaveBeenCalledWith({
       profile: "work",
       reporter: progressReporter,
     });
@@ -365,32 +368,32 @@ describe("CLI command modules", () => {
     expect(mocked.print).toHaveBeenCalledWith("status output");
   });
 
-  it("forgets tracked targets relative to the current working directory", async () => {
+  it("untracks tracked targets relative to the current working directory", async () => {
     await runCommand(untrackCommand, { verbose: true }, ".ssh/config");
 
-    expect(mocked.forgetSyncTarget).toHaveBeenCalledWith(
+    expect(mocked.untrackTarget).toHaveBeenCalledWith(
       {
         target: ".ssh/config",
       },
       process.cwd(),
     );
-    expect(mocked.formatSyncForgetResult).toHaveBeenCalledWith(
-      { step: "forget" },
+    expect(mocked.formatUntrackResult).toHaveBeenCalledWith(
+      { step: "untrack" },
       { verbose: true },
     );
-    expect(mocked.print).toHaveBeenCalledWith("forget output");
+    expect(mocked.print).toHaveBeenCalledWith("untrack output");
   });
 
   it("marks doctor failures through process.exitCode", async () => {
-    mocked.runDoctor.mockResolvedValue({
+    mocked.runDoctorChecks.mockResolvedValue({
       hasFailures: true,
       step: "doctor",
     });
 
     await runCommand(doctorCommand, { verbose: true });
 
-    expect(mocked.runDoctor).toHaveBeenCalledWith(progressReporter);
-    expect(mocked.formatSyncDoctorResult).toHaveBeenCalledWith(
+    expect(mocked.runDoctorChecks).toHaveBeenCalledWith(progressReporter);
+    expect(mocked.formatDoctorResult).toHaveBeenCalledWith(
       { hasFailures: true, step: "doctor" },
       { verbose: true },
     );

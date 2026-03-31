@@ -34,7 +34,7 @@ import {
   resolveSyncPaths,
 } from "./runtime.ts";
 
-export type SyncInitRequest = Readonly<{
+export type InitRequest = Readonly<{
   ageIdentity?: string;
   generateAgeIdentity?: boolean;
   identityFile?: string;
@@ -42,7 +42,7 @@ export type SyncInitRequest = Readonly<{
   repository?: string;
 }>;
 
-export type SyncInitResult = Readonly<{
+export type InitResult = Readonly<{
   alreadyInitialized: boolean;
   configPath: string;
   entryCount: number;
@@ -65,7 +65,7 @@ const normalizeRecipients = (recipients: readonly string[]) => {
 };
 
 const resolveInitAgeBootstrap = async (
-  request: SyncInitRequest,
+  request: InitRequest,
   reporter?: ProgressReporter,
 ) => {
   const configuredIdentityFile =
@@ -147,7 +147,7 @@ const resolveInitAgeBootstrap = async (
 
 const assertInitRequestMatchesConfig = (
   age: SyncAgeConfig | undefined,
-  request: SyncInitRequest,
+  request: InitRequest,
 ) => {
   if (age === undefined) {
     return;
@@ -208,11 +208,11 @@ const buildAlreadyInitializedResult = (
   config: Awaited<ReturnType<typeof readSyncConfig>>,
   base: Readonly<{
     configPath: string;
-    gitAction: SyncInitResult["gitAction"];
+    gitAction: InitResult["gitAction"];
     gitSource?: string;
     syncDirectory: string;
   }>,
-): SyncInitResult => {
+): InitResult => {
   const age =
     config.age !== undefined ? resolveAgeFromSyncConfig(config.age) : undefined;
 
@@ -244,10 +244,10 @@ const writeGlobalSettings = async (globalConfigPath: string) => {
   );
 };
 
-export const initializeSync = async (
-  request: SyncInitRequest,
+export const initializeSyncDirectory = async (
+  request: InitRequest,
   reporter?: ProgressReporter,
-): Promise<SyncInitResult> => {
+): Promise<InitResult> => {
   reportPhase(reporter, "Initializing sync directory...");
   const { syncDirectory, configPath, globalConfigPath } = resolveSyncPaths();
   const configExists = await pathExists(configPath);
@@ -274,7 +274,7 @@ export const initializeSync = async (
   });
   reportPhase(reporter, "Preparing the sync directory...");
 
-  let gitAction: SyncInitResult["gitAction"] = "existing";
+  let gitAction: InitResult["gitAction"] = "existing";
   let gitSource: string | undefined;
 
   try {

@@ -1,6 +1,6 @@
 import { buildCommand } from "@stricli/core";
-import { formatSyncDoctorResult } from "#app/lib/output.ts";
-import { runDoctor } from "#app/services/doctor.ts";
+import { formatDoctorResult } from "#app/lib/output.ts";
+import { runDoctorChecks } from "#app/services/doctor.ts";
 import {
   createProgressReporter,
   type DevsyncCliContext,
@@ -24,9 +24,9 @@ const doctorCommand = buildCommand<
   },
   async func(flags) {
     const verbose = isVerbose(flags.verbose);
-    const result = await runDoctor(createProgressReporter(verbose));
+    const result = await runDoctorChecks(createProgressReporter(verbose));
 
-    print(formatSyncDoctorResult(result, { verbose }));
+    print(formatDoctorResult(result, { verbose }));
 
     if (result.hasFailures) {
       process.exitCode = 1;

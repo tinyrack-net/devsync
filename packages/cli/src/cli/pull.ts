@@ -1,6 +1,6 @@
 import { buildCommand } from "@stricli/core";
-import { formatSyncPullResult } from "#app/lib/output.ts";
-import { pullSync } from "#app/services/pull.ts";
+import { formatPullResult } from "#app/lib/output.ts";
+import { pullChanges } from "#app/services/pull.ts";
 import {
   createProgressReporter,
   type DevsyncCliContext,
@@ -23,8 +23,8 @@ const pullCommand = buildCommand<PullFlags, [], DevsyncCliContext>({
   },
   async func(flags) {
     const verbose = isVerbose(flags.verbose);
-    const output = formatSyncPullResult(
-      await pullSync(
+    const output = formatPullResult(
+      await pullChanges(
         {
           dryRun: flags.dryRun ?? false,
           profile: flags.profile,

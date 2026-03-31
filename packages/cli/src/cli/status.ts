@@ -1,6 +1,6 @@
 import { buildCommand } from "@stricli/core";
-import { formatSyncStatusResult } from "#app/lib/output.ts";
-import { getSyncStatus } from "#app/services/status.ts";
+import { formatStatusResult } from "#app/lib/output.ts";
+import { getStatus } from "#app/services/status.ts";
 import {
   createProgressReporter,
   type DevsyncCliContext,
@@ -22,8 +22,8 @@ const statusCommand = buildCommand<StatusFlags, [], DevsyncCliContext>({
   },
   async func(flags) {
     const verbose = isVerbose(flags.verbose);
-    const output = formatSyncStatusResult(
-      await getSyncStatus({
+    const output = formatStatusResult(
+      await getStatus({
         profile: flags.profile,
         reporter: createProgressReporter(verbose),
       }),

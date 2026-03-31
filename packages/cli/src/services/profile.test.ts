@@ -54,10 +54,10 @@ vi.mock("./runtime.ts", () => ({
 }));
 
 import {
-  assignSyncProfiles,
-  clearSyncProfiles,
-  listSyncProfiles,
-  useSyncProfile,
+  assignProfiles,
+  clearActiveProfile,
+  listProfiles,
+  setActiveProfile,
 } from "./profile.ts";
 
 afterEach(() => {
@@ -93,7 +93,7 @@ describe("sync profiles service", () => {
     });
     mocked.collectAllProfileNames.mockReturnValueOnce(["default", "work"]);
 
-    await expect(listSyncProfiles()).resolves.toEqual({
+    await expect(listProfiles()).resolves.toEqual({
       activeProfile: "work",
       activeProfileMode: "single",
       assignments: [
@@ -123,7 +123,7 @@ describe("sync profiles service", () => {
     });
     mocked.collectAllProfileNames.mockReturnValueOnce([]);
 
-    const result = await listSyncProfiles();
+    const result = await listProfiles();
 
     expect(result.activeProfile).toBeUndefined();
     expect(result.activeProfileMode).toBe("none");
@@ -137,7 +137,7 @@ describe("sync profiles service", () => {
     });
     mocked.collectAllProfileNames.mockReturnValueOnce(["default"]);
 
-    await expect(useSyncProfile(" Work ")).resolves.toEqual({
+    await expect(setActiveProfile(" Work ")).resolves.toEqual({
       action: "use",
       activeProfile: "work",
       globalConfigPath: "/tmp/devsync/global.json",
@@ -161,13 +161,13 @@ describe("sync profiles service", () => {
     });
     mocked.collectAllProfileNames.mockReturnValueOnce(["work"]);
 
-    const result = await useSyncProfile("work");
+    const result = await setActiveProfile("work");
 
     expect(result.warning).toBeUndefined();
   });
 
   it("clears the active profile from the global config", async () => {
-    await expect(clearSyncProfiles()).resolves.toEqual({
+    await expect(clearActiveProfile()).resolves.toEqual({
       action: "clear",
       globalConfigPath: "/tmp/devsync/global.json",
       syncDirectory: "/tmp/devsync",
@@ -179,7 +179,7 @@ describe("sync profiles service", () => {
 
   it("rejects blank assignment targets before touching the repository", async () => {
     await expect(
-      assignSyncProfiles({ profiles: ["work"], target: "   " }, "/tmp/cwd"),
+      assignProfiles({ profiles: ["work"], target: "   " }, "/tmp/cwd"),
     ).rejects.toThrowError("Target path is required.");
     expect(mocked.ensureSyncRepository).not.toHaveBeenCalled();
   });
@@ -191,7 +191,7 @@ describe("sync profiles service", () => {
     mocked.resolveTrackedEntry.mockReturnValueOnce(undefined);
 
     await expect(
-      assignSyncProfiles(
+      assignProfiles(
         { profiles: ["work"], target: "~/.gitconfig" },
         "/tmp/cwd",
       ),
@@ -211,7 +211,7 @@ describe("sync profiles service", () => {
     mocked.resolveTrackedEntry.mockReturnValueOnce(entry);
 
     await expect(
-      assignSyncProfiles(
+      assignProfiles(
         { profiles: [" WORK ", "default"], target: "~/.gitconfig" },
         "/tmp/cwd",
       ),
@@ -239,7 +239,7 @@ describe("sync profiles service", () => {
     mocked.readSyncConfig.mockResolvedValueOnce(config);
     mocked.resolveTrackedEntry.mockReturnValueOnce(entry);
 
-    const result = await assignSyncProfiles(
+    const result = await assignProfiles(
       { profiles: ["work"], target: "~/.gitconfig" },
       "/tmp/cwd",
     );
@@ -292,10 +292,7 @@ describe("sync profiles service", () => {
     mocked.readSyncConfig.mockResolvedValueOnce(config);
     mocked.resolveTrackedEntry.mockReturnValueOnce(entry);
 
-    await assignSyncProfiles(
-      { profiles: [], target: "~/.gitconfig" },
-      "/tmp/cwd",
-    );
+    await assignProfiles({ profiles: [], target: "~/.gitconfig" }, "/tmp/cwd");
 
     expect(mocked.createSyncConfigDocument).toHaveBeenCalledWith({
       ...config,

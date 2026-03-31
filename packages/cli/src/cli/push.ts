@@ -1,6 +1,6 @@
 import { buildCommand } from "@stricli/core";
-import { formatSyncPushResult } from "#app/lib/output.ts";
-import { pushSync } from "#app/services/push.ts";
+import { formatPushResult } from "#app/lib/output.ts";
+import { pushChanges } from "#app/services/push.ts";
 import {
   createProgressReporter,
   type DevsyncCliContext,
@@ -23,8 +23,8 @@ const pushCommand = buildCommand<PushFlags, [], DevsyncCliContext>({
   },
   async func(flags) {
     const verbose = isVerbose(flags.verbose);
-    const output = formatSyncPushResult(
-      await pushSync(
+    const output = formatPushResult(
+      await pushChanges(
         {
           dryRun: flags.dryRun ?? false,
           profile: flags.profile,

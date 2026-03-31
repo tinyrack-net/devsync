@@ -1,12 +1,12 @@
 import { buildCommand } from "@stricli/core";
-import { formatSyncForgetResult } from "#app/lib/output.ts";
-import { forgetSyncTarget } from "#app/services/forget.ts";
+import { formatUntrackResult } from "#app/lib/output.ts";
 import {
   type DevsyncCliContext,
   isVerbose,
   print,
   verboseFlag,
 } from "#app/services/terminal/cli-runtime.ts";
+import { untrackTarget } from "#app/services/untrack.ts";
 
 type UntrackFlags = {
   verbose?: boolean;
@@ -19,8 +19,8 @@ const untrackCommand = buildCommand<UntrackFlags, [string], DevsyncCliContext>({
       "Remove a tracked root entry or a nested override from devsync configuration. This only updates the sync config; actual file changes happen on the next push or pull. Use a local path to remove the main tracked target, or use a repository-relative child path inside a tracked directory to remove only that override.",
   },
   async func(flags, target) {
-    const output = formatSyncForgetResult(
-      await forgetSyncTarget(
+    const output = formatUntrackResult(
+      await untrackTarget(
         {
           target,
         },

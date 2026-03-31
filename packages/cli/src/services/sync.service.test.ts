@@ -19,17 +19,17 @@ import {
   createTemporaryDirectory,
   writeIdentityFile,
 } from "../test/helpers/sync-fixture.ts";
-import { trackSyncTarget } from "./add.ts";
-import { initializeSync } from "./init.ts";
+import { initializeSyncDirectory } from "./init.ts";
 import {
-  assignSyncProfiles,
-  clearSyncProfiles,
-  listSyncProfiles,
-  useSyncProfile,
+  assignProfiles,
+  clearActiveProfile,
+  listProfiles,
+  setActiveProfile,
 } from "./profile.ts";
-import { pullSync } from "./pull.ts";
-import { pushSync } from "./push.ts";
-import { setSyncTargetMode } from "./set.ts";
+import { pullChanges } from "./pull.ts";
+import { pushChanges } from "./push.ts";
+import { setTargetMode } from "./set.ts";
+import { trackTarget } from "./track.ts";
 
 const temporaryDirectories: string[] = [];
 
@@ -81,19 +81,19 @@ describe("sync service", () => {
     setEnvironment(homeDirectory, xdgConfigHome);
     const cwd = homeDirectory;
 
-    await initializeSync({
+    await initializeSyncDirectory({
       identityFile: "$XDG_CONFIG_HOME/devsync/keys.txt",
       recipients: [ageKeys.recipient],
     });
 
-    await trackSyncTarget(
+    await trackTarget(
       {
         mode: "normal",
         target: sharedDirectory,
       },
       cwd,
     );
-    await trackSyncTarget(
+    await trackTarget(
       {
         mode: "secret",
         target: workFile,
@@ -140,7 +140,7 @@ describe("sync service", () => {
     await writeIdentityFile(xdgConfigHome, ageKeys.identity);
     await mkdir(bundleDirectory, { recursive: true });
 
-    await initializeSync({
+    await initializeSyncDirectory({
       identityFile: "$XDG_CONFIG_HOME/devsync/keys.txt",
       recipients: [ageKeys.recipient],
     });
@@ -167,7 +167,7 @@ describe("sync service", () => {
       "utf8",
     );
 
-    const result = await trackSyncTarget(
+    const result = await trackTarget(
       {
         mode: "secret",
         target: bundleDirectory,
@@ -206,18 +206,18 @@ describe("sync service", () => {
     setEnvironment(homeDirectory, xdgConfigHome);
     const cwd = homeDirectory;
 
-    await initializeSync({
+    await initializeSyncDirectory({
       identityFile: "$XDG_CONFIG_HOME/devsync/keys.txt",
       recipients: [ageKeys.recipient],
     });
-    await trackSyncTarget(
+    await trackTarget(
       {
         mode: "normal",
         target: sharedDirectory,
       },
       cwd,
     );
-    await setSyncTargetMode(
+    await setTargetMode(
       {
         mode: "secret",
         target: join(sharedDirectory, "secrets.zsh"),
@@ -225,12 +225,12 @@ describe("sync service", () => {
       cwd,
     );
 
-    expect(await useSyncProfile("work")).toMatchObject({
+    expect(await setActiveProfile("work")).toMatchObject({
       action: "use",
       activeProfile: "work",
       profile: "work",
     });
-    expect(await clearSyncProfiles()).toMatchObject({
+    expect(await clearActiveProfile()).toMatchObject({
       action: "clear",
     });
   });
@@ -249,7 +249,7 @@ describe("sync service", () => {
     await mkdir(homeDirectory, { recursive: true });
     await writeFile(gitconfig, "[user]\nname=test\n");
 
-    await initializeSync({
+    await initializeSyncDirectory({
       identityFile: "$XDG_CONFIG_HOME/devsync/keys.txt",
       recipients: [ageKeys.recipient],
     });
@@ -276,7 +276,7 @@ describe("sync service", () => {
       "utf8",
     );
 
-    const result = await setSyncTargetMode(
+    const result = await setTargetMode(
       {
         mode: "secret",
         target: gitconfig,
@@ -314,18 +314,18 @@ describe("sync service", () => {
     setEnvironment(homeDirectory, xdgConfigHome);
     const cwd = homeDirectory;
 
-    await initializeSync({
+    await initializeSyncDirectory({
       identityFile: "$XDG_CONFIG_HOME/devsync/keys.txt",
       recipients: [ageKeys.recipient],
     });
-    await trackSyncTarget(
+    await trackTarget(
       {
         mode: "normal",
         target: zshDirectory,
       },
       cwd,
     );
-    await setSyncTargetMode(
+    await setTargetMode(
       {
         mode: "secret",
         target: secretsFile,
@@ -333,7 +333,7 @@ describe("sync service", () => {
       cwd,
     );
 
-    await pushSync({
+    await pushChanges({
       dryRun: false,
     });
 
@@ -362,13 +362,13 @@ describe("sync service", () => {
     );
 
     await writeFile(secretsFile, "local-change\n");
-    await pullSync({
+    await pullChanges({
       dryRun: false,
     });
 
     expect(await readFile(secretsFile, "utf8")).toContain("TOKEN=work");
 
-    await setSyncTargetMode(
+    await setTargetMode(
       {
         mode: "normal",
         target: secretsFile,
@@ -408,7 +408,7 @@ describe("sync service", () => {
     await mkdir(zshDirectory, { recursive: true });
     await writeFile(secretsFile, "export TOKEN=linux\n");
 
-    await initializeSync({
+    await initializeSyncDirectory({
       identityFile: "$XDG_CONFIG_HOME/devsync/keys.txt",
       recipients: [ageKeys.recipient],
     });
@@ -441,7 +441,7 @@ describe("sync service", () => {
     );
 
     platformSpy.mockReturnValue("linux");
-    await pushSync({
+    await pushChanges({
       dryRun: false,
     });
 
@@ -462,7 +462,7 @@ describe("sync service", () => {
 
     platformSpy.mockReturnValue("win");
     await expect(
-      pullSync({
+      pullChanges({
         dryRun: false,
       }),
     ).resolves.toMatchObject({
@@ -486,7 +486,7 @@ describe("sync service", () => {
     await mkdir(zshDirectory, { recursive: true });
     await writeFile(secretsFile, "export TOKEN=linux\n");
 
-    await initializeSync({
+    await initializeSyncDirectory({
       identityFile: "$XDG_CONFIG_HOME/devsync/keys.txt",
       recipients: [ageKeys.recipient],
     });
@@ -519,7 +519,7 @@ describe("sync service", () => {
     );
 
     platformSpy.mockReturnValue("linux");
-    await pushSync({
+    await pushChanges({
       dryRun: false,
     });
 
@@ -537,7 +537,7 @@ describe("sync service", () => {
     );
 
     platformSpy.mockReturnValue("win");
-    const result = await pushSync({
+    const result = await pushChanges({
       dryRun: false,
     });
 
@@ -564,7 +564,7 @@ describe("sync service", () => {
     await mkdir(sshDirectory, { recursive: true });
     await writeFile(keyFile, "fake-private-key\n");
 
-    await initializeSync({
+    await initializeSyncDirectory({
       identityFile: "$XDG_CONFIG_HOME/devsync/keys.txt",
       recipients: [ageKeys.recipient],
     });
@@ -593,9 +593,9 @@ describe("sync service", () => {
       "utf8",
     );
 
-    await pushSync({ dryRun: false });
+    await pushChanges({ dryRun: false });
     await writeFile(keyFile, "modified-content\n");
-    await pullSync({ dryRun: false });
+    await pullChanges({ dryRun: false });
 
     expect(await readFile(keyFile, "utf8")).toBe("fake-private-key\n");
     const stats = await lstat(keyFile);
@@ -621,7 +621,7 @@ describe("sync service", () => {
     await writeFile(keyFile, "fake-private-key\n");
     await writeFile(configFile, "Host *\n  AddKeysToAgent yes\n");
 
-    await initializeSync({
+    await initializeSyncDirectory({
       identityFile: "$XDG_CONFIG_HOME/devsync/keys.txt",
       recipients: [ageKeys.recipient],
     });
@@ -650,9 +650,9 @@ describe("sync service", () => {
       "utf8",
     );
 
-    await pushSync({ dryRun: false });
+    await pushChanges({ dryRun: false });
     await rm(sshDirectory, { force: true, recursive: true });
-    await pullSync({ dryRun: false });
+    await pullChanges({ dryRun: false });
 
     expect(await readFile(keyFile, "utf8")).toBe("fake-private-key\n");
     expect(await readFile(configFile, "utf8")).toBe(
@@ -688,7 +688,7 @@ describe("sync service", () => {
     await writeFile(keyFile, "fake-private-key\n");
     await writeFile(ignoredFile, "initial-local-state\n");
 
-    await initializeSync({
+    await initializeSyncDirectory({
       identityFile: "$XDG_CONFIG_HOME/devsync/keys.txt",
       recipients: [ageKeys.recipient],
     });
@@ -722,10 +722,10 @@ describe("sync service", () => {
       "utf8",
     );
 
-    await pushSync({ dryRun: false });
+    await pushChanges({ dryRun: false });
     await writeFile(keyFile, "modified-content\n");
     await writeFile(ignoredFile, "preserved-local-state\n");
-    await pullSync({ dryRun: false });
+    await pullChanges({ dryRun: false });
 
     expect(await readFile(keyFile, "utf8")).toBe("fake-private-key\n");
     expect(await readFile(ignoredFile, "utf8")).toBe("preserved-local-state\n");
@@ -753,16 +753,16 @@ describe("sync service", () => {
     await mkdir(homeDirectory, { recursive: true });
     await writeFile(gitconfig, "[user]\nname=test\n");
 
-    await initializeSync({
+    await initializeSyncDirectory({
       identityFile: "$XDG_CONFIG_HOME/devsync/keys.txt",
       recipients: [ageKeys.recipient],
     });
 
-    await trackSyncTarget({ mode: "normal", target: gitconfig }, homeDirectory);
+    await trackTarget({ mode: "normal", target: gitconfig }, homeDirectory);
 
-    await pushSync({ dryRun: false });
+    await pushChanges({ dryRun: false });
     await rm(gitconfig);
-    await pullSync({ dryRun: false });
+    await pullChanges({ dryRun: false });
 
     const stats = await lstat(gitconfig);
     expect(stats.mode & 0o777).toBe(0o644);
@@ -780,7 +780,7 @@ describe("sync service", () => {
     await mkdir(join(homeDirectory, ".ssh"), { recursive: true });
     await writeFile(keyFile, "key-content\n");
 
-    await initializeSync({
+    await initializeSyncDirectory({
       identityFile: "$XDG_CONFIG_HOME/devsync/keys.txt",
       recipients: [ageKeys.recipient],
     });
@@ -815,7 +815,7 @@ describe("sync service", () => {
       "utf8",
     );
 
-    await pushSync({ dryRun: false });
+    await pushChanges({ dryRun: false });
 
     const config = JSON.parse(await readFile(manifestPath, "utf8")) as {
       entries: Array<{
@@ -840,13 +840,13 @@ describe("sync service", () => {
     setEnvironment(homeDirectory, xdgConfigHome);
     const cwd = homeDirectory;
 
-    await initializeSync({
+    await initializeSyncDirectory({
       identityFile: "$XDG_CONFIG_HOME/devsync/keys.txt",
       recipients: [ageKeys.recipient],
     });
-    await trackSyncTarget({ mode: "normal", target: gitconfig }, cwd);
+    await trackTarget({ mode: "normal", target: gitconfig }, cwd);
 
-    const assignResult = await assignSyncProfiles(
+    const assignResult = await assignProfiles(
       {
         target: gitconfig,
         profiles: ["default", "work"],
@@ -866,7 +866,7 @@ describe("sync service", () => {
 
     expect(config.entries[0]?.profiles).toEqual(["default", "work"]);
 
-    const listResult = await listSyncProfiles();
+    const listResult = await listProfiles();
 
     expect(listResult.availableProfiles).toEqual(["default", "work"]);
     expect(listResult.assignments).toEqual([
@@ -877,7 +877,7 @@ describe("sync service", () => {
       },
     ]);
 
-    const reassignResult = await assignSyncProfiles(
+    const reassignResult = await assignProfiles(
       { target: gitconfig, profiles: ["default"] },
       cwd,
     );
@@ -885,7 +885,7 @@ describe("sync service", () => {
     expect(reassignResult.action).toBe("assigned");
     expect(reassignResult.profiles).toEqual(["default"]);
 
-    const clearResult = await assignSyncProfiles(
+    const clearResult = await assignProfiles(
       { target: gitconfig, profiles: [] },
       cwd,
     );

@@ -14,12 +14,12 @@ vi.mock("#app/lib/env.ts", () => ({
 
 import { syncSecretArtifactSuffix } from "#app/config/sync.ts";
 import type { ProgressReporter } from "#app/lib/progress.ts";
-import { trackSyncTarget } from "#app/services/add.ts";
-import { initializeSync } from "#app/services/init.ts";
-import { pullSync } from "#app/services/pull.ts";
-import { pushSync } from "#app/services/push.ts";
-import { setSyncTargetMode } from "#app/services/set.ts";
-import { getSyncStatus } from "#app/services/status.ts";
+import { initializeSyncDirectory } from "#app/services/init.ts";
+import { pullChanges } from "#app/services/pull.ts";
+import { pushChanges } from "#app/services/push.ts";
+import { setTargetMode } from "#app/services/set.ts";
+import { getStatus } from "#app/services/status.ts";
+import { trackTarget } from "#app/services/track.ts";
 import {
   createAgeKeyPair,
   createTemporaryDirectory,
@@ -88,18 +88,18 @@ describe("sync dry runs", () => {
     await writeFile(secretFile, "secret\n", "utf8");
 
     setEnvironment(homeDirectory, xdgConfigHome);
-    await initializeSync({
+    await initializeSyncDirectory({
       identityFile: "$XDG_CONFIG_HOME/devsync/keys.txt",
       recipients: [ageKeys.recipient],
     });
-    await trackSyncTarget(
+    await trackTarget(
       {
         mode: "normal",
         target: bundleDirectory,
       },
       cwd,
     );
-    await setSyncTargetMode(
+    await setTargetMode(
       {
         mode: "secret",
         target: secretFile,
@@ -108,7 +108,7 @@ describe("sync dry runs", () => {
     );
     const { messages, reporter } = createProgressCapture();
 
-    const result = await pushSync(
+    const result = await pushChanges(
       {
         dryRun: true,
       },
@@ -174,18 +174,18 @@ describe("sync dry runs", () => {
     await writeFile(plainFile, "plain\n", "utf8");
 
     setEnvironment(homeDirectory, xdgConfigHome);
-    await initializeSync({
+    await initializeSyncDirectory({
       identityFile: "$XDG_CONFIG_HOME/devsync/keys.txt",
       recipients: [ageKeys.recipient],
     });
-    await trackSyncTarget(
+    await trackTarget(
       {
         mode: "normal",
         target: bundleDirectory,
       },
       cwd,
     );
-    await pushSync({
+    await pushChanges({
       dryRun: false,
     });
 
@@ -193,7 +193,7 @@ describe("sync dry runs", () => {
     await writeFile(extraFile, "leave me\n", "utf8");
     const { messages, reporter } = createProgressCapture();
 
-    const result = await pullSync(
+    const result = await pullChanges(
       {
         dryRun: true,
       },
@@ -229,11 +229,11 @@ describe("sync dry runs", () => {
     await writeFile(plainFile, "plain\n", "utf8");
 
     setEnvironment(homeDirectory, xdgConfigHome);
-    await initializeSync({
+    await initializeSyncDirectory({
       identityFile: "$XDG_CONFIG_HOME/devsync/keys.txt",
       recipients: [ageKeys.recipient],
     });
-    await trackSyncTarget(
+    await trackTarget(
       {
         mode: "normal",
         target: bundleDirectory,
@@ -242,7 +242,7 @@ describe("sync dry runs", () => {
     );
     const { messages, reporter } = createProgressCapture();
 
-    const result = await getSyncStatus({
+    const result = await getStatus({
       reporter,
     });
 

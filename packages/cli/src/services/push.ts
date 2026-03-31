@@ -22,12 +22,12 @@ import {
   resolveSyncPaths,
 } from "./runtime.ts";
 
-export type SyncPushRequest = Readonly<{
+export type PushRequest = Readonly<{
   dryRun: boolean;
   profile?: string;
 }>;
 
-export type SyncPushResult = Readonly<{
+export type PushResult = Readonly<{
   configPath: string;
   deletedArtifactCount: number;
   directoryCount: number;
@@ -132,7 +132,7 @@ export const buildPushResultFromPlan = (
   plan: PushPlan,
   syncDirectory: string,
   dryRun: boolean,
-): SyncPushResult => {
+): PushResult => {
   const configPath = resolveSyncConfigFilePath(syncDirectory);
   return {
     configPath,
@@ -143,10 +143,10 @@ export const buildPushResultFromPlan = (
   };
 };
 
-export const pushSync = async (
-  request: SyncPushRequest,
+export const pushChanges = async (
+  request: PushRequest,
   reporter?: ProgressReporter,
-): Promise<SyncPushResult> => {
+): Promise<PushResult> => {
   reportPhase(reporter, "Starting push...");
   const { syncDirectory } = resolveSyncPaths();
 

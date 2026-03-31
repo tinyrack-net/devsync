@@ -15,7 +15,7 @@ vi.mock("#app/lib/env.ts", () => ({
 import { createInitialSyncConfig, formatSyncConfig } from "#app/config/sync.ts";
 import { DevsyncError } from "#app/lib/error.ts";
 import type { ProgressReporter } from "#app/lib/progress.ts";
-import { initializeSync } from "#app/services/init.ts";
+import { initializeSyncDirectory } from "#app/services/init.ts";
 import {
   createAgeKeyPair,
   createTemporaryDirectory,
@@ -80,7 +80,7 @@ describe("init service", () => {
     await runGit(["init", "-b", "main", sourceRepository], workspace);
 
     setEnvironment(homeDirectory, xdgConfigHome);
-    const result = await initializeSync({
+    const result = await initializeSyncDirectory({
       ageIdentity: `  ${ageKeys.identity}  `,
       identityFile: "$XDG_CONFIG_HOME/devsync/keys.txt",
       recipients: [ageKeys.recipient, extraRecipient.recipient],
@@ -113,7 +113,7 @@ describe("init service", () => {
 
     setEnvironment(homeDirectory, xdgConfigHome);
     await expect(
-      initializeSync({
+      initializeSyncDirectory({
         ageIdentity: "not-a-key",
         identityFile: "$XDG_CONFIG_HOME/devsync/keys.txt",
         recipients: [],
@@ -133,7 +133,7 @@ describe("init service", () => {
     await runGit(["init", "-b", "main", sourceRepository], workspace);
 
     setEnvironment(homeDirectory, xdgConfigHome);
-    const result = await initializeSync(
+    const result = await initializeSyncDirectory(
       {
         identityFile: "$XDG_CONFIG_HOME/devsync/keys.txt",
         recipients: [ageKeys.recipient],
@@ -173,19 +173,19 @@ describe("init service", () => {
 
     setEnvironment(homeDirectory, xdgConfigHome);
     await expect(
-      initializeSync({
+      initializeSyncDirectory({
         identityFile: "$XDG_CONFIG_HOME/devsync/keys.txt",
         recipients: [ageKeys.recipient],
       }),
     ).rejects.toThrowError(DevsyncError);
     await expect(
-      initializeSync({
+      initializeSyncDirectory({
         identityFile: "$XDG_CONFIG_HOME/devsync/keys.txt",
         recipients: [ageKeys.recipient],
       }),
     ).rejects.toThrowError(/Sync directory already exists and is not empty/u);
     await expect(
-      initializeSync({
+      initializeSyncDirectory({
         identityFile: "$XDG_CONFIG_HOME/devsync/keys.txt",
         recipients: [ageKeys.recipient],
       }),
@@ -204,13 +204,13 @@ describe("init service", () => {
 
     setEnvironment(homeDirectory, xdgConfigHome);
 
-    await initializeSync({
+    await initializeSyncDirectory({
       identityFile: "$XDG_CONFIG_HOME/devsync/keys.txt",
       recipients: [ageKeys.recipient],
     });
 
     await expect(
-      initializeSync({
+      initializeSyncDirectory({
         identityFile: "$XDG_CONFIG_HOME/devsync/keys.txt",
         recipients: ["age1differentrecipient"],
       }),
@@ -243,7 +243,7 @@ describe("init service", () => {
     );
 
     setEnvironment(homeDirectory, xdgConfigHome);
-    const result = await initializeSync({
+    const result = await initializeSyncDirectory({
       ageIdentity: ageKeys.identity,
       identityFile: "$XDG_CONFIG_HOME/devsync/keys.txt",
       recipients: [],
@@ -291,7 +291,7 @@ describe("init service", () => {
     );
 
     setEnvironment(homeDirectory, xdgConfigHome);
-    const result = await initializeSync({
+    const result = await initializeSyncDirectory({
       generateAgeIdentity: true,
       identityFile: "$XDG_CONFIG_HOME/devsync/keys.txt",
       recipients: [],

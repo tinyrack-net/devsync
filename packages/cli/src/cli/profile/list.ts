@@ -1,6 +1,6 @@
 import { buildCommand } from "@stricli/core";
-import { formatSyncProfileListResult } from "#app/lib/output.ts";
-import { listSyncProfiles } from "#app/services/profile.ts";
+import { formatProfileListResult } from "#app/lib/output.ts";
+import { listProfiles } from "#app/services/profile.ts";
 import {
   type DevsyncCliContext,
   isVerbose,
@@ -24,7 +24,7 @@ const profileListCommand = buildCommand<
   },
   async func(flags) {
     print(
-      formatSyncProfileListResult(await listSyncProfiles(), {
+      formatProfileListResult(await listProfiles(), {
         verbose: isVerbose(flags.verbose),
       }),
     );

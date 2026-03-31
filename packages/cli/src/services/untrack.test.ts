@@ -42,12 +42,12 @@ vi.mock("./runtime.ts", () => ({
   resolveSyncPaths: mocked.resolveSyncPaths,
 }));
 
-import { forgetSyncTarget } from "./forget.ts";
+import { untrackTarget } from "./untrack.ts";
 
 const temporaryDirectories: string[] = [];
 
 const createWorkspace = async () => {
-  const directory = await createTemporaryDirectory("devsync-forget-");
+  const directory = await createTemporaryDirectory("devsync-untrack-");
 
   temporaryDirectories.push(directory);
 
@@ -71,10 +71,10 @@ afterEach(async () => {
   }
 });
 
-describe("sync forget service", () => {
+describe("untrack service", () => {
   it("rejects blank targets without touching the repository", async () => {
     await expect(
-      forgetSyncTarget({ target: "   " }, "/tmp/cwd"),
+      untrackTarget({ target: "   " }, "/tmp/cwd"),
     ).rejects.toThrowError("Target path is required.");
     expect(mocked.ensureSyncRepository).not.toHaveBeenCalled();
   });
@@ -94,7 +94,7 @@ describe("sync forget service", () => {
     mocked.resolveTrackedEntry.mockReturnValueOnce(undefined);
 
     await expect(
-      forgetSyncTarget({ target: "~/.gitconfig" }, "/tmp/cwd"),
+      untrackTarget({ target: "~/.gitconfig" }, "/tmp/cwd"),
     ).rejects.toThrowError("No tracked sync entry matches: ~/.gitconfig");
   });
 
@@ -161,7 +161,7 @@ describe("sync forget service", () => {
     });
     mocked.resolveTrackedEntry.mockReturnValueOnce(entry);
 
-    const result = await forgetSyncTarget(
+    const result = await untrackTarget(
       { target: "~/.config/tool/token.txt" },
       "/tmp/cwd",
     );
@@ -224,10 +224,7 @@ describe("sync forget service", () => {
     });
     mocked.resolveTrackedEntry.mockReturnValueOnce(entry);
 
-    const result = await forgetSyncTarget(
-      { target: "~/.config/app" },
-      "/tmp/cwd",
-    );
+    const result = await untrackTarget({ target: "~/.config/app" }, "/tmp/cwd");
 
     expect(result).toEqual({
       configPath: join(workspace, "manifest.json"),

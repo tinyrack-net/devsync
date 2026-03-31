@@ -1,6 +1,6 @@
 import { buildCommand } from "@stricli/core";
-import { formatSyncProfileUpdateResult } from "#app/lib/output.ts";
-import { clearSyncProfiles, useSyncProfile } from "#app/services/profile.ts";
+import { formatProfileUpdateResult } from "#app/lib/output.ts";
+import { clearActiveProfile, setActiveProfile } from "#app/services/profile.ts";
 import {
   type DevsyncCliContext,
   isVerbose,
@@ -25,11 +25,11 @@ const profileUseCommand = buildCommand<
   async func(flags, profile) {
     const result =
       profile !== undefined
-        ? await useSyncProfile(profile)
-        : await clearSyncProfiles();
+        ? await setActiveProfile(profile)
+        : await clearActiveProfile();
 
     print(
-      formatSyncProfileUpdateResult(result, {
+      formatProfileUpdateResult(result, {
         verbose: isVerbose(flags.verbose),
       }),
     );

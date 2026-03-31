@@ -46,7 +46,7 @@ import {
   buildPullPlan,
   buildPullPlanPreview,
   buildPullResultFromPlan,
-  pullSync,
+  pullChanges,
 } from "./pull.ts";
 
 afterEach(() => {
@@ -213,7 +213,7 @@ describe("pull planning", () => {
     });
     mocked.countDeletedLocalNodes.mockResolvedValue(0);
 
-    await pullSync({ dryRun: false }, reporter);
+    await pullChanges({ dryRun: false }, reporter);
 
     expect(mocked.applyEntryMaterialization).toHaveBeenCalledTimes(1);
     expect(mocked.applyEntryMaterialization).toHaveBeenCalledWith(

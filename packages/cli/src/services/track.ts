@@ -24,13 +24,13 @@ import {
 } from "./paths.ts";
 import { ensureSyncRepository, resolveSyncPaths } from "./runtime.ts";
 
-export type SyncAddRequest = Readonly<{
+export type TrackRequest = Readonly<{
   profiles?: readonly string[];
   mode: SyncMode;
   target: string;
 }>;
 
-export type SyncAddResult = Readonly<{
+export type TrackResult = Readonly<{
   alreadyTracked: boolean;
   changed: boolean;
   configPath: string;
@@ -55,7 +55,7 @@ const hasPlatformSpecificModeOverride = (configuredMode: PlatformSyncMode) => {
   );
 };
 
-const buildAddEntryCandidate = async (
+const buildTrackEntryCandidate = async (
   targetPath: string,
   syncDirectory: string,
   homeDirectory: string,
@@ -137,10 +137,10 @@ const buildAddEntryCandidate = async (
   } satisfies ResolvedSyncConfigEntry;
 };
 
-export const trackSyncTarget = async (
-  request: SyncAddRequest,
+export const trackTarget = async (
+  request: TrackRequest,
   cwd: string,
-): Promise<SyncAddResult> => {
+): Promise<TrackResult> => {
   const target = request.target.trim();
 
   if (target.length === 0) {
@@ -165,7 +165,7 @@ export const trackSyncTarget = async (
     request.profiles[0] === "";
   const effectiveProfiles = isProfileClear ? [] : request.profiles;
 
-  const candidate = await buildAddEntryCandidate(
+  const candidate = await buildTrackEntryCandidate(
     resolve(cwd, expandHomePath(target, ENV)),
     syncDirectory,
     homeDirectory,

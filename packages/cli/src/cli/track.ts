@@ -1,10 +1,9 @@
 import { buildCommand } from "@stricli/core";
 import { CONSTANTS } from "#app/config/constants.ts";
 import { DevsyncError } from "#app/lib/error.ts";
-import { formatSyncAddResult, formatSyncSetResult } from "#app/lib/output.ts";
-import { trackSyncTarget } from "#app/services/add.ts";
-import { assignSyncProfiles } from "#app/services/profile.ts";
-import { setSyncTargetMode } from "#app/services/set.ts";
+import { formatSetModeResult, formatTrackResult } from "#app/lib/output.ts";
+import { assignProfiles } from "#app/services/profile.ts";
+import { setTargetMode } from "#app/services/set.ts";
 import {
   createProgressReporter,
   type DevsyncCliContext,
@@ -13,6 +12,7 @@ import {
   verboseFlag,
 } from "#app/services/terminal/cli-runtime.ts";
 import { proposePathCompletions } from "#app/services/terminal/path-completion.ts";
+import { trackTarget } from "#app/services/track.ts";
 
 type TrackFlags = {
   mode: "ignore" | "normal" | "secret";
@@ -40,7 +40,7 @@ const trackCommand = buildCommand<TrackFlags, string[], DevsyncCliContext>({
       progress.phase(`Resolving ${target}...`);
 
       try {
-        const result = await trackSyncTarget(
+        const result = await trackTarget(
           {
             mode: flags.mode,
             profiles: profiles.length > 0 ? profiles : undefined,
@@ -49,14 +49,14 @@ const trackCommand = buildCommand<TrackFlags, string[], DevsyncCliContext>({
           cwd,
         );
 
-        print(formatSyncAddResult(result, { verbose }));
+        print(formatTrackResult(result, { verbose }));
       } catch (error: unknown) {
         if (
           error instanceof DevsyncError &&
           error.code === "TARGET_NOT_FOUND"
         ) {
           progress.phase(`Updating existing target ${target}...`);
-          const setResult = await setSyncTargetMode(
+          const setResult = await setTargetMode(
             {
               mode: flags.mode,
               target,
@@ -66,13 +66,13 @@ const trackCommand = buildCommand<TrackFlags, string[], DevsyncCliContext>({
 
           if (profiles.length > 0) {
             const isProfileClear = profiles.length === 1 && profiles[0] === "";
-            await assignSyncProfiles(
+            await assignProfiles(
               { profiles: isProfileClear ? [] : profiles, target },
               cwd,
             );
           }
 
-          print(formatSyncSetResult(setResult, { verbose }));
+          print(formatSetModeResult(setResult, { verbose }));
           continue;
         }
 

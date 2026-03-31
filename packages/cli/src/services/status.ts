@@ -21,7 +21,7 @@ import {
   resolveSyncPaths,
 } from "./runtime.ts";
 
-export type SyncStatusEntry = Readonly<{
+export type StatusEntry = Readonly<{
   kind: SyncConfigEntryKind;
   localPath: string;
   profiles: readonly string[];
@@ -29,10 +29,10 @@ export type SyncStatusEntry = Readonly<{
   repoPath: string;
 }>;
 
-export type SyncStatusResult = Readonly<{
+export type StatusResult = Readonly<{
   activeProfile?: string;
   configPath: string;
-  entries: readonly SyncStatusEntry[];
+  entries: readonly StatusEntry[];
   entryCount: number;
   pull: ReturnType<typeof buildPullResultFromPlan> & {
     preview: readonly string[];
@@ -44,12 +44,12 @@ export type SyncStatusResult = Readonly<{
   syncDirectory: string;
 }>;
 
-export const getSyncStatus = async (
+export const getStatus = async (
   options: Readonly<{
     profile?: string;
     reporter?: ProgressReporter;
   }> = {},
-): Promise<SyncStatusResult> => {
+): Promise<StatusResult> => {
   const reporter = options.reporter;
 
   reportPhase(reporter, "Analyzing sync status...");

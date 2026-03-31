@@ -25,7 +25,7 @@ import {
 } from "./paths.ts";
 import { ensureSyncRepository, resolveSyncPaths } from "./runtime.ts";
 
-export type SyncSetRequest = Readonly<{
+export type SetModeRequest = Readonly<{
   mode: SyncMode;
   target: string;
 }>;
@@ -33,7 +33,7 @@ export type SyncSetRequest = Readonly<{
 type SyncSetAction = "added" | "removed" | "unchanged" | "updated";
 type SyncSetReason = "already-set";
 
-export type SyncSetResult = Readonly<{
+export type SetModeResult = Readonly<{
   action: SyncSetAction;
   configPath: string;
   entryRepoPath: string;
@@ -201,10 +201,10 @@ export const resolveSetTarget = async (
   };
 };
 
-export const setSyncTargetMode = async (
-  request: SyncSetRequest,
+export const setTargetMode = async (
+  request: SetModeRequest,
   cwd: string,
-): Promise<SyncSetResult> => {
+): Promise<SetModeResult> => {
   const { syncDirectory, configPath, homeDirectory } = resolveSyncPaths();
 
   await ensureSyncRepository(syncDirectory);
@@ -219,8 +219,8 @@ export const setSyncTargetMode = async (
 
   const buildResult = (
     action: SyncSetAction,
-    extras?: Partial<SyncSetResult>,
-  ): SyncSetResult => ({
+    extras?: Partial<SetModeResult>,
+  ): SetModeResult => ({
     action,
     configPath,
     entryRepoPath: target.entry.repoPath,

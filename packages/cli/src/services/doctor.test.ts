@@ -34,7 +34,7 @@ vi.mock("./runtime.ts", () => ({
   resolveSyncPaths: mocked.resolveSyncPaths,
 }));
 
-import { runDoctor } from "./doctor.ts";
+import { runDoctorChecks } from "./doctor.ts";
 
 const createReporter = (verbose = false) => ({
   detail: vi.fn(),
@@ -88,7 +88,7 @@ describe("sync doctor", () => {
     mocked.ensureRepository.mockRejectedValueOnce("not-a-repo");
     const reporter = createReporter();
 
-    const result = await runDoctor(reporter);
+    const result = await runDoctorChecks(reporter);
 
     expect(result).toEqual({
       checks: [
@@ -117,7 +117,7 @@ describe("sync doctor", () => {
     );
     const reporter = createReporter();
 
-    const result = await runDoctor(reporter);
+    const result = await runDoctorChecks(reporter);
 
     expect(result).toEqual({
       checks: [
@@ -159,7 +159,7 @@ describe("sync doctor", () => {
     });
     const reporter = createReporter(true);
 
-    const result = await runDoctor(reporter);
+    const result = await runDoctorChecks(reporter);
 
     expect(result.hasFailures).toBe(true);
     expect(result.hasWarnings).toBe(true);
@@ -229,7 +229,7 @@ describe("sync doctor", () => {
     });
     const reporter = createReporter(false);
 
-    const result = await runDoctor(reporter);
+    const result = await runDoctorChecks(reporter);
 
     expect(result.hasFailures).toBe(false);
     expect(result.hasWarnings).toBe(true);
@@ -269,7 +269,7 @@ describe("sync doctor", () => {
     mocked.buildRepositorySnapshot.mockResolvedValueOnce(new Map());
     mocked.pathExists.mockResolvedValueOnce(true);
 
-    const result = await runDoctor(createReporter());
+    const result = await runDoctorChecks(createReporter());
 
     expect(result.hasFailures).toBe(false);
     expect(result.hasWarnings).toBe(true);
@@ -300,7 +300,7 @@ describe("sync doctor", () => {
       return path === "/tmp/devsync/keys.txt";
     });
 
-    const result = await runDoctor(createReporter());
+    const result = await runDoctorChecks(createReporter());
 
     expect(result.hasWarnings).toBe(false);
     expect(result.checks).toContainEqual({
@@ -324,7 +324,7 @@ describe("sync doctor", () => {
       return path === "/tmp/devsync/keys.txt";
     });
 
-    const result = await runDoctor(createReporter());
+    const result = await runDoctorChecks(createReporter());
 
     expect(result.checks).toContainEqual({
       checkId: "local-paths",

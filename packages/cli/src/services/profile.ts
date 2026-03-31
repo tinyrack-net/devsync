@@ -18,23 +18,23 @@ import {
 import { resolveTrackedEntry } from "./paths.ts";
 import { ensureSyncRepository, resolveSyncPaths } from "./runtime.ts";
 
-export type SyncProfileAssignment = Readonly<{
+export type ProfileAssignment = Readonly<{
   entryLocalPath: string;
   entryRepoPath: string;
   profiles: readonly string[];
 }>;
 
-export type SyncProfileListResult = Readonly<{
+export type ProfileListResult = Readonly<{
   activeProfile?: string;
   activeProfileMode: "none" | "single";
-  assignments: readonly SyncProfileAssignment[];
+  assignments: readonly ProfileAssignment[];
   availableProfiles: readonly string[];
   globalConfigExists: boolean;
   globalConfigPath: string;
   syncDirectory: string;
 }>;
 
-export type SyncProfileUpdateResult = Readonly<{
+export type ProfileUpdateResult = Readonly<{
   activeProfile?: string;
   action: "clear" | "use";
   globalConfigPath: string;
@@ -43,12 +43,12 @@ export type SyncProfileUpdateResult = Readonly<{
   warning?: string;
 }>;
 
-type SyncProfileAssignRequest = Readonly<{
+type AssignProfilesRequest = Readonly<{
   profiles: readonly string[];
   target: string;
 }>;
 
-type SyncProfileAssignResult = Readonly<{
+type AssignProfilesResult = Readonly<{
   action: "assigned" | "unchanged";
   configPath: string;
   entryRepoPath: string;
@@ -56,7 +56,7 @@ type SyncProfileAssignResult = Readonly<{
   syncDirectory: string;
 }>;
 
-export const listSyncProfiles = async (): Promise<SyncProfileListResult> => {
+export const listProfiles = async (): Promise<ProfileListResult> => {
   const { syncDirectory, globalConfigPath } = resolveSyncPaths();
 
   await ensureSyncRepository(syncDirectory);
@@ -89,9 +89,9 @@ export const listSyncProfiles = async (): Promise<SyncProfileListResult> => {
   };
 };
 
-export const useSyncProfile = async (
+export const setActiveProfile = async (
   profile: string,
-): Promise<SyncProfileUpdateResult> => {
+): Promise<ProfileUpdateResult> => {
   const normalizedProfile = normalizeSyncProfileName(profile);
   const { syncDirectory, globalConfigPath } = resolveSyncPaths();
 
@@ -121,7 +121,7 @@ export const useSyncProfile = async (
   };
 };
 
-export const clearSyncProfiles = async (): Promise<SyncProfileUpdateResult> => {
+export const clearActiveProfile = async (): Promise<ProfileUpdateResult> => {
   const { syncDirectory, globalConfigPath } = resolveSyncPaths();
 
   await ensureSyncRepository(syncDirectory);
@@ -140,10 +140,10 @@ export const clearSyncProfiles = async (): Promise<SyncProfileUpdateResult> => {
   };
 };
 
-export const assignSyncProfiles = async (
-  request: SyncProfileAssignRequest,
+export const assignProfiles = async (
+  request: AssignProfilesRequest,
   cwd: string,
-): Promise<SyncProfileAssignResult> => {
+): Promise<AssignProfilesResult> => {
   const target = request.target.trim();
 
   if (target.length === 0) {

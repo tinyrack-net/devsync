@@ -64,7 +64,7 @@ vi.mock("./runtime.ts", () => ({
   resolveSyncPaths: mocked.resolveSyncPaths,
 }));
 
-import { resolveSetTarget, setSyncTargetMode } from "./set.ts";
+import { resolveSetTarget, setTargetMode } from "./set.ts";
 
 const createConfig = (
   entries: readonly ResolvedSyncConfigEntry[],
@@ -290,7 +290,7 @@ describe("sync set service", () => {
     mocked.getPathStats.mockResolvedValueOnce(fileStats);
 
     await expect(
-      setSyncTargetMode({ mode: "secret", target: ".gitconfig" }, "/tmp/cwd"),
+      setTargetMode({ mode: "secret", target: ".gitconfig" }, "/tmp/cwd"),
     ).resolves.toEqual({
       action: "unchanged",
       configPath: "/tmp/devsync/manifest.json",
@@ -318,7 +318,7 @@ describe("sync set service", () => {
     mocked.resolveEntryRelativeRepoPath.mockReturnValueOnce(undefined);
     mocked.getPathStats.mockResolvedValueOnce(fileStats);
 
-    const result = await setSyncTargetMode(
+    const result = await setTargetMode(
       { mode: "secret", target: ".gitconfig" },
       "/tmp/cwd",
     );
@@ -353,7 +353,7 @@ describe("sync set service", () => {
     mocked.resolveEntryRelativeRepoPath.mockReturnValue("private.txt");
     mocked.getPathStats.mockResolvedValueOnce(fileStats);
 
-    const result = await setSyncTargetMode(
+    const result = await setTargetMode(
       { mode: "secret", target: ".config/app/private.txt" },
       "/tmp/cwd",
     );
@@ -404,7 +404,7 @@ describe("sync set service", () => {
     mocked.getPathStats.mockResolvedValueOnce(directoryStats);
 
     await expect(
-      setSyncTargetMode(
+      setTargetMode(
         { mode: "normal", target: ".config/app/notes.txt" },
         "/tmp/cwd",
       ),

@@ -21,7 +21,7 @@ export type DoctorCheck = Readonly<{
   level: DoctorCheckLevel;
 }>;
 
-export type SyncDoctorResult = Readonly<{
+export type DoctorResult = Readonly<{
   checks: readonly DoctorCheck[];
   configPath: string;
   hasFailures: boolean;
@@ -68,9 +68,9 @@ const hasRestorableRepositoryArtifact = (
   return false;
 };
 
-export const runDoctor = async (
+export const runDoctorChecks = async (
   reporter?: ProgressReporter,
-): Promise<SyncDoctorResult> => {
+): Promise<DoctorResult> => {
   reportPhase(reporter, "Running doctor checks...");
   const { syncDirectory } = resolveSyncPaths();
   const configPath = resolveSyncConfigFilePath(syncDirectory);

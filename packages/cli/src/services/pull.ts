@@ -15,12 +15,12 @@ import {
   resolveSyncPaths,
 } from "./runtime.ts";
 
-export type SyncPullRequest = Readonly<{
+export type PullRequest = Readonly<{
   dryRun: boolean;
   profile?: string;
 }>;
 
-export type SyncPullResult = Readonly<{
+export type PullResult = Readonly<{
   configPath: string;
   decryptedFileCount: number;
   deletedLocalCount: number;
@@ -115,7 +115,7 @@ export const buildPullResultFromPlan = (
   plan: PullPlan,
   syncDirectory: string,
   dryRun: boolean,
-): SyncPullResult => {
+): PullResult => {
   const configPath = resolveSyncConfigFilePath(syncDirectory);
   return {
     configPath,
@@ -126,10 +126,10 @@ export const buildPullResultFromPlan = (
   };
 };
 
-export const pullSync = async (
-  request: SyncPullRequest,
+export const pullChanges = async (
+  request: PullRequest,
   reporter?: ProgressReporter,
-): Promise<SyncPullResult> => {
+): Promise<PullResult> => {
   reportPhase(reporter, "Starting pull...");
   const { syncDirectory } = resolveSyncPaths();
 

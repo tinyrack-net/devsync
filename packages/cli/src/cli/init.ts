@@ -2,8 +2,11 @@ import { buildCommand } from "@stricli/core";
 import { resolveConfiguredAbsolutePath } from "#app/config/xdg.ts";
 import { ENV } from "#app/lib/env.ts";
 import { pathExists } from "#app/lib/filesystem.ts";
-import { formatSyncInitResult } from "#app/lib/output.ts";
-import { defaultSyncIdentityFile, initializeSync } from "#app/services/init.ts";
+import { formatInitResult } from "#app/lib/output.ts";
+import {
+  defaultSyncIdentityFile,
+  initializeSyncDirectory,
+} from "#app/services/init.ts";
 import {
   createProgressReporter,
   type DevsyncCliContext,
@@ -44,8 +47,8 @@ const initCommand = buildCommand<InitFlags, [string?], DevsyncCliContext>({
         )
       : undefined;
     const trimmedPromptedKey = promptedKey?.trim();
-    const output = formatSyncInitResult(
-      await initializeSync(
+    const output = formatInitResult(
+      await initializeSyncDirectory(
         {
           ageIdentity:
             requestedKey !== undefined

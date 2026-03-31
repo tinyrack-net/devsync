@@ -25,11 +25,11 @@ import {
 } from "./repo-artifacts.ts";
 import { ensureSyncRepository, resolveSyncPaths } from "./runtime.ts";
 
-export type SyncForgetRequest = Readonly<{
+export type UntrackRequest = Readonly<{
   target: string;
 }>;
 
-export type SyncForgetResult = Readonly<{
+export type UntrackResult = Readonly<{
   configPath: string;
   localPath: string;
   plainArtifactCount: number;
@@ -188,10 +188,10 @@ const removeTrackedEntryArtifacts = async (
   }
 };
 
-export const forgetSyncTarget = async (
-  request: SyncForgetRequest,
+export const untrackTarget = async (
+  request: UntrackRequest,
   cwd: string,
-): Promise<SyncForgetResult> => {
+): Promise<UntrackResult> => {
   const target = request.target.trim();
 
   if (target.length === 0) {

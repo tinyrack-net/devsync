@@ -1,18 +1,18 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
+  formatDoctorResult,
   formatErrorMessage,
+  formatInitResult,
+  formatProfileListResult,
+  formatProfileUpdateResult,
   formatProgressMessage,
-  formatSyncAddResult,
-  formatSyncDoctorResult,
-  formatSyncForgetResult,
-  formatSyncInitResult,
-  formatSyncProfileListResult,
-  formatSyncProfileUpdateResult,
-  formatSyncPullResult,
-  formatSyncPushResult,
-  formatSyncSetResult,
-  formatSyncStatusResult,
+  formatPullResult,
+  formatPushResult,
+  formatSetModeResult,
+  formatStatusResult,
+  formatTrackResult,
+  formatUntrackResult,
   heading,
   kv,
   output,
@@ -98,7 +98,7 @@ describe("output", () => {
 
     expect(
       stripAnsi(
-        formatSyncInitResult({
+        formatInitResult({
           alreadyInitialized: false,
           configPath: "/tmp/config.json",
           entryCount: 3,
@@ -114,7 +114,7 @@ describe("output", () => {
 
     expect(
       stripAnsi(
-        formatSyncInitResult({
+        formatInitResult({
           alreadyInitialized: true,
           configPath: "/tmp/config.json",
           entryCount: 1,
@@ -129,7 +129,7 @@ describe("output", () => {
 
     expect(
       stripAnsi(
-        formatSyncInitResult({
+        formatInitResult({
           alreadyInitialized: false,
           configPath: "/tmp/config.json",
           entryCount: 0,
@@ -146,7 +146,7 @@ describe("output", () => {
   it("formats profile list and update results", () => {
     expect(
       stripAnsi(
-        formatSyncProfileListResult({
+        formatProfileListResult({
           activeProfile: "work",
           activeProfileMode: "single",
           assignments: [],
@@ -160,7 +160,7 @@ describe("output", () => {
 
     expect(
       stripAnsi(
-        formatSyncProfileUpdateResult({
+        formatProfileUpdateResult({
           activeProfile: "work",
           action: "use",
           globalConfigPath: "/tmp/config.json",
@@ -172,7 +172,7 @@ describe("output", () => {
 
     expect(
       stripAnsi(
-        formatSyncProfileUpdateResult({
+        formatProfileUpdateResult({
           action: "clear",
           globalConfigPath: "/tmp/config.json",
           syncDirectory: "/tmp/sync",
@@ -184,7 +184,7 @@ describe("output", () => {
   it("formats profile warnings when assignments exist without an active profile", () => {
     expect(
       stripAnsi(
-        formatSyncProfileListResult(
+        formatProfileListResult(
           {
             activeProfileMode: "none",
             assignments: [
@@ -206,7 +206,7 @@ describe("output", () => {
 
     expect(
       stripAnsi(
-        formatSyncProfileUpdateResult(
+        formatProfileUpdateResult(
           {
             activeProfile: "work",
             action: "use",
@@ -221,10 +221,10 @@ describe("output", () => {
     ).toContain("Profile 'work' is not referenced by any tracked entry");
   });
 
-  it("formats track, forget, and set results", () => {
+  it("formats track, untrack, and set results", () => {
     expect(
       stripAnsi(
-        formatSyncAddResult({
+        formatTrackResult({
           alreadyTracked: false,
           changed: true,
           configPath: "/tmp/config.json",
@@ -240,7 +240,7 @@ describe("output", () => {
 
     expect(
       stripAnsi(
-        formatSyncAddResult(
+        formatTrackResult(
           {
             alreadyTracked: true,
             changed: true,
@@ -259,7 +259,7 @@ describe("output", () => {
 
     expect(
       stripAnsi(
-        formatSyncAddResult({
+        formatTrackResult({
           alreadyTracked: true,
           changed: false,
           configPath: "/tmp/config.json",
@@ -275,7 +275,7 @@ describe("output", () => {
 
     expect(
       stripAnsi(
-        formatSyncForgetResult(
+        formatUntrackResult(
           {
             configPath: "/tmp/config.json",
             localPath: "/tmp/home/.gitconfig",
@@ -291,7 +291,7 @@ describe("output", () => {
 
     expect(
       stripAnsi(
-        formatSyncSetResult({
+        formatSetModeResult({
           action: "unchanged",
           configPath: "/tmp/config.json",
           entryRepoPath: ".config/zsh",
@@ -306,7 +306,7 @@ describe("output", () => {
 
     expect(
       stripAnsi(
-        formatSyncSetResult({
+        formatSetModeResult({
           action: "removed",
           configPath: "/tmp/config.json",
           entryRepoPath: ".config/zsh",
@@ -320,7 +320,7 @@ describe("output", () => {
 
     expect(
       stripAnsi(
-        formatSyncSetResult({
+        formatSetModeResult({
           action: "updated",
           configPath: "/tmp/config.json",
           entryRepoPath: ".config/zsh",
@@ -336,7 +336,7 @@ describe("output", () => {
   it("formats push and pull summaries for dry-run and real execution", () => {
     expect(
       stripAnsi(
-        formatSyncPushResult(
+        formatPushResult(
           {
             configPath: "/tmp/config.json",
             deletedArtifactCount: 4,
@@ -354,7 +354,7 @@ describe("output", () => {
 
     expect(
       stripAnsi(
-        formatSyncPushResult({
+        formatPushResult({
           configPath: "/tmp/config.json",
           deletedArtifactCount: 2,
           directoryCount: 1,
@@ -369,7 +369,7 @@ describe("output", () => {
 
     expect(
       stripAnsi(
-        formatSyncPullResult(
+        formatPullResult(
           {
             configPath: "/tmp/config.json",
             decryptedFileCount: 3,
@@ -387,7 +387,7 @@ describe("output", () => {
 
     expect(
       stripAnsi(
-        formatSyncPullResult({
+        formatPullResult({
           configPath: "/tmp/config.json",
           decryptedFileCount: 1,
           deletedLocalCount: 5,
@@ -404,7 +404,7 @@ describe("output", () => {
   it("formats sync status for populated and empty entry lists", () => {
     expect(
       stripAnsi(
-        formatSyncStatusResult(
+        formatStatusResult(
           {
             activeProfile: "work",
             configPath: "/tmp/config.json",
@@ -457,7 +457,7 @@ describe("output", () => {
 
     expect(
       stripAnsi(
-        formatSyncStatusResult({
+        formatStatusResult({
           configPath: "/tmp/config.json",
           entries: [],
           entryCount: 0,
@@ -493,7 +493,7 @@ describe("output", () => {
   it("formats doctor summaries for failure, warning, and success states", () => {
     expect(
       stripAnsi(
-        formatSyncDoctorResult(
+        formatDoctorResult(
           {
             checks: [
               {
@@ -524,7 +524,7 @@ describe("output", () => {
 
     expect(
       stripAnsi(
-        formatSyncDoctorResult({
+        formatDoctorResult({
           checks: [
             {
               checkId: "entries",
@@ -542,7 +542,7 @@ describe("output", () => {
 
     expect(
       stripAnsi(
-        formatSyncDoctorResult({
+        formatDoctorResult({
           checks: [
             {
               checkId: "config",

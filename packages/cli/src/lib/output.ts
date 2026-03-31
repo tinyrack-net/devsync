@@ -1,21 +1,18 @@
 import { createColors } from "picocolors";
 import { formatDevsyncError } from "#app/lib/error.ts";
 import { ensureTrailingNewline } from "#app/lib/string.ts";
-import type { SyncAddResult } from "#app/services/add.ts";
-import type { SyncDoctorResult } from "#app/services/doctor.ts";
-import type { SyncForgetResult } from "#app/services/forget.ts";
-import type { SyncInitResult } from "#app/services/init.ts";
+import type { DoctorResult } from "#app/services/doctor.ts";
+import type { InitResult } from "#app/services/init.ts";
 import type {
-  SyncProfileListResult,
-  SyncProfileUpdateResult,
+  ProfileListResult,
+  ProfileUpdateResult,
 } from "#app/services/profile.ts";
-import type { SyncPullResult } from "#app/services/pull.ts";
-import type { SyncPushResult } from "#app/services/push.ts";
-import type { SyncSetResult } from "#app/services/set.ts";
-import type {
-  SyncStatusEntry,
-  SyncStatusResult,
-} from "#app/services/status.ts";
+import type { PullResult } from "#app/services/pull.ts";
+import type { PushResult } from "#app/services/push.ts";
+import type { SetModeResult } from "#app/services/set.ts";
+import type { StatusEntry, StatusResult } from "#app/services/status.ts";
+import type { TrackResult } from "#app/services/track.ts";
+import type { UntrackResult } from "#app/services/untrack.ts";
 
 type OutputLine = false | null | string | undefined;
 type OutputTone = "default" | "error" | "success" | "warn";
@@ -124,7 +121,7 @@ const normalizeDoctorCheckId = (checkId: string) => {
  * @description
  * Formats sync mode change actions for result output.
  */
-const formatSetAction = (action: SyncSetResult["action"]) => {
+const formatSetAction = (action: SetModeResult["action"]) => {
   switch (action) {
     case "added":
       return "added override";
@@ -141,7 +138,7 @@ const formatSetAction = (action: SyncSetResult["action"]) => {
  * @description
  * Formats the optional explanation attached to a sync mode result.
  */
-const formatSetReason = (result: SyncSetResult) => {
+const formatSetReason = (result: SetModeResult) => {
   switch (result.reason) {
     case "already-set":
       return `already ${result.mode}`;
@@ -154,7 +151,7 @@ const formatSetReason = (result: SyncSetResult) => {
  * @description
  * Summarizes doctor check outcomes for the command heading.
  */
-const formatDoctorSummary = (checks: SyncDoctorResult["checks"]) => {
+const formatDoctorSummary = (checks: DoctorResult["checks"]) => {
   const counts = checks.reduce(
     (accumulator, check) => {
       accumulator[check.level] += 1;
@@ -180,7 +177,7 @@ const formatDoctorSummary = (checks: SyncDoctorResult["checks"]) => {
  * Formats a single doctor check row for terminal output.
  */
 const formatDoctorCheck = (
-  check: SyncDoctorResult["checks"][number],
+  check: DoctorResult["checks"][number],
   labelWidth: number,
 ) => {
   const tone =
@@ -198,7 +195,7 @@ const formatDoctorCheck = (
  * Formats one tracked sync entry for the status view.
  */
 const formatStatusEntry = (
-  entry: SyncStatusEntry,
+  entry: StatusEntry,
   widths: Readonly<{
     kind: number;
     mode: number;
@@ -325,8 +322,8 @@ export const formatErrorMessage = (message: Error | string) => {
  * @description
  * Formats the result of initializing a sync directory.
  */
-export const formatSyncInitResult = (
-  result: SyncInitResult,
+export const formatInitResult = (
+  result: InitResult,
   _options: FormatterOptions = {},
 ) => {
   return output(
@@ -367,8 +364,8 @@ export const formatSyncInitResult = (
  * @description
  * Formats the result of tracking or updating a sync target.
  */
-export const formatSyncAddResult = (
-  result: SyncAddResult,
+export const formatTrackResult = (
+  result: TrackResult,
   options: FormatterOptions = {},
 ) => {
   const headline = !result.alreadyTracked
@@ -393,8 +390,8 @@ export const formatSyncAddResult = (
  * @description
  * Formats the result of removing a tracked sync target.
  */
-export const formatSyncForgetResult = (
-  result: SyncForgetResult,
+export const formatUntrackResult = (
+  result: UntrackResult,
   options: FormatterOptions = {},
 ) => {
   return output(
@@ -412,8 +409,8 @@ export const formatSyncForgetResult = (
  * @description
  * Formats the result of changing a sync mode override.
  */
-export const formatSyncSetResult = (
-  result: SyncSetResult,
+export const formatSetModeResult = (
+  result: SetModeResult,
   options: FormatterOptions = {},
 ) => {
   const reason = formatSetReason(result);
@@ -437,8 +434,8 @@ export const formatSyncSetResult = (
  * @description
  * Formats push results and artifact counts for CLI output.
  */
-export const formatSyncPushResult = (
-  result: SyncPushResult,
+export const formatPushResult = (
+  result: PushResult,
   options: FormatterOptions = {},
 ) => {
   return output(
@@ -463,8 +460,8 @@ export const formatSyncPushResult = (
  * @description
  * Formats pull results and local change counts for CLI output.
  */
-export const formatSyncPullResult = (
-  result: SyncPullResult,
+export const formatPullResult = (
+  result: PullResult,
   options: FormatterOptions = {},
 ) => {
   return output(
@@ -489,8 +486,8 @@ export const formatSyncPullResult = (
  * @description
  * Formats the sync status view, including tracked entries and planned changes.
  */
-export const formatSyncStatusResult = (
-  result: SyncStatusResult,
+export const formatStatusResult = (
+  result: StatusResult,
   options: FormatterOptions = {},
 ) => {
   const widths = result.entries.reduce(
@@ -541,8 +538,8 @@ export const formatSyncStatusResult = (
  * @description
  * Formats doctor findings and their overall health summary.
  */
-export const formatSyncDoctorResult = (
-  result: SyncDoctorResult,
+export const formatDoctorResult = (
+  result: DoctorResult,
   options: FormatterOptions = {},
 ) => {
   const labelWidth = result.checks.reduce((width, check) => {
@@ -564,8 +561,8 @@ export const formatSyncDoctorResult = (
  * @description
  * Formats the available profiles and their current assignments.
  */
-export const formatSyncProfileListResult = (
-  result: SyncProfileListResult,
+export const formatProfileListResult = (
+  result: ProfileListResult,
   options: FormatterOptions = {},
 ) => {
   return output(
@@ -603,8 +600,8 @@ export const formatSyncProfileListResult = (
  * @description
  * Formats the result of changing the active sync profile.
  */
-export const formatSyncProfileUpdateResult = (
-  result: SyncProfileUpdateResult,
+export const formatProfileUpdateResult = (
+  result: ProfileUpdateResult,
   options: FormatterOptions = {},
 ) => {
   return output(
