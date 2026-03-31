@@ -42,16 +42,14 @@ async function main() {
 
     // Create signed git tag
     console.log(`🏷️  Creating git tag: v${version}`);
-    await execa("git", [
-      "tag",
-      "-s",
-      `v${version}`,
-      "-m",
-      `release: v${version}`,
-    ], {
-      stdio: "inherit",
-      cwd: process.cwd(),
-    });
+    await execa(
+      "git",
+      ["tag", "-s", `v${version}`, "-m", `release: v${version}`],
+      {
+        stdio: "inherit",
+        cwd: process.cwd(),
+      },
+    );
 
     console.log(`✅ Release completed successfully!`);
     console.log(`   Version: v${version}`);
