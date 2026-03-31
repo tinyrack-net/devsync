@@ -23,7 +23,7 @@ describe("global config", () => {
     expect(
       parseGlobalDevsyncConfig({
         age: {
-          identityFile: "$XDG_CONFIG_HOME/devsync/age/keys.txt",
+          identityFile: "$XDG_CONFIG_HOME/devsync/keys.txt",
           recipients: ["age1example"],
         },
         version: 2,

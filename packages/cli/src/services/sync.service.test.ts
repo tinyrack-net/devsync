@@ -74,7 +74,7 @@ describe("sync service", () => {
 
     await initializeSync(
       {
-        identityFile: "$XDG_CONFIG_HOME/devsync/age/keys.txt",
+        identityFile: "$XDG_CONFIG_HOME/devsync/keys.txt",
         recipients: [ageKeys.recipient],
       },
       environment,
@@ -99,7 +99,7 @@ describe("sync service", () => {
 
     const config = JSON.parse(
       await readFile(
-        join(xdgConfigHome, "devsync", "sync", "manifest.json"),
+        join(xdgConfigHome, "devsync", "repository", "manifest.json"),
         "utf8",
       ),
     ) as {
@@ -140,18 +140,18 @@ describe("sync service", () => {
 
     await initializeSync(
       {
-        identityFile: "$XDG_CONFIG_HOME/devsync/age/keys.txt",
+        identityFile: "$XDG_CONFIG_HOME/devsync/keys.txt",
         recipients: [ageKeys.recipient],
       },
       environment,
     );
     await writeFile(
-      join(xdgConfigHome, "devsync", "sync", "manifest.json"),
+      join(xdgConfigHome, "devsync", "repository", "manifest.json"),
       JSON.stringify(
         {
           version: 7,
           age: {
-            identityFile: "$XDG_CONFIG_HOME/devsync/age/keys.txt",
+            identityFile: "$XDG_CONFIG_HOME/devsync/keys.txt",
             recipients: [ageKeys.recipient],
           },
           entries: [
@@ -179,7 +179,7 @@ describe("sync service", () => {
 
     const config = JSON.parse(
       await readFile(
-        join(xdgConfigHome, "devsync", "sync", "manifest.json"),
+        join(xdgConfigHome, "devsync", "repository", "manifest.json"),
         "utf8",
       ),
     ) as {
@@ -210,7 +210,7 @@ describe("sync service", () => {
 
     await initializeSync(
       {
-        identityFile: "$XDG_CONFIG_HOME/devsync/age/keys.txt",
+        identityFile: "$XDG_CONFIG_HOME/devsync/keys.txt",
         recipients: [ageKeys.recipient],
       },
       environment,
@@ -260,18 +260,18 @@ describe("sync service", () => {
 
     await initializeSync(
       {
-        identityFile: "$XDG_CONFIG_HOME/devsync/age/keys.txt",
+        identityFile: "$XDG_CONFIG_HOME/devsync/keys.txt",
         recipients: [ageKeys.recipient],
       },
       environment,
     );
     await writeFile(
-      join(xdgConfigHome, "devsync", "sync", "manifest.json"),
+      join(xdgConfigHome, "devsync", "repository", "manifest.json"),
       JSON.stringify(
         {
           version: 7,
           age: {
-            identityFile: "$XDG_CONFIG_HOME/devsync/age/keys.txt",
+            identityFile: "$XDG_CONFIG_HOME/devsync/keys.txt",
             recipients: [ageKeys.recipient],
           },
           entries: [
@@ -299,7 +299,7 @@ describe("sync service", () => {
 
     const config = JSON.parse(
       await readFile(
-        join(xdgConfigHome, "devsync", "sync", "manifest.json"),
+        join(xdgConfigHome, "devsync", "repository", "manifest.json"),
         "utf8",
       ),
     ) as {
@@ -329,7 +329,7 @@ describe("sync service", () => {
 
     await initializeSync(
       {
-        identityFile: "$XDG_CONFIG_HOME/devsync/age/keys.txt",
+        identityFile: "$XDG_CONFIG_HOME/devsync/keys.txt",
         recipients: [ageKeys.recipient],
       },
       environment,
@@ -361,7 +361,7 @@ describe("sync service", () => {
     const sharedArtifact = join(
       xdgConfigHome,
       "devsync",
-      "sync",
+      "repository",
       "default",
       ".config",
       "zsh",
@@ -370,7 +370,7 @@ describe("sync service", () => {
     const secretArtifact = join(
       xdgConfigHome,
       "devsync",
-      "sync",
+      "repository",
       "default",
       ".config",
       "zsh",
@@ -403,7 +403,7 @@ describe("sync service", () => {
 
     const configAfterModeChange = JSON.parse(
       await readFile(
-        join(xdgConfigHome, "devsync", "sync", "manifest.json"),
+        join(xdgConfigHome, "devsync", "repository", "manifest.json"),
         "utf8",
       ),
     ) as {
@@ -435,18 +435,18 @@ describe("sync service", () => {
 
     await initializeSync(
       {
-        identityFile: "$XDG_CONFIG_HOME/devsync/age/keys.txt",
+        identityFile: "$XDG_CONFIG_HOME/devsync/keys.txt",
         recipients: [ageKeys.recipient],
       },
       environment,
     );
     await writeFile(
-      join(xdgConfigHome, "devsync", "sync", "manifest.json"),
+      join(xdgConfigHome, "devsync", "repository", "manifest.json"),
       JSON.stringify(
         {
           version: 7,
           age: {
-            identityFile: "$XDG_CONFIG_HOME/devsync/age/keys.txt",
+            identityFile: "$XDG_CONFIG_HOME/devsync/keys.txt",
             recipients: [ageKeys.recipient],
           },
           entries: [
@@ -479,7 +479,7 @@ describe("sync service", () => {
     const secretArtifact = join(
       xdgConfigHome,
       "devsync",
-      "sync",
+      "repository",
       "default",
       ".config",
       "zsh",
@@ -522,18 +522,18 @@ describe("sync service", () => {
 
     await initializeSync(
       {
-        identityFile: "$XDG_CONFIG_HOME/devsync/age/keys.txt",
+        identityFile: "$XDG_CONFIG_HOME/devsync/keys.txt",
         recipients: [ageKeys.recipient],
       },
       environment,
     );
     await writeFile(
-      join(xdgConfigHome, "devsync", "sync", "manifest.json"),
+      join(xdgConfigHome, "devsync", "repository", "manifest.json"),
       JSON.stringify(
         {
           version: 7,
           age: {
-            identityFile: "$XDG_CONFIG_HOME/devsync/age/keys.txt",
+            identityFile: "$XDG_CONFIG_HOME/devsync/keys.txt",
             recipients: [ageKeys.recipient],
           },
           entries: [
@@ -566,7 +566,7 @@ describe("sync service", () => {
     const secretArtifact = join(
       xdgConfigHome,
       "devsync",
-      "sync",
+      "repository",
       "default",
       ".config",
       "zsh",
@@ -609,19 +609,19 @@ describe("sync service", () => {
 
     await initializeSync(
       {
-        identityFile: "$XDG_CONFIG_HOME/devsync/age/keys.txt",
+        identityFile: "$XDG_CONFIG_HOME/devsync/keys.txt",
         recipients: [ageKeys.recipient],
       },
       environment,
     );
 
     await writeFile(
-      join(xdgConfigHome, "devsync", "sync", "manifest.json"),
+      join(xdgConfigHome, "devsync", "repository", "manifest.json"),
       JSON.stringify(
         {
           version: 7,
           age: {
-            identityFile: "$XDG_CONFIG_HOME/devsync/age/keys.txt",
+            identityFile: "$XDG_CONFIG_HOME/devsync/keys.txt",
             recipients: [ageKeys.recipient],
           },
           entries: [
@@ -669,19 +669,19 @@ describe("sync service", () => {
 
     await initializeSync(
       {
-        identityFile: "$XDG_CONFIG_HOME/devsync/age/keys.txt",
+        identityFile: "$XDG_CONFIG_HOME/devsync/keys.txt",
         recipients: [ageKeys.recipient],
       },
       environment,
     );
 
     await writeFile(
-      join(xdgConfigHome, "devsync", "sync", "manifest.json"),
+      join(xdgConfigHome, "devsync", "repository", "manifest.json"),
       JSON.stringify(
         {
           version: 7,
           age: {
-            identityFile: "$XDG_CONFIG_HOME/devsync/age/keys.txt",
+            identityFile: "$XDG_CONFIG_HOME/devsync/keys.txt",
             recipients: [ageKeys.recipient],
           },
           entries: [
@@ -739,19 +739,19 @@ describe("sync service", () => {
 
     await initializeSync(
       {
-        identityFile: "$XDG_CONFIG_HOME/devsync/age/keys.txt",
+        identityFile: "$XDG_CONFIG_HOME/devsync/keys.txt",
         recipients: [ageKeys.recipient],
       },
       environment,
     );
 
     await writeFile(
-      join(xdgConfigHome, "devsync", "sync", "manifest.json"),
+      join(xdgConfigHome, "devsync", "repository", "manifest.json"),
       JSON.stringify(
         {
           version: 7,
           age: {
-            identityFile: "$XDG_CONFIG_HOME/devsync/age/keys.txt",
+            identityFile: "$XDG_CONFIG_HOME/devsync/keys.txt",
             recipients: [ageKeys.recipient],
           },
           entries: [
@@ -807,7 +807,7 @@ describe("sync service", () => {
 
     await initializeSync(
       {
-        identityFile: "$XDG_CONFIG_HOME/devsync/age/keys.txt",
+        identityFile: "$XDG_CONFIG_HOME/devsync/keys.txt",
         recipients: [ageKeys.recipient],
       },
       environment,
@@ -841,7 +841,7 @@ describe("sync service", () => {
 
     await initializeSync(
       {
-        identityFile: "$XDG_CONFIG_HOME/devsync/age/keys.txt",
+        identityFile: "$XDG_CONFIG_HOME/devsync/keys.txt",
         recipients: [ageKeys.recipient],
       },
       environment,
@@ -850,7 +850,7 @@ describe("sync service", () => {
     const manifestPath = join(
       xdgConfigHome,
       "devsync",
-      "sync",
+      "repository",
       "manifest.json",
     );
     await writeFile(
@@ -859,7 +859,7 @@ describe("sync service", () => {
         {
           version: 7,
           age: {
-            identityFile: "$XDG_CONFIG_HOME/devsync/age/keys.txt",
+            identityFile: "$XDG_CONFIG_HOME/devsync/keys.txt",
             recipients: [ageKeys.recipient],
           },
           entries: [
@@ -904,7 +904,7 @@ describe("sync service", () => {
 
     await initializeSync(
       {
-        identityFile: "$XDG_CONFIG_HOME/devsync/age/keys.txt",
+        identityFile: "$XDG_CONFIG_HOME/devsync/keys.txt",
         recipients: [ageKeys.recipient],
       },
       environment,
@@ -929,7 +929,7 @@ describe("sync service", () => {
 
     const config = JSON.parse(
       await readFile(
-        join(xdgConfigHome, "devsync", "sync", "manifest.json"),
+        join(xdgConfigHome, "devsync", "repository", "manifest.json"),
         "utf8",
       ),
     ) as { entries: Array<{ profiles?: string[] }> };
@@ -967,7 +967,7 @@ describe("sync service", () => {
 
     const configAfter = JSON.parse(
       await readFile(
-        join(xdgConfigHome, "devsync", "sync", "manifest.json"),
+        join(xdgConfigHome, "devsync", "repository", "manifest.json"),
         "utf8",
       ),
     ) as { entries: Array<{ profiles?: string[] }> };

@@ -61,7 +61,7 @@ export const resolveDevsyncGlobalConfigFilePath = (
 export const resolveDevsyncSyncDirectory = (
   environment: NodeJS.ProcessEnv = process.env,
 ) => {
-  return resolve(resolveDevsyncConfigDirectory(environment), "sync");
+  return resolve(resolveDevsyncConfigDirectory(environment), "repository");
 };
 
 export const resolveDevsyncAgeDirectory = (

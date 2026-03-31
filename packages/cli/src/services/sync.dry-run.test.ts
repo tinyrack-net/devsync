@@ -86,7 +86,7 @@ describe("sync dry runs", () => {
 
     await initializeSync(
       {
-        identityFile: "$XDG_CONFIG_HOME/devsync/age/keys.txt",
+        identityFile: "$XDG_CONFIG_HOME/devsync/keys.txt",
         recipients: [ageKeys.recipient],
       },
       environment,
@@ -178,7 +178,7 @@ describe("sync dry runs", () => {
 
     await initializeSync(
       {
-        identityFile: "$XDG_CONFIG_HOME/devsync/age/keys.txt",
+        identityFile: "$XDG_CONFIG_HOME/devsync/keys.txt",
         recipients: [ageKeys.recipient],
       },
       environment,
@@ -241,7 +241,7 @@ describe("sync dry runs", () => {
 
     await initializeSync(
       {
-        identityFile: "$XDG_CONFIG_HOME/devsync/age/keys.txt",
+        identityFile: "$XDG_CONFIG_HOME/devsync/keys.txt",
         recipients: [ageKeys.recipient],
       },
       environment,

@@ -126,7 +126,7 @@ describe("pull planning", () => {
 
     const config = {
       age: {
-        configuredIdentityFile: "$XDG_CONFIG_HOME/devsync/age/keys.txt",
+        configuredIdentityFile: "$XDG_CONFIG_HOME/devsync/keys.txt",
         identityFile: "/tmp/devsync/keys.txt",
         recipients: ["age1recipient"],
       },
@@ -181,7 +181,7 @@ describe("pull planning", () => {
     };
     const config = {
       age: {
-        configuredIdentityFile: "$XDG_CONFIG_HOME/devsync/age/keys.txt",
+        configuredIdentityFile: "$XDG_CONFIG_HOME/devsync/keys.txt",
         identityFile: "/tmp/devsync/keys.txt",
         recipients: ["age1recipient"],
       },

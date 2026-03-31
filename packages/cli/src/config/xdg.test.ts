@@ -81,10 +81,10 @@ describe("expandConfiguredPath", () => {
 
   it("expands $XDG_CONFIG_HOME/ prefix", () => {
     expect(
-      expandConfiguredPath("$XDG_CONFIG_HOME/devsync/age/keys.txt", {
+      expandConfiguredPath("$XDG_CONFIG_HOME/devsync/keys.txt", {
         XDG_CONFIG_HOME: "/custom/config",
       }),
-    ).toBe(resolve("/custom/config", "devsync", "age", "keys.txt"));
+    ).toBe(resolve("/custom/config", "devsync", "keys.txt"));
   });
 
   it("expands ${XDG_CONFIG_HOME} braced syntax", () => {

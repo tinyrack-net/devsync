@@ -169,7 +169,7 @@ describe("sync CLI e2e", () => {
       "age       generated a new local identity",
     );
     expect(
-      await readFile(join(xdgConfigHome, "devsync", "age", "keys.txt"), "utf8"),
+      await readFile(join(xdgConfigHome, "devsync", "keys.txt"), "utf8"),
     ).toContain("AGE-SECRET-KEY-");
     expect(
       JSON.parse(
@@ -187,13 +187,13 @@ describe("sync CLI e2e", () => {
     expect(
       JSON.parse(
         await readFile(
-          join(xdgConfigHome, "devsync", "sync", "manifest.json"),
+          join(xdgConfigHome, "devsync", "repository", "manifest.json"),
           "utf8",
         ),
       ),
     ).toMatchObject({
       age: {
-        identityFile: "$XDG_CONFIG_HOME/devsync/age/keys.txt",
+        identityFile: "$XDG_CONFIG_HOME/devsync/keys.txt",
         recipients: [expect.stringMatching(/^age1/u)],
       },
       entries: [],
@@ -224,7 +224,7 @@ describe("sync CLI e2e", () => {
       "age       using existing identity",
     );
     expect(
-      await readFile(join(xdgConfigHome, "devsync", "age", "keys.txt"), "utf8"),
+      await readFile(join(xdgConfigHome, "devsync", "keys.txt"), "utf8"),
     ).toBe(`${ageKeys.identity}\n`);
   });
 
@@ -242,7 +242,7 @@ describe("sync CLI e2e", () => {
       join(sourceRepository, "manifest.json"),
       formatSyncConfig(
         createInitialSyncConfig({
-          identityFile: "$XDG_CONFIG_HOME/devsync/age/keys.txt",
+          identityFile: "$XDG_CONFIG_HOME/devsync/keys.txt",
           recipients: [ageKeys.recipient],
         }),
       ),
@@ -308,7 +308,7 @@ describe("sync CLI e2e", () => {
 
     expect(stripAnsi(result.stdout)).toContain("Initialized sync directory");
     expect(
-      await readFile(join(xdgConfigHome, "devsync", "age", "keys.txt"), "utf8"),
+      await readFile(join(xdgConfigHome, "devsync", "keys.txt"), "utf8"),
     ).toBe(`${ageKeys.identity}\n`);
   });
 
@@ -326,7 +326,7 @@ describe("sync CLI e2e", () => {
       join(sourceRepository, "manifest.json"),
       formatSyncConfig(
         createInitialSyncConfig({
-          identityFile: "$XDG_CONFIG_HOME/devsync/age/keys.txt",
+          identityFile: "$XDG_CONFIG_HOME/devsync/keys.txt",
           recipients: [ageKeys.recipient],
         }),
       ),
@@ -373,7 +373,7 @@ describe("sync CLI e2e", () => {
       join(sourceRepository, "manifest.json"),
       formatSyncConfig(
         createInitialSyncConfig({
-          identityFile: "$XDG_CONFIG_HOME/devsync/age/keys.txt",
+          identityFile: "$XDG_CONFIG_HOME/devsync/keys.txt",
           recipients: [ageKeys.recipient],
         }),
       ),
@@ -436,7 +436,7 @@ describe("sync CLI e2e", () => {
 
     expect(result.stdout).toBe("");
     expect(await readFile(markerFile, "utf8")).toBe(
-      join(xdgConfigHome, "devsync", "sync"),
+      join(xdgConfigHome, "devsync", "repository"),
     );
   });
 
@@ -447,7 +447,7 @@ describe("sync CLI e2e", () => {
     const bundleDirectory = join(homeDirectory, ".config", "mytool");
     const publicFile = join(bundleDirectory, "public.json");
     const cacheDirectory = join(bundleDirectory, "cache");
-    const syncDirectory = join(xdgConfigHome, "devsync", "sync");
+    const syncDirectory = join(xdgConfigHome, "devsync", "repository");
     const ageKeys = await createAgeKeyPair();
     const env = createSyncEnvironment(homeDirectory, xdgConfigHome);
 
@@ -462,7 +462,7 @@ describe("sync CLI e2e", () => {
         "--recipient",
         ageKeys.recipient,
         "--identity",
-        "$XDG_CONFIG_HOME/devsync/age/keys.txt",
+        "$XDG_CONFIG_HOME/devsync/keys.txt",
       ],
       { env },
     );
@@ -551,7 +551,7 @@ describe("sync CLI e2e", () => {
         "--recipient",
         ageKeys.recipient,
         "--identity",
-        "$XDG_CONFIG_HOME/devsync/age/keys.txt",
+        "$XDG_CONFIG_HOME/devsync/keys.txt",
       ],
       { env },
     );
@@ -565,7 +565,7 @@ describe("sync CLI e2e", () => {
         join(
           xdgConfigHome,
           "devsync",
-          "sync",
+          "repository",
           "default",
           ".config",
           "zsh",
@@ -579,7 +579,7 @@ describe("sync CLI e2e", () => {
         join(
           xdgConfigHome,
           "devsync",
-          "sync",
+          "repository",
           "default",
           ".config",
           "zsh",
@@ -612,7 +612,7 @@ describe("sync CLI e2e", () => {
         "--recipient",
         ageKeys.recipient,
         "--identity",
-        "$XDG_CONFIG_HOME/devsync/age/keys.txt",
+        "$XDG_CONFIG_HOME/devsync/keys.txt",
       ],
       { env },
     );
@@ -654,7 +654,7 @@ describe("sync CLI e2e", () => {
         "--recipient",
         ageKeys.recipient,
         "--identity",
-        "$XDG_CONFIG_HOME/devsync/age/keys.txt",
+        "$XDG_CONFIG_HOME/devsync/keys.txt",
       ],
       { env },
     );

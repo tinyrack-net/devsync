@@ -78,7 +78,7 @@ describe("init service", () => {
     const result = await initializeSync(
       {
         ageIdentity: `  ${ageKeys.identity}  `,
-        identityFile: "$XDG_CONFIG_HOME/devsync/age/keys.txt",
+        identityFile: "$XDG_CONFIG_HOME/devsync/keys.txt",
         recipients: [ageKeys.recipient, extraRecipient.recipient],
         repository: sourceRepository,
       },
@@ -87,7 +87,7 @@ describe("init service", () => {
 
     expect(result.generatedIdentity).toBe(false);
     expect(
-      await readFile(join(xdgConfigHome, "devsync", "age", "keys.txt"), "utf8"),
+      await readFile(join(xdgConfigHome, "devsync", "keys.txt"), "utf8"),
     ).toBe(`${ageKeys.identity}\n`);
     expect(
       JSON.parse(
@@ -95,7 +95,7 @@ describe("init service", () => {
       ),
     ).toMatchObject({
       age: {
-        identityFile: "$XDG_CONFIG_HOME/devsync/age/keys.txt",
+        identityFile: "$XDG_CONFIG_HOME/devsync/keys.txt",
         recipients: expect.arrayContaining([
           ageKeys.recipient,
           extraRecipient.recipient,
@@ -113,7 +113,7 @@ describe("init service", () => {
       initializeSync(
         {
           ageIdentity: "not-a-key",
-          identityFile: "$XDG_CONFIG_HOME/devsync/age/keys.txt",
+          identityFile: "$XDG_CONFIG_HOME/devsync/keys.txt",
           recipients: [],
         },
         createEnvironment(homeDirectory, xdgConfigHome),
@@ -134,7 +134,7 @@ describe("init service", () => {
 
     const result = await initializeSync(
       {
-        identityFile: "$XDG_CONFIG_HOME/devsync/age/keys.txt",
+        identityFile: "$XDG_CONFIG_HOME/devsync/keys.txt",
         recipients: [ageKeys.recipient],
         repository: sourceRepository,
       },
@@ -157,14 +157,14 @@ describe("init service", () => {
     ).toContain('"version": 7');
     expect(
       await readFile(join(result.syncDirectory, "manifest.json"), "utf8"),
-    ).toContain("$XDG_CONFIG_HOME/devsync/age/keys.txt");
+    ).toContain("$XDG_CONFIG_HOME/devsync/keys.txt");
   });
 
   it("rejects non-empty sync directories that are not git repositories", async () => {
     const workspace = await createWorkspace();
     const homeDirectory = join(workspace, "home");
     const xdgConfigHome = join(workspace, "xdg");
-    const syncDirectory = join(xdgConfigHome, "devsync", "sync");
+    const syncDirectory = join(xdgConfigHome, "devsync", "repository");
     const ageKeys = await createAgeKeyPair();
 
     await writeIdentityFile(xdgConfigHome, ageKeys.identity);
@@ -176,7 +176,7 @@ describe("init service", () => {
     await expect(
       initializeSync(
         {
-          identityFile: "$XDG_CONFIG_HOME/devsync/age/keys.txt",
+          identityFile: "$XDG_CONFIG_HOME/devsync/keys.txt",
           recipients: [ageKeys.recipient],
         },
         environment,
@@ -185,7 +185,7 @@ describe("init service", () => {
     await expect(
       initializeSync(
         {
-          identityFile: "$XDG_CONFIG_HOME/devsync/age/keys.txt",
+          identityFile: "$XDG_CONFIG_HOME/devsync/keys.txt",
           recipients: [ageKeys.recipient],
         },
         environment,
@@ -194,7 +194,7 @@ describe("init service", () => {
     await expect(
       initializeSync(
         {
-          identityFile: "$XDG_CONFIG_HOME/devsync/age/keys.txt",
+          identityFile: "$XDG_CONFIG_HOME/devsync/keys.txt",
           recipients: [ageKeys.recipient],
         },
         environment,
@@ -216,7 +216,7 @@ describe("init service", () => {
 
     await initializeSync(
       {
-        identityFile: "$XDG_CONFIG_HOME/devsync/age/keys.txt",
+        identityFile: "$XDG_CONFIG_HOME/devsync/keys.txt",
         recipients: [ageKeys.recipient],
       },
       environment,
@@ -225,7 +225,7 @@ describe("init service", () => {
     await expect(
       initializeSync(
         {
-          identityFile: "$XDG_CONFIG_HOME/devsync/age/keys.txt",
+          identityFile: "$XDG_CONFIG_HOME/devsync/keys.txt",
           recipients: ["age1differentrecipient"],
         },
         environment,
@@ -243,7 +243,7 @@ describe("init service", () => {
     await runGit(["init", "-b", "main", sourceRepository], workspace);
 
     const manifest = createInitialSyncConfig({
-      identityFile: "$XDG_CONFIG_HOME/devsync/age/keys.txt",
+      identityFile: "$XDG_CONFIG_HOME/devsync/keys.txt",
       recipients: [ageKeys.recipient],
     });
 
@@ -261,7 +261,7 @@ describe("init service", () => {
     const result = await initializeSync(
       {
         ageIdentity: ageKeys.identity,
-        identityFile: "$XDG_CONFIG_HOME/devsync/age/keys.txt",
+        identityFile: "$XDG_CONFIG_HOME/devsync/keys.txt",
         recipients: [],
         repository: sourceRepository,
       },
@@ -271,7 +271,7 @@ describe("init service", () => {
     expect(result.alreadyInitialized).toBe(false);
     expect(result.generatedIdentity).toBe(false);
     expect(
-      await readFile(join(xdgConfigHome, "devsync", "age", "keys.txt"), "utf8"),
+      await readFile(join(xdgConfigHome, "devsync", "keys.txt"), "utf8"),
     ).toBe(`${ageKeys.identity}\n`);
     expect(
       JSON.parse(
@@ -293,7 +293,7 @@ describe("init service", () => {
     await runGit(["init", "-b", "main", sourceRepository], workspace);
 
     const manifest = createInitialSyncConfig({
-      identityFile: "$XDG_CONFIG_HOME/devsync/age/keys.txt",
+      identityFile: "$XDG_CONFIG_HOME/devsync/keys.txt",
       recipients: [ageKeys.recipient],
     });
 
@@ -311,7 +311,7 @@ describe("init service", () => {
     const result = await initializeSync(
       {
         generateAgeIdentity: true,
-        identityFile: "$XDG_CONFIG_HOME/devsync/age/keys.txt",
+        identityFile: "$XDG_CONFIG_HOME/devsync/keys.txt",
         recipients: [],
         repository: sourceRepository,
       },
@@ -321,7 +321,7 @@ describe("init service", () => {
     expect(result.alreadyInitialized).toBe(false);
     expect(result.generatedIdentity).toBe(true);
     const identityContent = await readFile(
-      join(xdgConfigHome, "devsync", "age", "keys.txt"),
+      join(xdgConfigHome, "devsync", "keys.txt"),
       "utf8",
     );
     expect(identityContent.trim()).toMatch(/^AGE-SECRET-KEY-/u);

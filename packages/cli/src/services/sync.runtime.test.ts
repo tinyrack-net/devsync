@@ -4,7 +4,7 @@ import type { ResolvedSyncConfig } from "#app/config/sync.ts";
 import { buildEffectiveSyncConfig, type RuntimeAgeConfig } from "./runtime.ts";
 
 const testAge: RuntimeAgeConfig = {
-  configuredIdentityFile: "$XDG_CONFIG_HOME/devsync/age/keys.txt",
+  configuredIdentityFile: "$XDG_CONFIG_HOME/devsync/keys.txt",
   identityFile: "/tmp/keys.txt",
   recipients: ["age1example"],
 };

@@ -59,7 +59,7 @@ const createLoadedConfig = (options: {
   return {
     effectiveConfig: {
       age: {
-        configuredIdentityFile: "$XDG_CONFIG_HOME/devsync/age/keys.txt",
+        configuredIdentityFile: "$XDG_CONFIG_HOME/devsync/keys.txt",
         identityFile,
         recipients: Array.from(
           { length: options.recipientCount ?? 1 },

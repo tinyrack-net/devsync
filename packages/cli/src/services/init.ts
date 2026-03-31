@@ -53,7 +53,7 @@ export type SyncInitResult = Readonly<{
   syncDirectory: string;
 }>;
 
-export const defaultSyncIdentityFile = "$XDG_CONFIG_HOME/devsync/age/keys.txt";
+export const defaultSyncIdentityFile = "$XDG_CONFIG_HOME/devsync/keys.txt";
 
 const normalizeRecipients = (recipients: readonly string[]) => {
   return [
