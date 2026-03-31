@@ -13,11 +13,11 @@ const mocked = vi.hoisted(() => ({
     document: config,
   })),
   ensureSyncRepository: vi.fn(),
+  expandHomePath: vi.fn(),
   findOwningSyncEntry: vi.fn(),
   getPathStats: vi.fn(),
   isExplicitLocalPath: vi.fn(),
   readSyncConfig: vi.fn(),
-  resolveCommandTargetPath: vi.fn(),
   resolveEntryRelativeRepoPath: vi.fn(),
   resolveSyncPaths: vi.fn(() => ({
     configPath: "/tmp/devsync/manifest.json",
@@ -39,6 +39,10 @@ vi.mock("#app/lib/path.ts", () => ({
   isExplicitLocalPath: mocked.isExplicitLocalPath,
 }));
 
+vi.mock("#app/config/xdg.ts", () => ({
+  expandHomePath: mocked.expandHomePath,
+}));
+
 vi.mock("./config-file.ts", () => ({
   createSyncConfigDocument: mocked.createSyncConfigDocument,
   writeValidatedSyncConfig: mocked.writeValidatedSyncConfig,
@@ -51,7 +55,6 @@ vi.mock("#app/lib/filesystem.ts", () => ({
 vi.mock("./paths.ts", () => ({
   buildConfiguredHomeLocalPath: mocked.buildConfiguredHomeLocalPath,
   buildRepoPathWithinRoot: mocked.buildRepoPathWithinRoot,
-  resolveCommandTargetPath: mocked.resolveCommandTargetPath,
   tryBuildRepoPathWithinRoot: mocked.tryBuildRepoPathWithinRoot,
   tryNormalizeRepoPathInput: mocked.tryNormalizeRepoPathInput,
 }));
@@ -123,9 +126,7 @@ describe("sync set service", () => {
 
   it("rejects missing explicit local targets", async () => {
     mocked.isExplicitLocalPath.mockReturnValueOnce(true);
-    mocked.resolveCommandTargetPath.mockReturnValueOnce(
-      "/tmp/home/.ssh/id_ed25519",
-    );
+    mocked.expandHomePath.mockReturnValueOnce("/tmp/home/.ssh/id_ed25519");
     mocked.buildRepoPathWithinRoot.mockReturnValueOnce(".ssh/id_ed25519");
     mocked.getPathStats.mockResolvedValueOnce(undefined);
 
@@ -143,7 +144,7 @@ describe("sync set service", () => {
     const entry = directoryEntry();
 
     mocked.isExplicitLocalPath.mockReturnValueOnce(true);
-    mocked.resolveCommandTargetPath.mockReturnValueOnce(
+    mocked.expandHomePath.mockReturnValueOnce(
       "/tmp/home/.config/app/config.json",
     );
     mocked.buildRepoPathWithinRoot.mockReturnValueOnce(
@@ -171,9 +172,7 @@ describe("sync set service", () => {
 
   it("rejects explicit local targets outside tracked directories", async () => {
     mocked.isExplicitLocalPath.mockReturnValueOnce(true);
-    mocked.resolveCommandTargetPath.mockReturnValueOnce(
-      "/tmp/home/.config/other/file",
-    );
+    mocked.expandHomePath.mockReturnValueOnce("/tmp/home/.config/other/file");
     mocked.buildRepoPathWithinRoot.mockReturnValueOnce(".config/other/file");
     mocked.getPathStats.mockResolvedValueOnce(fileStats);
     mocked.findOwningSyncEntry.mockReturnValueOnce(undefined);
@@ -192,7 +191,7 @@ describe("sync set service", () => {
 
   it("rejects invalid repository-style targets", async () => {
     mocked.isExplicitLocalPath.mockReturnValueOnce(false);
-    mocked.resolveCommandTargetPath.mockReturnValueOnce("/tmp/cwd/../outside");
+    mocked.expandHomePath.mockReturnValueOnce("../outside");
     mocked.tryBuildRepoPathWithinRoot.mockReturnValueOnce(undefined);
     mocked.tryNormalizeRepoPathInput.mockReturnValueOnce(undefined);
 
@@ -207,7 +206,7 @@ describe("sync set service", () => {
     const entry = fileEntry();
 
     mocked.isExplicitLocalPath.mockReturnValueOnce(false);
-    mocked.resolveCommandTargetPath.mockReturnValueOnce("/tmp/cwd/.gitconfig");
+    mocked.expandHomePath.mockReturnValueOnce(".gitconfig");
     mocked.tryBuildRepoPathWithinRoot.mockReturnValueOnce(undefined);
     mocked.tryNormalizeRepoPathInput.mockReturnValueOnce(".gitconfig");
     mocked.resolveEntryRelativeRepoPath.mockReturnValueOnce(undefined);
@@ -233,9 +232,7 @@ describe("sync set service", () => {
     const entry = directoryEntry();
 
     mocked.isExplicitLocalPath.mockReturnValueOnce(false);
-    mocked.resolveCommandTargetPath.mockReturnValueOnce(
-      "/tmp/cwd/.config/app/nested/config.json",
-    );
+    mocked.expandHomePath.mockReturnValueOnce(".config/app/nested/config.json");
     mocked.tryBuildRepoPathWithinRoot.mockReturnValueOnce(undefined);
     mocked.tryNormalizeRepoPathInput.mockReturnValueOnce(
       ".config/app/nested/config.json",
@@ -262,9 +259,7 @@ describe("sync set service", () => {
 
   it("rejects repository targets that are not tracked", async () => {
     mocked.isExplicitLocalPath.mockReturnValueOnce(false);
-    mocked.resolveCommandTargetPath.mockReturnValueOnce(
-      "/tmp/cwd/.config/other/file",
-    );
+    mocked.expandHomePath.mockReturnValueOnce(".config/other/file");
     mocked.tryBuildRepoPathWithinRoot.mockReturnValueOnce(undefined);
     mocked.tryNormalizeRepoPathInput.mockReturnValueOnce(".config/other/file");
     mocked.findOwningSyncEntry.mockReturnValueOnce(undefined);
@@ -288,7 +283,7 @@ describe("sync set service", () => {
     mocked.ensureSyncRepository.mockResolvedValueOnce(undefined);
     mocked.readSyncConfig.mockResolvedValueOnce(config);
     mocked.isExplicitLocalPath.mockReturnValueOnce(false);
-    mocked.resolveCommandTargetPath.mockReturnValueOnce("/tmp/cwd/.gitconfig");
+    mocked.expandHomePath.mockReturnValueOnce(".gitconfig");
     mocked.tryBuildRepoPathWithinRoot.mockReturnValueOnce(undefined);
     mocked.tryNormalizeRepoPathInput.mockReturnValueOnce(".gitconfig");
     mocked.resolveEntryRelativeRepoPath.mockReturnValueOnce(undefined);
@@ -317,7 +312,7 @@ describe("sync set service", () => {
     mocked.ensureSyncRepository.mockResolvedValueOnce(undefined);
     mocked.readSyncConfig.mockResolvedValueOnce(config);
     mocked.isExplicitLocalPath.mockReturnValueOnce(false);
-    mocked.resolveCommandTargetPath.mockReturnValueOnce("/tmp/cwd/.gitconfig");
+    mocked.expandHomePath.mockReturnValueOnce(".gitconfig");
     mocked.tryBuildRepoPathWithinRoot.mockReturnValueOnce(undefined);
     mocked.tryNormalizeRepoPathInput.mockReturnValueOnce(".gitconfig");
     mocked.resolveEntryRelativeRepoPath.mockReturnValueOnce(undefined);
@@ -349,9 +344,7 @@ describe("sync set service", () => {
     mocked.ensureSyncRepository.mockResolvedValueOnce(undefined);
     mocked.readSyncConfig.mockResolvedValueOnce(config);
     mocked.isExplicitLocalPath.mockReturnValueOnce(false);
-    mocked.resolveCommandTargetPath.mockReturnValueOnce(
-      "/tmp/cwd/.config/app/private.txt",
-    );
+    mocked.expandHomePath.mockReturnValueOnce(".config/app/private.txt");
     mocked.tryBuildRepoPathWithinRoot.mockReturnValueOnce(undefined);
     mocked.tryNormalizeRepoPathInput.mockReturnValueOnce(
       ".config/app/private.txt",
@@ -401,9 +394,7 @@ describe("sync set service", () => {
     mocked.ensureSyncRepository.mockResolvedValueOnce(undefined);
     mocked.readSyncConfig.mockResolvedValueOnce(config);
     mocked.isExplicitLocalPath.mockReturnValueOnce(false);
-    mocked.resolveCommandTargetPath.mockReturnValueOnce(
-      "/tmp/cwd/.config/app/notes.txt",
-    );
+    mocked.expandHomePath.mockReturnValueOnce(".config/app/notes.txt");
     mocked.tryBuildRepoPathWithinRoot.mockReturnValueOnce(undefined);
     mocked.tryNormalizeRepoPathInput.mockReturnValueOnce(
       ".config/app/notes.txt",

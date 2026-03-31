@@ -10,7 +10,6 @@ import type { ResolvedSyncConfigEntry } from "#app/config/sync.ts";
 import {
   buildConfiguredHomeLocalPath,
   buildRepoPathWithinRoot,
-  resolveCommandTargetPath,
   resolveTrackedEntry,
   tryBuildRepoPathWithinRoot,
   tryNormalizeRepoPathInput,
@@ -33,15 +32,6 @@ const trackedEntry = (
 });
 
 describe("path helpers", () => {
-  it("resolves command targets from cwd and home prefixes", () => {
-    expect(resolveCommandTargetPath("~/bundle", "/tmp/cwd")).toBe(
-      resolve("/tmp/home", "bundle"),
-    );
-    expect(resolveCommandTargetPath("./bundle", "/tmp/cwd")).toBe(
-      resolve("/tmp/cwd", "bundle"),
-    );
-  });
-
   it("builds repository paths within a root", () => {
     expect(
       buildRepoPathWithinRoot(
@@ -93,6 +83,18 @@ describe("path helpers", () => {
     expect(
       resolveTrackedEntry(".config/tool/settings.json", [entry], "/tmp/cwd"),
     ).toEqual(entry);
+  });
+
+  it("resolves tracked entries by expanded local path", () => {
+    const entry = trackedEntry({
+      localPath: resolve("/tmp/home", "bundle"),
+      repoPath: "bundle",
+    });
+
+    expect(resolveTrackedEntry("~/bundle", [entry], "/tmp/cwd")).toEqual(entry);
+    expect(resolveTrackedEntry("./bundle", [entry], "/tmp/home")).toEqual(
+      entry,
+    );
   });
 
   it("rejects ambiguous tracked entries for the same explicit local path", () => {

@@ -1,3 +1,5 @@
+import { resolve } from "node:path";
+
 import { resolveConfiguredIdentityFile } from "#app/config/global-config.ts";
 import {
   normalizeSyncProfileName,
@@ -7,6 +9,7 @@ import {
   type SyncConfigEntryKind,
   type SyncMode,
 } from "#app/config/sync.ts";
+import { expandHomePath } from "#app/config/xdg.ts";
 import { ENV } from "#app/lib/env.ts";
 import { DevsyncError } from "#app/lib/error.ts";
 import { getPathStats } from "#app/lib/filesystem.ts";
@@ -18,7 +21,6 @@ import {
 import {
   buildConfiguredHomeLocalPath,
   buildRepoPathWithinRoot,
-  resolveCommandTargetPath,
 } from "./paths.ts";
 import { ensureSyncRepository, resolveSyncPaths } from "./runtime.ts";
 
@@ -164,7 +166,7 @@ export const trackSyncTarget = async (
   const effectiveProfiles = isProfileClear ? [] : request.profiles;
 
   const candidate = await buildAddEntryCandidate(
-    resolveCommandTargetPath(target, cwd),
+    resolve(cwd, expandHomePath(target, ENV)),
     syncDirectory,
     homeDirectory,
     {

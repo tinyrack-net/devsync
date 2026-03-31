@@ -10,9 +10,8 @@ import { ENV } from "#app/lib/env.ts";
 import { DevsyncError } from "#app/lib/error.ts";
 import { isExplicitLocalPath } from "#app/lib/path.ts";
 
-export const resolveCommandTargetPath = (target: string, cwd: string) => {
-  return resolve(cwd, expandHomePath(target, ENV));
-};
+const homePrefix = "~";
+const shellPathSeparator = "/";
 
 export const buildRepoPathWithinRoot = (
   absolutePath: string,
@@ -53,7 +52,9 @@ export const buildRepoPathWithinRoot = (
 export const buildConfiguredHomeLocalPath = (
   repoPath: string,
 ): PlatformLocalPath => {
-  return { default: `~/${repoPath}` };
+  return {
+    default: `${homePrefix}${shellPathSeparator}${repoPath}`,
+  };
 };
 
 export const tryBuildRepoPathWithinRoot = (
@@ -81,7 +82,7 @@ export const resolveTrackedEntry = (
   entries: readonly ResolvedSyncConfigEntry[],
   cwd: string,
 ): ResolvedSyncConfigEntry | undefined => {
-  const resolvedTargetPath = resolveCommandTargetPath(target, cwd);
+  const resolvedTargetPath = resolve(cwd, expandHomePath(target, ENV));
   const byLocalPath = entries.filter(
     (entry) => entry.localPath === resolvedTargetPath,
   );

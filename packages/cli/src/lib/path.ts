@@ -1,5 +1,8 @@
 import { isAbsolute, relative } from "node:path";
 
+const homePrefix = "~";
+const shellPathSeparator = "/";
+
 /**
  * @description
  * Normalizes repository directory paths into a stable keyed form.
@@ -39,13 +42,15 @@ export const doPathsOverlap = (leftPath: string, rightPath: string) => {
  * Identifies path inputs that should be treated as explicit local filesystem targets.
  */
 export const isExplicitLocalPath = (target: string) => {
+  const homePathPrefix = `${homePrefix}${shellPathSeparator}`;
+
   return (
     target === "." ||
     target === ".." ||
-    target === "~" ||
+    target === homePrefix ||
     target.startsWith("./") ||
     target.startsWith("../") ||
-    target.startsWith("~/") ||
+    target.startsWith(homePathPrefix) ||
     isAbsolute(target)
   );
 };

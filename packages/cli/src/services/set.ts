@@ -1,4 +1,4 @@
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 
 import {
   findOwningSyncEntry,
@@ -8,6 +8,7 @@ import {
   resolveEntryRelativeRepoPath,
   type SyncMode,
 } from "#app/config/sync.ts";
+import { expandHomePath } from "#app/config/xdg.ts";
 import { ENV } from "#app/lib/env.ts";
 import { DevsyncError } from "#app/lib/error.ts";
 import { getPathStats } from "#app/lib/filesystem.ts";
@@ -19,7 +20,6 @@ import {
 import {
   buildConfiguredHomeLocalPath,
   buildRepoPathWithinRoot,
-  resolveCommandTargetPath,
   tryBuildRepoPathWithinRoot,
   tryNormalizeRepoPathInput,
 } from "./paths.ts";
@@ -81,7 +81,7 @@ export const resolveSetTarget = async (
   }
 
   const explicit = isExplicitLocalPath(trimmedTarget);
-  const localTargetPath = resolveCommandTargetPath(trimmedTarget, cwd);
+  const localTargetPath = resolve(cwd, expandHomePath(trimmedTarget, ENV));
   const localRepoPath = explicit
     ? buildRepoPathWithinRoot(localTargetPath, homeDirectory, "Sync set target")
     : tryBuildRepoPathWithinRoot(
