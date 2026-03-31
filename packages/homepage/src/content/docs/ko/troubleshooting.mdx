@@ -9,9 +9,9 @@ import { Aside } from "@astrojs/starlight/components";
 
 `devsync doctor`는 로컬 Devsync 설정을 검사하고 문제가 있는 항목을 알려줘요. 다음 항목들을 확인해요.
 
-- **저장소 유효성** — `~/.config/devsync/sync/`가 존재하고 올바른 Git 저장소인지
+- **저장소 유효성** — `~/.config/devsync/repository/`가 존재하고 올바른 Git 저장소인지
 - **매니페스트 무결성** — `manifest.json`이 존재하고 문법적으로 올바른지
-- **Age 키** — `~/.config/devsync/age/keys.txt`가 존재하고 읽을 수 있는지
+- **Age 키** — `~/.config/devsync/keys.txt`가 존재하고 읽을 수 있는지
 - **추적 경로** — 매니페스트에 등록된 모든 경로가 실제로 존재하는지
 
 문제가 의심될 때 언제든지 실행해 보세요.
@@ -28,7 +28,7 @@ doctor가 실패를 보고하면 출력 메시지를 자세히 읽어보세요. 
 
 ### "Age key not found" 또는 복호화 오류
 
-**원인:** `~/.config/devsync/age/keys.txt`가 없거나 손상되어 있어요.
+**원인:** `~/.config/devsync/keys.txt`가 없거나 손상되어 있어요.
 
 **해결 방법:** age 개인키를 다시 등록해요.
 
@@ -70,7 +70,7 @@ exit
 
 ### "Repository not found" / sync 디렉터리 없음
 
-**원인:** `~/.config/devsync/sync/`가 삭제됐거나 이 기기에서 `devsync init`을 실행한 적이 없는 경우예요.
+**원인:** `~/.config/devsync/repository/`가 삭제됐거나 이 기기에서 `devsync init`을 실행한 적이 없는 경우예요.
 
 **해결 방법:** Devsync를 다시 초기화해요. 기존 dotfiles 저장소가 있다면 URL을 함께 전달해요.
 

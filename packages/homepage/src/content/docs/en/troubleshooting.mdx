@@ -9,9 +9,9 @@ import { Aside } from "@astrojs/starlight/components";
 
 `devsync doctor` inspects your local Devsync setup and reports any problems it finds. It checks:
 
-- **Repository validity** — whether `~/.config/devsync/sync/` exists and is a valid Git repository
+- **Repository validity** — whether `~/.config/devsync/repository/` exists and is a valid Git repository
 - **Manifest integrity** — whether `manifest.json` is present and syntactically valid
-- **Age key** — whether `~/.config/devsync/age/keys.txt` exists and is readable
+- **Age key** — whether `~/.config/devsync/keys.txt` exists and is readable
 - **Tracked paths** — whether every path registered in the manifest actually exists on disk
 
 Run it any time you suspect something is wrong:
@@ -28,7 +28,7 @@ If doctor reports failures, read the output carefully — each failure message i
 
 ### "Age key not found" or decryption errors
 
-**Cause:** `~/.config/devsync/age/keys.txt` is missing or has been corrupted.
+**Cause:** `~/.config/devsync/keys.txt` is missing or has been corrupted.
 
 **Fix:** Re-register your age private key:
 
@@ -70,7 +70,7 @@ exit
 
 ### "Repository not found" / sync directory missing
 
-**Cause:** `~/.config/devsync/sync/` was deleted or `devsync init` was never run on this machine.
+**Cause:** `~/.config/devsync/repository/` was deleted or `devsync init` was never run on this machine.
 
 **Fix:** Re-initialize devsync. Pass your remote repository URL to restore from an existing dotfiles repo:
 

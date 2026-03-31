@@ -13,7 +13,7 @@ devsync cd
 
 ## Description
 
-`devsync cd` spawns a child shell with its working directory set to `~/.config/devsync/sync/` — the sync repository. This gives you direct access to the git repository that stores your dotfile artifacts.
+`devsync cd` spawns a child shell with its working directory set to `~/.config/devsync/repository/` — the sync repository. This gives you direct access to the git repository that stores your dotfile artifacts.
 
 From inside this shell you can run any git command: `git status`, `git log`, `git add`, `git commit`, `git push`, `git pull`, and so on. When you are done, type `exit` or press `Ctrl-D` to close the child shell and return to your original session.
 
@@ -25,7 +25,7 @@ The child shell inherits your current environment, including `$SHELL`, `$PATH`, 
 # Open the sync directory in a shell
 devsync cd
 
-# You are now inside ~/.config/devsync/sync/
+# You are now inside ~/.config/devsync/repository/
 git status
 git add -A
 git commit -m "update dotfiles"
@@ -49,5 +49,5 @@ exit
 </Aside>
 
 <Aside type="note">
-  If you prefer not to use `devsync cd`, you can `cd ~/.config/devsync/sync` directly. The command is a convenience shortcut.
+  If you prefer not to use `devsync cd`, you can `cd ~/.config/devsync/repository` directly. The command is a convenience shortcut.
 </Aside>

@@ -13,7 +13,7 @@ devsync push
 
 ## 설명
 
-`devsync push`는 추적 중인 모든 로컬 파일의 현재 상태를 읽어 동기화 저장소(`~/.config/devsync/sync/`)를 로컬과 일치하도록 업데이트해요. **로컬 파일이 항상 진실의 원천**이에요.
+`devsync push`는 추적 중인 모든 로컬 파일의 현재 상태를 읽어 동기화 저장소(`~/.config/devsync/repository/`)를 로컬과 일치하도록 업데이트해요. **로컬 파일이 항상 진실의 원천**이에요.
 
 `mode: secret`으로 등록된 항목은 저장소에 쓰기 전에 age로 암호화돼요. 파일은 `.devsync.secret` 확장자로 저장되어 평문으로 커밋되는 일이 없어요.
 
@@ -72,7 +72,7 @@ devsync push
 
 # 4. git으로 원격에 푸시
 devsync cd
-# (이제 ~/.config/devsync/sync/ 안에 있어요)
+# (이제 ~/.config/devsync/repository/ 안에 있어요)
 git add -A
 git commit -m "update zshrc"
 git push

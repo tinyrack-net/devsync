@@ -13,7 +13,7 @@ devsync cd
 
 ## 설명
 
-`devsync cd`는 작업 디렉터리가 `~/.config/devsync/sync/`로 설정된 자식 셸을 실행해요. 이 디렉터리는 동기화된 dotfile이 저장되는 git 저장소예요.
+`devsync cd`는 작업 디렉터리가 `~/.config/devsync/repository/`로 설정된 자식 셸을 실행해요. 이 디렉터리는 동기화된 dotfile이 저장되는 git 저장소예요.
 
 이 셸 안에서 `git status`, `git log`, `git add`, `git commit`, `git push`, `git pull` 등 모든 git 명령을 직접 실행할 수 있어요. 완료 후 `exit`을 입력하거나 `Ctrl-D`를 누르면 원래 세션으로 돌아와요.
 
@@ -25,7 +25,7 @@ devsync cd
 # 동기화 저장소를 셸에서 열기
 devsync cd
 
-# 이제 ~/.config/devsync/sync/ 안에 있어요
+# 이제 ~/.config/devsync/repository/ 안에 있어요
 git status
 git add -A
 git commit -m "update dotfiles"
@@ -49,5 +49,5 @@ exit
 </Aside>
 
 <Aside type="note">
-  `devsync cd`를 쓰지 않고 `cd ~/.config/devsync/sync`를 직접 실행해도 돼요. 이 명령은 편의를 위한 단축키예요.
+  `devsync cd`를 쓰지 않고 `cd ~/.config/devsync/repository`를 직접 실행해도 돼요. 이 명령은 편의를 위한 단축키예요.
 </Aside>

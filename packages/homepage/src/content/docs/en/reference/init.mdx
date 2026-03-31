@@ -13,15 +13,15 @@ devsync init [repository]
 
 ## Description
 
-`devsync init` bootstraps your devsync setup. It either creates a brand-new local sync repository or clones an existing remote repository into the standard location at `~/.config/devsync/sync/`.
+`devsync init` bootstraps your devsync setup. It either creates a brand-new local sync repository or clones an existing remote repository into the standard location at `~/.config/devsync/repository/`.
 
 When run without a repository URL, it initializes a fresh git repository and generates a new age encryption key. When a URL is provided, it clones that repository and prompts you to supply the corresponding age private key needed to decrypt any secrets stored there.
 
 After initialization, devsync creates:
 
-- `~/.config/devsync/sync/` — the sync repository directory
+- `~/.config/devsync/repository/` — the sync repository directory
 - `~/.config/devsync/settings.json` — runtime settings (active profile, identity path, etc.)
-- `~/.config/devsync/age/keys.txt` — age key storage
+- `~/.config/devsync/keys.txt` — age key storage
 
 ## Arguments
 

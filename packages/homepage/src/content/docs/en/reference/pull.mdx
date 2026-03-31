@@ -13,7 +13,7 @@ devsync pull
 
 ## Description
 
-`devsync pull` reads artifacts from the sync repository (`~/.config/devsync/sync/`) and materializes them onto the corresponding local paths. It is the reverse of [`devsync push`](/en/reference/push).
+`devsync pull` reads artifacts from the sync repository (`~/.config/devsync/repository/`) and materializes them onto the corresponding local paths. It is the reverse of [`devsync push`](/en/reference/push).
 
 For entries with `mode: secret`, the artifact is decrypted using the configured age identity before being written to disk. The decrypted content is written to the local path; the `.devsync.secret` artifact in the repository is never changed.
 
