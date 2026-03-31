@@ -35,7 +35,7 @@ async function main() {
 
     // Create commit
     console.log(`💾 Creating commit...`);
-    await execa("git", ["commit", "-m", `chore: release v${version}`], {
+    await execa("git", ["commit", "-m", `release: v${version}`], {
       stdio: "inherit",
       cwd: process.cwd(),
     });
