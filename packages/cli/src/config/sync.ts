@@ -2,11 +2,11 @@ import { readFile } from "node:fs/promises";
 import { isAbsolute, join, posix, relative, sep } from "node:path";
 
 import { z } from "zod";
+import { CONSTANTS } from "#app/config/constants.ts";
 import {
   detectCurrentPlatformKey,
   type PlatformKey,
   type PlatformLocalPath,
-  resolveDefaultLocalPath,
   resolveLocalPathForPlatform,
 } from "#app/config/platform.ts";
 import {
@@ -22,11 +22,11 @@ import { doPathsOverlap } from "#app/lib/path.ts";
 import { ensureTrailingNewline } from "#app/lib/string.ts";
 import { formatInputIssues } from "#app/lib/validation.ts";
 
-export const syncConfigFileName = "manifest.json";
-export const syncSecretArtifactSuffix = ".devsync.secret";
+export const syncConfigFileName = CONSTANTS.SYNC.CONFIG_FILE_NAME;
+export const syncSecretArtifactSuffix = CONSTANTS.SYNC.SECRET_ARTIFACT_SUFFIX;
 
 const syncEntryKinds = ["file", "directory"] as const;
-export const syncModes = ["normal", "secret", "ignore"] as const;
+export const syncModes = CONSTANTS.SYNC.MODES;
 
 const requiredTrimmedStringSchema = z
   .string()
@@ -96,7 +96,7 @@ const syncConfigAgeSchema = z
 
 const syncConfigSchemaV7 = z
   .object({
-    version: z.literal(7),
+    version: z.literal(CONSTANTS.SYNC.CONFIG_VERSION),
     age: syncConfigAgeSchema.optional(),
     entries: z.array(syncConfigEntrySchema),
   })
@@ -133,12 +133,12 @@ export type SyncAgeConfig = Readonly<{
 export type ResolvedSyncConfig = Readonly<{
   age?: SyncAgeConfig;
   entries: readonly ResolvedSyncConfigEntry[];
-  version: 7;
+  version: typeof CONSTANTS.SYNC.CONFIG_VERSION;
 }>;
 
-export const syncDefaultProfile = "default";
+export const syncDefaultProfile = CONSTANTS.SYNC.DEFAULT_PROFILE;
 
-const defaultSyncMode: PlatformSyncMode = { default: "normal" };
+const defaultSyncMode: PlatformSyncMode = { default: syncModes[0] };
 
 const resolveSyncModeForPlatform = (
   configuredMode: PlatformSyncMode,
@@ -374,9 +374,8 @@ export const deriveRepoPathFromLocalPath = (
   environment: Env,
 ) => {
   const homeDirectory = resolveHomeDirectory(environment);
-  const defaultPath = resolveDefaultLocalPath(localPath);
   const resolvedDefaultPath = resolveHomeConfiguredAbsolutePath(
-    defaultPath,
+    localPath.default,
     environment,
   );
   const relativePath = relative(homeDirectory, resolvedDefaultPath);
@@ -412,14 +411,14 @@ const validatePathOverlaps = (
 
       if (currentValue === otherValue) {
         throw new DevsyncError(
-          `Duplicate ${description.toLowerCase()} paths in manifest.json.`,
+          `Duplicate ${description.toLowerCase()} paths in ${syncConfigFileName}.`,
           {
             code: "DUPLICATE_PATHS",
             details: [
               `${currentEntry.repoPath}: ${currentValue}`,
               `${otherEntry.repoPath}: ${otherValue}`,
             ],
-            hint: "Remove the duplicate entry from manifest.json.",
+            hint: `Remove the duplicate entry from ${syncConfigFileName}.`,
           },
         );
       }
@@ -441,7 +440,7 @@ const validatePathOverlaps = (
 
       if (overlaps) {
         throw new DevsyncError(
-          `${description} paths must not overlap in manifest.json.`,
+          `${description} paths must not overlap in ${syncConfigFileName}.`,
           {
             code: "OVERLAPPING_PATHS",
             details: [
@@ -572,7 +571,7 @@ export const parseSyncConfig = (
     throw new DevsyncError("Sync configuration is invalid.", {
       code: "CONFIG_VALIDATION_FAILED",
       details: formatInputIssues(result.error.issues).split("\n"),
-      hint: "Fix the invalid fields in manifest.json, then run the command again.",
+      hint: `Fix the invalid fields in ${syncConfigFileName}, then run the command again.`,
     });
   }
 
@@ -630,7 +629,7 @@ export const createInitialSyncConfig = (age: {
   recipients: string[];
 }): SyncConfig => {
   return {
-    version: 7,
+    version: CONSTANTS.SYNC.CONFIG_VERSION,
     age,
     entries: [],
   };
@@ -651,10 +650,6 @@ export const resolveSyncConfigFilePath = (
   syncDirectory: string = resolveDevsyncSyncDirectory(),
 ) => {
   return join(syncDirectory, syncConfigFileName);
-};
-
-export const resolveSyncArtifactsDirectoryPath = (syncDirectory: string) => {
-  return syncDirectory;
 };
 
 export const readSyncConfig = async (
@@ -680,7 +675,7 @@ export const readSyncConfig = async (
           `Config file: ${resolveSyncConfigFilePath(syncDirectory)}`,
           error.message,
         ],
-        hint: "Fix the JSON syntax in manifest.json, then run the command again.",
+        hint: `Fix the JSON syntax in ${syncConfigFileName}, then run the command again.`,
       });
     }
 

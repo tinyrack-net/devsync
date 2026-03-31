@@ -1,7 +1,13 @@
 import { homedir } from "node:os";
 import { isAbsolute, resolve } from "node:path";
 
+import { CONSTANTS } from "#app/config/constants.ts";
 import { ENV, type Env } from "#app/lib/env.ts";
+
+const xdgConfigHomeToken = "$XDG_CONFIG_HOME";
+const xdgConfigHomeTokenPrefix = `${xdgConfigHomeToken}/`;
+const bracedXdgConfigHomeToken = "${XDG_CONFIG_HOME}";
+const bracedXdgConfigHomePrefix = `${bracedXdgConfigHomeToken}/`;
 
 const readTrimmedEnvironmentValue = (environment: Env, key: string) => {
   const value = environment[key];
@@ -14,9 +20,6 @@ const readTrimmedEnvironmentValue = (environment: Env, key: string) => {
 
   return trimmedValue === "" ? undefined : trimmedValue;
 };
-
-const bracedXdgConfigHomeToken = "${XDG_CONFIG_HOME}";
-const bracedXdgConfigHomePrefix = `${bracedXdgConfigHomeToken}/`;
 
 export const resolveHomeDirectory = (environment: Env = ENV) => {
   const configuredValue = readTrimmedEnvironmentValue(environment, "HOME");
@@ -42,19 +45,31 @@ export const resolveXdgConfigHome = (environment: Env = ENV) => {
 };
 
 export const resolveDevsyncConfigDirectory = (environment: Env = ENV) => {
-  return resolve(resolveXdgConfigHome(environment), "devsync");
+  return resolve(
+    resolveXdgConfigHome(environment),
+    CONSTANTS.XDG.APP_DIRECTORY_NAME,
+  );
 };
 
 export const resolveDevsyncGlobalConfigFilePath = (environment: Env = ENV) => {
-  return resolve(resolveDevsyncConfigDirectory(environment), "settings.json");
+  return resolve(
+    resolveDevsyncConfigDirectory(environment),
+    CONSTANTS.GLOBAL_CONFIG.FILE_NAME,
+  );
 };
 
 export const resolveDevsyncSyncDirectory = (environment: Env = ENV) => {
-  return resolve(resolveDevsyncConfigDirectory(environment), "repository");
+  return resolve(
+    resolveDevsyncConfigDirectory(environment),
+    CONSTANTS.XDG.SYNC_DIRECTORY_NAME,
+  );
 };
 
 export const resolveDevsyncAgeDirectory = (environment: Env = ENV) => {
-  return resolve(resolveDevsyncConfigDirectory(environment), "age");
+  return resolve(
+    resolveDevsyncConfigDirectory(environment),
+    CONSTANTS.XDG.AGE_DIRECTORY_NAME,
+  );
 };
 
 export const expandHomePath = (value: string, environment: Env = ENV) => {
@@ -75,12 +90,12 @@ export const expandHomePath = (value: string, environment: Env = ENV) => {
 export const expandConfiguredPath = (value: string, environment: Env = ENV) => {
   let expandedValue = expandHomePath(value, environment);
 
-  if (expandedValue === "$XDG_CONFIG_HOME") {
+  if (expandedValue === xdgConfigHomeToken) {
     expandedValue = resolveXdgConfigHome(environment);
-  } else if (expandedValue.startsWith("$XDG_CONFIG_HOME/")) {
+  } else if (expandedValue.startsWith(xdgConfigHomeTokenPrefix)) {
     expandedValue = resolve(
       resolveXdgConfigHome(environment),
-      expandedValue.slice("$XDG_CONFIG_HOME/".length),
+      expandedValue.slice(xdgConfigHomeTokenPrefix.length),
     );
   } else if (expandedValue === bracedXdgConfigHomeToken) {
     expandedValue = resolveXdgConfigHome(environment);
@@ -102,7 +117,7 @@ export const resolveConfiguredAbsolutePath = (
 
   if (!isAbsolute(expandedValue)) {
     throw new Error(
-      `Configured path must be absolute or start with ~ or $XDG_CONFIG_HOME: ${value}`,
+      `Configured path must be absolute or start with ~ or ${xdgConfigHomeToken}: ${value}`,
     );
   }
 
@@ -145,7 +160,7 @@ export const resolvePlatformConfiguredAbsolutePath = (
 
   if (!isAbsolute(expandedValue)) {
     throw new Error(
-      `Configured path must be absolute or start with ~, $XDG_CONFIG_HOME, or %ENV_VAR%: ${value}`,
+      `Configured path must be absolute or start with ~, ${xdgConfigHomeToken}, or %ENV_VAR%: ${value}`,
     );
   }
 

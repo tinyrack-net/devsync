@@ -1,3 +1,4 @@
+import { CONSTANTS } from "#app/config/constants.ts";
 import {
   type ActiveProfileSelection,
   type GlobalDevsyncConfig,
@@ -8,7 +9,6 @@ import {
 import {
   type ResolvedSyncConfig,
   readSyncConfig,
-  resolveSyncArtifactsDirectoryPath,
   resolveSyncConfigFilePath,
   type SyncAgeConfig,
   syncDefaultProfile,
@@ -52,7 +52,7 @@ export const resolveSyncPaths = (): SyncPaths => {
   const syncDirectory = resolveDevsyncSyncDirectory(ENV);
 
   return {
-    artifactsDirectory: resolveSyncArtifactsDirectoryPath(syncDirectory),
+    artifactsDirectory: syncDirectory,
     configPath: resolveSyncConfigFilePath(syncDirectory),
     globalConfigPath: resolveDevsyncGlobalConfigFilePath(ENV),
     homeDirectory: resolveHomeDirectory(ENV),
@@ -120,11 +120,14 @@ export const loadSyncConfig = async (
 
   if (rawAge === undefined) {
     const configPath = resolveSyncConfigFilePath(syncDirectory);
-    throw new DevsyncError("Age configuration is missing from manifest.json.", {
-      code: "AGE_CONFIG_MISSING",
-      details: [`Config file: ${configPath}`],
-      hint: "Run 'devsync init' to set up encryption.",
-    });
+    throw new DevsyncError(
+      `Age configuration is missing from ${CONSTANTS.SYNC.CONFIG_FILE_NAME}.`,
+      {
+        code: "AGE_CONFIG_MISSING",
+        details: [`Config file: ${configPath}`],
+        hint: "Run 'devsync init' to set up encryption.",
+      },
+    );
   }
 
   const age = resolveAgeFromSyncConfig(rawAge);

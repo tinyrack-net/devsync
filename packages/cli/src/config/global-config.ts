@@ -1,6 +1,7 @@
 import { readFile } from "node:fs/promises";
 
 import { z } from "zod";
+import { CONSTANTS } from "#app/config/constants.ts";
 import {
   resolveConfiguredAbsolutePath,
   resolveDevsyncGlobalConfigFilePath,
@@ -17,14 +18,14 @@ const globalConfigSchemaV2 = z
   .object({
     activeProfile: optionalTrimmedStringSchema,
     age: z.unknown().optional(),
-    version: z.literal(2),
+    version: z.literal(CONSTANTS.GLOBAL_CONFIG.LEGACY_VERSION),
   })
   .strict();
 
 const globalConfigSchemaV3 = z
   .object({
     activeProfile: optionalTrimmedStringSchema,
-    version: z.literal(3),
+    version: z.literal(CONSTANTS.GLOBAL_CONFIG.CURRENT_VERSION),
   })
   .strict();
 
@@ -35,7 +36,9 @@ const globalConfigSchema = z.union([
 
 export type GlobalDevsyncConfig = Readonly<{
   activeProfile?: string;
-  version: 2 | 3;
+  version:
+    | typeof CONSTANTS.GLOBAL_CONFIG.LEGACY_VERSION
+    | typeof CONSTANTS.GLOBAL_CONFIG.CURRENT_VERSION;
 }>;
 
 export type ActiveProfileSelection = Readonly<

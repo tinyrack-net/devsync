@@ -5,6 +5,9 @@ import { dirname, join } from "node:path";
 import { promisify } from "node:util";
 
 import { generateIdentity, identityToRecipient } from "age-encryption";
+import { CONSTANTS } from "#app/config/constants.ts";
+
+const identityFileName = "keys.txt";
 
 const execFileAsync = promisify(execFile);
 
@@ -37,7 +40,11 @@ export const writeIdentityFile = async (
   xdgConfigHome: string,
   identity: string,
 ) => {
-  const identityFile = join(xdgConfigHome, "devsync", "keys.txt");
+  const identityFile = join(
+    xdgConfigHome,
+    CONSTANTS.XDG.APP_DIRECTORY_NAME,
+    identityFileName,
+  );
 
   await mkdir(dirname(identityFile), { recursive: true });
   await writeFile(identityFile, `${identity}\n`);

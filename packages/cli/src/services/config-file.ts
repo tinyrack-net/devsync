@@ -1,4 +1,4 @@
-import { resolveDefaultLocalPath } from "#app/config/platform.ts";
+import { CONSTANTS } from "#app/config/constants.ts";
 import {
   formatSyncConfig,
   parseSyncConfig,
@@ -13,9 +13,7 @@ export const sortSyncConfigEntries = (
   entries: readonly SyncConfig["entries"][number][],
 ) => {
   return [...entries].sort((left, right) => {
-    return resolveDefaultLocalPath(left.localPath).localeCompare(
-      resolveDefaultLocalPath(right.localPath),
-    );
+    return left.localPath.default.localeCompare(right.localPath.default);
   });
 };
 
@@ -35,7 +33,7 @@ export const createSyncConfigDocument = (
   );
 
   return {
-    version: 7,
+    version: CONSTANTS.SYNC.CONFIG_VERSION,
     ...(config.age === undefined
       ? {}
       : {

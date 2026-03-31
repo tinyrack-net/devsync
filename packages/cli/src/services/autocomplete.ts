@@ -1,6 +1,7 @@
-const AUTOCOMPLETE_COMMAND = "devsync __complete";
-const CLI_COMMAND_NAME = "devsync";
+import { CONSTANTS } from "#app/config/constants.ts";
 
+const AUTOCOMPLETE_COMMAND = CONSTANTS.AUTOCOMPLETE.COMMAND;
+const CLI_COMMAND_NAME = CONSTANTS.AUTOCOMPLETE.CLI_COMMAND_NAME;
 const COMPLETION_FUNCTION_NAME = "__devsync_complete";
 const ENSURE_FUNCTION_NAME = "__devsync_ensure_completion";
 
@@ -9,7 +10,7 @@ ${COMPLETION_FUNCTION_NAME}() {
   local -a inputs
   local rawCompletions completion
   inputs=("\${COMP_WORDS[@]}")
-  if [[ \${#inputs[@]} -eq 1 && \${COMP_CWORD:-0} -eq 0 && "\${inputs[0]}" == "devsync" ]]; then
+  if [[ \${#inputs[@]} -eq 1 && \${COMP_CWORD:-0} -eq 0 && "\${inputs[0]}" == "${CLI_COMMAND_NAME}" ]]; then
     inputs+=("")
   elif [[ \${COMP_CWORD:-0} -ge \${#inputs[@]} ]]; then
     inputs+=("")
@@ -65,11 +66,11 @@ ${COMPLETION_FUNCTION_NAME}() {
 
   return 0
 }
-complete -o default -o nospace -F ${COMPLETION_FUNCTION_NAME} devsync
+complete -o default -o nospace -F ${COMPLETION_FUNCTION_NAME} ${CLI_COMMAND_NAME}
 `;
 
 export const POWERSHELL_AUTOCOMPLETE_SCRIPT = `\
-Register-ArgumentCompleter -Native -CommandName devsync -ScriptBlock {
+Register-ArgumentCompleter -Native -CommandName ${CLI_COMMAND_NAME} -ScriptBlock {
   param($wordToComplete, $commandAst, $cursorPosition)
   $inputs = $commandAst.ToString().Split(' ', [System.StringSplitOptions]::RemoveEmptyEntries)
   if ($cursorPosition -gt $commandAst.ToString().Length) {
@@ -102,7 +103,7 @@ ${COMPLETION_FUNCTION_NAME}() {
   local -a directories inputs plainCompletions
   local rawCompletions
   inputs=("\${words[@]}")
-  if (( CURRENT == 1 && \${#inputs[@]} == 1 )) && [[ "\${inputs[1]}" == "devsync" ]]; then
+  if (( CURRENT == 1 && \${#inputs[@]} == 1 )) && [[ "\${inputs[1]}" == "${CLI_COMMAND_NAME}" ]]; then
     inputs+=("")
   elif (( CURRENT > \${#inputs[@]} )); then
     inputs+=("")
@@ -152,11 +153,11 @@ ${COMPLETION_FUNCTION_NAME}() {
     compadd -Q -S "" -l -d dirDisplays -- "\${directories[@]}"
   fi
 }
-compdef ${COMPLETION_FUNCTION_NAME} devsync
+compdef ${COMPLETION_FUNCTION_NAME} ${CLI_COMMAND_NAME}
 
 ${ENSURE_FUNCTION_NAME}() {
-  if (( $+functions[compdef] )) && [[ "\${_comps[devsync]}" != ${COMPLETION_FUNCTION_NAME} ]]; then
-    compdef ${COMPLETION_FUNCTION_NAME} devsync
+  if (( $+functions[compdef] )) && [[ "\${_comps[${CLI_COMMAND_NAME}]}" != ${COMPLETION_FUNCTION_NAME} ]]; then
+    compdef ${COMPLETION_FUNCTION_NAME} ${CLI_COMMAND_NAME}
   fi
 }
 autoload -Uz add-zsh-hook

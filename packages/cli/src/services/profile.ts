@@ -1,3 +1,4 @@
+import { CONSTANTS } from "#app/config/constants.ts";
 import {
   formatGlobalDevsyncConfig,
   readGlobalDevsyncConfig,
@@ -106,7 +107,7 @@ export const useSyncProfile = async (
     globalConfigPath,
     formatGlobalDevsyncConfig({
       activeProfile: normalizedProfile,
-      version: 3,
+      version: CONSTANTS.GLOBAL_CONFIG.CURRENT_VERSION,
     }),
   );
 
@@ -127,7 +128,9 @@ export const clearSyncProfiles = async (): Promise<SyncProfileUpdateResult> => {
 
   await writeTextFileAtomically(
     globalConfigPath,
-    formatGlobalDevsyncConfig({ version: 3 }),
+    formatGlobalDevsyncConfig({
+      version: CONSTANTS.GLOBAL_CONFIG.CURRENT_VERSION,
+    }),
   );
 
   return {

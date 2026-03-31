@@ -1,6 +1,7 @@
 import { mkdir, readdir, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
 
+import { CONSTANTS } from "#app/config/constants.ts";
 import {
   formatGlobalDevsyncConfig,
   type GlobalDevsyncConfig,
@@ -12,8 +13,8 @@ import {
   formatSyncConfig,
   parseSyncConfig,
   readSyncConfig,
-  resolveSyncArtifactsDirectoryPath,
   type SyncAgeConfig,
+  syncConfigFileName,
 } from "#app/config/sync.ts";
 import { resolveConfiguredAbsolutePath } from "#app/config/xdg.ts";
 import {
@@ -53,7 +54,7 @@ export type SyncInitResult = Readonly<{
   syncDirectory: string;
 }>;
 
-export const defaultSyncIdentityFile = "$XDG_CONFIG_HOME/devsync/keys.txt";
+export const defaultSyncIdentityFile = CONSTANTS.INIT.DEFAULT_IDENTITY_FILE;
 
 const normalizeRecipients = (recipients: readonly string[]) => {
   return [
@@ -167,7 +168,7 @@ const assertInitRequestMatchesConfig = (
           `Requested recipients: ${recipients.join(", ") || "(none)"}`,
           `Configured recipients: ${normalizeRecipients([...age.recipients]).join(", ")}`,
         ],
-        hint: "Use the existing recipients, or update manifest.json manually if you intend to rotate recipients.",
+        hint: `Use the existing recipients, or update ${syncConfigFileName} manually if you intend to rotate recipients.`,
       },
     );
   }
@@ -197,7 +198,7 @@ const assertInitRequestMatchesConfig = (
           `Requested identity file: ${resolvedIdentity}`,
           `Configured identity file: ${configuredIdentity}`,
         ],
-        hint: "Reuse the configured identity file, or update manifest.json before re-running init.",
+        hint: `Reuse the configured identity file, or update ${syncConfigFileName} before re-running init.`,
       },
     );
   }
@@ -231,8 +232,9 @@ const buildAlreadyInitializedResult = (
 const writeGlobalSettings = async (globalConfigPath: string) => {
   const existingGlobalConfig = await readGlobalDevsyncConfig();
   const globalConfigToWrite: GlobalDevsyncConfig = {
-    activeProfile: existingGlobalConfig?.activeProfile ?? "default",
-    version: 3,
+    activeProfile:
+      existingGlobalConfig?.activeProfile ?? CONSTANTS.SYNC.DEFAULT_PROFILE,
+    version: CONSTANTS.GLOBAL_CONFIG.CURRENT_VERSION,
   };
 
   await mkdir(dirname(globalConfigPath), { recursive: true });
@@ -342,9 +344,7 @@ export const initializeSync = async (
   }
 
   reportPhase(reporter, "Preparing the sync artifact directory...");
-  await mkdir(resolveSyncArtifactsDirectoryPath(syncDirectory), {
-    recursive: true,
-  });
+  await mkdir(syncDirectory, { recursive: true });
 
   if (await pathExists(configPath)) {
     reportPhase(reporter, "Loading the existing sync manifest...");
