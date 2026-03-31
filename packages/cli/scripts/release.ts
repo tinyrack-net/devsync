@@ -26,6 +26,20 @@ async function main() {
     const packageJson = JSON.parse(packageJsonContent) as { version: string };
     const version = packageJson.version;
 
+    // Stage changes
+    console.log(`📝 Staging changes...`);
+    await execa("git", ["add", "package.json"], {
+      stdio: "inherit",
+      cwd: process.cwd(),
+    });
+
+    // Create commit
+    console.log(`💾 Creating commit...`);
+    await execa("git", ["commit", "-m", `chore: release v${version}`], {
+      stdio: "inherit",
+      cwd: process.cwd(),
+    });
+
     // Create signed git tag
     console.log(`🏷️  Creating git tag: v${version}`);
     await execa("git", [
@@ -34,7 +48,10 @@ async function main() {
       `v${version}`,
       "-m",
       `release: v${version}`,
-    ]);
+    ], {
+      stdio: "inherit",
+      cwd: process.cwd(),
+    });
 
     console.log(`✅ Release completed successfully!`);
     console.log(`   Version: v${version}`);
