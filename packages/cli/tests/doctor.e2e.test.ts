@@ -29,7 +29,9 @@ describe("doctor CLI e2e", () => {
   });
 
   it("reports warnings after init with no tracked entries", async () => {
-    await ctx.runCli(["init"], { input: "\n" });
+    const ageKeys = await ctx.createAgeKeyPair();
+    await ctx.writeIdentityFile(ageKeys.identity);
+    await ctx.runCli(["init"]);
 
     const result = await ctx.runCli(["doctor"]);
 

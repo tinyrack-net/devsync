@@ -21,7 +21,9 @@ afterEach(async () => {
 
 describe("profile CLI e2e", () => {
   it("lists the active profile and available profiles after init", async () => {
-    await ctx.runCli(["init"], { input: "\n" });
+    const ageKeys = await ctx.createAgeKeyPair();
+    await ctx.writeIdentityFile(ageKeys.identity);
+    await ctx.runCli(["init"]);
 
     const result = await ctx.runCli(["profile", "list"]);
 
@@ -32,7 +34,9 @@ describe("profile CLI e2e", () => {
   });
 
   it("sets and reads back the active profile via profile use", async () => {
-    await ctx.runCli(["init"], { input: "\n" });
+    const ageKeys = await ctx.createAgeKeyPair();
+    await ctx.writeIdentityFile(ageKeys.identity);
+    await ctx.runCli(["init"]);
 
     const setResult = await ctx.runCli(["profile", "use", "work"]);
 
@@ -47,7 +51,9 @@ describe("profile CLI e2e", () => {
   });
 
   it("clears the active profile when profile use is called without a name", async () => {
-    await ctx.runCli(["init"], { input: "\n" });
+    const ageKeys = await ctx.createAgeKeyPair();
+    await ctx.writeIdentityFile(ageKeys.identity);
+    await ctx.runCli(["init"]);
     await ctx.runCli(["profile", "use", "work"]);
 
     const clearResult = await ctx.runCli(["profile", "use"]);
