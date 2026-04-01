@@ -107,13 +107,6 @@ export default defineConfig({
             { slug: "reference/autocomplete" },
           ],
         },
-        {
-          label: "Troubleshooting",
-          translations: {
-            ko: "문제 해결",
-          },
-          items: [{ slug: "troubleshooting" }],
-        },
       ],
     }),
   ],
