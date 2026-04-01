@@ -16,7 +16,7 @@ devsync track ~/.gitconfig
 devsync track ~/.zshrc
 ```
 
-추적 등록 후 `devsync push`를 실행하면 파일이 sync 저장소에 미러링돼요.
+추적 등록 후 `devsync push`를 실행하면 파일이 sync 저장소에 복사돼요.
 
 ---
 
@@ -43,7 +43,7 @@ devsync track ~/.config/fish
 devsync track ~/.gitconfig ~/.zshrc ~/.config/nvim
 ```
 
-같은 명령에 포함된 모든 항목은 동일한 모드와 프로파일 옵션으로 등록돼요.
+같은 명령에 포함된 모든 항목은 동일한 모드와 프로필 옵션으로 등록돼요.
 
 ---
 
@@ -60,18 +60,18 @@ devsync track ~/.config/local-only --mode ignore
 
 ---
 
-## 프로파일을 지정해서 추적
+## 프로필을 지정해서 추적
 
-특정 프로파일에 파일을 지정하려면 `--profile` 옵션을 써요.
+특정 프로필에 파일을 지정하려면 `--profile` 옵션을 써요.
 
 ```bash
 devsync track ~/.config/work-tool --profile work
 devsync track ~/.config/nvim --profile work --profile personal
 ```
 
-프로파일 지정이 없는 항목은 활성 프로파일에 관계없이 항상 push와 pull에 포함돼요.
+프로필 지정이 없는 항목은 활성 프로필에 관계없이 항상 push와 pull에 포함돼요.
 
-자세한 내용은 [프로파일](/ko/guides/profiles)을 참고해요.
+자세한 내용은 [프로필](/ko/guides/profiles)을 참고해요.
 
 ---
 
@@ -87,7 +87,7 @@ devsync track ~/.config/nvim --profile work --profile personal
 | `~/.config/nvim/init.lua` | `sync/default/.config/nvim/init.lua` |
 | `~/.ssh/config` (secret) | `sync/default/.ssh/config.devsync.secret` |
 
-`default` 부분은 프로파일 네임스페이스예요. `work` 프로파일에 지정된 항목은 `sync/work/` 아래에 저장돼요.
+`default` 부분은 프로필 네임스페이스예요. `work` 프로필에 지정된 항목은 `sync/work/` 아래에 저장돼요.
 
 <FileTree>
 - ~/.config/devsync/repository/

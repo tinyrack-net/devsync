@@ -19,6 +19,11 @@ export default defineConfig({
   },
   integrations: [
     starlight({
+      expressiveCode: {
+        defaultProps: {
+          frame: "none",
+        },
+      },
       title: "Devsync",
       description:
         "Git-backed configuration sync for your development environment.",

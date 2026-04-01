@@ -17,9 +17,9 @@ devsync track <path> [<path>...]
 
 경로는 홈 디렉터리(`$HOME`) 하위에 있어야 해요. manifest에는 홈 기준 상대 경로로 저장되며, 실행 시에는 절대 경로로 변환돼요.
 
-이미 추적 중인 경로는 모드와 프로파일만 갱신돼요.
+이미 추적 중인 경로는 모드와 프로필만 갱신돼요.
 
-동기화된 파일은 `~/.config/devsync/repository/{profile}/{홈 기준 상대 경로}`에 저장돼요. 프로파일이 없는 항목은 루트 레벨에 저장돼요.
+동기화된 파일은 `~/.config/devsync/repository/{profile}/{홈 기준 상대 경로}`에 저장돼요. 프로필이 없는 항목은 루트 레벨에 저장돼요.
 
 ## 인수
 
@@ -32,7 +32,7 @@ devsync track <path> [<path>...]
 | 플래그 | 설명 |
 |--------|------|
 | `--mode normal\|secret\|ignore` | 동기화 모드. 기본값은 `normal`이에요. |
-| `--profile NAME` | 항목을 특정 프로파일에 할당해요. 반복 사용해서 여러 프로파일에 동시 할당할 수 있어요. 생략하면 전역 항목이 돼요. |
+| `--profile NAME` | 항목을 특정 프로필에 할당해요. 반복 사용해서 여러 프로필에 동시 할당할 수 있어요. 생략하면 전역 항목이 돼요. |
 | `--verbose` | 상세 출력을 표시해요. |
 
 ## 동기화 모드
@@ -64,9 +64,9 @@ devsync track <path> [<path>...]
     devsync track ~/.ssh/id_ed25519 --mode secret
     ```
   </TabItem>
-  <TabItem label="프로파일 지정">
+  <TabItem label="프로필 지정">
     ```bash
-    # VS Code 설정을 "work" 프로파일에만 할당
+    # VS Code 설정을 "work" 프로필에만 할당
     devsync track ~/.config/Code/User/settings.json --profile work
     ```
   </TabItem>

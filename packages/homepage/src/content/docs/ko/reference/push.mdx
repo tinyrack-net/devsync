@@ -26,7 +26,7 @@ push 후에는 동기화 저장소에 최신 설정 스냅샷이 담겨요. [`de
 | 플래그 | 설명 |
 |--------|------|
 | `--dry-run` | 실제로 쓰지 않고 변경될 내용만 미리 보여요. |
-| `--profile NAME` | 이번 실행에 한해 활성 프로파일을 재정의해요. `settings.json`에는 저장되지 않아요. |
+| `--profile NAME` | 이번 실행에 한해 활성 프로필을 재정의해요. `settings.json`에는 저장되지 않아요. |
 | `--verbose` | 작업 중 항목별·파일별 상세 내용을 표시해요. |
 
 ## 예시
@@ -44,9 +44,9 @@ push 후에는 동기화 저장소에 최신 설정 스냅샷이 담겨요. [`de
     devsync push --dry-run
     ```
   </TabItem>
-  <TabItem label="프로파일 재정의">
+  <TabItem label="프로필 재정의">
     ```bash
-    # "work" 프로파일 항목만 push (일회성 재정의)
+    # "work" 프로필 항목만 push (일회성 재정의)
     devsync push --profile work
     ```
   </TabItem>

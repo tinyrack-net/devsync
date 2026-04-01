@@ -28,16 +28,16 @@ devsync status
 
 | 플래그 | 설명 |
 |--------|------|
-| `--profile NAME` | 이번 실행에 한해 활성 프로파일을 재정의해요. `settings.json`에는 저장되지 않아요. |
+| `--profile NAME` | 이번 실행에 한해 활성 프로필을 재정의해요. `settings.json`에는 저장되지 않아요. |
 | `--verbose` | 항목별·파일별 상세 내용을 표시해요. |
 
 ## 예시
 
 ```bash
-# 활성 프로파일 기준으로 동기화 상태 확인
+# 활성 프로필 기준으로 동기화 상태 확인
 devsync status
 
-# 프로파일을 전환하지 않고 특정 프로파일의 상태 확인
+# 프로필을 전환하지 않고 특정 프로필의 상태 확인
 devsync status --profile work
 
 # 파일별 상세 차이 표시
@@ -67,5 +67,5 @@ devsync status --verbose
 </Aside>
 
 <Aside type="note">
-  `--profile` 플래그는 이번 실행에만 영향을 주고, `settings.json`에 저장된 활성 프로파일은 변경되지 않아요.
+  `--profile` 플래그는 이번 실행에만 영향을 주고, `settings.json`에 저장된 활성 프로필은 변경되지 않아요.
 </Aside>
