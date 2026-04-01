@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   detectCurrentPlatformKey,
   resolveLocalPathForPlatform,
+  resolveRepoPathForPlatform,
 } from "#app/config/platform.ts";
 
 vi.mock("node:os", async (importOriginal) => {
@@ -119,5 +120,49 @@ describe("resolveLocalPathForPlatform", () => {
         "wsl",
       ),
     ).toBe("$XDG_CONFIG_HOME/app-linux");
+  });
+});
+
+describe("resolveRepoPathForPlatform", () => {
+  it("returns platform-specific path when available", () => {
+    const repoPath = {
+      default: ".config/app/config.json",
+      linux: ".config/app/config.linux.json",
+      mac: "Library/Application Support/app/config.json",
+      win: "AppData/Local/app/config.json",
+    };
+
+    expect(resolveRepoPathForPlatform(repoPath, "linux")).toBe(
+      ".config/app/config.linux.json",
+    );
+    expect(resolveRepoPathForPlatform(repoPath, "mac")).toBe(
+      "Library/Application Support/app/config.json",
+    );
+    expect(resolveRepoPathForPlatform(repoPath, "win")).toBe(
+      "AppData/Local/app/config.json",
+    );
+  });
+
+  it("prefers wsl and falls back to linux on WSL", () => {
+    expect(
+      resolveRepoPathForPlatform(
+        {
+          default: ".gnupg/gpg-agent.conf",
+          linux: ".gnupg/gpg-agent.linux.conf",
+          wsl: ".gnupg/gpg-agent.wsl.conf",
+        },
+        "wsl",
+      ),
+    ).toBe(".gnupg/gpg-agent.wsl.conf");
+
+    expect(
+      resolveRepoPathForPlatform(
+        {
+          default: ".gnupg/gpg-agent.conf",
+          linux: ".gnupg/gpg-agent.linux.conf",
+        },
+        "wsl",
+      ),
+    ).toBe(".gnupg/gpg-agent.linux.conf");
   });
 });

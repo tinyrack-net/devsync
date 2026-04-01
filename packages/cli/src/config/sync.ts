@@ -7,7 +7,9 @@ import {
   detectCurrentPlatformKey,
   type PlatformKey,
   type PlatformLocalPath,
+  type PlatformRepoPath,
   resolveLocalPathForPlatform,
+  resolveRepoPathForPlatform,
 } from "#app/config/platform.ts";
 import {
   resolveDevsyncSyncDirectory,
@@ -48,6 +50,19 @@ const platformLocalPathSchema = z
   .strict();
 
 const localPathSchema = platformLocalPathSchema;
+const platformRepoPathSchema = z
+  .object({
+    default: requiredTrimmedStringSchema,
+    win: requiredTrimmedStringSchema.optional(),
+    mac: requiredTrimmedStringSchema.optional(),
+    linux: requiredTrimmedStringSchema.optional(),
+    wsl: requiredTrimmedStringSchema.optional(),
+  })
+  .strict();
+const repoPathSchema = z.union([
+  requiredTrimmedStringSchema,
+  platformRepoPathSchema,
+]);
 const platformSyncModeSchema = z
   .object({
     default: z.enum(syncModes),
@@ -79,7 +94,7 @@ const syncConfigEntrySchema = z
   .object({
     kind: z.enum(syncEntryKinds),
     localPath: localPathSchema,
-    repoPath: requiredTrimmedStringSchema.optional(),
+    repoPath: repoPathSchema.optional(),
     profiles: syncProfileNameArraySchema.optional(),
     mode: platformSyncModeSchema.optional(),
     permission: platformPermissionSchema.optional(),
@@ -107,6 +122,7 @@ const syncConfigSchema = syncConfigSchemaV7;
 
 export type SyncConfigEntryKind = (typeof syncEntryKinds)[number];
 export type SyncMode = (typeof syncModes)[number];
+export type ConfiguredSyncRepoPath = string | PlatformRepoPath;
 export type PlatformSyncMode = z.infer<typeof platformSyncModeSchema>;
 export type PlatformPermission = z.infer<typeof platformPermissionSchema>;
 export type SyncConfig = z.infer<typeof syncConfigSchema>;
@@ -115,7 +131,7 @@ export type ResolvedSyncConfigEntry = Readonly<{
   configuredMode: PlatformSyncMode;
   configuredLocalPath: PlatformLocalPath;
   configuredPermission?: PlatformPermission;
-  configuredRepoPath?: string;
+  configuredRepoPath?: ConfiguredSyncRepoPath;
   kind: SyncConfigEntryKind;
   localPath: string;
   profiles: readonly string[];
@@ -167,6 +183,39 @@ const resolveSyncPermissionForPlatform = (
 
   const raw = configuredPermission[platformKey] ?? configuredPermission.default;
   return parsePermissionOctal(raw);
+};
+
+const normalizeConfiguredRepoPath = (
+  repoPath: ConfiguredSyncRepoPath,
+): ConfiguredSyncRepoPath => {
+  if (typeof repoPath === "string") {
+    return normalizeSyncRepoPath(repoPath);
+  }
+
+  return {
+    default: normalizeSyncRepoPath(repoPath.default),
+    ...(repoPath.win === undefined
+      ? {}
+      : { win: normalizeSyncRepoPath(repoPath.win) }),
+    ...(repoPath.mac === undefined
+      ? {}
+      : { mac: normalizeSyncRepoPath(repoPath.mac) }),
+    ...(repoPath.linux === undefined
+      ? {}
+      : { linux: normalizeSyncRepoPath(repoPath.linux) }),
+    ...(repoPath.wsl === undefined
+      ? {}
+      : { wsl: normalizeSyncRepoPath(repoPath.wsl) }),
+  };
+};
+
+const resolveConfiguredRepoPath = (
+  repoPath: ConfiguredSyncRepoPath,
+  platformKey: PlatformKey,
+): string => {
+  return typeof repoPath === "string"
+    ? repoPath
+    : resolveRepoPathForPlatform(repoPath, platformKey);
 };
 
 export const normalizeSyncRepoPath = (value: string) => {
@@ -597,10 +646,11 @@ export const parseSyncConfig = (
     const configuredRepoPath =
       entry.repoPath === undefined
         ? undefined
-        : normalizeSyncRepoPath(entry.repoPath);
+        : normalizeConfiguredRepoPath(entry.repoPath);
     const repoPath =
-      configuredRepoPath ??
-      deriveRepoPathFromLocalPath(entry.localPath, environment);
+      configuredRepoPath === undefined
+        ? deriveRepoPathFromLocalPath(entry.localPath, environment)
+        : resolveConfiguredRepoPath(configuredRepoPath, platformKey);
     const profiles = buildNormalizedProfiles(entry);
     const configuredMode = buildConfiguredMode(entry);
     const configuredPermission = buildConfiguredPermission(entry);

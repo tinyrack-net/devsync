@@ -209,6 +209,37 @@ describe("sync config", () => {
     );
   });
 
+  it("uses explicit platform-aware repoPath when configured", async () => {
+    forcePlatform("linux");
+    const workspace = await createTemporaryDirectory("devsync-sync-config-");
+    const homeDirectory = join(workspace, "home");
+
+    const config = parseSyncConfig(
+      {
+        version: 7,
+        entries: [
+          {
+            kind: "file",
+            localPath: { default: "~/.gnupg/gpg-agent.conf" },
+            repoPath: {
+              default: ".gnupg/gpg-agent.conf",
+              linux: ".gnupg/gpg-agent.linux.conf",
+              wsl: ".gnupg/gpg-agent.wsl.conf",
+            },
+          },
+        ],
+      },
+      { HOME: homeDirectory },
+    );
+
+    expect(config.entries[0]?.repoPath).toBe(".gnupg/gpg-agent.linux.conf");
+    expect(config.entries[0]?.configuredRepoPath).toEqual({
+      default: ".gnupg/gpg-agent.conf",
+      linux: ".gnupg/gpg-agent.linux.conf",
+      wsl: ".gnupg/gpg-agent.wsl.conf",
+    });
+  });
+
   it("rejects invalid explicit repoPath values", async () => {
     const workspace = await createTemporaryDirectory("devsync-sync-config-");
     const homeDirectory = join(workspace, "home");
@@ -263,6 +294,36 @@ describe("sync config", () => {
               kind: "file",
               localPath: { default: "~/.config/git/config" },
               repoPath: ".gitconfig",
+            },
+          ],
+        },
+        { HOME: homeDirectory },
+      ),
+    ).toThrowError("same repository path");
+  });
+
+  it("rejects duplicate resolved repo paths from platform-specific entries on the active platform", async () => {
+    forcePlatform("linux");
+    const workspace = await createTemporaryDirectory("devsync-sync-config-");
+    const homeDirectory = join(workspace, "home");
+
+    expect(() =>
+      parseSyncConfig(
+        {
+          version: 7,
+          entries: [
+            {
+              kind: "file",
+              localPath: { default: "~/.gnupg/gpg-agent.conf" },
+              repoPath: {
+                default: ".gnupg/gpg-agent.conf",
+                linux: ".gnupg/gpg-agent.linux.conf",
+              },
+            },
+            {
+              kind: "file",
+              localPath: { default: "~/.config/gpg-agent/linux.conf" },
+              repoPath: ".gnupg/gpg-agent.linux.conf",
             },
           ],
         },
@@ -647,6 +708,33 @@ describe("sync config", () => {
     expect(config.entries[0]?.localPath).toBe(join(xdgConfigHome, "app"));
   });
 
+  it("resolves repoPath using linux platform override", async () => {
+    forcePlatform("linux");
+    const workspace = await createTemporaryDirectory("devsync-sync-config-");
+    const homeDirectory = join(workspace, "home");
+
+    const config = parseSyncConfig(
+      {
+        entries: [
+          {
+            kind: "file",
+            localPath: { default: "~/.gnupg/gpg-agent.conf" },
+            repoPath: {
+              default: ".gnupg/gpg-agent.conf",
+              linux: ".gnupg/gpg-agent.linux.conf",
+            },
+          },
+        ],
+        version: 7,
+      },
+      {
+        HOME: homeDirectory,
+      },
+    );
+
+    expect(config.entries[0]?.repoPath).toBe(".gnupg/gpg-agent.linux.conf");
+  });
+
   it("resolves localPath using WSL override before linux", async () => {
     forcePlatform("wsl");
     const workspace = await createTemporaryDirectory("devsync-sync-config-");
@@ -707,6 +795,61 @@ describe("sync config", () => {
     );
 
     expect(config.entries[0]?.localPath).toBe(join(xdgConfigHome, "app"));
+  });
+
+  it("resolves repoPath using WSL override before linux", async () => {
+    forcePlatform("wsl");
+    const workspace = await createTemporaryDirectory("devsync-sync-config-");
+    const homeDirectory = join(workspace, "home");
+
+    const config = parseSyncConfig(
+      {
+        entries: [
+          {
+            kind: "file",
+            localPath: { default: "~/.gnupg/gpg-agent.conf" },
+            repoPath: {
+              default: ".gnupg/gpg-agent.conf",
+              linux: ".gnupg/gpg-agent.linux.conf",
+              wsl: ".gnupg/gpg-agent.wsl.conf",
+            },
+          },
+        ],
+        version: 7,
+      },
+      {
+        HOME: homeDirectory,
+      },
+    );
+
+    expect(config.entries[0]?.repoPath).toBe(".gnupg/gpg-agent.wsl.conf");
+  });
+
+  it("falls back to linux repoPath on WSL when wsl is omitted", async () => {
+    forcePlatform("wsl");
+    const workspace = await createTemporaryDirectory("devsync-sync-config-");
+    const homeDirectory = join(workspace, "home");
+
+    const config = parseSyncConfig(
+      {
+        entries: [
+          {
+            kind: "file",
+            localPath: { default: "~/.gnupg/gpg-agent.conf" },
+            repoPath: {
+              default: ".gnupg/gpg-agent.conf",
+              linux: ".gnupg/gpg-agent.linux.conf",
+            },
+          },
+        ],
+        version: 7,
+      },
+      {
+        HOME: homeDirectory,
+      },
+    );
+
+    expect(config.entries[0]?.repoPath).toBe(".gnupg/gpg-agent.linux.conf");
   });
 
   it("resolves platform-specific modes for the current OS", async () => {
@@ -921,6 +1064,32 @@ describe("sync config", () => {
     ).toThrowError("Sync configuration is invalid.");
   });
 
+  it("rejects unknown keys in repoPath object", async () => {
+    const workspace = await createTemporaryDirectory("devsync-sync-config-");
+    const homeDirectory = join(workspace, "home");
+
+    expect(() =>
+      parseSyncConfig(
+        {
+          entries: [
+            {
+              kind: "file",
+              localPath: { default: "~/.gitconfig" },
+              repoPath: {
+                default: ".gitconfig",
+                unknownKey: ".gitconfig.work",
+              },
+            },
+          ],
+          version: 7,
+        },
+        {
+          HOME: homeDirectory,
+        },
+      ),
+    ).toThrowError("Sync configuration is invalid.");
+  });
+
   it("rejects localPath object missing default field", async () => {
     const workspace = await createTemporaryDirectory("devsync-sync-config-");
     const homeDirectory = join(workspace, "home");
@@ -932,6 +1101,29 @@ describe("sync config", () => {
             {
               kind: "file",
               localPath: { linux: "~/.gitconfig" },
+            },
+          ],
+          version: 7,
+        },
+        {
+          HOME: homeDirectory,
+        },
+      ),
+    ).toThrowError("Sync configuration is invalid.");
+  });
+
+  it("rejects repoPath object missing default field", async () => {
+    const workspace = await createTemporaryDirectory("devsync-sync-config-");
+    const homeDirectory = join(workspace, "home");
+
+    expect(() =>
+      parseSyncConfig(
+        {
+          entries: [
+            {
+              kind: "file",
+              localPath: { default: "~/.gitconfig" },
+              repoPath: { linux: ".gitconfig" },
             },
           ],
           version: 7,

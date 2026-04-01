@@ -229,4 +229,44 @@ describe("config-file", () => {
       version: 7,
     });
   });
+
+  it("writes explicit platform-aware repo paths unchanged", () => {
+    expect(
+      createSyncConfigDocument({
+        entries: [
+          {
+            configuredMode: { default: "normal" },
+            configuredLocalPath: { default: "~/.gnupg/gpg-agent.conf" },
+            configuredRepoPath: {
+              default: ".gnupg/gpg-agent.conf",
+              linux: ".gnupg/gpg-agent.linux.conf",
+              wsl: ".gnupg/gpg-agent.wsl.conf",
+            },
+            kind: "file",
+            localPath: "/tmp/home/.gnupg/gpg-agent.conf",
+            profiles: [],
+            profilesExplicit: false,
+            mode: "normal",
+            modeExplicit: false,
+            permissionExplicit: false,
+            repoPath: ".gnupg/gpg-agent.linux.conf",
+          },
+        ],
+        version: 7,
+      }),
+    ).toEqual({
+      entries: [
+        {
+          kind: "file",
+          localPath: { default: "~/.gnupg/gpg-agent.conf" },
+          repoPath: {
+            default: ".gnupg/gpg-agent.conf",
+            linux: ".gnupg/gpg-agent.linux.conf",
+            wsl: ".gnupg/gpg-agent.wsl.conf",
+          },
+        },
+      ],
+      version: 7,
+    });
+  });
 });
