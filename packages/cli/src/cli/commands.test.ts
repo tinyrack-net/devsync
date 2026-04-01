@@ -17,13 +17,13 @@ const mockLogger = vi.hoisted(() => ({
 const mocked = vi.hoisted(() => ({
   assignProfiles: vi.fn(),
   clearActiveProfile: vi.fn(),
+  consolaPrompt: vi.fn(),
   getStatus: vi.fn(),
   initializeSyncDirectory: vi.fn(),
   launchShellInDirectory: vi.fn(),
   listProfiles: vi.fn(),
   mkdir: vi.fn(),
   pathExists: vi.fn(),
-  promptForSecret: vi.fn(),
   pullChanges: vi.fn(),
   pushChanges: vi.fn(),
   resolveConfiguredAbsolutePath: vi.fn(),
@@ -97,6 +97,12 @@ vi.mock("#app/services/status.ts", () => ({
   getStatus: mocked.getStatus,
 }));
 
+vi.mock("consola", () => ({
+  default: {
+    prompt: mocked.consolaPrompt,
+  },
+}));
+
 vi.mock("#app/services/terminal/cli-runtime.ts", () => ({
   verboseFlag: {
     brief: "verbose",
@@ -107,10 +113,6 @@ vi.mock("#app/services/terminal/cli-runtime.ts", () => ({
 
 vi.mock("#app/services/terminal/logger.ts", () => ({
   createCliLogger: vi.fn(() => mockLogger),
-}));
-
-vi.mock("#app/services/terminal/prompt.ts", () => ({
-  promptForSecret: mocked.promptForSecret,
 }));
 
 vi.mock("#app/services/terminal/shell.ts", () => ({
@@ -159,7 +161,7 @@ beforeEach(() => {
   mocked.resolveConfiguredAbsolutePath.mockReturnValue("/tmp/keys.txt");
   mocked.resolveDevsyncSyncDirectory.mockReturnValue("/tmp/devsync");
   mocked.pathExists.mockResolvedValue(true);
-  mocked.promptForSecret.mockResolvedValue(undefined);
+  mocked.consolaPrompt.mockResolvedValue(undefined);
   mocked.initializeSyncDirectory.mockResolvedValue({
     alreadyInitialized: false,
     configPath: "/tmp/config.json",
@@ -319,7 +321,7 @@ describe("CLI command modules", () => {
       "git@example.com:dotfiles.git",
     );
 
-    expect(mocked.promptForSecret).not.toHaveBeenCalled();
+    expect(mocked.consolaPrompt).not.toHaveBeenCalled();
     expect(mocked.initializeSyncDirectory).toHaveBeenCalledWith(
       {
         ageIdentity: "AGE-SECRET-KEY-123",
@@ -337,12 +339,13 @@ describe("CLI command modules", () => {
 
   it("prompts for a key and requests generation when the prompt is blank", async () => {
     mocked.pathExists.mockResolvedValue(false);
-    mocked.promptForSecret.mockResolvedValue("   ");
+    mocked.consolaPrompt.mockResolvedValue("   ");
 
     await runCommand(initCommand, {}, "origin");
 
-    expect(mocked.promptForSecret).toHaveBeenCalledWith(
+    expect(mocked.consolaPrompt).toHaveBeenCalledWith(
       "Enter an age private key (leave empty to generate a new one): ",
+      { type: "text", cancel: "reject" },
     );
     expect(mocked.initializeSyncDirectory).toHaveBeenCalledWith(
       {

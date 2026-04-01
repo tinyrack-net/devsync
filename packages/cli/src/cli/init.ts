@@ -1,4 +1,5 @@
 import { buildCommand } from "@stricli/core";
+import consola from "consola";
 import pc from "picocolors";
 import { resolveConfiguredIdentityFile } from "#app/config/identity-file.ts";
 import { ENV } from "#app/lib/env.ts";
@@ -13,7 +14,6 @@ import {
   verboseFlag,
 } from "#app/services/terminal/cli-runtime.ts";
 import { createCliLogger } from "#app/services/terminal/logger.ts";
-import { promptForSecret } from "#app/services/terminal/prompt.ts";
 
 type InitFlags = {
   identity?: string;
@@ -62,8 +62,9 @@ const initCommand = buildCommand<InitFlags, [string?], DevsyncCliContext>({
     const shouldPrompt =
       requestedKey === undefined && !(await pathExists(identityFile));
     const promptedKey = shouldPrompt
-      ? await promptForSecret(
+      ? await consola.prompt(
           "Enter an age private key (leave empty to generate a new one): ",
+          { type: "text", cancel: "reject" },
         )
       : undefined;
     const trimmedPromptedKey = promptedKey?.trim();
