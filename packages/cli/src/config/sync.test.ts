@@ -163,6 +163,31 @@ describe("sync config", () => {
     ).toThrowError("Sync configuration is invalid.");
   });
 
+  it("rejects the removed legacy age identity path", async () => {
+    const workspace = await createTemporaryDirectory("devsync-sync-config-");
+    const homeDirectory = join(workspace, "home");
+    const xdgConfigHome = join(workspace, "xdg");
+
+    expect(() =>
+      parseSyncConfig(
+        {
+          age: {
+            identityFile: "$XDG_CONFIG_HOME/devsync/age/keys.txt",
+            recipients: ["age1example"],
+          },
+          entries: [],
+          version: 7,
+        },
+        {
+          HOME: homeDirectory,
+          XDG_CONFIG_HOME: xdgConfigHome,
+        },
+      ),
+    ).toThrowError(
+      "Configured age identity file uses the removed legacy path.",
+    );
+  });
+
   it("rejects duplicate repo paths", async () => {
     const workspace = await createTemporaryDirectory("devsync-sync-config-");
     const homeDirectory = join(workspace, "home");

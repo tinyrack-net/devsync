@@ -1,4 +1,5 @@
 import { resolveSyncConfigFilePath } from "#app/config/sync.ts";
+import { formatDevsyncError } from "#app/lib/error.ts";
 import { pathExists } from "#app/lib/filesystem.ts";
 import { ensureRepository } from "#app/lib/git.ts";
 import {
@@ -123,7 +124,7 @@ export const runDoctorChecks = async (
       fail(
         "config",
         error instanceof Error
-          ? error.message
+          ? formatDevsyncError(error)
           : "Sync configuration could not be read.",
       ),
     );

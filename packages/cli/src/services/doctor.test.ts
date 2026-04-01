@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { DevsyncError } from "#app/lib/error.ts";
 
 const mocked = vi.hoisted(() => ({
   buildRepositorySnapshot: vi.fn(),
@@ -142,6 +143,30 @@ describe("sync doctor", () => {
       ["Checking sync repository..."],
       ["Loading sync configuration..."],
     ]);
+  });
+
+  it("preserves config failure details and hint text in doctor output", async () => {
+    mocked.ensureRepository.mockResolvedValueOnce(undefined);
+    mocked.loadSyncConfig.mockRejectedValueOnce(
+      new DevsyncError(
+        "Configured age identity file uses the removed legacy path.",
+        {
+          details: [
+            "Configured identity file: $XDG_CONFIG_HOME/devsync/age/keys.txt",
+          ],
+          hint: "Update the identity file path to $XDG_CONFIG_HOME/devsync/keys.txt.",
+        },
+      ),
+    );
+
+    const result = await runDoctorChecks(createReporter());
+
+    expect(result.checks).toContainEqual({
+      checkId: "config",
+      detail:
+        "Configured age identity file uses the removed legacy path.\nConfigured identity file: $XDG_CONFIG_HOME/devsync/age/keys.txt\nHint: Update the identity file path to $XDG_CONFIG_HOME/devsync/keys.txt.",
+      level: "fail",
+    });
   });
 
   it("reports verbose details, a missing identity, and a singular missing local path warning", async () => {

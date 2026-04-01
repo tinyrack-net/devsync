@@ -1,6 +1,6 @@
 import { resolve } from "node:path";
 
-import { resolveConfiguredIdentityFile } from "#app/config/global-config.ts";
+import { resolveConfiguredIdentityFile } from "#app/config/identity-file.ts";
 import {
   normalizeSyncProfileName,
   normalizeSyncRepoPath,

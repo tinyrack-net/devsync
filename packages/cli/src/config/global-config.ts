@@ -2,10 +2,7 @@ import { readFile } from "node:fs/promises";
 
 import { z } from "zod";
 import { CONSTANTS } from "#app/config/constants.ts";
-import {
-  resolveConfiguredAbsolutePath,
-  resolveDevsyncGlobalConfigFilePath,
-} from "#app/config/xdg.ts";
+import { resolveDevsyncGlobalConfigFilePath } from "#app/config/xdg.ts";
 import { ENV, type Env } from "#app/lib/env.ts";
 import { DevsyncError } from "#app/lib/error.ts";
 import { ensureTrailingNewline } from "#app/lib/string.ts";
@@ -51,21 +48,6 @@ export type ActiveProfileSelection = Readonly<
       mode: "single";
     }
 >;
-
-export const resolveConfiguredIdentityFile = (
-  value: string,
-  environment: Env,
-) => {
-  try {
-    return resolveConfiguredAbsolutePath(value, environment);
-  } catch (error: unknown) {
-    throw new DevsyncError(
-      error instanceof Error
-        ? error.message
-        : `Invalid age identity file path: ${value}`,
-    );
-  }
-};
 
 export const parseGlobalDevsyncConfig = (
   input: unknown,

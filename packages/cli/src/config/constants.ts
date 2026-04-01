@@ -18,6 +18,7 @@ export const CONSTANTS = {
   },
   INIT: {
     DEFAULT_IDENTITY_FILE: `${XDG_CONFIG_HOME_TOKEN}/${APP_NAME}/keys.txt`,
+    LEGACY_IDENTITY_FILE: `${XDG_CONFIG_HOME_TOKEN}/${APP_NAME}/age/keys.txt`,
   },
   SYNC: {
     CONFIG_FILE_NAME: "manifest.json",
@@ -27,7 +28,6 @@ export const CONSTANTS = {
     SECRET_ARTIFACT_SUFFIX: ".devsync.secret",
   },
   XDG: {
-    AGE_DIRECTORY_NAME: "age",
     APP_DIRECTORY_NAME: APP_NAME,
     SYNC_DIRECTORY_NAME: "repository",
   },

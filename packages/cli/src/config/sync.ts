@@ -3,6 +3,7 @@ import { isAbsolute, join, posix, relative, sep } from "node:path";
 
 import { z } from "zod";
 import { CONSTANTS } from "#app/config/constants.ts";
+import { resolveConfiguredIdentityFile } from "#app/config/identity-file.ts";
 import {
   detectCurrentPlatformKey,
   type PlatformKey,
@@ -625,6 +626,9 @@ const applyEntryInheritance = (
 export const parseSyncConfig = (
   input: unknown,
   environment: Env = ENV,
+  options: Readonly<{
+    configPath?: string;
+  }> = {},
 ): ResolvedSyncConfig => {
   const platformKey = detectCurrentPlatformKey(environment);
   const result = syncConfigSchema.safeParse(input);
@@ -687,6 +691,12 @@ export const parseSyncConfig = (
           recipients: [...new Set(result.data.age.recipients)],
         };
 
+  if (age !== undefined) {
+    resolveConfiguredIdentityFile(age.identityFile, environment, {
+      configPath: options.configPath,
+    });
+  }
+
   return {
     ...(age === undefined ? {} : { age }),
     entries,
@@ -732,7 +742,9 @@ export const readSyncConfig = async (
       "utf8",
     );
 
-    return parseSyncConfig(JSON.parse(contents) as unknown, environment);
+    return parseSyncConfig(JSON.parse(contents) as unknown, environment, {
+      configPath: resolveSyncConfigFilePath(syncDirectory),
+    });
   } catch (error: unknown) {
     if (error instanceof DevsyncError) {
       throw error;

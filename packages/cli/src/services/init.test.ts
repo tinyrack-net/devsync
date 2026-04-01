@@ -217,6 +217,24 @@ describe("init service", () => {
     ).rejects.toThrowError(/different age recipients/u);
   });
 
+  it("rejects the removed legacy age identity path during initialization", async () => {
+    const workspace = await createWorkspace();
+    const homeDirectory = join(workspace, "home");
+    const xdgConfigHome = join(workspace, "xdg");
+    const ageKeys = await createAgeKeyPair();
+
+    setEnvironment(homeDirectory, xdgConfigHome);
+
+    await expect(
+      initializeSyncDirectory({
+        identityFile: "$XDG_CONFIG_HOME/devsync/age/keys.txt",
+        recipients: [ageKeys.recipient],
+      }),
+    ).rejects.toThrowError(
+      /Configured age identity file uses the removed legacy path/u,
+    );
+  });
+
   it("writes a supplied age private key when cloning a repo that already has manifest.json", async () => {
     const workspace = await createWorkspace();
     const homeDirectory = join(workspace, "home");

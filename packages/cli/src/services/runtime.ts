@@ -4,8 +4,8 @@ import {
   type GlobalDevsyncConfig,
   readGlobalDevsyncConfig,
   resolveActiveProfileSelection,
-  resolveConfiguredIdentityFile,
 } from "#app/config/global-config.ts";
+import { resolveConfiguredIdentityFile } from "#app/config/identity-file.ts";
 import {
   type ResolvedSyncConfig,
   readSyncConfig,

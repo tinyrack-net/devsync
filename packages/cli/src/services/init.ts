@@ -6,8 +6,8 @@ import {
   formatGlobalDevsyncConfig,
   type GlobalDevsyncConfig,
   readGlobalDevsyncConfig,
-  resolveConfiguredIdentityFile,
 } from "#app/config/global-config.ts";
+import { resolveConfiguredIdentityFile } from "#app/config/identity-file.ts";
 import {
   createInitialSyncConfig,
   formatSyncConfig,
@@ -16,7 +16,6 @@ import {
   type SyncAgeConfig,
   syncConfigFileName,
 } from "#app/config/sync.ts";
-import { resolveConfiguredAbsolutePath } from "#app/config/xdg.ts";
 import {
   createAgeIdentityFile,
   readAgeRecipientsFromIdentityFile,
@@ -70,9 +69,13 @@ const resolveInitAgeBootstrap = async (
 ) => {
   const configuredIdentityFile =
     request.identityFile?.trim() || defaultSyncIdentityFile;
-  const identityFile = resolveConfiguredAbsolutePath(
+  const identityFile = resolveConfiguredIdentityFile(
     configuredIdentityFile,
     ENV,
+    {
+      hint: `Use ${defaultSyncIdentityFile} for new setups.`,
+      source: "Requested identity file",
+    },
   );
   const explicitRecipients = normalizeRecipients(request.recipients);
 
@@ -379,7 +382,7 @@ export const initializeSyncDirectory = async (
       generatedIdentity: ageBootstrap.generatedIdentity,
       identityFile:
         age?.identityFile ??
-        resolveConfiguredAbsolutePath(ageBootstrap.configuredIdentityFile, ENV),
+        resolveConfiguredIdentityFile(ageBootstrap.configuredIdentityFile, ENV),
       recipientCount: age?.recipients.length ?? 0,
       syncDirectory,
     };
@@ -409,7 +412,7 @@ export const initializeSyncDirectory = async (
     gitAction,
     ...(gitSource === undefined ? {} : { gitSource }),
     generatedIdentity: ageBootstrap.generatedIdentity,
-    identityFile: resolveConfiguredAbsolutePath(
+    identityFile: resolveConfiguredIdentityFile(
       ageBootstrap.configuredIdentityFile,
       ENV,
     ),

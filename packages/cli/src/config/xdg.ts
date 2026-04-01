@@ -65,13 +65,6 @@ export const resolveDevsyncSyncDirectory = (environment: Env = ENV) => {
   );
 };
 
-export const resolveDevsyncAgeDirectory = (environment: Env = ENV) => {
-  return resolve(
-    resolveDevsyncConfigDirectory(environment),
-    CONSTANTS.XDG.AGE_DIRECTORY_NAME,
-  );
-};
-
 export const expandHomePath = (value: string, environment: Env = ENV) => {
   let expandedValue = value.trim();
 
