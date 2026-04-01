@@ -16,9 +16,8 @@ import {
 import { createCliLogger } from "#app/services/terminal/logger.ts";
 
 type InitFlags = {
-  identity?: string;
   key?: string;
-  recipient?: readonly string[];
+  promptKey?: boolean;
   verbose?: boolean;
 };
 
@@ -50,17 +49,18 @@ const initCommand = buildCommand<InitFlags, [string?], DevsyncCliContext>({
     const logger = createCliLogger({ verbose });
     const reporter = verbose ? logger : undefined;
     const requestedKey = flags.key?.trim();
-    const configuredIdentityFile =
-      flags.identity?.trim() || defaultSyncIdentityFile;
     const identityFile = resolveConfiguredIdentityFile(
-      configuredIdentityFile,
+      defaultSyncIdentityFile,
       ENV,
       {
         source: "Requested identity file",
       },
     );
+    const identityFileExists = await pathExists(identityFile);
     const shouldPrompt =
-      requestedKey === undefined && !(await pathExists(identityFile));
+      requestedKey === undefined &&
+      !identityFileExists &&
+      ((flags.promptKey ?? false) || repository !== undefined);
     const promptedKey = shouldPrompt
       ? await consola.prompt(
           "Enter an age private key (leave empty to generate a new one): ",
@@ -76,9 +76,12 @@ const initCommand = buildCommand<InitFlags, [string?], DevsyncCliContext>({
             : trimmedPromptedKey !== undefined && trimmedPromptedKey !== ""
               ? trimmedPromptedKey
               : undefined,
-        generateAgeIdentity: shouldPrompt && trimmedPromptedKey === "",
-        identityFile: flags.identity,
-        recipients: flags.recipient ?? [],
+        generateAgeIdentity:
+          requestedKey === undefined &&
+          (trimmedPromptedKey === "" ||
+            (trimmedPromptedKey === undefined && !identityFileExists)),
+        identityFile: undefined,
+        recipients: [],
         repository,
       },
       reporter,
@@ -104,13 +107,6 @@ const initCommand = buildCommand<InitFlags, [string?], DevsyncCliContext>({
   },
   parameters: {
     flags: {
-      identity: {
-        brief: "Persist an age identity file path",
-        kind: "parsed",
-        optional: true,
-        parse: String,
-        placeholder: "path",
-      },
       key: {
         brief: "Persist an age private key into the identity file",
         kind: "parsed",
@@ -118,13 +114,11 @@ const initCommand = buildCommand<InitFlags, [string?], DevsyncCliContext>({
         parse: String,
         placeholder: "age-private-key",
       },
-      recipient: {
-        brief: "Persist an age recipient public key",
-        kind: "parsed",
+      promptKey: {
+        brief:
+          "Prompt to enter an age private key instead of generating one automatically",
+        kind: "boolean",
         optional: true,
-        parse: String,
-        placeholder: "recipient",
-        variadic: true,
       },
       verbose: verboseFlag,
     },
