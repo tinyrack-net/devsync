@@ -77,13 +77,7 @@ describe("profile CLI e2e", () => {
     await mkdir(configDir, { recursive: true });
     await writeFile(configFile, "token = secret\n");
 
-    await ctx.runCli([
-      "init",
-      "--recipient",
-      ageKeys.recipient,
-      "--identity",
-      "$XDG_CONFIG_HOME/devsync/keys.txt",
-    ]);
+    await ctx.runCli(["init"]);
     await ctx.runCli(["track", configDir, "--profile", "work"]);
 
     const result = await ctx.runCli(["profile", "list", "--verbose"]);
@@ -108,13 +102,7 @@ describe("profile CLI e2e", () => {
     await writeFile(workFile, "office = true\n");
     await writeFile(personalFile, "home = true\n");
 
-    await ctx.runCli([
-      "init",
-      "--recipient",
-      ageKeys.recipient,
-      "--identity",
-      "$XDG_CONFIG_HOME/devsync/keys.txt",
-    ]);
+    await ctx.runCli(["init"]);
     await ctx.runCli(["track", workDir, "--profile", "work"]);
     await ctx.runCli(["track", homeDir2, "--profile", "home"]);
 

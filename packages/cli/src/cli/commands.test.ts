@@ -313,9 +313,7 @@ describe("CLI command modules", () => {
     await runCommand(
       initCommand,
       {
-        identity: "~/keys.txt",
         key: "  AGE-SECRET-KEY-123  ",
-        recipient: ["age1recipient"],
         verbose: true,
       },
       "git@example.com:dotfiles.git",
@@ -326,8 +324,8 @@ describe("CLI command modules", () => {
       {
         ageIdentity: "AGE-SECRET-KEY-123",
         generateAgeIdentity: false,
-        identityFile: "~/keys.txt",
-        recipients: ["age1recipient"],
+        identityFile: undefined,
+        recipients: [],
         repository: "git@example.com:dotfiles.git",
       },
       mockLogger,
@@ -341,7 +339,7 @@ describe("CLI command modules", () => {
     mocked.pathExists.mockResolvedValue(false);
     mocked.consolaPrompt.mockResolvedValue("   ");
 
-    await runCommand(initCommand, {}, "origin");
+    await runCommand(initCommand, { promptKey: true }, "origin");
 
     expect(mocked.consolaPrompt).toHaveBeenCalledWith(
       "Enter an age private key (leave empty to generate a new one): ",

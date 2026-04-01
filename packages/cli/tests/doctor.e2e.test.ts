@@ -52,13 +52,7 @@ describe("doctor CLI e2e", () => {
     await mkdir(configDir, { recursive: true });
     await writeFile(configFile, "key = value\n");
 
-    await ctx.runCli([
-      "init",
-      "--recipient",
-      ageKeys.recipient,
-      "--identity",
-      "$XDG_CONFIG_HOME/devsync/keys.txt",
-    ]);
+    await ctx.runCli(["init"]);
     await ctx.runCli(["track", configDir]);
 
     const result = await ctx.runCli(["doctor"]);
@@ -76,13 +70,7 @@ describe("doctor CLI e2e", () => {
     await mkdir(configDir, { recursive: true });
     await writeFile(configFile, "key = value\n");
 
-    await ctx.runCli([
-      "init",
-      "--recipient",
-      ageKeys.recipient,
-      "--identity",
-      "$XDG_CONFIG_HOME/devsync/keys.txt",
-    ]);
+    await ctx.runCli(["init"]);
     await ctx.runCli(["track", configDir]);
 
     const result = await ctx.runCli(["doctor", "--verbose"]);

@@ -94,23 +94,11 @@ const runCliStreaming = async (
 
 describe("sync CLI e2e", () => {
   it("generates a default age identity for bare init", async () => {
-    const session = createPtySession({
-      args: [...cliNodeOptions, "init"],
-      cwd: ctx.workspace,
+    const result = await ctx.runCli(["init"], {
       env: { ...ctx.baseEnv },
-      file: process.execPath,
     });
 
-    let result: string;
-    try {
-      await session.waitFor("Enter an age private key", 10_000);
-      session.write("\r");
-      result = await session.waitFor("Sync directory initialized", 10_000);
-    } finally {
-      session.close();
-    }
-
-    expect(result).toContain("age: generated a new local identity");
+    expect(result.stdout).toContain("age: generated a new local identity");
     expect(
       await readFile(join(ctx.xdgDir, "devsync", "keys.txt"), "utf8"),
     ).toContain("AGE-SECRET-KEY-");
@@ -282,7 +270,7 @@ describe("sync CLI e2e", () => {
     );
 
     const session = createPtySession({
-      args: [...cliNodeOptions, "init", sourceRepository],
+      args: [...cliNodeOptions, "init", "--prompt-key", sourceRepository],
       cwd: ctx.workspace,
       env: {
         ...ctx.baseEnv,
@@ -329,13 +317,7 @@ describe("sync CLI e2e", () => {
     await writeFile(publicFile, "{}\n");
     await writeFile(join(cacheDirectory, "state.txt"), "cache\n");
 
-    await ctx.runCli([
-      "init",
-      "--recipient",
-      ageKeys.recipient,
-      "--identity",
-      "$XDG_CONFIG_HOME/devsync/keys.txt",
-    ]);
+    await ctx.runCli(["init"]);
 
     const trackResult = await ctx.runCli([
       "track",
@@ -419,13 +401,7 @@ describe("sync CLI e2e", () => {
     await writeFile(sharedFile, "export PATH=$PATH:$HOME/bin\n");
     await writeFile(secretsFile, "export TOKEN=work\n");
 
-    await ctx.runCli([
-      "init",
-      "--recipient",
-      ageKeys.recipient,
-      "--identity",
-      "$XDG_CONFIG_HOME/devsync/keys.txt",
-    ]);
+    await ctx.runCli(["init"]);
     await ctx.runCli(["track", zshDirectory]);
     await ctx.runCli(["track", secretsFile, "--mode", "secret"]);
 
@@ -473,13 +449,7 @@ describe("sync CLI e2e", () => {
     await ctx.writeIdentityFile(ageKeys.identity);
     await mkdir(bundleDirectory, { recursive: true });
 
-    await ctx.runCli([
-      "init",
-      "--recipient",
-      ageKeys.recipient,
-      "--identity",
-      "$XDG_CONFIG_HOME/devsync/keys.txt",
-    ]);
+    await ctx.runCli(["init"]);
     await ctx.runCli(["track", bundleDirectory]);
 
     const result = await ctx.runCli([
@@ -511,13 +481,7 @@ describe("sync CLI e2e", () => {
       );
     }
 
-    await ctx.runCli([
-      "init",
-      "--recipient",
-      ageKeys.recipient,
-      "--identity",
-      "$XDG_CONFIG_HOME/devsync/keys.txt",
-    ]);
+    await ctx.runCli(["init"]);
     await ctx.runCli(["track", bundleDirectory]);
 
     const result = await runCliStreaming(["push", "--verbose"]);
@@ -540,13 +504,7 @@ describe("sync CLI e2e", () => {
     await mkdir(configDir, { recursive: true });
     await writeFile(configFile, "mode = dry\n");
 
-    await ctx.runCli([
-      "init",
-      "--recipient",
-      ageKeys.recipient,
-      "--identity",
-      "$XDG_CONFIG_HOME/devsync/keys.txt",
-    ]);
+    await ctx.runCli(["init"]);
     await ctx.runCli(["track", configDir]);
 
     const result = await ctx.runCli(["push", "--dry-run"]);
@@ -577,13 +535,7 @@ describe("sync CLI e2e", () => {
     await mkdir(configDir, { recursive: true });
     await writeFile(configFile, "version = 1\n");
 
-    await ctx.runCli([
-      "init",
-      "--recipient",
-      ageKeys.recipient,
-      "--identity",
-      "$XDG_CONFIG_HOME/devsync/keys.txt",
-    ]);
+    await ctx.runCli(["init"]);
     await ctx.runCli(["track", configDir]);
     await ctx.runCli(["push"]);
 
