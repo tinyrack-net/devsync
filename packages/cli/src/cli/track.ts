@@ -1,9 +1,8 @@
 import { buildCommand } from "@stricli/core";
 import { CONSTANTS } from "#app/config/constants.ts";
 import { DevsyncError } from "#app/lib/error.ts";
-import { formatSetModeResult, formatTrackResult } from "#app/lib/output.ts";
 import { assignProfiles } from "#app/services/profile.ts";
-import { setTargetMode } from "#app/services/set.ts";
+import { type SetModeResult, setTargetMode } from "#app/services/set.ts";
 import {
   createProgressReporter,
   type DevsyncCliContext,
@@ -11,14 +10,60 @@ import {
   print,
   verboseFlag,
 } from "#app/services/terminal/cli-runtime.ts";
+import { output } from "#app/services/terminal/output.ts";
 import { proposePathCompletions } from "#app/services/terminal/path-completion.ts";
-import { trackTarget } from "#app/services/track.ts";
+import { type TrackResult, trackTarget } from "#app/services/track.ts";
 
 type TrackFlags = {
   mode: "ignore" | "normal" | "secret";
   profile?: readonly string[];
   repoPath?: string;
   verbose?: boolean;
+};
+
+const formatTrackOutput = (result: TrackResult, verbose = false) => {
+  const summary = !result.alreadyTracked
+    ? `Started tracking ${result.repoPath}`
+    : result.changed
+      ? `Updated tracking for ${result.repoPath}`
+      : `${result.repoPath} was already tracked`;
+
+  return output(
+    summary,
+    `target: ${result.localPath}`,
+    `mode: ${result.mode}`,
+    result.profiles.length > 0 && `profiles: ${result.profiles.join(", ")}`,
+    verbose && `kind: ${result.kind}`,
+    verbose && `sync dir: ${result.syncDirectory}`,
+    verbose && `config: ${result.configPath}`,
+  );
+};
+
+const formatSetModeAction = (result: SetModeResult) => {
+  switch (result.action) {
+    case "added":
+      return "added override";
+    case "removed":
+      return "removed override";
+    case "unchanged":
+      return "unchanged";
+    case "updated":
+      return "updated";
+  }
+};
+
+const formatSetModeOutput = (result: SetModeResult, verbose = false) => {
+  return output(
+    result.action === "unchanged"
+      ? `Sync mode unchanged for ${result.repoPath}`
+      : `Updated sync mode for ${result.repoPath}`,
+    `mode: ${result.mode}`,
+    `action: ${formatSetModeAction(result)}`,
+    result.reason === "already-set" && `detail: already ${result.mode}`,
+    verbose && `local: ${result.localPath}`,
+    verbose && `sync dir: ${result.syncDirectory}`,
+    verbose && `config: ${result.configPath}`,
+  );
 };
 
 const trackCommand = buildCommand<TrackFlags, string[], DevsyncCliContext>({
@@ -63,7 +108,7 @@ const trackCommand = buildCommand<TrackFlags, string[], DevsyncCliContext>({
           cwd,
         );
 
-        print(formatTrackResult(result, { verbose }));
+        print(formatTrackOutput(result, verbose));
       } catch (error: unknown) {
         if (
           flags.repoPath === undefined &&
@@ -87,7 +132,7 @@ const trackCommand = buildCommand<TrackFlags, string[], DevsyncCliContext>({
             );
           }
 
-          print(formatSetModeResult(setResult, { verbose }));
+          print(formatSetModeOutput(setResult, verbose));
           continue;
         }
 

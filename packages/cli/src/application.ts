@@ -7,27 +7,30 @@ import {
 } from "@stricli/core";
 import { buildRootRoute } from "#app/cli/index.ts";
 import { CONSTANTS } from "#app/config/constants.ts";
-import { formatErrorMessage } from "#app/lib/output.ts";
+import { formatDevsyncError } from "#app/lib/error.ts";
 import { currentVersion } from "#app/lib/version.ts";
 import {
   createCliContext,
   type DevsyncCliContext,
 } from "#app/services/terminal/cli-runtime.ts";
+import { output } from "#app/services/terminal/output.ts";
 
 type CommandError = Error & {
   exitCode?: number;
 };
 
 const formatRuntimeError = (error: unknown) => {
-  return formatErrorMessage(
-    error instanceof Error ? error : new Error(String(error)),
+  return output(
+    formatDevsyncError(
+      error instanceof Error ? error : new Error(String(error)),
+    ),
   );
 };
 
 const devsyncText: ApplicationText = {
   ...text_en,
   commandErrorResult: (error) => {
-    return formatErrorMessage(error);
+    return output(formatDevsyncError(error));
   },
   exceptionWhileLoadingCommandContext: (error) => {
     return formatRuntimeError(error);

@@ -1,5 +1,5 @@
-import { formatProgressMessage, writeStderr } from "#app/lib/output.ts";
 import type { ProgressReporter } from "#app/lib/progress.ts";
+import { createCliLogger } from "./logger.ts";
 
 export const createCliProgressReporter = (
   options: Readonly<{
@@ -7,6 +7,11 @@ export const createCliProgressReporter = (
   }> = {},
 ): ProgressReporter => {
   const verbose = options.verbose ?? false;
+  const logger = createCliLogger({
+    stderr: process.stderr,
+    stdout: process.stderr,
+    verbose,
+  });
 
   return {
     detail: (message: string) => {
@@ -14,10 +19,14 @@ export const createCliProgressReporter = (
         return;
       }
 
-      writeStderr(formatProgressMessage(message, { detail: true }));
+      logger.verbose(message);
     },
     phase: (message: string) => {
-      writeStderr(formatProgressMessage(message));
+      if (!verbose) {
+        return;
+      }
+
+      logger.start(message);
     },
     verbose,
   };

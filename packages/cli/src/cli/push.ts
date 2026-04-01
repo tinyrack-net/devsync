@@ -1,6 +1,5 @@
 import { buildCommand } from "@stricli/core";
-import { formatPushResult } from "#app/lib/output.ts";
-import { pushChanges } from "#app/services/push.ts";
+import { type PushResult, pushChanges } from "#app/services/push.ts";
 import {
   createProgressReporter,
   type DevsyncCliContext,
@@ -8,6 +7,17 @@ import {
   print,
   verboseFlag,
 } from "#app/services/terminal/cli-runtime.ts";
+import { output } from "#app/services/terminal/output.ts";
+
+const formatPushOutput = (result: PushResult, verbose = false) => {
+  return output(
+    result.dryRun ? "Dry run: push preview" : "Push complete",
+    `changes: ${result.plainFileCount} plain, ${result.encryptedFileCount} encrypted, ${result.symlinkCount} symlinks, ${result.directoryCount} dirs`,
+    `${result.dryRun ? "cleanup preview" : "cleanup"}: ${result.deletedArtifactCount} ${result.dryRun ? "artifacts would be removed" : "artifacts removed"}`,
+    verbose && `sync dir: ${result.syncDirectory}`,
+    verbose && `config: ${result.configPath}`,
+  );
+};
 
 type PushFlags = {
   dryRun?: boolean;
@@ -23,18 +33,15 @@ const pushCommand = buildCommand<PushFlags, [], DevsyncCliContext>({
   },
   async func(flags) {
     const verbose = isVerbose(flags.verbose);
-    const output = formatPushResult(
-      await pushChanges(
-        {
-          dryRun: flags.dryRun ?? false,
-          profile: flags.profile,
-        },
-        createProgressReporter(verbose),
-      ),
-      { verbose },
+    const result = await pushChanges(
+      {
+        dryRun: flags.dryRun ?? false,
+        profile: flags.profile,
+      },
+      createProgressReporter(verbose),
     );
 
-    print(output);
+    print(formatPushOutput(result, verbose));
   },
   parameters: {
     flags: {

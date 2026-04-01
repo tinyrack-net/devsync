@@ -1,6 +1,5 @@
 import { buildCommand } from "@stricli/core";
-import { formatPullResult } from "#app/lib/output.ts";
-import { pullChanges } from "#app/services/pull.ts";
+import { type PullResult, pullChanges } from "#app/services/pull.ts";
 import {
   createProgressReporter,
   type DevsyncCliContext,
@@ -8,6 +7,17 @@ import {
   print,
   verboseFlag,
 } from "#app/services/terminal/cli-runtime.ts";
+import { output } from "#app/services/terminal/output.ts";
+
+const formatPullOutput = (result: PullResult, verbose = false) => {
+  return output(
+    result.dryRun ? "Dry run: pull preview" : "Pull complete",
+    `changes: ${result.plainFileCount} plain, ${result.decryptedFileCount} decrypted, ${result.symlinkCount} symlinks, ${result.directoryCount} dirs`,
+    `${result.dryRun ? "cleanup preview" : "cleanup"}: ${result.deletedLocalCount} ${result.dryRun ? "local paths would be removed" : "local paths removed"}`,
+    verbose && `sync dir: ${result.syncDirectory}`,
+    verbose && `config: ${result.configPath}`,
+  );
+};
 
 type PullFlags = {
   dryRun?: boolean;
@@ -23,18 +33,15 @@ const pullCommand = buildCommand<PullFlags, [], DevsyncCliContext>({
   },
   async func(flags) {
     const verbose = isVerbose(flags.verbose);
-    const output = formatPullResult(
-      await pullChanges(
-        {
-          dryRun: flags.dryRun ?? false,
-          profile: flags.profile,
-        },
-        createProgressReporter(verbose),
-      ),
-      { verbose },
+    const result = await pullChanges(
+      {
+        dryRun: flags.dryRun ?? false,
+        profile: flags.profile,
+      },
+      createProgressReporter(verbose),
     );
 
-    print(output);
+    print(formatPullOutput(result, verbose));
   },
   parameters: {
     flags: {

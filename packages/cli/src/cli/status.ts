@@ -1,6 +1,9 @@
 import { buildCommand } from "@stricli/core";
-import { formatStatusResult } from "#app/lib/output.ts";
-import { getStatus } from "#app/services/status.ts";
+import {
+  getStatus,
+  type StatusEntry,
+  type StatusResult,
+} from "#app/services/status.ts";
 import {
   createProgressReporter,
   type DevsyncCliContext,
@@ -8,6 +11,37 @@ import {
   print,
   verboseFlag,
 } from "#app/services/terminal/cli-runtime.ts";
+import { output } from "#app/services/terminal/output.ts";
+
+const formatStatusEntry = (entry: StatusEntry) => {
+  return `- ${entry.repoPath} -> ${entry.localPath} (${entry.kind}, ${entry.mode}${entry.profiles.length === 0 ? "" : `, profiles: ${entry.profiles.join(", ")}`})`;
+};
+
+const formatPlanPreview = (label: string, preview: readonly string[]) => {
+  return `${label}: ${preview.length === 0 ? "none" : preview.join(", ")}`;
+};
+
+const formatStatusOutput = (result: StatusResult, verbose = false) => {
+  return output(
+    "Sync status",
+    `profile: ${result.activeProfile ?? "none"}`,
+    `tracked: ${result.entryCount} entries, ${result.recipientCount} recipients`,
+    `push: ${result.push.plainFileCount} plain, ${result.push.encryptedFileCount} encrypted, ${result.push.symlinkCount} symlinks, ${result.push.directoryCount} dirs, ${result.push.deletedArtifactCount} stale`,
+    `pull: ${result.pull.plainFileCount} plain, ${result.pull.decryptedFileCount} decrypted, ${result.pull.symlinkCount} symlinks, ${result.pull.directoryCount} dirs, ${result.pull.deletedLocalCount} remove`,
+    verbose && formatPlanPreview("push preview", result.push.preview),
+    verbose && formatPlanPreview("pull preview", result.pull.preview),
+    ...(verbose
+      ? [
+          "entries:",
+          ...(result.entries.length === 0
+            ? ["- none"]
+            : result.entries.map((entry) => formatStatusEntry(entry))),
+          `sync dir: ${result.syncDirectory}`,
+          `config: ${result.configPath}`,
+        ]
+      : []),
+  );
+};
 
 type StatusFlags = {
   profile?: string;
@@ -22,15 +56,12 @@ const statusCommand = buildCommand<StatusFlags, [], DevsyncCliContext>({
   },
   async func(flags) {
     const verbose = isVerbose(flags.verbose);
-    const output = formatStatusResult(
-      await getStatus({
-        profile: flags.profile,
-        reporter: createProgressReporter(verbose),
-      }),
-      { verbose },
-    );
+    const result = await getStatus({
+      profile: flags.profile,
+      reporter: createProgressReporter(verbose),
+    });
 
-    print(output);
+    print(formatStatusOutput(result, verbose));
   },
   parameters: {
     flags: {

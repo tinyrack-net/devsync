@@ -1,15 +1,25 @@
 import { buildCommand } from "@stricli/core";
-import { formatUntrackResult } from "#app/lib/output.ts";
 import {
   type DevsyncCliContext,
   isVerbose,
   print,
   verboseFlag,
 } from "#app/services/terminal/cli-runtime.ts";
-import { untrackTarget } from "#app/services/untrack.ts";
+import { output } from "#app/services/terminal/output.ts";
+import { type UntrackResult, untrackTarget } from "#app/services/untrack.ts";
 
 type UntrackFlags = {
   verbose?: boolean;
+};
+
+const formatUntrackOutput = (result: UntrackResult, verbose = false) => {
+  return output(
+    `Stopped tracking ${result.repoPath}`,
+    `artifacts: ${result.plainArtifactCount} plain, ${result.secretArtifactCount} secret`,
+    verbose && `local: ${result.localPath}`,
+    verbose && `sync dir: ${result.syncDirectory}`,
+    verbose && `config: ${result.configPath}`,
+  );
 };
 
 const untrackCommand = buildCommand<UntrackFlags, [string], DevsyncCliContext>({
@@ -19,17 +29,15 @@ const untrackCommand = buildCommand<UntrackFlags, [string], DevsyncCliContext>({
       "Remove a tracked root entry or a nested override from devsync configuration. This only updates the sync config; actual file changes happen on the next push or pull. Use a local path to remove the main tracked target, or use a repository-relative child path inside a tracked directory to remove only that override.",
   },
   async func(flags, target) {
-    const output = formatUntrackResult(
-      await untrackTarget(
-        {
-          target,
-        },
-        process.cwd(),
-      ),
-      { verbose: isVerbose(flags.verbose) },
+    const verbose = isVerbose(flags.verbose);
+    const result = await untrackTarget(
+      {
+        target,
+      },
+      process.cwd(),
     );
 
-    print(output);
+    print(formatUntrackOutput(result, verbose));
   },
   parameters: {
     flags: {

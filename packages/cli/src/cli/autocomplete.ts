@@ -5,7 +5,6 @@ import {
   proposeCompletions,
 } from "@stricli/core";
 
-import { output } from "#app/lib/output.ts";
 import {
   BASH_AUTOCOMPLETE_SCRIPT,
   POWERSHELL_AUTOCOMPLETE_SCRIPT,
@@ -16,6 +15,7 @@ import {
   type DevsyncCliContext,
   print,
 } from "#app/services/terminal/cli-runtime.ts";
+import { output } from "#app/services/terminal/output.ts";
 
 type EmptyFlags = Record<never, never>;
 

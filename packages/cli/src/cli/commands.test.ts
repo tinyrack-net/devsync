@@ -7,15 +7,6 @@ const mocked = vi.hoisted(() => ({
   assignProfiles: vi.fn(),
   clearActiveProfile: vi.fn(),
   createProgressReporter: vi.fn(),
-  formatTrackResult: vi.fn(),
-  formatDoctorResult: vi.fn(),
-  formatInitResult: vi.fn(),
-  formatProfileListResult: vi.fn(),
-  formatProfileUpdateResult: vi.fn(),
-  formatPullResult: vi.fn(),
-  formatPushResult: vi.fn(),
-  formatSetModeResult: vi.fn(),
-  formatStatusResult: vi.fn(),
   getStatus: vi.fn(),
   initializeSyncDirectory: vi.fn(),
   launchShellInDirectory: vi.fn(),
@@ -26,12 +17,12 @@ const mocked = vi.hoisted(() => ({
   promptForSecret: vi.fn(),
   pullChanges: vi.fn(),
   pushChanges: vi.fn(),
+  resolveConfiguredIdentityFile: vi.fn(),
   resolveConfiguredAbsolutePath: vi.fn(),
   resolveDevsyncSyncDirectory: vi.fn(),
   runDoctorChecks: vi.fn(),
   setTargetMode: vi.fn(),
   trackTarget: vi.fn(),
-  formatUntrackResult: vi.fn(),
   untrackTarget: vi.fn(),
   setActiveProfile: vi.fn(),
 }));
@@ -45,25 +36,16 @@ vi.mock("#app/config/xdg.ts", () => ({
   resolveDevsyncSyncDirectory: mocked.resolveDevsyncSyncDirectory,
 }));
 
+vi.mock("#app/config/identity-file.ts", () => ({
+  resolveConfiguredIdentityFile: mocked.resolveConfiguredIdentityFile,
+}));
+
 vi.mock("#app/lib/env.ts", () => ({
   ENV: {},
 }));
 
 vi.mock("#app/lib/filesystem.ts", () => ({
   pathExists: mocked.pathExists,
-}));
-
-vi.mock("#app/lib/output.ts", () => ({
-  formatTrackResult: mocked.formatTrackResult,
-  formatDoctorResult: mocked.formatDoctorResult,
-  formatInitResult: mocked.formatInitResult,
-  formatProfileListResult: mocked.formatProfileListResult,
-  formatProfileUpdateResult: mocked.formatProfileUpdateResult,
-  formatPullResult: mocked.formatPullResult,
-  formatPushResult: mocked.formatPushResult,
-  formatSetModeResult: mocked.formatSetModeResult,
-  formatStatusResult: mocked.formatStatusResult,
-  formatUntrackResult: mocked.formatUntrackResult,
 }));
 
 vi.mock("#app/services/track.ts", () => ({
@@ -174,34 +156,148 @@ beforeEach(() => {
   progressReporter.verbose = false;
 
   mocked.createProgressReporter.mockReturnValue(progressReporter);
-  mocked.formatTrackResult.mockReturnValue("track output");
-  mocked.formatDoctorResult.mockReturnValue("doctor output");
-  mocked.formatUntrackResult.mockReturnValue("untrack output");
-  mocked.formatInitResult.mockReturnValue("init output");
-  mocked.formatProfileListResult.mockReturnValue("profile list output");
-  mocked.formatProfileUpdateResult.mockReturnValue("profile update output");
-  mocked.formatPullResult.mockReturnValue("pull output");
-  mocked.formatPushResult.mockReturnValue("push output");
-  mocked.formatSetModeResult.mockReturnValue("set output");
-  mocked.formatStatusResult.mockReturnValue("status output");
+  mocked.resolveConfiguredIdentityFile.mockReturnValue("/tmp/keys.txt");
   mocked.resolveConfiguredAbsolutePath.mockReturnValue("/tmp/keys.txt");
   mocked.resolveDevsyncSyncDirectory.mockReturnValue("/tmp/devsync");
   mocked.pathExists.mockResolvedValue(true);
   mocked.promptForSecret.mockResolvedValue(undefined);
-  mocked.initializeSyncDirectory.mockResolvedValue({ step: "init" });
-  mocked.trackTarget.mockResolvedValue({ step: "track" });
-  mocked.setTargetMode.mockResolvedValue({ step: "set" });
+  mocked.initializeSyncDirectory.mockResolvedValue({
+    alreadyInitialized: false,
+    configPath: "/tmp/config.json",
+    entryCount: 0,
+    generatedIdentity: false,
+    gitAction: "cloned",
+    gitSource: "git@example.com:dotfiles.git",
+    identityFile: "/tmp/keys.txt",
+    recipientCount: 1,
+    syncDirectory: "/tmp/devsync",
+  });
+  mocked.trackTarget.mockResolvedValue({
+    alreadyTracked: false,
+    changed: true,
+    configPath: "/tmp/config.json",
+    kind: "file",
+    localPath: "/tmp/home/.gitconfig",
+    mode: "secret",
+    profiles: ["work"],
+    repoPath: "profiles/work/.gitconfig",
+    syncDirectory: "/tmp/devsync",
+  });
+  mocked.setTargetMode.mockResolvedValue({
+    action: "updated",
+    configPath: "/tmp/config.json",
+    entryRepoPath: ".config/nvim",
+    localPath: "/tmp/home/.config/nvim",
+    mode: "ignore",
+    repoPath: ".config/nvim",
+    syncDirectory: "/tmp/devsync",
+  });
   mocked.assignProfiles.mockResolvedValue(undefined);
-  mocked.listProfiles.mockResolvedValue({ step: "list" });
-  mocked.setActiveProfile.mockResolvedValue({ step: "use" });
-  mocked.clearActiveProfile.mockResolvedValue({ step: "clear" });
-  mocked.pullChanges.mockResolvedValue({ step: "pull" });
-  mocked.pushChanges.mockResolvedValue({ step: "push" });
-  mocked.getStatus.mockResolvedValue({ step: "status" });
-  mocked.untrackTarget.mockResolvedValue({ step: "untrack" });
+  mocked.listProfiles.mockResolvedValue({
+    activeProfile: "work",
+    activeProfileMode: "single",
+    assignments: [
+      {
+        entryLocalPath: "/tmp/home/.gitconfig",
+        entryRepoPath: ".gitconfig",
+        profiles: ["work"],
+      },
+    ],
+    availableProfiles: ["personal", "work"],
+    globalConfigExists: true,
+    globalConfigPath: "/tmp/global-config.json",
+    syncDirectory: "/tmp/devsync",
+  });
+  mocked.setActiveProfile.mockResolvedValue({
+    action: "use",
+    activeProfile: "work",
+    globalConfigPath: "/tmp/global-config.json",
+    profile: "work",
+    syncDirectory: "/tmp/devsync",
+  });
+  mocked.clearActiveProfile.mockResolvedValue({
+    action: "clear",
+    globalConfigPath: "/tmp/global-config.json",
+    syncDirectory: "/tmp/devsync",
+  });
+  mocked.pullChanges.mockResolvedValue({
+    configPath: "/tmp/config.json",
+    decryptedFileCount: 2,
+    deletedLocalCount: 1,
+    directoryCount: 1,
+    dryRun: true,
+    plainFileCount: 3,
+    symlinkCount: 0,
+    syncDirectory: "/tmp/devsync",
+  });
+  mocked.pushChanges.mockResolvedValue({
+    configPath: "/tmp/config.json",
+    deletedArtifactCount: 2,
+    directoryCount: 1,
+    dryRun: true,
+    encryptedFileCount: 2,
+    plainFileCount: 1,
+    symlinkCount: 0,
+    syncDirectory: "/tmp/devsync",
+  });
+  mocked.getStatus.mockResolvedValue({
+    activeProfile: "work",
+    configPath: "/tmp/config.json",
+    entries: [
+      {
+        kind: "file",
+        localPath: "/tmp/home/.gitconfig",
+        mode: "secret",
+        profiles: ["work"],
+        repoPath: ".gitconfig",
+      },
+    ],
+    entryCount: 1,
+    pull: {
+      configPath: "/tmp/config.json",
+      decryptedFileCount: 2,
+      deletedLocalCount: 1,
+      directoryCount: 1,
+      dryRun: true,
+      plainFileCount: 3,
+      preview: [".gitconfig"],
+      symlinkCount: 0,
+      syncDirectory: "/tmp/devsync",
+    },
+    push: {
+      configPath: "/tmp/config.json",
+      deletedArtifactCount: 2,
+      directoryCount: 1,
+      dryRun: true,
+      encryptedFileCount: 2,
+      plainFileCount: 1,
+      preview: [".gitconfig"],
+      symlinkCount: 0,
+      syncDirectory: "/tmp/devsync",
+    },
+    recipientCount: 1,
+    syncDirectory: "/tmp/devsync",
+  });
+  mocked.untrackTarget.mockResolvedValue({
+    configPath: "/tmp/config.json",
+    localPath: "/tmp/home/.ssh/config",
+    plainArtifactCount: 3,
+    repoPath: ".ssh/config",
+    secretArtifactCount: 0,
+    syncDirectory: "/tmp/devsync",
+  });
   mocked.runDoctorChecks.mockResolvedValue({
+    checks: [
+      {
+        checkId: "git",
+        detail: "Sync directory is a git repository.",
+        level: "ok",
+      },
+    ],
+    configPath: "/tmp/config.json",
     hasFailures: false,
-    step: "doctor",
+    hasWarnings: false,
+    syncDirectory: "/tmp/devsync",
   });
   mocked.mkdir.mockResolvedValue(undefined);
   mocked.launchShellInDirectory.mockResolvedValue(undefined);
@@ -235,11 +331,12 @@ describe("CLI command modules", () => {
       },
       progressReporter,
     );
-    expect(mocked.formatInitResult).toHaveBeenCalledWith(
-      { step: "init" },
-      { verbose: true },
+    expect(mocked.print).toHaveBeenCalledWith(
+      expect.stringContaining("Sync directory initialized"),
     );
-    expect(mocked.print).toHaveBeenCalledWith("init output");
+    expect(mocked.print).toHaveBeenCalledWith(
+      expect.stringContaining("config: /tmp/config.json"),
+    );
   });
 
   it("prompts for a key and requests generation when the prompt is blank", async () => {
@@ -284,11 +381,12 @@ describe("CLI command modules", () => {
       },
       process.cwd(),
     );
-    expect(mocked.formatTrackResult).toHaveBeenCalledWith(
-      { step: "track" },
-      { verbose: true },
+    expect(mocked.print).toHaveBeenCalledWith(
+      expect.stringContaining("Started tracking profiles/work/.gitconfig"),
     );
-    expect(mocked.print).toHaveBeenCalledWith("track output");
+    expect(mocked.print).toHaveBeenCalledWith(
+      expect.stringContaining("profiles: work"),
+    );
   });
 
   it("rejects --repo-path when tracking multiple targets", async () => {
@@ -336,11 +434,9 @@ describe("CLI command modules", () => {
       },
       process.cwd(),
     );
-    expect(mocked.formatSetModeResult).toHaveBeenCalledWith(
-      { step: "set" },
-      { verbose: false },
+    expect(mocked.print).toHaveBeenCalledWith(
+      expect.stringContaining("Updated sync mode for .config/nvim"),
     );
-    expect(mocked.print).toHaveBeenCalledWith("set output");
   });
 
   it("lists, uses, and clears profiles", async () => {
@@ -351,9 +447,18 @@ describe("CLI command modules", () => {
     expect(mocked.listProfiles).toHaveBeenCalledTimes(1);
     expect(mocked.setActiveProfile).toHaveBeenCalledWith("work");
     expect(mocked.clearActiveProfile).toHaveBeenCalledTimes(1);
-    expect(mocked.print).toHaveBeenNthCalledWith(1, "profile list output");
-    expect(mocked.print).toHaveBeenNthCalledWith(2, "profile update output");
-    expect(mocked.print).toHaveBeenNthCalledWith(3, "profile update output");
+    expect(mocked.print).toHaveBeenNthCalledWith(
+      1,
+      expect.stringContaining("available: personal, work"),
+    );
+    expect(mocked.print).toHaveBeenNthCalledWith(
+      2,
+      expect.stringContaining("Active profile set to work"),
+    );
+    expect(mocked.print).toHaveBeenNthCalledWith(
+      3,
+      expect.stringContaining("Active profile cleared"),
+    );
   });
 
   it("passes pull, push, and status flags through with a shared reporter", async () => {
@@ -387,9 +492,15 @@ describe("CLI command modules", () => {
       profile: "work",
       reporter: progressReporter,
     });
-    expect(mocked.print).toHaveBeenCalledWith("pull output");
-    expect(mocked.print).toHaveBeenCalledWith("push output");
-    expect(mocked.print).toHaveBeenCalledWith("status output");
+    expect(mocked.print).toHaveBeenCalledWith(
+      expect.stringContaining("Dry run: pull preview"),
+    );
+    expect(mocked.print).toHaveBeenCalledWith(
+      expect.stringContaining("Dry run: push preview"),
+    );
+    expect(mocked.print).toHaveBeenCalledWith(
+      expect.stringContaining("Sync status"),
+    );
   });
 
   it("untracks tracked targets relative to the current working directory", async () => {
@@ -401,27 +512,32 @@ describe("CLI command modules", () => {
       },
       process.cwd(),
     );
-    expect(mocked.formatUntrackResult).toHaveBeenCalledWith(
-      { step: "untrack" },
-      { verbose: true },
+    expect(mocked.print).toHaveBeenCalledWith(
+      expect.stringContaining("Stopped tracking .ssh/config"),
     );
-    expect(mocked.print).toHaveBeenCalledWith("untrack output");
   });
 
   it("marks doctor failures through process.exitCode", async () => {
     mocked.runDoctorChecks.mockResolvedValue({
+      checks: [
+        {
+          checkId: "age",
+          detail: "Age identity file is missing: /tmp/keys.txt.",
+          level: "fail",
+        },
+      ],
+      configPath: "/tmp/config.json",
       hasFailures: true,
-      step: "doctor",
+      hasWarnings: false,
+      syncDirectory: "/tmp/devsync",
     });
 
     await runCommand(doctorCommand, { verbose: true });
 
     expect(mocked.runDoctorChecks).toHaveBeenCalledWith(progressReporter);
-    expect(mocked.formatDoctorResult).toHaveBeenCalledWith(
-      { hasFailures: true, step: "doctor" },
-      { verbose: true },
+    expect(mocked.print).toHaveBeenCalledWith(
+      expect.stringContaining("Doctor found issues"),
     );
-    expect(mocked.print).toHaveBeenCalledWith("doctor output");
     expect(process.exitCode).toBe(1);
   });
 

@@ -164,9 +164,9 @@ describe("sync CLI e2e", () => {
       input: "\n",
     });
 
-    expect(stripAnsi(result.stdout)).toContain("Initialized sync directory");
+    expect(stripAnsi(result.stdout)).toContain("Sync directory initialized");
     expect(stripAnsi(result.stdout)).toContain(
-      "age       generated a new local identity",
+      "age: generated a new local identity",
     );
     expect(
       await readFile(join(xdgConfigHome, "devsync", "keys.txt"), "utf8"),
@@ -219,10 +219,8 @@ describe("sync CLI e2e", () => {
       },
     );
 
-    expect(stripAnsi(result.stdout)).toContain("Initialized sync directory");
-    expect(stripAnsi(result.stdout)).toContain(
-      "age       using existing identity",
-    );
+    expect(stripAnsi(result.stdout)).toContain("Sync directory initialized");
+    expect(stripAnsi(result.stdout)).toContain("age: using existing identity");
     expect(
       await readFile(join(xdgConfigHome, "devsync", "keys.txt"), "utf8"),
     ).toBe(`${ageKeys.identity}\n`);
@@ -271,7 +269,7 @@ describe("sync CLI e2e", () => {
       },
     );
 
-    expect(stripAnsi(result.stdout)).toContain("Initialized sync directory");
+    expect(stripAnsi(result.stdout)).toContain("Sync directory initialized");
     expect(stripAnsi(result.stdout)).not.toContain(
       "Sync directory already initialized",
     );
@@ -306,7 +304,7 @@ describe("sync CLI e2e", () => {
       input: `${ageKeys.identity}\n`,
     });
 
-    expect(stripAnsi(result.stdout)).toContain("Initialized sync directory");
+    expect(stripAnsi(result.stdout)).toContain("Sync directory initialized");
     expect(
       await readFile(join(xdgConfigHome, "devsync", "keys.txt"), "utf8"),
     ).toBe(`${ageKeys.identity}\n`);
@@ -353,7 +351,7 @@ describe("sync CLI e2e", () => {
       input: `${ageKeys.identity}\n`,
     });
 
-    expect(stripAnsi(result.stdout)).toContain("Initialized sync directory");
+    expect(stripAnsi(result.stdout)).toContain("Sync directory initialized");
     expect(stripAnsi(result.stdout)).not.toContain(
       "Sync directory already initialized",
     );
@@ -412,7 +410,7 @@ describe("sync CLI e2e", () => {
       session.write(`${ageKeys.identity}\r`);
 
       const output = await session.waitFor(
-        "Initialized sync directory",
+        "Sync directory initialized",
         10_000,
       );
 
@@ -491,10 +489,14 @@ describe("sync CLI e2e", () => {
       }>;
     };
 
-    expect(stripAnsi(trackResult.stdout)).toContain("Tracked sync target");
-    expect(stripAnsi(trackResult.stdout)).toContain("mode      secret");
-    expect(stripAnsi(exactRuleResult.stdout)).toContain("Tracked sync target");
-    expect(stripAnsi(subtreeRuleResult.stdout)).toContain("mode      ignore");
+    expect(stripAnsi(trackResult.stdout)).toContain(
+      "Started tracking .config/mytool",
+    );
+    expect(stripAnsi(trackResult.stdout)).toContain("mode: secret");
+    expect(stripAnsi(exactRuleResult.stdout)).toContain(
+      "Started tracking .config/mytool/public.json",
+    );
+    expect(stripAnsi(subtreeRuleResult.stdout)).toContain("mode: ignore");
     expect(configAfterSet.entries).toMatchObject([
       {
         kind: "directory",
@@ -515,7 +517,7 @@ describe("sync CLI e2e", () => {
     const untrackResult = await runCli(["untrack", ".config/mytool"], { env });
 
     expect(stripAnsi(untrackResult.stdout)).toContain(
-      "Untracked .config/mytool",
+      "Stopped tracking .config/mytool",
     );
 
     await runCli(["untrack", ".config/mytool/cache"], { env });
@@ -626,7 +628,10 @@ describe("sync CLI e2e", () => {
     );
 
     expect(result.exitCode).toBe(0);
-    expect(stripAnsi(result.stdout)).toContain("mode      secret");
+    expect(stripAnsi(result.stdout)).toContain(
+      "Updated tracking for .config/mytool",
+    );
+    expect(stripAnsi(result.stdout)).toContain("mode: secret");
   });
 
   it("streams push progress to stderr before the command exits", async () => {
@@ -660,7 +665,7 @@ describe("sync CLI e2e", () => {
     );
     await runCli(["track", bundleDirectory], { env });
 
-    const result = await runCliStreaming(["push"], { env });
+    const result = await runCliStreaming(["push", "--verbose"], { env });
 
     expect(
       result.exitCode,
@@ -668,6 +673,6 @@ describe("sync CLI e2e", () => {
     ).toBe(0);
     expect(stripAnsi(result.firstStderr)).toContain("Starting push...");
     expect(stripAnsi(result.stderr)).toContain("Scanning local files...");
-    expect(stripAnsi(result.stdout)).toContain("Pushed to sync repository");
+    expect(stripAnsi(result.stdout)).toContain("Push complete");
   });
 });

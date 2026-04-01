@@ -5,7 +5,7 @@ const mocked = vi.hoisted(() => ({
   writeStdout: vi.fn(),
 }));
 
-vi.mock("#app/lib/output.ts", () => ({
+vi.mock("#app/services/terminal/output.ts", () => ({
   writeStdout: mocked.writeStdout,
 }));
 

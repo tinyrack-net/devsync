@@ -1,10 +1,10 @@
 import { buildCommand } from "@stricli/core";
-import { resolveConfiguredAbsolutePath } from "#app/config/xdg.ts";
+import { resolveConfiguredIdentityFile } from "#app/config/identity-file.ts";
 import { ENV } from "#app/lib/env.ts";
 import { pathExists } from "#app/lib/filesystem.ts";
-import { formatInitResult } from "#app/lib/output.ts";
 import {
   defaultSyncIdentityFile,
+  type InitResult,
   initializeSyncDirectory,
 } from "#app/services/init.ts";
 import {
@@ -14,6 +14,7 @@ import {
   print,
   verboseFlag,
 } from "#app/services/terminal/cli-runtime.ts";
+import { output } from "#app/services/terminal/output.ts";
 import { promptForSecret } from "#app/services/terminal/prompt.ts";
 
 type InitFlags = {
@@ -21,6 +22,37 @@ type InitFlags = {
   key?: string;
   recipient?: readonly string[];
   verbose?: boolean;
+};
+
+const formatInitGitSummary = (result: InitResult) => {
+  switch (result.gitAction) {
+    case "cloned":
+      return `cloned from ${result.gitSource}`;
+    case "initialized":
+      return "initialized new repository";
+    default:
+      return "using existing repository";
+  }
+};
+
+const formatInitAgeSummary = (result: InitResult) => {
+  return result.generatedIdentity
+    ? "generated a new local identity"
+    : "using existing identity";
+};
+
+const formatInitOutput = (result: InitResult, verbose = false) => {
+  return output(
+    result.alreadyInitialized
+      ? "Sync directory already initialized"
+      : "Sync directory initialized",
+    `git: ${formatInitGitSummary(result)}`,
+    `age: ${formatInitAgeSummary(result)}`,
+    `sync dir: ${result.syncDirectory}`,
+    `entries: ${result.entryCount}, recipients: ${result.recipientCount}`,
+    verbose && `config: ${result.configPath}`,
+    verbose && `identity: ${result.identityFile}`,
+  );
 };
 
 const initCommand = buildCommand<InitFlags, [string?], DevsyncCliContext>({
@@ -35,9 +67,12 @@ const initCommand = buildCommand<InitFlags, [string?], DevsyncCliContext>({
     const requestedKey = flags.key?.trim();
     const configuredIdentityFile =
       flags.identity?.trim() || defaultSyncIdentityFile;
-    const identityFile = resolveConfiguredAbsolutePath(
+    const identityFile = resolveConfiguredIdentityFile(
       configuredIdentityFile,
       ENV,
+      {
+        source: "Requested identity file",
+      },
     );
     const shouldPrompt =
       requestedKey === undefined && !(await pathExists(identityFile));
@@ -47,26 +82,23 @@ const initCommand = buildCommand<InitFlags, [string?], DevsyncCliContext>({
         )
       : undefined;
     const trimmedPromptedKey = promptedKey?.trim();
-    const output = formatInitResult(
-      await initializeSyncDirectory(
-        {
-          ageIdentity:
-            requestedKey !== undefined
-              ? requestedKey
-              : trimmedPromptedKey !== undefined && trimmedPromptedKey !== ""
-                ? trimmedPromptedKey
-                : undefined,
-          generateAgeIdentity: shouldPrompt && trimmedPromptedKey === "",
-          identityFile: flags.identity,
-          recipients: flags.recipient ?? [],
-          repository,
-        },
-        progress,
-      ),
-      { verbose },
+    const result = await initializeSyncDirectory(
+      {
+        ageIdentity:
+          requestedKey !== undefined
+            ? requestedKey
+            : trimmedPromptedKey !== undefined && trimmedPromptedKey !== ""
+              ? trimmedPromptedKey
+              : undefined,
+        generateAgeIdentity: shouldPrompt && trimmedPromptedKey === "",
+        identityFile: flags.identity,
+        recipients: flags.recipient ?? [],
+        repository,
+      },
+      progress,
     );
 
-    print(output);
+    print(formatInitOutput(result, verbose));
   },
   parameters: {
     flags: {

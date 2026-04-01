@@ -3,8 +3,7 @@ import * as os from "node:os";
 import * as path from "node:path";
 
 import type { TypedFlagParameter } from "@stricli/core";
-
-import { writeStdout } from "#app/lib/output.ts";
+import { writeStdout } from "#app/services/terminal/output.ts";
 import { createCliProgressReporter } from "#app/services/terminal/progress-reporter.ts";
 
 export type DevsyncCliContext = {
