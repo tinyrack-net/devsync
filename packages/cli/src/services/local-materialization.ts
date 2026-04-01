@@ -1,6 +1,6 @@
 import { chmod, lstat, mkdir, mkdtemp, rm, symlink } from "node:fs/promises";
 import { basename, dirname, join, posix } from "node:path";
-
+import type { ConsolaInstance } from "consola";
 import {
   collectChildEntryPaths,
   type ResolvedSyncConfig,
@@ -20,11 +20,6 @@ import {
   writeSymlinkNode,
 } from "#app/lib/filesystem.ts";
 import { buildDirectoryKey } from "#app/lib/path.ts";
-import {
-  type ProgressReporter,
-  reportDetail,
-  reportPhase,
-} from "#app/lib/progress.ts";
 import type { FileLikeSnapshotNode, SnapshotNode } from "./local-snapshot.ts";
 
 type MaterializationConfig = ResolvedSyncConfig &
@@ -33,23 +28,19 @@ type MaterializationConfig = ResolvedSyncConfig &
   }>;
 
 const reportPullPlanningProgress = (
-  reporter: ProgressReporter | undefined,
+  reporter: ConsolaInstance | undefined,
   state: { scannedLocalNodeCount: number },
   repoPath: string,
 ) => {
   state.scannedLocalNodeCount += 1;
 
-  if (reporter?.verbose) {
-    reportDetail(
-      reporter,
-      `scanned local path ${repoPath} while planning pull`,
-    );
+  if ((reporter?.level ?? 0) >= 4) {
+    reporter?.verbose(`scanned local path ${repoPath} while planning pull`);
     return;
   }
 
   if (state.scannedLocalNodeCount % 100 === 0) {
-    reportPhase(
-      reporter,
+    reporter?.start(
       `Scanned ${state.scannedLocalNodeCount} local paths while planning pull...`,
     );
   }
@@ -76,7 +67,7 @@ const copyIgnoredLocalNodesToDirectory = async (
   targetDirectory: string,
   config: MaterializationConfig,
   repoPathPrefix: string,
-  reporter?: ProgressReporter,
+  reporter?: ConsolaInstance,
 ): Promise<number> => {
   const stats = await getPathStats(sourceDirectory);
 
@@ -123,7 +114,7 @@ const copyIgnoredLocalNodesToDirectory = async (
 
     await mkdir(dirname(targetPath), { recursive: true });
     await copyFilesystemNode(sourcePath, targetPath, entryStats);
-    reportDetail(reporter, `preserved ignored local path ${repoPath}`);
+    reporter?.verbose(`preserved ignored local path ${repoPath}`);
     copiedNodeCount += 1;
   }
 
@@ -133,10 +124,10 @@ const copyIgnoredLocalNodesToDirectory = async (
 const stageAndReplaceFilePath = async (
   targetPath: string,
   node: FileLikeSnapshotNode,
-  reporter?: ProgressReporter,
+  reporter?: ConsolaInstance,
   fileMode?: number,
 ) => {
-  reportDetail(reporter, `staging local file ${targetPath}`);
+  reporter?.verbose(`staging local file ${targetPath}`);
   await mkdir(dirname(targetPath), { recursive: true });
   const stagingDirectory = await mkdtemp(
     join(dirname(targetPath), `.${basename(targetPath)}.devsync-sync-`),
@@ -160,7 +151,7 @@ const stageAndReplaceMergedDirectoryPath = async (
   entry: ResolvedSyncConfigEntry,
   config: MaterializationConfig,
   desiredNodes: ReadonlyMap<string, FileLikeSnapshotNode>,
-  reporter?: ProgressReporter,
+  reporter?: ConsolaInstance,
   fileMode?: number,
 ) => {
   await mkdir(dirname(entry.localPath), { recursive: true });
@@ -200,14 +191,12 @@ const stageAndReplaceMergedDirectoryPath = async (
 
       stagedNodeCount += 1;
 
-      if (reporter?.verbose) {
-        reportDetail(
-          reporter,
+      if ((reporter?.level ?? 0) >= 4) {
+        reporter?.verbose(
           `staged local node ${posix.join(entry.repoPath, relativePath)}`,
         );
       } else if (stagedNodeCount % 100 === 0) {
-        reportPhase(
-          reporter,
+        reporter?.start(
           `Staged ${stagedNodeCount} local nodes for ${entry.repoPath}...`,
         );
       }
@@ -232,13 +221,13 @@ const stageAndReplaceMergedDirectoryPath = async (
 export const buildEntryMaterialization = (
   entry: ResolvedSyncConfigEntry,
   snapshot: ReadonlyMap<string, SnapshotNode>,
-  reporter?: ProgressReporter,
+  reporter?: ConsolaInstance,
 ): EntryMaterialization => {
   if (entry.kind === "file") {
     const node = snapshot.get(entry.repoPath);
 
     if (node === undefined) {
-      reportDetail(reporter, `planned an absent local file ${entry.repoPath}`);
+      reporter?.verbose(`planned an absent local file ${entry.repoPath}`);
       return {
         desiredKeys: new Set<string>(),
         type: "absent",
@@ -256,7 +245,7 @@ export const buildEntryMaterialization = (
       );
     }
 
-    reportDetail(reporter, `planned a local file ${entry.repoPath}`);
+    reporter?.verbose(`planned a local file ${entry.repoPath}`);
     return {
       desiredKeys: new Set<string>([entry.repoPath]),
       node,
@@ -296,10 +285,7 @@ export const buildEntryMaterialization = (
   }
 
   if (rootNode === undefined && nodes.size === 0) {
-    reportDetail(
-      reporter,
-      `planned an absent local directory ${entry.repoPath}`,
-    );
+    reporter?.verbose(`planned an absent local directory ${entry.repoPath}`);
     return {
       desiredKeys,
       type: "absent",
@@ -307,7 +293,7 @@ export const buildEntryMaterialization = (
   }
 
   desiredKeys.add(buildDirectoryKey(entry.repoPath));
-  reportDetail(reporter, `planned a local directory ${entry.repoPath}`);
+  reporter?.verbose(`planned a local directory ${entry.repoPath}`);
 
   return {
     desiredKeys,
@@ -322,7 +308,7 @@ const collectLocalLeafKeys = async (
   keys: Set<string>,
   childEntryPaths: ReadonlySet<string>,
   prefix?: string,
-  reporter?: ProgressReporter,
+  reporter?: ConsolaInstance,
   progressState: { scannedLocalNodeCount: number } = {
     scannedLocalNodeCount: 0,
   },
@@ -379,7 +365,7 @@ export const countDeletedLocalNodes = async (
   desiredKeys: ReadonlySet<string>,
   config: MaterializationConfig,
   existingKeys: Set<string> = new Set<string>(),
-  reporter?: ProgressReporter,
+  reporter?: ConsolaInstance,
 ) => {
   const rule = resolveSyncRule(config, entry.repoPath, config.activeProfile);
 
@@ -412,7 +398,7 @@ export const applyEntryMaterialization = async (
   entry: ResolvedSyncConfigEntry,
   materialization: EntryMaterialization,
   config: MaterializationConfig,
-  reporter?: ProgressReporter,
+  reporter?: ConsolaInstance,
 ) => {
   const rule = resolveSyncRule(config, entry.repoPath, config.activeProfile);
 

@@ -1,69 +1,22 @@
 import { buildCommand } from "@stricli/core";
+import pc from "picocolors";
 import { CONSTANTS } from "#app/config/constants.ts";
 import { DevsyncError } from "#app/lib/error.ts";
 import { assignProfiles } from "#app/services/profile.ts";
-import { type SetModeResult, setTargetMode } from "#app/services/set.ts";
+import { setTargetMode } from "#app/services/set.ts";
 import {
-  createProgressReporter,
   type DevsyncCliContext,
-  isVerbose,
-  print,
   verboseFlag,
 } from "#app/services/terminal/cli-runtime.ts";
-import { output } from "#app/services/terminal/output.ts";
+import { createCliLogger } from "#app/services/terminal/logger.ts";
 import { proposePathCompletions } from "#app/services/terminal/path-completion.ts";
-import { type TrackResult, trackTarget } from "#app/services/track.ts";
+import { trackTarget } from "#app/services/track.ts";
 
 type TrackFlags = {
   mode: "ignore" | "normal" | "secret";
   profile?: readonly string[];
   repoPath?: string;
   verbose?: boolean;
-};
-
-const formatTrackOutput = (result: TrackResult, verbose = false) => {
-  const summary = !result.alreadyTracked
-    ? `Started tracking ${result.repoPath}`
-    : result.changed
-      ? `Updated tracking for ${result.repoPath}`
-      : `${result.repoPath} was already tracked`;
-
-  return output(
-    summary,
-    `target: ${result.localPath}`,
-    `mode: ${result.mode}`,
-    result.profiles.length > 0 && `profiles: ${result.profiles.join(", ")}`,
-    verbose && `kind: ${result.kind}`,
-    verbose && `sync dir: ${result.syncDirectory}`,
-    verbose && `config: ${result.configPath}`,
-  );
-};
-
-const formatSetModeAction = (result: SetModeResult) => {
-  switch (result.action) {
-    case "added":
-      return "added override";
-    case "removed":
-      return "removed override";
-    case "unchanged":
-      return "unchanged";
-    case "updated":
-      return "updated";
-  }
-};
-
-const formatSetModeOutput = (result: SetModeResult, verbose = false) => {
-  return output(
-    result.action === "unchanged"
-      ? `Sync mode unchanged for ${result.repoPath}`
-      : `Updated sync mode for ${result.repoPath}`,
-    `mode: ${result.mode}`,
-    `action: ${formatSetModeAction(result)}`,
-    result.reason === "already-set" && `detail: already ${result.mode}`,
-    verbose && `local: ${result.localPath}`,
-    verbose && `sync dir: ${result.syncDirectory}`,
-    verbose && `config: ${result.configPath}`,
-  );
 };
 
 const trackCommand = buildCommand<TrackFlags, string[], DevsyncCliContext>({
@@ -73,9 +26,9 @@ const trackCommand = buildCommand<TrackFlags, string[], DevsyncCliContext>({
       "Register one or more files or directories inside your home directory so devsync can mirror them into the sync repository. If a target is already tracked, its mode is updated. Targets may also be repository paths inside a tracked directory to create child entries with a specific mode.",
   },
   async func(flags, ...targets) {
-    const verbose = isVerbose(flags.verbose);
+    const verbose = flags.verbose ?? false;
+    const logger = createCliLogger({ verbose });
     const profiles = [...(flags.profile ?? [])];
-    const progress = createProgressReporter(verbose);
     const cwd = process.cwd();
 
     if (flags.repoPath !== undefined && targets.length !== 1) {
@@ -88,12 +41,16 @@ const trackCommand = buildCommand<TrackFlags, string[], DevsyncCliContext>({
       );
     }
 
-    progress.phase(
-      `Processing ${targets.length} sync target${targets.length === 1 ? "" : "s"}...`,
-    );
+    if (verbose) {
+      logger.start(
+        `Processing ${targets.length} sync target${targets.length === 1 ? "" : "s"}...`,
+      );
+    }
 
     for (const target of targets) {
-      progress.phase(`Resolving ${target}...`);
+      if (verbose) {
+        logger.start(`Resolving ${target}...`);
+      }
 
       try {
         const result = await trackTarget(
@@ -108,19 +65,39 @@ const trackCommand = buildCommand<TrackFlags, string[], DevsyncCliContext>({
           cwd,
         );
 
-        print(formatTrackOutput(result, verbose));
+        if (!result.alreadyTracked) {
+          logger.success(`Started tracking ${result.repoPath}`);
+        } else if (result.changed) {
+          logger.success(`Updated tracking for ${result.repoPath}`);
+        } else {
+          logger.info(`${result.repoPath} already tracked`);
+        }
+
+        const profileInfo =
+          result.profiles.length > 0
+            ? ` · profiles: ${result.profiles.join(", ")}`
+            : "";
+        logger.log(
+          `  ${result.localPath} · mode: ${result.mode}${profileInfo}`,
+        );
+
+        if (verbose) {
+          logger.log(pc.dim(`  kind: ${result.kind}`));
+          logger.log(pc.dim(`  sync dir  ${result.syncDirectory}`));
+          logger.log(pc.dim(`  config    ${result.configPath}`));
+        }
       } catch (error: unknown) {
         if (
           flags.repoPath === undefined &&
           error instanceof DevsyncError &&
           error.code === "TARGET_NOT_FOUND"
         ) {
-          progress.phase(`Updating existing target ${target}...`);
+          if (verbose) {
+            logger.start(`Updating existing target ${target}...`);
+          }
+
           const setResult = await setTargetMode(
-            {
-              mode: flags.mode,
-              target,
-            },
+            { mode: flags.mode, target },
             cwd,
           );
 
@@ -132,7 +109,24 @@ const trackCommand = buildCommand<TrackFlags, string[], DevsyncCliContext>({
             );
           }
 
-          print(formatSetModeOutput(setResult, verbose));
+          if (setResult.action === "unchanged") {
+            logger.info(`Sync mode unchanged for ${setResult.repoPath}`);
+          } else {
+            logger.success(`Updated sync mode for ${setResult.repoPath}`);
+          }
+
+          logger.log(`  mode: ${setResult.mode}`);
+
+          if (setResult.reason === "already-set") {
+            logger.log(pc.dim(`  already ${setResult.mode}`));
+          }
+
+          if (verbose) {
+            logger.log(pc.dim(`  local     ${setResult.localPath}`));
+            logger.log(pc.dim(`  sync dir  ${setResult.syncDirectory}`));
+            logger.log(pc.dim(`  config    ${setResult.configPath}`));
+          }
+
           continue;
         }
 

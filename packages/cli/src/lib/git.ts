@@ -1,7 +1,7 @@
 import { execFile, spawn } from "node:child_process";
 import { promisify } from "node:util";
+import type { ConsolaInstance } from "consola";
 import { wrapUnknownError } from "#app/lib/error.ts";
-import type { ProgressReporter } from "#app/lib/progress.ts";
 
 const execFileAsync = promisify(execFile);
 
@@ -46,11 +46,11 @@ const runGitCommand = async (
  * Streams git progress lines to the reporter as complete messages arrive.
  */
 const forwardGitProgressChunk = (
-  reporter: ProgressReporter | undefined,
+  reporter: ConsolaInstance | undefined,
   state: { remainder: string },
   chunk: string,
 ) => {
-  if (!reporter?.verbose) {
+  if (!((reporter?.level ?? 0) >= 4)) {
     return;
   }
 
@@ -63,7 +63,7 @@ const forwardGitProgressChunk = (
     const trimmed = line.trim();
 
     if (trimmed.length > 0) {
-      reporter.detail(`git: ${trimmed}`);
+      reporter?.verbose(`git: ${trimmed}`);
     }
   }
 };
@@ -73,17 +73,17 @@ const forwardGitProgressChunk = (
  * Flushes any final buffered git progress line to the reporter.
  */
 const flushGitProgressChunk = (
-  reporter: ProgressReporter | undefined,
+  reporter: ConsolaInstance | undefined,
   state: { remainder: string },
 ) => {
-  if (!reporter?.verbose) {
+  if (!((reporter?.level ?? 0) >= 4)) {
     return;
   }
 
   const trimmed = state.remainder.trim();
 
   if (trimmed.length > 0) {
-    reporter.detail(`git: ${trimmed}`);
+    reporter?.verbose(`git: ${trimmed}`);
   }
 };
 
@@ -95,7 +95,7 @@ const runStreamingGitCommand = async (
   args: readonly string[],
   options?: Readonly<{
     cwd?: string;
-    reporter?: ProgressReporter;
+    reporter?: ConsolaInstance;
   }>,
 ) => {
   return await new Promise<{
@@ -178,7 +178,7 @@ export const ensureRepository = async (directory: string) => {
 export const initializeRepository = async (
   directory: string,
   source?: string,
-  reporter?: ProgressReporter,
+  reporter?: ConsolaInstance,
 ) => {
   if (source === undefined) {
     await runStreamingGitCommand(["init", "-b", "main", directory], {

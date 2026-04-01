@@ -1,33 +1,14 @@
 import { buildCommand } from "@stricli/core";
-import {
-  clearActiveProfile,
-  type ProfileUpdateResult,
-  setActiveProfile,
-} from "#app/services/profile.ts";
+import pc from "picocolors";
+import { clearActiveProfile, setActiveProfile } from "#app/services/profile.ts";
 import {
   type DevsyncCliContext,
-  isVerbose,
-  print,
   verboseFlag,
 } from "#app/services/terminal/cli-runtime.ts";
-import { output } from "#app/services/terminal/output.ts";
+import { createCliLogger } from "#app/services/terminal/logger.ts";
 
 type ProfileUseFlags = {
   verbose?: boolean;
-};
-
-const formatProfileUseOutput = (
-  result: ProfileUpdateResult,
-  verbose = false,
-) => {
-  return output(
-    result.action === "use"
-      ? `Active profile set to ${result.activeProfile}`
-      : "Active profile cleared",
-    result.warning,
-    verbose && `sync dir: ${result.syncDirectory}`,
-    verbose && `config: ${result.globalConfigPath}`,
-  );
 };
 
 const profileUseCommand = buildCommand<
@@ -41,13 +22,28 @@ const profileUseCommand = buildCommand<
       "Write ~/.config/devsync/settings.json so plain push, pull, status, and doctor commands use the selected profile layer by default. Omit the profile name to clear the active profile.",
   },
   async func(flags, profile) {
-    const verbose = isVerbose(flags.verbose);
+    const verbose = flags.verbose ?? false;
+    const logger = createCliLogger({ verbose });
+
     const result =
       profile !== undefined
         ? await setActiveProfile(profile)
         : await clearActiveProfile();
 
-    print(formatProfileUseOutput(result, verbose));
+    if (result.action === "use") {
+      logger.success(`Active profile set to ${result.activeProfile}`);
+    } else {
+      logger.success("Active profile cleared");
+    }
+
+    if (result.warning) {
+      logger.warn(`  ${result.warning}`);
+    }
+
+    if (verbose) {
+      logger.log(pc.dim(`  sync dir  ${result.syncDirectory}`));
+      logger.log(pc.dim(`  config    ${result.globalConfigPath}`));
+    }
   },
   parameters: {
     flags: {

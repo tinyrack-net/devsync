@@ -1,3 +1,4 @@
+import type { ConsolaInstance } from "consola";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 const mocked = vi.hoisted(() => ({
@@ -175,10 +176,10 @@ describe("pull planning", () => {
 
   it("does not apply ignore-mode entries during pull", async () => {
     const reporter = {
-      detail: vi.fn(),
-      phase: vi.fn(),
-      verbose: false,
-    };
+      level: 3,
+      start: vi.fn(),
+      verbose: vi.fn(),
+    } as unknown as ConsolaInstance;
     const config = {
       age: {
         configuredIdentityFile: "$XDG_CONFIG_HOME/devsync/keys.txt",
@@ -225,8 +226,8 @@ describe("pull planning", () => {
       config,
       reporter,
     );
-    expect(reporter.phase).toHaveBeenCalledWith("Applying .config/app...");
-    expect(reporter.phase).not.toHaveBeenCalledWith(
+    expect(reporter.start).toHaveBeenCalledWith("Applying .config/app...");
+    expect(reporter.start).not.toHaveBeenCalledWith(
       "Applying .config/app/node_modules...",
     );
   });

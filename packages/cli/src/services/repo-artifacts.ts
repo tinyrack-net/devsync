@@ -1,6 +1,6 @@
 import { lstat, mkdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
-
+import type { ConsolaInstance } from "consola";
 import {
   findOwningSyncEntry,
   hasReservedSyncArtifactSuffixSegment,
@@ -18,11 +18,6 @@ import {
   writeSymlinkNode,
 } from "#app/lib/filesystem.ts";
 import { buildDirectoryKey } from "#app/lib/path.ts";
-import {
-  type ProgressReporter,
-  reportDetail,
-  reportPhase,
-} from "#app/lib/progress.ts";
 import type { SnapshotNode } from "./local-snapshot.ts";
 import type { EffectiveSyncConfig } from "./runtime.ts";
 
@@ -154,7 +149,7 @@ export const parseArtifactRelativePath = (relativePath: string) => {
 export const buildRepoArtifacts = async (
   snapshot: ReadonlyMap<string, SnapshotNode>,
   config: ArtifactConfig,
-  reporter?: ProgressReporter,
+  reporter?: ConsolaInstance,
 ) => {
   const artifacts: RepoArtifact[] = [];
   const seenArtifactKeys = new Set<string>();
@@ -176,11 +171,10 @@ export const buildRepoArtifacts = async (
 
     const relativePath = resolveArtifactRelativePath(artifact);
 
-    if (reporter?.verbose) {
-      reportDetail(reporter, `prepared repository artifact ${relativePath}`);
+    if ((reporter?.level ?? 0) >= 4) {
+      reporter?.verbose(`prepared repository artifact ${relativePath}`);
     } else if (preparedArtifactCount % 100 === 0) {
-      reportPhase(
-        reporter,
+      reporter?.start(
         `Prepared ${preparedArtifactCount} repository artifacts...`,
       );
     }
@@ -294,7 +288,7 @@ const collectArtifactLeafKeys = async (
 export const collectExistingArtifactKeys = async (
   syncDirectory: string,
   config: ArtifactConfig,
-  reporter?: ProgressReporter,
+  reporter?: ConsolaInstance,
 ) => {
   const keys = new Set<string>();
   const artifactsDirectory = syncDirectory;
@@ -304,11 +298,10 @@ export const collectExistingArtifactKeys = async (
   const noteDiscoveredArtifact = (key: string) => {
     discoveredArtifactCount += 1;
 
-    if (reporter?.verbose) {
-      reportDetail(reporter, `found repository artifact ${key}`);
+    if ((reporter?.level ?? 0) >= 4) {
+      reporter?.verbose(`found repository artifact ${key}`);
     } else if (discoveredArtifactCount % 100 === 0) {
-      reportPhase(
-        reporter,
+      reporter?.start(
         `Scanned ${discoveredArtifactCount} repository artifacts...`,
       );
     }
@@ -406,7 +399,7 @@ export const writeArtifactsToDirectory = async (
   rootDirectory: string,
   artifacts: readonly RepoArtifact[],
   ageConfig?: AgeWriteConfig,
-  reporter?: ProgressReporter,
+  reporter?: ConsolaInstance,
 ) => {
   await mkdir(rootDirectory, { recursive: true });
   let processedArtifactCount = 0;
@@ -414,14 +407,13 @@ export const writeArtifactsToDirectory = async (
   const noteProcessedArtifact = (relativePath: string, action: string) => {
     processedArtifactCount += 1;
 
-    if (reporter?.verbose) {
-      reportDetail(reporter, `${action} ${relativePath}`);
+    if ((reporter?.level ?? 0) >= 4) {
+      reporter?.verbose(`${action} ${relativePath}`);
       return;
     }
 
     if (processedArtifactCount % 100 === 0) {
-      reportPhase(
-        reporter,
+      reporter?.start(
         `Processed ${processedArtifactCount} repository artifacts...`,
       );
     }

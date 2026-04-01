@@ -1,23 +1,11 @@
 import { buildCommand } from "@stricli/core";
-import { type PullResult, pullChanges } from "#app/services/pull.ts";
+import pc from "picocolors";
+import { pullChanges } from "#app/services/pull.ts";
 import {
-  createProgressReporter,
   type DevsyncCliContext,
-  isVerbose,
-  print,
   verboseFlag,
 } from "#app/services/terminal/cli-runtime.ts";
-import { output } from "#app/services/terminal/output.ts";
-
-const formatPullOutput = (result: PullResult, verbose = false) => {
-  return output(
-    result.dryRun ? "Dry run: pull preview" : "Pull complete",
-    `changes: ${result.plainFileCount} plain, ${result.decryptedFileCount} decrypted, ${result.symlinkCount} symlinks, ${result.directoryCount} dirs`,
-    `${result.dryRun ? "cleanup preview" : "cleanup"}: ${result.deletedLocalCount} ${result.dryRun ? "local paths would be removed" : "local paths removed"}`,
-    verbose && `sync dir: ${result.syncDirectory}`,
-    verbose && `config: ${result.configPath}`,
-  );
-};
+import { createCliLogger } from "#app/services/terminal/logger.ts";
 
 type PullFlags = {
   dryRun?: boolean;
@@ -32,16 +20,32 @@ const pullCommand = buildCommand<PullFlags, [], DevsyncCliContext>({
       "Read tracked artifacts from the sync repository and materialize them back onto local paths under your home directory. Secret artifacts are decrypted with the configured age identity before they are written locally.",
   },
   async func(flags) {
-    const verbose = isVerbose(flags.verbose);
+    const verbose = flags.verbose ?? false;
+    const logger = createCliLogger({ verbose });
+    const reporter = verbose ? logger : undefined;
+
     const result = await pullChanges(
-      {
-        dryRun: flags.dryRun ?? false,
-        profile: flags.profile,
-      },
-      createProgressReporter(verbose),
+      { dryRun: flags.dryRun ?? false, profile: flags.profile },
+      reporter,
     );
 
-    print(formatPullOutput(result, verbose));
+    const stats = `${result.plainFileCount} plain · ${result.decryptedFileCount} decrypted · ${result.symlinkCount} symlinks · ${result.directoryCount} dirs`;
+
+    if (result.dryRun) {
+      logger.info(`Pull preview ${pc.dim("(dry run)")}`);
+    } else {
+      logger.success("Pull complete");
+    }
+
+    logger.log(`  ${stats}`);
+    logger.log(
+      `  ${result.deletedLocalCount} local paths ${result.dryRun ? "would be removed" : "removed"}`,
+    );
+
+    if (verbose) {
+      logger.log(pc.dim(`  sync dir  ${result.syncDirectory}`));
+      logger.log(pc.dim(`  config    ${result.configPath}`));
+    }
   },
   parameters: {
     flags: {

@@ -1,6 +1,6 @@
 import { lstat, readFile, readlink } from "node:fs/promises";
 import { join, posix } from "node:path";
-
+import type { ConsolaInstance } from "consola";
 import {
   collectChildEntryPaths,
   type ResolvedSyncConfig,
@@ -9,11 +9,6 @@ import {
 import { DevsyncError } from "#app/lib/error.ts";
 import { isExecutableMode } from "#app/lib/file-mode.ts";
 import { getPathStats, listDirectoryEntries } from "#app/lib/filesystem.ts";
-import {
-  type ProgressReporter,
-  reportDetail,
-  reportPhase,
-} from "#app/lib/progress.ts";
 import { assertStorageSafeRepoPath } from "./repo-artifacts.ts";
 
 type SnapshotConfig = ResolvedSyncConfig &
@@ -59,21 +54,20 @@ export const addSnapshotNode = (
 };
 
 const reportLocalScanProgress = (
-  reporter: ProgressReporter | undefined,
+  reporter: ConsolaInstance | undefined,
   state: { scannedEntryCount: number },
   repoPath: string,
   kind: "directory" | "file" | "other" | "symlink",
 ) => {
   state.scannedEntryCount += 1;
 
-  if (reporter?.verbose) {
-    reportDetail(reporter, `scanned local ${kind} ${repoPath}`);
+  if ((reporter?.level ?? 0) >= 4) {
+    reporter?.verbose(`scanned local ${kind} ${repoPath}`);
     return;
   }
 
   if (state.scannedEntryCount % 100 === 0) {
-    reportPhase(
-      reporter,
+    reporter?.start(
       `Scanned ${state.scannedEntryCount} local filesystem entries...`,
     );
   }
@@ -132,7 +126,7 @@ const walkLocalDirectory = async (
   localDirectory: string,
   repoPathPrefix: string,
   childEntryPaths: ReadonlySet<string>,
-  reporter?: ProgressReporter,
+  reporter?: ConsolaInstance,
   progressState: { scannedEntryCount: number } = { scannedEntryCount: 0 },
 ) => {
   const entries = await listDirectoryEntries(localDirectory);
@@ -179,17 +173,17 @@ const walkLocalDirectory = async (
 
 export const buildLocalSnapshot = async (
   config: SnapshotConfig,
-  reporter?: ProgressReporter,
+  reporter?: ConsolaInstance,
 ) => {
   const snapshot = new Map<string, SnapshotNode>();
   const progressState = { scannedEntryCount: 0 };
 
   for (const entry of config.entries) {
-    reportPhase(reporter, `Scanning tracked entry ${entry.repoPath}...`);
+    reporter?.start(`Scanning tracked entry ${entry.repoPath}...`);
     const stats = await getPathStats(entry.localPath);
 
     if (stats === undefined) {
-      reportDetail(reporter, `skipped missing local entry ${entry.repoPath}`);
+      reporter?.verbose(`skipped missing local entry ${entry.repoPath}`);
       continue;
     }
 

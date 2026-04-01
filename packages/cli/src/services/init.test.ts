@@ -12,9 +12,9 @@ vi.mock("#app/lib/env.ts", () => ({
   ENV: mockEnv,
 }));
 
+import type { ConsolaInstance } from "consola";
 import { createInitialSyncConfig, formatSyncConfig } from "#app/config/sync.ts";
 import { DevsyncError } from "#app/lib/error.ts";
-import type { ProgressReporter } from "#app/lib/progress.ts";
 import { initializeSyncDirectory } from "#app/services/init.ts";
 import {
   createAgeKeyPair,
@@ -40,17 +40,17 @@ const setEnvironment = (homeDirectory: string, xdgConfigHome: string) => {
 
 const createProgressCapture = (verbose = false) => {
   const messages: string[] = [];
-  const reporter: ProgressReporter = {
-    detail: (message: string) => {
+  const reporter = {
+    level: verbose ? 4 : 3,
+    start: (message: string) => {
+      messages.push(message);
+    },
+    verbose: (message: string) => {
       if (verbose) {
         messages.push(`detail:${message}`);
       }
     },
-    phase: (message: string) => {
-      messages.push(message);
-    },
-    verbose,
-  };
+  } as unknown as ConsolaInstance;
 
   return {
     messages,

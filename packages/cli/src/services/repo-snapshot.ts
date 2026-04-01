@@ -1,16 +1,11 @@
 import { lstat, readFile, readlink } from "node:fs/promises";
 import { join } from "node:path";
-
+import type { ConsolaInstance } from "consola";
 import { resolveManagedSyncMode, resolveSyncRule } from "#app/config/sync.ts";
 import { decryptSecretFile } from "#app/lib/crypto.ts";
 import { DevsyncError, wrapUnknownError } from "#app/lib/error.ts";
 import { isExecutableMode } from "#app/lib/file-mode.ts";
 import { getPathStats, listDirectoryEntries } from "#app/lib/filesystem.ts";
-import {
-  type ProgressReporter,
-  reportDetail,
-  reportPhase,
-} from "#app/lib/progress.ts";
 import { addSnapshotNode, type SnapshotNode } from "./local-snapshot.ts";
 import {
   assertStorageSafeRepoPath,
@@ -22,21 +17,20 @@ import type { EffectiveSyncConfig } from "./runtime.ts";
 type RepositorySnapshotConfig = EffectiveSyncConfig;
 
 const reportRepositoryScanProgress = (
-  reporter: ProgressReporter | undefined,
+  reporter: ConsolaInstance | undefined,
   state: { scannedStorageEntryCount: number },
   storagePath: string,
   kind: "directory" | "file",
 ) => {
   state.scannedStorageEntryCount += 1;
 
-  if (reporter?.verbose) {
-    reportDetail(reporter, `scanned repository ${kind} ${storagePath}`);
+  if ((reporter?.level ?? 0) >= 4) {
+    reporter?.verbose(`scanned repository ${kind} ${storagePath}`);
     return;
   }
 
   if (state.scannedStorageEntryCount % 100 === 0) {
-    reportPhase(
-      reporter,
+    reporter?.start(
       `Scanned ${state.scannedStorageEntryCount} repository entries...`,
     );
   }
@@ -217,7 +211,7 @@ const walkArtifactTree = async (
   config: RepositorySnapshotConfig,
   snapshot: Map<string, SnapshotNode>,
   prefix = "",
-  reporter?: ProgressReporter,
+  reporter?: ConsolaInstance,
   progressState: { scannedStorageEntryCount: number } = {
     scannedStorageEntryCount: 0,
   },
@@ -254,7 +248,7 @@ const walkArtifactTree = async (
 export const buildRepositorySnapshot = async (
   syncDirectory: string,
   config: RepositorySnapshotConfig,
-  reporter?: ProgressReporter,
+  reporter?: ConsolaInstance,
 ) => {
   const snapshot = new Map<string, SnapshotNode>();
   const artifactsDirectory = syncDirectory;
@@ -267,7 +261,7 @@ export const buildRepositorySnapshot = async (
       const namespaceStats = await getPathStats(namespaceDirectory);
 
       if (namespaceStats?.isDirectory()) {
-        reportPhase(reporter, `Scanning repository namespace ${namespace}...`);
+        reporter?.start(`Scanning repository namespace ${namespace}...`);
         await walkArtifactTree(
           namespaceDirectory,
           config,

@@ -5,6 +5,7 @@ import {
   run,
   text_en,
 } from "@stricli/core";
+import { createConsola } from "consola";
 import { buildRootRoute } from "#app/cli/index.ts";
 import { CONSTANTS } from "#app/config/constants.ts";
 import { formatDevsyncError } from "#app/lib/error.ts";
@@ -13,33 +14,43 @@ import {
   createCliContext,
   type DevsyncCliContext,
 } from "#app/services/terminal/cli-runtime.ts";
-import { output } from "#app/services/terminal/output.ts";
 
 type CommandError = Error & {
   exitCode?: number;
 };
 
-const formatRuntimeError = (error: unknown) => {
-  return output(
-    formatDevsyncError(
-      error instanceof Error ? error : new Error(String(error)),
-    ),
+const errorLogger = createConsola({
+  formatOptions: {
+    colors: process.stderr.isTTY ?? false,
+    compact: true,
+    date: false,
+  },
+  level: 3,
+  stderr: process.stderr,
+  stdout: process.stderr,
+});
+
+const formatErrorForConsola = (error: unknown) => {
+  const message = formatDevsyncError(
+    error instanceof Error ? error : new Error(String(error)),
   );
+  errorLogger.error(message);
+  return "";
 };
 
 const devsyncText: ApplicationText = {
   ...text_en,
   commandErrorResult: (error) => {
-    return output(formatDevsyncError(error));
+    return formatErrorForConsola(error);
   },
   exceptionWhileLoadingCommandContext: (error) => {
-    return formatRuntimeError(error);
+    return formatErrorForConsola(error);
   },
   exceptionWhileLoadingCommandFunction: (error) => {
-    return formatRuntimeError(error);
+    return formatErrorForConsola(error);
   },
   exceptionWhileRunningCommand: (error) => {
-    return formatRuntimeError(error);
+    return formatErrorForConsola(error);
   },
   noCommandRegisteredForInput: ({ corrections, input }) => {
     const suggestion =
@@ -47,7 +58,8 @@ const devsyncText: ApplicationText = {
         ? ""
         : ` Did you mean ${corrections.map((entry) => `"${entry}"`).join(", ")}?`;
 
-    return `Command "${input}" not found.${suggestion}\n`;
+    errorLogger.error(`Command "${input}" not found.${suggestion}`);
+    return "";
   },
 };
 

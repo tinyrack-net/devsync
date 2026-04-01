@@ -1,12 +1,8 @@
+import type { ConsolaInstance } from "consola";
 import { resolveSyncConfigFilePath } from "#app/config/sync.ts";
 import { formatDevsyncError } from "#app/lib/error.ts";
 import { pathExists } from "#app/lib/filesystem.ts";
 import { ensureRepository } from "#app/lib/git.ts";
-import {
-  type ProgressReporter,
-  reportDetail,
-  reportPhase,
-} from "#app/lib/progress.ts";
 import { buildRepositorySnapshot } from "./repo-snapshot.ts";
 import {
   type EffectiveSyncConfig,
@@ -70,15 +66,15 @@ const hasRestorableRepositoryArtifact = (
 };
 
 export const runDoctorChecks = async (
-  reporter?: ProgressReporter,
+  reporter?: ConsolaInstance,
 ): Promise<DoctorResult> => {
-  reportPhase(reporter, "Running doctor checks...");
+  reporter?.start("Running doctor checks...");
   const { syncDirectory } = resolveSyncPaths();
   const configPath = resolveSyncConfigFilePath(syncDirectory);
   const checks: DoctorCheck[] = [];
 
   try {
-    reportPhase(reporter, "Checking sync repository...");
+    reporter?.start("Checking sync repository...");
     await ensureRepository(syncDirectory);
     checks.push(ok("git", "Sync directory is a git repository."));
   } catch (error: unknown) {
@@ -101,7 +97,7 @@ export const runDoctorChecks = async (
   let config: EffectiveSyncConfig;
 
   try {
-    reportPhase(reporter, "Loading sync configuration...");
+    reporter?.start("Loading sync configuration...");
     const { effectiveConfig, fullConfig } = await loadSyncConfig(syncDirectory);
 
     config = effectiveConfig;
@@ -138,7 +134,7 @@ export const runDoctorChecks = async (
     };
   }
 
-  reportPhase(reporter, "Checking age identity...");
+  reporter?.start("Checking age identity...");
   checks.push(
     (await pathExists(config.age.identityFile))
       ? ok("age", `Age identity file exists at ${config.age.identityFile}.`)
@@ -159,22 +155,21 @@ export const runDoctorChecks = async (
   let checkedLocalPathCount = 0;
   const missingButRestorableEntries = new Set<string>();
 
-  reportPhase(reporter, "Scanning repository artifacts...");
+  reporter?.start("Scanning repository artifacts...");
   const repositorySnapshot = await buildRepositorySnapshot(
     syncDirectory,
     config,
     reporter,
   );
 
-  reportPhase(reporter, "Checking tracked local paths...");
+  reporter?.start("Checking tracked local paths...");
   for (const entry of missingEntries) {
     checkedLocalPathCount += 1;
 
-    if (reporter?.verbose) {
-      reportDetail(reporter, `checked tracked local path ${entry.localPath}`);
+    if ((reporter?.level ?? 0) >= 4) {
+      reporter?.verbose(`checked tracked local path ${entry.localPath}`);
     } else if (checkedLocalPathCount % 100 === 0) {
-      reportPhase(
-        reporter,
+      reporter?.start(
         `Checked ${checkedLocalPathCount} tracked local paths...`,
       );
     }

@@ -3,8 +3,6 @@ import * as os from "node:os";
 import * as path from "node:path";
 
 import type { TypedFlagParameter } from "@stricli/core";
-import { writeStdout } from "#app/services/terminal/output.ts";
-import { createCliProgressReporter } from "#app/services/terminal/progress-reporter.ts";
 
 export type DevsyncCliContext = {
   fs: {
@@ -30,16 +28,4 @@ export const createCliContext = (): DevsyncCliContext => {
     path,
     process,
   };
-};
-
-export const isVerbose = (verbose?: boolean) => {
-  return verbose ?? false;
-};
-
-export const createProgressReporter = (verbose?: boolean) => {
-  return createCliProgressReporter({ verbose: isVerbose(verbose) });
-};
-
-export const print = (output: string) => {
-  writeStdout(output);
 };

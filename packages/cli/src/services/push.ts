@@ -1,12 +1,7 @@
 import { join } from "node:path";
-
+import type { ConsolaInstance } from "consola";
 import { resolveSyncConfigFilePath } from "#app/config/sync.ts";
 import { removePathAtomically } from "#app/lib/filesystem.ts";
-import {
-  type ProgressReporter,
-  reportDetail,
-  reportPhase,
-} from "#app/lib/progress.ts";
 import { buildLocalSnapshot, type SnapshotNode } from "./local-snapshot.ts";
 import {
   buildArtifactKey,
@@ -82,18 +77,18 @@ const buildPushCounts = (snapshot: ReadonlyMap<string, SnapshotNode>) => {
 export const buildPushPlan = async (
   config: EffectiveSyncConfig,
   syncDirectory: string,
-  reporter?: ProgressReporter,
+  reporter?: ConsolaInstance,
 ): Promise<PushPlan> => {
-  reportPhase(reporter, "Scanning local files...");
+  reporter?.start("Scanning local files...");
   const snapshot = await buildLocalSnapshot(config, reporter);
-  reportPhase(reporter, "Preparing repository artifacts...");
+  reporter?.start("Preparing repository artifacts...");
   const artifacts = await buildRepoArtifacts(snapshot, config, reporter);
   const desiredArtifactKeys = new Set(
     artifacts.map((artifact) => {
       return buildArtifactKey(artifact);
     }),
   );
-  reportPhase(reporter, "Scanning existing repository artifacts...");
+  reporter?.start("Scanning existing repository artifacts...");
   const existingArtifactKeys = await collectExistingArtifactKeys(
     syncDirectory,
     config,
@@ -145,15 +140,15 @@ export const buildPushResultFromPlan = (
 
 export const pushChanges = async (
   request: PushRequest,
-  reporter?: ProgressReporter,
+  reporter?: ConsolaInstance,
 ): Promise<PushResult> => {
-  reportPhase(reporter, "Starting push...");
+  reporter?.start("Starting push...");
   const { syncDirectory } = resolveSyncPaths();
 
-  reportPhase(reporter, "Checking sync repository...");
+  reporter?.start("Checking sync repository...");
   await ensureSyncRepository(syncDirectory);
 
-  reportPhase(reporter, "Loading sync configuration...");
+  reporter?.start("Loading sync configuration...");
   const { effectiveConfig: config } = await loadSyncConfig(syncDirectory, {
     ...(request.profile === undefined ? {} : { profile: request.profile }),
   });
@@ -166,8 +161,7 @@ export const pushChanges = async (
     });
 
     if (staleArtifactKeys.length > 0) {
-      reportPhase(
-        reporter,
+      reporter?.start(
         `Removing ${staleArtifactKeys.length} stale repository artifact${staleArtifactKeys.length === 1 ? "" : "s"}...`,
       );
     }
@@ -181,14 +175,10 @@ export const pushChanges = async (
 
       removedArtifactCount += 1;
 
-      if (reporter?.verbose) {
-        reportDetail(
-          reporter,
-          `removing stale repository artifact ${relativePath}`,
-        );
+      if ((reporter?.level ?? 0) >= 4) {
+        reporter?.verbose(`removing stale repository artifact ${relativePath}`);
       } else if (removedArtifactCount % 100 === 0) {
-        reportPhase(
-          reporter,
+        reporter?.start(
           `Removed ${removedArtifactCount} stale repository artifacts...`,
         );
       }
@@ -198,8 +188,7 @@ export const pushChanges = async (
       );
     }
 
-    reportPhase(
-      reporter,
+    reporter?.start(
       `Writing ${plan.artifacts.length} repository artifact${plan.artifacts.length === 1 ? "" : "s"}...`,
     );
     await writeArtifactsToDirectory(

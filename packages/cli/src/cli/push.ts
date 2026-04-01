@@ -1,23 +1,11 @@
 import { buildCommand } from "@stricli/core";
-import { type PushResult, pushChanges } from "#app/services/push.ts";
+import pc from "picocolors";
+import { pushChanges } from "#app/services/push.ts";
 import {
-  createProgressReporter,
   type DevsyncCliContext,
-  isVerbose,
-  print,
   verboseFlag,
 } from "#app/services/terminal/cli-runtime.ts";
-import { output } from "#app/services/terminal/output.ts";
-
-const formatPushOutput = (result: PushResult, verbose = false) => {
-  return output(
-    result.dryRun ? "Dry run: push preview" : "Push complete",
-    `changes: ${result.plainFileCount} plain, ${result.encryptedFileCount} encrypted, ${result.symlinkCount} symlinks, ${result.directoryCount} dirs`,
-    `${result.dryRun ? "cleanup preview" : "cleanup"}: ${result.deletedArtifactCount} ${result.dryRun ? "artifacts would be removed" : "artifacts removed"}`,
-    verbose && `sync dir: ${result.syncDirectory}`,
-    verbose && `config: ${result.configPath}`,
-  );
-};
+import { createCliLogger } from "#app/services/terminal/logger.ts";
 
 type PushFlags = {
   dryRun?: boolean;
@@ -32,16 +20,32 @@ const pushCommand = buildCommand<PushFlags, [], DevsyncCliContext>({
       "Collect the current state of tracked local files and directories, then update the sync repository artifacts to match. Secret targets are encrypted before they are written into the repository.",
   },
   async func(flags) {
-    const verbose = isVerbose(flags.verbose);
+    const verbose = flags.verbose ?? false;
+    const logger = createCliLogger({ verbose });
+    const reporter = verbose ? logger : undefined;
+
     const result = await pushChanges(
-      {
-        dryRun: flags.dryRun ?? false,
-        profile: flags.profile,
-      },
-      createProgressReporter(verbose),
+      { dryRun: flags.dryRun ?? false, profile: flags.profile },
+      reporter,
     );
 
-    print(formatPushOutput(result, verbose));
+    const stats = `${result.plainFileCount} plain · ${result.encryptedFileCount} encrypted · ${result.symlinkCount} symlinks · ${result.directoryCount} dirs`;
+
+    if (result.dryRun) {
+      logger.info(`Push preview ${pc.dim("(dry run)")}`);
+    } else {
+      logger.success("Push complete");
+    }
+
+    logger.log(`  ${stats}`);
+    logger.log(
+      `  ${result.deletedArtifactCount} stale artifacts ${result.dryRun ? "would be removed" : "removed"}`,
+    );
+
+    if (verbose) {
+      logger.log(pc.dim(`  sync dir  ${result.syncDirectory}`));
+      logger.log(pc.dim(`  config    ${result.configPath}`));
+    }
   },
   parameters: {
     flags: {

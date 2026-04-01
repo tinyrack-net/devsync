@@ -1,5 +1,5 @@
+import type { ConsolaInstance } from "consola";
 import { resolveSyncConfigFilePath } from "#app/config/sync.ts";
-import { type ProgressReporter, reportPhase } from "#app/lib/progress.ts";
 import {
   applyEntryMaterialization,
   buildEntryMaterialization,
@@ -45,15 +45,15 @@ export type PullPlan = Readonly<{
 export const buildPullPlan = async (
   config: EffectiveSyncConfig,
   syncDirectory: string,
-  reporter?: ProgressReporter,
+  reporter?: ConsolaInstance,
 ): Promise<PullPlan> => {
-  reportPhase(reporter, "Scanning repository artifacts...");
+  reporter?.start("Scanning repository artifacts...");
   const snapshot = await buildRepositorySnapshot(
     syncDirectory,
     config,
     reporter,
   );
-  reportPhase(reporter, "Planning local materializations...");
+  reporter?.start("Planning local materializations...");
   const materializations = config.entries.map((entry) => {
     if (entry.mode === "ignore") {
       return undefined;
@@ -65,7 +65,7 @@ export const buildPullPlan = async (
   let deletedLocalCount = 0;
   const existingKeys = new Set<string>();
 
-  reportPhase(reporter, "Scanning existing local paths...");
+  reporter?.start("Scanning existing local paths...");
   for (let index = 0; index < config.entries.length; index += 1) {
     const entry = config.entries[index];
     const materialization = materializations[index];
@@ -128,15 +128,15 @@ export const buildPullResultFromPlan = (
 
 export const pullChanges = async (
   request: PullRequest,
-  reporter?: ProgressReporter,
+  reporter?: ConsolaInstance,
 ): Promise<PullResult> => {
-  reportPhase(reporter, "Starting pull...");
+  reporter?.start("Starting pull...");
   const { syncDirectory } = resolveSyncPaths();
 
-  reportPhase(reporter, "Checking sync repository...");
+  reporter?.start("Checking sync repository...");
   await ensureSyncRepository(syncDirectory);
 
-  reportPhase(reporter, "Loading sync configuration...");
+  reporter?.start("Loading sync configuration...");
   const { effectiveConfig: config } = await loadSyncConfig(syncDirectory, {
     ...(request.profile === undefined ? {} : { profile: request.profile }),
   });
@@ -151,7 +151,7 @@ export const pullChanges = async (
     }
 
     if (!request.dryRun) {
-      reportPhase(reporter, `Applying ${entry.repoPath}...`);
+      reporter?.start(`Applying ${entry.repoPath}...`);
       await applyEntryMaterialization(entry, materialization, config, reporter);
     }
   }

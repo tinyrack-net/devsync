@@ -1,9 +1,9 @@
+import type { ConsolaInstance } from "consola";
 import {
   resolveSyncConfigFilePath,
   type SyncConfigEntryKind,
   type SyncMode,
 } from "#app/config/sync.ts";
-import { type ProgressReporter, reportPhase } from "#app/lib/progress.ts";
 
 import {
   buildPullPlan,
@@ -47,30 +47,30 @@ export type StatusResult = Readonly<{
 export const getStatus = async (
   options: Readonly<{
     profile?: string;
-    reporter?: ProgressReporter;
+    reporter?: ConsolaInstance;
   }> = {},
 ): Promise<StatusResult> => {
   const reporter = options.reporter;
 
-  reportPhase(reporter, "Analyzing sync status...");
+  reporter?.start("Analyzing sync status...");
   const { syncDirectory } = resolveSyncPaths();
   const configPath = resolveSyncConfigFilePath(syncDirectory);
 
-  reportPhase(reporter, "Checking sync repository...");
+  reporter?.start("Checking sync repository...");
   await ensureSyncRepository(syncDirectory);
 
-  reportPhase(reporter, "Loading sync configuration...");
+  reporter?.start("Loading sync configuration...");
   const { effectiveConfig, fullConfig } = await loadSyncConfig(
     syncDirectory,
     options,
   );
-  reportPhase(reporter, "Building push plan...");
+  reporter?.start("Building push plan...");
   const pushPlan = await buildPushPlan(
     effectiveConfig,
     syncDirectory,
     reporter,
   );
-  reportPhase(reporter, "Building pull plan...");
+  reporter?.start("Building pull plan...");
   const pullPlan = await buildPullPlan(
     effectiveConfig,
     syncDirectory,

@@ -84,7 +84,7 @@ const runCliStreaming = async (
     child.on("error", reject);
   });
 
-  const firstStderr = await new Promise<string>((resolve, reject) => {
+  const firstStdout = await new Promise<string>((resolve, reject) => {
     const onData = (chunk: string) => {
       cleanup();
       resolve(chunk);
@@ -98,12 +98,12 @@ const runCliStreaming = async (
       reject(error);
     };
     const cleanup = () => {
-      child.stderr.off("data", onData);
+      child.stdout.off("data", onData);
       child.off("close", onClose);
       child.off("error", onError);
     };
 
-    child.stderr.on("data", onData);
+    child.stdout.on("data", onData);
     child.on("close", onClose);
     child.on("error", onError);
   });
@@ -111,7 +111,7 @@ const runCliStreaming = async (
 
   return {
     exitCode,
-    firstStderr,
+    firstStdout,
     stderr,
     stdout,
   };
@@ -634,7 +634,7 @@ describe("sync CLI e2e", () => {
     expect(stripAnsi(result.stdout)).toContain("mode: secret");
   });
 
-  it("streams push progress to stderr before the command exits", async () => {
+  it("streams push progress to stdout before the command exits", async () => {
     const workspace = await createWorkspace();
     const homeDirectory = join(workspace, "home");
     const xdgConfigHome = join(workspace, "xdg");
@@ -671,8 +671,8 @@ describe("sync CLI e2e", () => {
       result.exitCode,
       `push exited with ${result.exitCode}\nstdout: ${result.stdout}\nstderr: ${result.stderr}`,
     ).toBe(0);
-    expect(stripAnsi(result.firstStderr)).toContain("Starting push...");
-    expect(stripAnsi(result.stderr)).toContain("Scanning local files...");
+    expect(stripAnsi(result.firstStdout)).toContain("Starting push...");
+    expect(stripAnsi(result.stdout)).toContain("Scanning local files...");
     expect(stripAnsi(result.stdout)).toContain("Push complete");
   });
 });

@@ -1,3 +1,4 @@
+import type { ConsolaInstance } from "consola";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { DevsyncError } from "#app/lib/error.ts";
 
@@ -37,11 +38,17 @@ vi.mock("./runtime.ts", () => ({
 
 import { runDoctorChecks } from "./doctor.ts";
 
-const createReporter = (verbose = false) => ({
-  detail: vi.fn(),
-  phase: vi.fn(),
-  verbose,
-});
+const createReporter = (verbose = false) => {
+  const raw = {
+    level: verbose ? 4 : 3,
+    start: vi.fn(),
+    verbose: vi.fn(),
+  };
+  return Object.assign(raw as unknown as ConsolaInstance, {
+    start: raw.start,
+    verbose: raw.verbose,
+  });
+};
 
 const createLoadedConfig = (options: {
   activeProfile?: string;
@@ -104,7 +111,7 @@ describe("sync doctor", () => {
       hasWarnings: false,
       syncDirectory: "/tmp/devsync",
     });
-    expect(reporter.phase.mock.calls).toEqual([
+    expect(reporter.start.mock.calls).toEqual([
       ["Running doctor checks..."],
       ["Checking sync repository..."],
     ]);
@@ -138,7 +145,7 @@ describe("sync doctor", () => {
       hasWarnings: false,
       syncDirectory: "/tmp/devsync",
     });
-    expect(reporter.phase.mock.calls).toEqual([
+    expect(reporter.start.mock.calls).toEqual([
       ["Running doctor checks..."],
       ["Checking sync repository..."],
       ["Loading sync configuration..."],
@@ -220,10 +227,10 @@ describe("sync doctor", () => {
         level: "warn",
       },
     ]);
-    expect(reporter.detail).toHaveBeenCalledWith(
+    expect(reporter.verbose).toHaveBeenCalledWith(
       "checked tracked local path /tmp/home/.ssh/id_ed25519",
     );
-    expect(reporter.phase.mock.calls).toEqual([
+    expect(reporter.start.mock.calls).toEqual([
       ["Running doctor checks..."],
       ["Checking sync repository..."],
       ["Loading sync configuration..."],
@@ -278,8 +285,8 @@ describe("sync doctor", () => {
       detail: "2 tracked local paths are missing.",
       level: "warn",
     });
-    expect(reporter.detail).not.toHaveBeenCalled();
-    expect(reporter.phase).toHaveBeenCalledWith(
+    expect(reporter.verbose).not.toHaveBeenCalled();
+    expect(reporter.start).toHaveBeenCalledWith(
       "Checked 100 tracked local paths...",
     );
   });

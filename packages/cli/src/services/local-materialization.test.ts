@@ -1,8 +1,7 @@
 import { mkdir, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-
+import type { ConsolaInstance } from "consola";
 import { afterEach, describe, expect, it } from "vitest";
-
 import type {
   ResolvedSyncConfig,
   ResolvedSyncConfigEntry,
@@ -10,7 +9,6 @@ import type {
   SyncMode,
 } from "#app/config/sync.ts";
 import { buildDirectoryKey } from "#app/lib/path.ts";
-import type { ProgressReporter } from "#app/lib/progress.ts";
 import { countDeletedLocalNodes } from "#app/services/local-materialization.ts";
 import { createTemporaryDirectory } from "../test/helpers/sync-fixture.ts";
 
@@ -57,13 +55,13 @@ const createConfig = (
 
 const createProgressCapture = () => {
   const messages: string[] = [];
-  const reporter: ProgressReporter = {
-    detail: (message: string) => {
+  const reporter = {
+    level: 4,
+    start: () => {},
+    verbose: (message: string) => {
       messages.push(message);
     },
-    phase: () => {},
-    verbose: true,
-  };
+  } as unknown as ConsolaInstance;
 
   return { messages, reporter };
 };

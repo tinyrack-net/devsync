@@ -11,11 +11,7 @@ import {
   resolveCompletionInputs,
   ZSH_AUTOCOMPLETE_SCRIPT,
 } from "#app/services/autocomplete.ts";
-import {
-  type DevsyncCliContext,
-  print,
-} from "#app/services/terminal/cli-runtime.ts";
-import { output } from "#app/services/terminal/output.ts";
+import type { DevsyncCliContext } from "#app/services/terminal/cli-runtime.ts";
 
 type EmptyFlags = Record<never, never>;
 
@@ -29,7 +25,7 @@ const buildAutocompleteScriptCommand = (
       fullDescription: `Emit a ${shell} autocomplete script for use with \`eval "$(devsync autocomplete ${shell})"\`.`,
     },
     func: () => {
-      print(script);
+      process.stdout.write(script);
     },
     parameters: {},
   });
@@ -66,13 +62,11 @@ const buildCompleteCommand = (
         return;
       }
 
-      print(
-        output(
-          ...completions.map((c) =>
-            c.brief ? `${c.completion}\t${c.brief}` : c.completion,
-          ),
-        ),
-      );
+      const lines = completions
+        .map((c) => (c.brief ? `${c.completion}\t${c.brief}` : c.completion))
+        .join("\n");
+
+      process.stdout.write(`${lines}\n`);
     },
     parameters: {
       positional: {

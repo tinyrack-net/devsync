@@ -1,47 +1,11 @@
 import { buildCommand } from "@stricli/core";
+import pc from "picocolors";
+import { getStatus } from "#app/services/status.ts";
 import {
-  getStatus,
-  type StatusEntry,
-  type StatusResult,
-} from "#app/services/status.ts";
-import {
-  createProgressReporter,
   type DevsyncCliContext,
-  isVerbose,
-  print,
   verboseFlag,
 } from "#app/services/terminal/cli-runtime.ts";
-import { output } from "#app/services/terminal/output.ts";
-
-const formatStatusEntry = (entry: StatusEntry) => {
-  return `- ${entry.repoPath} -> ${entry.localPath} (${entry.kind}, ${entry.mode}${entry.profiles.length === 0 ? "" : `, profiles: ${entry.profiles.join(", ")}`})`;
-};
-
-const formatPlanPreview = (label: string, preview: readonly string[]) => {
-  return `${label}: ${preview.length === 0 ? "none" : preview.join(", ")}`;
-};
-
-const formatStatusOutput = (result: StatusResult, verbose = false) => {
-  return output(
-    "Sync status",
-    `profile: ${result.activeProfile ?? "none"}`,
-    `tracked: ${result.entryCount} entries, ${result.recipientCount} recipients`,
-    `push: ${result.push.plainFileCount} plain, ${result.push.encryptedFileCount} encrypted, ${result.push.symlinkCount} symlinks, ${result.push.directoryCount} dirs, ${result.push.deletedArtifactCount} stale`,
-    `pull: ${result.pull.plainFileCount} plain, ${result.pull.decryptedFileCount} decrypted, ${result.pull.symlinkCount} symlinks, ${result.pull.directoryCount} dirs, ${result.pull.deletedLocalCount} remove`,
-    verbose && formatPlanPreview("push preview", result.push.preview),
-    verbose && formatPlanPreview("pull preview", result.pull.preview),
-    ...(verbose
-      ? [
-          "entries:",
-          ...(result.entries.length === 0
-            ? ["- none"]
-            : result.entries.map((entry) => formatStatusEntry(entry))),
-          `sync dir: ${result.syncDirectory}`,
-          `config: ${result.configPath}`,
-        ]
-      : []),
-  );
-};
+import { createCliLogger } from "#app/services/terminal/logger.ts";
 
 type StatusFlags = {
   profile?: string;
@@ -55,13 +19,54 @@ const statusCommand = buildCommand<StatusFlags, [], DevsyncCliContext>({
       "Compare the tracked local files with the sync repository and report what push would write to the repository and what pull would write back locally.",
   },
   async func(flags) {
-    const verbose = isVerbose(flags.verbose);
+    const verbose = flags.verbose ?? false;
+    const logger = createCliLogger({ verbose });
+    const reporter = verbose ? logger : undefined;
+
     const result = await getStatus({
       profile: flags.profile,
-      reporter: createProgressReporter(verbose),
+      reporter,
     });
 
-    print(formatStatusOutput(result, verbose));
+    logger.info("Sync status");
+    logger.log(
+      `  profile: ${result.activeProfile ?? "none"} · ${result.entryCount} entries · ${result.recipientCount} recipients`,
+    );
+    logger.log(
+      `  push  ${result.push.plainFileCount} plain · ${result.push.encryptedFileCount} encrypted · ${result.push.symlinkCount} symlinks · ${result.push.directoryCount} dirs · ${result.push.deletedArtifactCount} stale`,
+    );
+    logger.log(
+      `  pull  ${result.pull.plainFileCount} plain · ${result.pull.decryptedFileCount} decrypted · ${result.pull.symlinkCount} symlinks · ${result.pull.directoryCount} dirs · ${result.pull.deletedLocalCount} remove`,
+    );
+
+    if (verbose) {
+      if (result.push.preview.length > 0) {
+        logger.log(pc.dim(`  push preview: ${result.push.preview.join(", ")}`));
+      }
+      if (result.pull.preview.length > 0) {
+        logger.log(pc.dim(`  pull preview: ${result.pull.preview.join(", ")}`));
+      }
+
+      logger.log("  entries:");
+      if (result.entries.length === 0) {
+        logger.log(pc.dim("    none"));
+      } else {
+        for (const entry of result.entries) {
+          const profiles =
+            entry.profiles.length > 0
+              ? `, profiles: ${entry.profiles.join(", ")}`
+              : "";
+          logger.log(
+            pc.dim(
+              `    ${entry.repoPath} → ${entry.localPath} (${entry.kind}, ${entry.mode}${profiles})`,
+            ),
+          );
+        }
+      }
+
+      logger.log(pc.dim(`  sync dir  ${result.syncDirectory}`));
+      logger.log(pc.dim(`  config    ${result.configPath}`));
+    }
   },
   parameters: {
     flags: {

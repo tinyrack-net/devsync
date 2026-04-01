@@ -3,28 +3,37 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DevsyncError } from "#app/lib/error.ts";
 import type { DevsyncCliContext } from "#app/services/terminal/cli-runtime.ts";
 
+const mockLogger = vi.hoisted(() => ({
+  fail: vi.fn(),
+  info: vi.fn(),
+  level: 3,
+  log: vi.fn(),
+  start: vi.fn(),
+  success: vi.fn(),
+  verbose: vi.fn(),
+  warn: vi.fn(),
+}));
+
 const mocked = vi.hoisted(() => ({
   assignProfiles: vi.fn(),
   clearActiveProfile: vi.fn(),
-  createProgressReporter: vi.fn(),
   getStatus: vi.fn(),
   initializeSyncDirectory: vi.fn(),
   launchShellInDirectory: vi.fn(),
   listProfiles: vi.fn(),
   mkdir: vi.fn(),
   pathExists: vi.fn(),
-  print: vi.fn(),
   promptForSecret: vi.fn(),
   pullChanges: vi.fn(),
   pushChanges: vi.fn(),
-  resolveConfiguredIdentityFile: vi.fn(),
   resolveConfiguredAbsolutePath: vi.fn(),
+  resolveConfiguredIdentityFile: vi.fn(),
   resolveDevsyncSyncDirectory: vi.fn(),
   runDoctorChecks: vi.fn(),
+  setActiveProfile: vi.fn(),
   setTargetMode: vi.fn(),
   trackTarget: vi.fn(),
   untrackTarget: vi.fn(),
-  setActiveProfile: vi.fn(),
 }));
 
 vi.mock("node:fs/promises", () => ({
@@ -89,14 +98,15 @@ vi.mock("#app/services/status.ts", () => ({
 }));
 
 vi.mock("#app/services/terminal/cli-runtime.ts", () => ({
-  createProgressReporter: mocked.createProgressReporter,
-  isVerbose: (value?: boolean) => value ?? false,
-  print: mocked.print,
   verboseFlag: {
     brief: "verbose",
     kind: "boolean",
     optional: true,
   },
+}));
+
+vi.mock("#app/services/terminal/logger.ts", () => ({
+  createCliLogger: vi.fn(() => mockLogger),
 }));
 
 vi.mock("#app/services/terminal/prompt.ts", () => ({
@@ -117,12 +127,6 @@ import pushCommand from "./push.ts";
 import statusCommand from "./status.ts";
 import trackCommand from "./track.ts";
 import untrackCommand from "./untrack.ts";
-
-const progressReporter = {
-  detail: vi.fn(),
-  phase: vi.fn(),
-  verbose: false,
-};
 
 const runCommand = async (
   command: Command<DevsyncCliContext>,
@@ -151,11 +155,6 @@ beforeEach(() => {
   process.exitCode = undefined;
   vi.clearAllMocks();
 
-  progressReporter.detail.mockReset();
-  progressReporter.phase.mockReset();
-  progressReporter.verbose = false;
-
-  mocked.createProgressReporter.mockReturnValue(progressReporter);
   mocked.resolveConfiguredIdentityFile.mockReturnValue("/tmp/keys.txt");
   mocked.resolveConfiguredAbsolutePath.mockReturnValue("/tmp/keys.txt");
   mocked.resolveDevsyncSyncDirectory.mockReturnValue("/tmp/devsync");
@@ -329,13 +328,10 @@ describe("CLI command modules", () => {
         recipients: ["age1recipient"],
         repository: "git@example.com:dotfiles.git",
       },
-      progressReporter,
+      mockLogger,
     );
-    expect(mocked.print).toHaveBeenCalledWith(
-      expect.stringContaining("Sync directory initialized"),
-    );
-    expect(mocked.print).toHaveBeenCalledWith(
-      expect.stringContaining("config: /tmp/config.json"),
+    expect(mockLogger.success).toHaveBeenCalledWith(
+      "Sync directory initialized",
     );
   });
 
@@ -356,7 +352,7 @@ describe("CLI command modules", () => {
         recipients: [],
         repository: "origin",
       },
-      progressReporter,
+      undefined,
     );
   });
 
@@ -381,10 +377,10 @@ describe("CLI command modules", () => {
       },
       process.cwd(),
     );
-    expect(mocked.print).toHaveBeenCalledWith(
-      expect.stringContaining("Started tracking profiles/work/.gitconfig"),
+    expect(mockLogger.success).toHaveBeenCalledWith(
+      "Started tracking profiles/work/.gitconfig",
     );
-    expect(mocked.print).toHaveBeenCalledWith(
+    expect(mockLogger.log).toHaveBeenCalledWith(
       expect.stringContaining("profiles: work"),
     );
   });
@@ -434,8 +430,8 @@ describe("CLI command modules", () => {
       },
       process.cwd(),
     );
-    expect(mocked.print).toHaveBeenCalledWith(
-      expect.stringContaining("Updated sync mode for .config/nvim"),
+    expect(mockLogger.success).toHaveBeenCalledWith(
+      "Updated sync mode for .config/nvim",
     );
   });
 
@@ -447,18 +443,13 @@ describe("CLI command modules", () => {
     expect(mocked.listProfiles).toHaveBeenCalledTimes(1);
     expect(mocked.setActiveProfile).toHaveBeenCalledWith("work");
     expect(mocked.clearActiveProfile).toHaveBeenCalledTimes(1);
-    expect(mocked.print).toHaveBeenNthCalledWith(
-      1,
+    expect(mockLogger.log).toHaveBeenCalledWith(
       expect.stringContaining("available: personal, work"),
     );
-    expect(mocked.print).toHaveBeenNthCalledWith(
-      2,
-      expect.stringContaining("Active profile set to work"),
+    expect(mockLogger.success).toHaveBeenCalledWith(
+      "Active profile set to work",
     );
-    expect(mocked.print).toHaveBeenNthCalledWith(
-      3,
-      expect.stringContaining("Active profile cleared"),
-    );
+    expect(mockLogger.success).toHaveBeenCalledWith("Active profile cleared");
   });
 
   it("passes pull, push, and status flags through with a shared reporter", async () => {
@@ -479,28 +470,26 @@ describe("CLI command modules", () => {
         dryRun: true,
         profile: "work",
       },
-      progressReporter,
+      mockLogger,
     );
     expect(mocked.pushChanges).toHaveBeenCalledWith(
       {
         dryRun: true,
         profile: "work",
       },
-      progressReporter,
+      undefined,
     );
     expect(mocked.getStatus).toHaveBeenCalledWith({
       profile: "work",
-      reporter: progressReporter,
+      reporter: mockLogger,
     });
-    expect(mocked.print).toHaveBeenCalledWith(
-      expect.stringContaining("Dry run: pull preview"),
+    expect(mockLogger.info).toHaveBeenCalledWith(
+      expect.stringContaining("Pull preview"),
     );
-    expect(mocked.print).toHaveBeenCalledWith(
-      expect.stringContaining("Dry run: push preview"),
+    expect(mockLogger.info).toHaveBeenCalledWith(
+      expect.stringContaining("Push preview"),
     );
-    expect(mocked.print).toHaveBeenCalledWith(
-      expect.stringContaining("Sync status"),
-    );
+    expect(mockLogger.info).toHaveBeenCalledWith("Sync status");
   });
 
   it("untracks tracked targets relative to the current working directory", async () => {
@@ -512,8 +501,8 @@ describe("CLI command modules", () => {
       },
       process.cwd(),
     );
-    expect(mocked.print).toHaveBeenCalledWith(
-      expect.stringContaining("Stopped tracking .ssh/config"),
+    expect(mockLogger.success).toHaveBeenCalledWith(
+      "Stopped tracking .ssh/config",
     );
   });
 
@@ -534,8 +523,8 @@ describe("CLI command modules", () => {
 
     await runCommand(doctorCommand, { verbose: true });
 
-    expect(mocked.runDoctorChecks).toHaveBeenCalledWith(progressReporter);
-    expect(mocked.print).toHaveBeenCalledWith(
+    expect(mocked.runDoctorChecks).toHaveBeenCalledWith(mockLogger);
+    expect(mockLogger.fail).toHaveBeenCalledWith(
       expect.stringContaining("Doctor found issues"),
     );
     expect(process.exitCode).toBe(1);
