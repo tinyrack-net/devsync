@@ -1,67 +1,42 @@
 import { spawn } from "node:child_process";
-import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-
-import { execa } from "execa";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import {
   createInitialSyncConfig,
   formatSyncConfig,
 } from "../src/config/sync.ts";
 import { cliNodeOptions } from "../src/test/helpers/cli-entry.ts";
+import {
+  createSyncE2EContext,
+  type SyncE2EContext,
+} from "../src/test/helpers/e2e-context.ts";
 import { createPtySession } from "../src/test/helpers/pty.ts";
 import {
-  createAgeKeyPair,
   createShellRecorderEnvironment,
-  createTemporaryDirectory,
-  gitTestEnvironment,
   stripAnsi,
-  writeIdentityFile,
 } from "../src/test/helpers/sync-fixture.ts";
 
-const temporaryDirectories: string[] = [];
+let ctx: SyncE2EContext;
 
-const createWorkspace = async () => {
-  const directory = await createTemporaryDirectory("devsync-sync-cli-");
+beforeEach(async () => {
+  ctx = await createSyncE2EContext();
+});
 
-  temporaryDirectories.push(directory);
-
-  return directory;
-};
-
-const runCli = async (
-  args: readonly string[],
-  options?: Readonly<{
-    cwd?: string;
-    env?: NodeJS.ProcessEnv;
-    input?: string;
-    reject?: boolean;
-  }>,
-) => {
-  return execa(process.execPath, [...cliNodeOptions, ...args], {
-    cwd: options?.cwd,
-    env: options?.env,
-    input: options?.input,
-    reject: options?.reject,
-  });
-};
+afterEach(async () => {
+  await ctx.cleanup();
+});
 
 const runCliStreaming = async (
   args: readonly string[],
-  options?: Readonly<{
-    cwd?: string;
-    env?: NodeJS.ProcessEnv;
-  }>,
+  env?: NodeJS.ProcessEnv,
 ) => {
   const child = spawn(process.execPath, [...cliNodeOptions, ...args], {
-    cwd: options?.cwd,
     env: {
       ...process.env,
-      ...options?.env,
-      FORCE_COLOR: "0",
-      NO_COLOR: "1",
-      NODE_NO_WARNINGS: "1",
+      ...ctx.baseEnv,
+      ...env,
     },
     stdio: ["ignore", "pipe", "pipe"],
   });
@@ -117,63 +92,20 @@ const runCliStreaming = async (
   };
 };
 
-const createSyncEnvironment = (
-  homeDirectory: string,
-  xdgConfigHome: string,
-): NodeJS.ProcessEnv => {
-  return {
-    HOME: homeDirectory,
-    XDG_CONFIG_HOME: xdgConfigHome,
-  };
-};
-
-const runGit = async (
-  args: readonly string[],
-  options?: Readonly<{
-    cwd?: string;
-    env?: NodeJS.ProcessEnv;
-  }>,
-) => {
-  return execa("git", [...args], {
-    cwd: options?.cwd,
-    env: {
-      ...process.env,
-      ...gitTestEnvironment,
-      ...options?.env,
-    },
-  });
-};
-
-afterEach(async () => {
-  while (temporaryDirectories.length > 0) {
-    const directory = temporaryDirectories.pop();
-
-    if (directory !== undefined) {
-      await rm(directory, { force: true, recursive: true });
-    }
-  }
-});
-
 describe("sync CLI e2e", () => {
   it("generates a default age identity for bare init", async () => {
-    const workspace = await createWorkspace();
-    const homeDirectory = join(workspace, "home");
-    const xdgConfigHome = join(workspace, "xdg");
-    const result = await runCli(["init"], {
-      env: createSyncEnvironment(homeDirectory, xdgConfigHome),
-      input: "\n",
-    });
+    const result = await ctx.runCli(["init"], { input: "\n" });
 
     expect(stripAnsi(result.stdout)).toContain("Sync directory initialized");
     expect(stripAnsi(result.stdout)).toContain(
       "age: generated a new local identity",
     );
     expect(
-      await readFile(join(xdgConfigHome, "devsync", "keys.txt"), "utf8"),
+      await readFile(join(ctx.xdgDir, "devsync", "keys.txt"), "utf8"),
     ).toContain("AGE-SECRET-KEY-");
     expect(
       JSON.parse(
-        await readFile(join(xdgConfigHome, "devsync", "settings.json"), "utf8"),
+        await readFile(join(ctx.xdgDir, "devsync", "settings.json"), "utf8"),
       ),
     ).toMatchObject({
       activeProfile: "default",
@@ -181,13 +113,13 @@ describe("sync CLI e2e", () => {
     });
     expect(
       JSON.parse(
-        await readFile(join(xdgConfigHome, "devsync", "settings.json"), "utf8"),
+        await readFile(join(ctx.xdgDir, "devsync", "settings.json"), "utf8"),
       ),
     ).not.toHaveProperty("age");
     expect(
       JSON.parse(
         await readFile(
-          join(xdgConfigHome, "devsync", "repository", "manifest.json"),
+          join(ctx.xdgDir, "devsync", "repository", "manifest.json"),
           "utf8",
         ),
       ),
@@ -202,40 +134,30 @@ describe("sync CLI e2e", () => {
   });
 
   it("accepts a supplied age key during init without a precreated identity file", async () => {
-    const workspace = await createWorkspace();
-    const homeDirectory = join(workspace, "home");
-    const xdgConfigHome = join(workspace, "xdg");
-    const sourceRepository = join(workspace, "remote-sync");
-    const ageKeys = await createAgeKeyPair();
+    const sourceRepository = join(ctx.workspace, "remote-sync");
+    const ageKeys = await ctx.createAgeKeyPair();
 
-    await runGit(["init", "-b", "main", sourceRepository], {
-      cwd: workspace,
-    });
+    await ctx.runGit(["init", "-b", "main", sourceRepository]);
 
-    const result = await runCli(
-      ["init", sourceRepository, "--key", ageKeys.identity],
-      {
-        env: createSyncEnvironment(homeDirectory, xdgConfigHome),
-      },
-    );
+    const result = await ctx.runCli([
+      "init",
+      sourceRepository,
+      "--key",
+      ageKeys.identity,
+    ]);
 
     expect(stripAnsi(result.stdout)).toContain("Sync directory initialized");
     expect(stripAnsi(result.stdout)).toContain("age: using existing identity");
     expect(
-      await readFile(join(xdgConfigHome, "devsync", "keys.txt"), "utf8"),
+      await readFile(join(ctx.xdgDir, "devsync", "keys.txt"), "utf8"),
     ).toBe(`${ageKeys.identity}\n`);
   });
 
   it("does not warn about an existing config when cloning a repository with an existing manifest", async () => {
-    const workspace = await createWorkspace();
-    const homeDirectory = join(workspace, "home");
-    const xdgConfigHome = join(workspace, "xdg");
-    const sourceRepository = join(workspace, "remote-sync");
-    const ageKeys = await createAgeKeyPair();
+    const sourceRepository = join(ctx.workspace, "remote-sync");
+    const ageKeys = await ctx.createAgeKeyPair();
 
-    await runGit(["init", "-b", "main", sourceRepository], {
-      cwd: workspace,
-    });
+    await ctx.runGit(["init", "-b", "main", sourceRepository]);
     await writeFile(
       join(sourceRepository, "manifest.json"),
       formatSyncConfig(
@@ -246,28 +168,18 @@ describe("sync CLI e2e", () => {
       ),
       "utf8",
     );
-    await runGit(["add", "manifest.json"], {
-      cwd: sourceRepository,
-    });
-    await runGit(
+    await ctx.runGit(["add", "manifest.json"], sourceRepository);
+    await ctx.runGit(
       ["commit", "-m", "initial manifest", "--author", "test <test@test.com>"],
-      {
-        cwd: sourceRepository,
-        env: {
-          GIT_AUTHOR_EMAIL: "test@example.com",
-          GIT_AUTHOR_NAME: "Test User",
-          GIT_COMMITTER_EMAIL: "test@example.com",
-          GIT_COMMITTER_NAME: "Test User",
-        },
-      },
+      sourceRepository,
     );
 
-    const result = await runCli(
-      ["init", sourceRepository, "--key", ageKeys.identity],
-      {
-        env: createSyncEnvironment(homeDirectory, xdgConfigHome),
-      },
-    );
+    const result = await ctx.runCli([
+      "init",
+      sourceRepository,
+      "--key",
+      ageKeys.identity,
+    ]);
 
     expect(stripAnsi(result.stdout)).toContain("Sync directory initialized");
     expect(stripAnsi(result.stdout)).not.toContain(
@@ -276,11 +188,7 @@ describe("sync CLI e2e", () => {
   });
 
   it("rejects an invalid supplied age key during init", async () => {
-    const workspace = await createWorkspace();
-    const homeDirectory = join(workspace, "home");
-    const xdgConfigHome = join(workspace, "xdg");
-    const result = await runCli(["init", "--key", "not-a-key"], {
-      env: createSyncEnvironment(homeDirectory, xdgConfigHome),
+    const result = await ctx.runCli(["init", "--key", "not-a-key"], {
       reject: false,
     });
 
@@ -289,37 +197,26 @@ describe("sync CLI e2e", () => {
   });
 
   it("reads the init age key from stdin when --key is omitted", async () => {
-    const workspace = await createWorkspace();
-    const homeDirectory = join(workspace, "home");
-    const xdgConfigHome = join(workspace, "xdg");
-    const sourceRepository = join(workspace, "remote-sync");
-    const ageKeys = await createAgeKeyPair();
+    const sourceRepository = join(ctx.workspace, "remote-sync");
+    const ageKeys = await ctx.createAgeKeyPair();
 
-    await runGit(["init", "-b", "main", sourceRepository], {
-      cwd: workspace,
-    });
+    await ctx.runGit(["init", "-b", "main", sourceRepository]);
 
-    const result = await runCli(["init", sourceRepository], {
-      env: createSyncEnvironment(homeDirectory, xdgConfigHome),
+    const result = await ctx.runCli(["init", sourceRepository], {
       input: `${ageKeys.identity}\n`,
     });
 
     expect(stripAnsi(result.stdout)).toContain("Sync directory initialized");
     expect(
-      await readFile(join(xdgConfigHome, "devsync", "keys.txt"), "utf8"),
+      await readFile(join(ctx.xdgDir, "devsync", "keys.txt"), "utf8"),
     ).toBe(`${ageKeys.identity}\n`);
   });
 
   it("does not warn about an existing config when cloning a repository with an existing manifest and reading the key from stdin", async () => {
-    const workspace = await createWorkspace();
-    const homeDirectory = join(workspace, "home");
-    const xdgConfigHome = join(workspace, "xdg");
-    const sourceRepository = join(workspace, "remote-sync");
-    const ageKeys = await createAgeKeyPair();
+    const sourceRepository = join(ctx.workspace, "remote-sync");
+    const ageKeys = await ctx.createAgeKeyPair();
 
-    await runGit(["init", "-b", "main", sourceRepository], {
-      cwd: workspace,
-    });
+    await ctx.runGit(["init", "-b", "main", sourceRepository]);
     await writeFile(
       join(sourceRepository, "manifest.json"),
       formatSyncConfig(
@@ -330,24 +227,13 @@ describe("sync CLI e2e", () => {
       ),
       "utf8",
     );
-    await runGit(["add", "manifest.json"], {
-      cwd: sourceRepository,
-    });
-    await runGit(
+    await ctx.runGit(["add", "manifest.json"], sourceRepository);
+    await ctx.runGit(
       ["commit", "-m", "initial manifest", "--author", "test <test@test.com>"],
-      {
-        cwd: sourceRepository,
-        env: {
-          GIT_AUTHOR_EMAIL: "test@example.com",
-          GIT_AUTHOR_NAME: "Test User",
-          GIT_COMMITTER_EMAIL: "test@example.com",
-          GIT_COMMITTER_NAME: "Test User",
-        },
-      },
+      sourceRepository,
     );
 
-    const result = await runCli(["init", sourceRepository], {
-      env: createSyncEnvironment(homeDirectory, xdgConfigHome),
+    const result = await ctx.runCli(["init", sourceRepository], {
       input: `${ageKeys.identity}\n`,
     });
 
@@ -358,15 +244,10 @@ describe("sync CLI e2e", () => {
   });
 
   it("does not warn about an existing config when cloning a repository with an existing manifest and entering the key interactively", async () => {
-    const workspace = await createWorkspace();
-    const homeDirectory = join(workspace, "home");
-    const xdgConfigHome = join(workspace, "xdg");
-    const sourceRepository = join(workspace, "remote-sync");
-    const ageKeys = await createAgeKeyPair();
+    const sourceRepository = join(ctx.workspace, "remote-sync");
+    const ageKeys = await ctx.createAgeKeyPair();
 
-    await runGit(["init", "-b", "main", sourceRepository], {
-      cwd: workspace,
-    });
+    await ctx.runGit(["init", "-b", "main", sourceRepository]);
     await writeFile(
       join(sourceRepository, "manifest.json"),
       formatSyncConfig(
@@ -377,30 +258,17 @@ describe("sync CLI e2e", () => {
       ),
       "utf8",
     );
-    await runGit(["add", "manifest.json"], {
-      cwd: sourceRepository,
-    });
-    await runGit(
+    await ctx.runGit(["add", "manifest.json"], sourceRepository);
+    await ctx.runGit(
       ["commit", "-m", "initial manifest", "--author", "test <test@test.com>"],
-      {
-        cwd: sourceRepository,
-        env: {
-          GIT_AUTHOR_EMAIL: "test@example.com",
-          GIT_AUTHOR_NAME: "Test User",
-          GIT_COMMITTER_EMAIL: "test@example.com",
-          GIT_COMMITTER_NAME: "Test User",
-        },
-      },
+      sourceRepository,
     );
 
     const session = createPtySession({
       args: [...cliNodeOptions, "init", sourceRepository],
-      cwd: workspace,
+      cwd: ctx.workspace,
       env: {
-        ...createSyncEnvironment(homeDirectory, xdgConfigHome),
-        FORCE_COLOR: "0",
-        NODE_NO_WARNINGS: "1",
-        NO_COLOR: "1",
+        ...ctx.baseEnv,
       },
       file: process.execPath,
     });
@@ -421,64 +289,55 @@ describe("sync CLI e2e", () => {
   });
 
   it("launches a shell in the sync directory via cd command", async () => {
-    const workspace = await createWorkspace();
-    const homeDirectory = join(workspace, "home");
-    const xdgConfigHome = join(workspace, "xdg");
-    const markerFile = join(workspace, "shell-marker.txt");
-    const result = await runCli(["cd"], {
-      env: {
-        ...createSyncEnvironment(homeDirectory, xdgConfigHome),
-        ...(await createShellRecorderEnvironment(workspace, markerFile)),
-      },
+    const markerFile = join(ctx.workspace, "shell-marker.txt");
+    const result = await ctx.runCli(["cd"], {
+      env: await createShellRecorderEnvironment(ctx.workspace, markerFile),
     });
 
     expect(result.stdout).toBe("");
     expect(await readFile(markerFile, "utf8")).toBe(
-      join(xdgConfigHome, "devsync", "repository"),
+      join(ctx.xdgDir, "devsync", "repository"),
     );
   });
 
   it("tracks roots, sets modes, and untracks from the CLI", async () => {
-    const workspace = await createWorkspace();
-    const homeDirectory = join(workspace, "home");
-    const xdgConfigHome = join(workspace, "xdg");
-    const bundleDirectory = join(homeDirectory, ".config", "mytool");
+    const bundleDirectory = join(ctx.homeDir, ".config", "mytool");
     const publicFile = join(bundleDirectory, "public.json");
     const cacheDirectory = join(bundleDirectory, "cache");
-    const syncDirectory = join(xdgConfigHome, "devsync", "repository");
-    const ageKeys = await createAgeKeyPair();
-    const env = createSyncEnvironment(homeDirectory, xdgConfigHome);
+    const syncDirectory = join(ctx.xdgDir, "devsync", "repository");
+    const ageKeys = await ctx.createAgeKeyPair();
 
-    await writeIdentityFile(xdgConfigHome, ageKeys.identity);
+    await ctx.writeIdentityFile(ageKeys.identity);
     await mkdir(cacheDirectory, { recursive: true });
     await writeFile(publicFile, "{}\n");
     await writeFile(join(cacheDirectory, "state.txt"), "cache\n");
 
-    await runCli(
-      [
-        "init",
-        "--recipient",
-        ageKeys.recipient,
-        "--identity",
-        "$XDG_CONFIG_HOME/devsync/keys.txt",
-      ],
-      { env },
-    );
+    await ctx.runCli([
+      "init",
+      "--recipient",
+      ageKeys.recipient,
+      "--identity",
+      "$XDG_CONFIG_HOME/devsync/keys.txt",
+    ]);
 
-    const trackResult = await runCli(
-      ["track", bundleDirectory, "--mode", "secret"],
-      {
-        env,
-      },
-    );
-    const exactRuleResult = await runCli(
-      ["track", publicFile, "--mode", "normal"],
-      { env },
-    );
-    const subtreeRuleResult = await runCli(
-      ["track", cacheDirectory, "--mode", "ignore"],
-      { env },
-    );
+    const trackResult = await ctx.runCli([
+      "track",
+      bundleDirectory,
+      "--mode",
+      "secret",
+    ]);
+    const exactRuleResult = await ctx.runCli([
+      "track",
+      publicFile,
+      "--mode",
+      "normal",
+    ]);
+    const subtreeRuleResult = await ctx.runCli([
+      "track",
+      cacheDirectory,
+      "--mode",
+      "ignore",
+    ]);
     const configAfterSet = JSON.parse(
       await readFile(join(syncDirectory, "manifest.json"), "utf8"),
     ) as {
@@ -514,14 +373,14 @@ describe("sync CLI e2e", () => {
       },
     ]);
 
-    const untrackResult = await runCli(["untrack", ".config/mytool"], { env });
+    const untrackResult = await ctx.runCli(["untrack", ".config/mytool"]);
 
     expect(stripAnsi(untrackResult.stdout)).toContain(
       "Stopped tracking .config/mytool",
     );
 
-    await runCli(["untrack", ".config/mytool/cache"], { env });
-    await runCli(["untrack", ".config/mytool/public.json"], { env });
+    await ctx.runCli(["untrack", ".config/mytool/cache"]);
+    await ctx.runCli(["untrack", ".config/mytool/public.json"]);
 
     const configAfterUntrack = JSON.parse(
       await readFile(join(syncDirectory, "manifest.json"), "utf8"),
@@ -533,39 +392,32 @@ describe("sync CLI e2e", () => {
   }, 15_000);
 
   it("syncs with the default profile namespace using push and pull", async () => {
-    const workspace = await createWorkspace();
-    const homeDirectory = join(workspace, "home");
-    const xdgConfigHome = join(workspace, "xdg");
-    const zshDirectory = join(homeDirectory, ".config", "zsh");
+    const zshDirectory = join(ctx.homeDir, ".config", "zsh");
     const sharedFile = join(zshDirectory, "zshrc");
     const secretsFile = join(zshDirectory, "secrets.zsh");
-    const ageKeys = await createAgeKeyPair();
-    const env = createSyncEnvironment(homeDirectory, xdgConfigHome);
+    const ageKeys = await ctx.createAgeKeyPair();
 
-    await writeIdentityFile(xdgConfigHome, ageKeys.identity);
+    await ctx.writeIdentityFile(ageKeys.identity);
     await mkdir(zshDirectory, { recursive: true });
     await writeFile(sharedFile, "export PATH=$PATH:$HOME/bin\n");
     await writeFile(secretsFile, "export TOKEN=work\n");
 
-    await runCli(
-      [
-        "init",
-        "--recipient",
-        ageKeys.recipient,
-        "--identity",
-        "$XDG_CONFIG_HOME/devsync/keys.txt",
-      ],
-      { env },
-    );
-    await runCli(["track", zshDirectory], { env });
-    await runCli(["track", secretsFile, "--mode", "secret"], { env });
+    await ctx.runCli([
+      "init",
+      "--recipient",
+      ageKeys.recipient,
+      "--identity",
+      "$XDG_CONFIG_HOME/devsync/keys.txt",
+    ]);
+    await ctx.runCli(["track", zshDirectory]);
+    await ctx.runCli(["track", secretsFile, "--mode", "secret"]);
 
-    await runCli(["push"], { env });
+    await ctx.runCli(["push"]);
 
     expect(
       await readFile(
         join(
-          xdgConfigHome,
+          ctx.xdgDir,
           "devsync",
           "repository",
           "default",
@@ -579,7 +431,7 @@ describe("sync CLI e2e", () => {
     expect(
       await readFile(
         join(
-          xdgConfigHome,
+          ctx.xdgDir,
           "devsync",
           "repository",
           "default",
@@ -592,40 +444,33 @@ describe("sync CLI e2e", () => {
     ).toContain("BEGIN AGE ENCRYPTED FILE");
 
     await writeFile(secretsFile, "local-change\n");
-    await runCli(["pull"], { env });
+    await ctx.runCli(["pull"]);
 
     expect(await readFile(secretsFile, "utf8")).toContain("TOKEN=work");
   }, 15_000);
 
   it("sets mode on tracked roots via track command", async () => {
-    const workspace = await createWorkspace();
-    const homeDirectory = join(workspace, "home");
-    const xdgConfigHome = join(workspace, "xdg");
-    const bundleDirectory = join(homeDirectory, ".config", "mytool");
-    const ageKeys = await createAgeKeyPair();
-    const env = createSyncEnvironment(homeDirectory, xdgConfigHome);
+    const bundleDirectory = join(ctx.homeDir, ".config", "mytool");
+    const ageKeys = await ctx.createAgeKeyPair();
 
-    await writeIdentityFile(xdgConfigHome, ageKeys.identity);
+    await ctx.writeIdentityFile(ageKeys.identity);
     await mkdir(bundleDirectory, { recursive: true });
 
-    await runCli(
-      [
-        "init",
-        "--recipient",
-        ageKeys.recipient,
-        "--identity",
-        "$XDG_CONFIG_HOME/devsync/keys.txt",
-      ],
-      { env },
-    );
-    await runCli(["track", bundleDirectory], { env });
+    await ctx.runCli([
+      "init",
+      "--recipient",
+      ageKeys.recipient,
+      "--identity",
+      "$XDG_CONFIG_HOME/devsync/keys.txt",
+    ]);
+    await ctx.runCli(["track", bundleDirectory]);
 
-    const result = await runCli(
-      ["track", bundleDirectory, "--mode", "secret"],
-      {
-        env,
-      },
-    );
+    const result = await ctx.runCli([
+      "track",
+      bundleDirectory,
+      "--mode",
+      "secret",
+    ]);
 
     expect(result.exitCode).toBe(0);
     expect(stripAnsi(result.stdout)).toContain(
@@ -635,14 +480,10 @@ describe("sync CLI e2e", () => {
   });
 
   it("streams push progress to stdout before the command exits", async () => {
-    const workspace = await createWorkspace();
-    const homeDirectory = join(workspace, "home");
-    const xdgConfigHome = join(workspace, "xdg");
-    const bundleDirectory = join(homeDirectory, ".config", "streaming");
-    const ageKeys = await createAgeKeyPair();
-    const env = createSyncEnvironment(homeDirectory, xdgConfigHome);
+    const bundleDirectory = join(ctx.homeDir, ".config", "streaming");
+    const ageKeys = await ctx.createAgeKeyPair();
 
-    await writeIdentityFile(xdgConfigHome, ageKeys.identity);
+    await ctx.writeIdentityFile(ageKeys.identity);
     await mkdir(bundleDirectory, { recursive: true });
 
     for (let index = 0; index < 150; index += 1) {
@@ -653,19 +494,16 @@ describe("sync CLI e2e", () => {
       );
     }
 
-    await runCli(
-      [
-        "init",
-        "--recipient",
-        ageKeys.recipient,
-        "--identity",
-        "$XDG_CONFIG_HOME/devsync/keys.txt",
-      ],
-      { env },
-    );
-    await runCli(["track", bundleDirectory], { env });
+    await ctx.runCli([
+      "init",
+      "--recipient",
+      ageKeys.recipient,
+      "--identity",
+      "$XDG_CONFIG_HOME/devsync/keys.txt",
+    ]);
+    await ctx.runCli(["track", bundleDirectory]);
 
-    const result = await runCliStreaming(["push", "--verbose"], { env });
+    const result = await runCliStreaming(["push", "--verbose"]);
 
     expect(
       result.exitCode,
@@ -674,5 +512,88 @@ describe("sync CLI e2e", () => {
     expect(stripAnsi(result.firstStdout)).toContain("Starting push...");
     expect(stripAnsi(result.stdout)).toContain("Scanning local files...");
     expect(stripAnsi(result.stdout)).toContain("Push complete");
+  });
+
+  it("previews push changes without writing artifacts when --dry-run is used", async () => {
+    const configDir = join(ctx.homeDir, ".config", "dryapp");
+    const configFile = join(configDir, "config.toml");
+    const ageKeys = await ctx.createAgeKeyPair();
+
+    await ctx.writeIdentityFile(ageKeys.identity);
+    await mkdir(configDir, { recursive: true });
+    await writeFile(configFile, "mode = dry\n");
+
+    await ctx.runCli([
+      "init",
+      "--recipient",
+      ageKeys.recipient,
+      "--identity",
+      "$XDG_CONFIG_HOME/devsync/keys.txt",
+    ]);
+    await ctx.runCli(["track", configDir]);
+
+    const result = await ctx.runCli(["push", "--dry-run"]);
+
+    expect(result.exitCode).toBe(0);
+    expect(stripAnsi(result.stdout)).toContain("Push preview");
+    expect(stripAnsi(result.stdout)).toContain("dry run");
+
+    // The artifact should NOT have been written to the repository
+    const artifact = join(
+      ctx.xdgDir,
+      "devsync",
+      "repository",
+      "default",
+      ".config",
+      "dryapp",
+      "config.toml",
+    );
+    await expect(readFile(artifact, "utf8")).rejects.toThrow();
+  });
+
+  it("previews pull changes without overwriting local files when --dry-run is used", async () => {
+    const configDir = join(ctx.homeDir, ".config", "pullapp");
+    const configFile = join(configDir, "config.toml");
+    const ageKeys = await ctx.createAgeKeyPair();
+
+    await ctx.writeIdentityFile(ageKeys.identity);
+    await mkdir(configDir, { recursive: true });
+    await writeFile(configFile, "version = 1\n");
+
+    await ctx.runCli([
+      "init",
+      "--recipient",
+      ageKeys.recipient,
+      "--identity",
+      "$XDG_CONFIG_HOME/devsync/keys.txt",
+    ]);
+    await ctx.runCli(["track", configDir]);
+    await ctx.runCli(["push"]);
+
+    // Modify the local file so it diverges from the repository
+    await writeFile(configFile, "version = 2\n");
+
+    const result = await ctx.runCli(["pull", "--dry-run"]);
+
+    expect(result.exitCode).toBe(0);
+    expect(stripAnsi(result.stdout)).toContain("Pull preview");
+    expect(stripAnsi(result.stdout)).toContain("dry run");
+
+    // Local file should still have the modified content
+    expect(await readFile(configFile, "utf8")).toContain("version = 2");
+  });
+
+  it("returns a non-zero exit code when pushing without init", async () => {
+    const result = await ctx.runCli(["push"], { reject: false });
+
+    expect(result.exitCode).not.toBe(0);
+    expect(stripAnsi(result.stderr)).not.toBe("");
+  });
+
+  it("returns a non-zero exit code when pulling without init", async () => {
+    const result = await ctx.runCli(["pull"], { reject: false });
+
+    expect(result.exitCode).not.toBe(0);
+    expect(stripAnsi(result.stderr)).not.toBe("");
   });
 });
