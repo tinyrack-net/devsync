@@ -52,6 +52,7 @@ describe("CLI e2e", () => {
     expect(trackHelp.stdout).toContain("USAGE");
     expect(trackHelp.stdout).toContain("--mode");
     expect(trackHelp.stdout).toContain("--profile");
+    expect(trackHelp.stdout).toContain("--repo-path");
 
     expect(profileHelp.stdout).toContain("Profile name to activate");
   });

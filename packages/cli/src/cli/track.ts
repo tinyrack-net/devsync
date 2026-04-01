@@ -17,6 +17,7 @@ import { trackTarget } from "#app/services/track.ts";
 type TrackFlags = {
   mode: "ignore" | "normal" | "secret";
   profile?: readonly string[];
+  repoPath?: string;
   verbose?: boolean;
 };
 
@@ -32,6 +33,16 @@ const trackCommand = buildCommand<TrackFlags, string[], DevsyncCliContext>({
     const progress = createProgressReporter(verbose);
     const cwd = process.cwd();
 
+    if (flags.repoPath !== undefined && targets.length !== 1) {
+      throw new DevsyncError(
+        "The --repo-path flag can only be used with a single sync target.",
+        {
+          code: "REPO_PATH_TARGET_COUNT",
+          hint: "Track one target at a time when overriding its repository path.",
+        },
+      );
+    }
+
     progress.phase(
       `Processing ${targets.length} sync target${targets.length === 1 ? "" : "s"}...`,
     );
@@ -44,6 +55,9 @@ const trackCommand = buildCommand<TrackFlags, string[], DevsyncCliContext>({
           {
             mode: flags.mode,
             profiles: profiles.length > 0 ? profiles : undefined,
+            ...(flags.repoPath === undefined
+              ? {}
+              : { repoPath: flags.repoPath }),
             target,
           },
           cwd,
@@ -52,6 +66,7 @@ const trackCommand = buildCommand<TrackFlags, string[], DevsyncCliContext>({
         print(formatTrackResult(result, { verbose }));
       } catch (error: unknown) {
         if (
+          flags.repoPath === undefined &&
           error instanceof DevsyncError &&
           error.code === "TARGET_NOT_FOUND"
         ) {
@@ -95,6 +110,13 @@ const trackCommand = buildCommand<TrackFlags, string[], DevsyncCliContext>({
         parse: String,
         placeholder: "profile",
         variadic: true,
+      },
+      repoPath: {
+        brief: "Repository-relative path under the profile namespace",
+        kind: "parsed",
+        optional: true,
+        parse: String,
+        placeholder: "path",
       },
       verbose: verboseFlag,
     },

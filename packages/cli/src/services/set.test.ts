@@ -152,7 +152,7 @@ describe("sync set service", () => {
     );
     mocked.getPathStats.mockResolvedValueOnce(fileStats);
     mocked.findOwningSyncEntry.mockReturnValueOnce(entry);
-    mocked.resolveEntryRelativeRepoPath.mockReturnValueOnce("config.json");
+    mocked.resolveEntryRelativeRepoPath.mockReturnValue("config.json");
 
     await expect(
       resolveSetTarget(
@@ -166,6 +166,38 @@ describe("sync set service", () => {
       localPath: "/tmp/home/.config/app/config.json",
       relativePath: "config.json",
       repoPath: ".config/app/config.json",
+      stats: fileStats,
+    });
+  });
+
+  it("resolves explicit child paths inside tracked directories with explicit repo paths", async () => {
+    const entry = directoryEntry({
+      configuredRepoPath: "profiles/shared/app",
+      repoPath: "profiles/shared/app",
+    });
+
+    mocked.isExplicitLocalPath.mockReturnValueOnce(true);
+    mocked.expandHomePath.mockReturnValueOnce(
+      "/tmp/home/.config/app/config.json",
+    );
+    mocked.buildRepoPathWithinRoot.mockReturnValueOnce(
+      ".config/app/config.json",
+    );
+    mocked.getPathStats.mockResolvedValueOnce(fileStats);
+    mocked.findOwningSyncEntry.mockReturnValueOnce(undefined);
+
+    await expect(
+      resolveSetTarget(
+        "/tmp/home/.config/app/config.json",
+        createConfig([entry]),
+        "/tmp/cwd",
+        "/tmp/home",
+      ),
+    ).resolves.toEqual({
+      entry,
+      localPath: "/tmp/home/.config/app/config.json",
+      relativePath: "config.json",
+      repoPath: "profiles/shared/app/config.json",
       stats: fileStats,
     });
   });

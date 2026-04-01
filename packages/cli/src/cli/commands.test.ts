@@ -266,7 +266,12 @@ describe("CLI command modules", () => {
   it("tracks new targets and formats track output", async () => {
     await runCommand(
       trackCommand,
-      { mode: "secret", profile: ["work"], verbose: true },
+      {
+        mode: "secret",
+        profile: ["work"],
+        repoPath: "profiles/work/.gitconfig",
+        verbose: true,
+      },
       ".gitconfig",
     );
 
@@ -274,6 +279,7 @@ describe("CLI command modules", () => {
       {
         mode: "secret",
         profiles: ["work"],
+        repoPath: "profiles/work/.gitconfig",
         target: ".gitconfig",
       },
       process.cwd(),
@@ -283,6 +289,24 @@ describe("CLI command modules", () => {
       { verbose: true },
     );
     expect(mocked.print).toHaveBeenCalledWith("track output");
+  });
+
+  it("rejects --repo-path when tracking multiple targets", async () => {
+    await expect(
+      runCommand(
+        trackCommand,
+        {
+          mode: "normal",
+          repoPath: "profiles/shared/tool",
+          verbose: false,
+        },
+        ".gitconfig",
+        ".zshrc",
+      ),
+    ).rejects.toThrowError(
+      "The --repo-path flag can only be used with a single sync target.",
+    );
+    expect(mocked.trackTarget).not.toHaveBeenCalled();
   });
 
   it("falls back to mode updates when tracking finds an existing target", async () => {

@@ -1,4 +1,4 @@
-import { join, resolve } from "node:path";
+import { isAbsolute, join, posix, relative, resolve } from "node:path";
 
 import {
   findOwningSyncEntry,
@@ -65,6 +65,54 @@ const computeLocalPath = (entry: ResolvedSyncConfigEntry, repoPath: string) => {
   return join(entry.localPath, ...relativePath.split("/"));
 };
 
+const resolveRelativeLocalPath = (rootPath: string, targetPath: string) => {
+  const relativePath = relative(rootPath, targetPath);
+
+  if (relativePath === "") {
+    return "";
+  }
+
+  if (
+    isAbsolute(relativePath) ||
+    relativePath.startsWith("..") ||
+    relativePath === ".."
+  ) {
+    return undefined;
+  }
+
+  return relativePath.replaceAll("\\", "/");
+};
+
+const findOwningLocalEntry = (
+  config: Awaited<ReturnType<typeof readSyncConfig>>,
+  localPath: string,
+) => {
+  let best: ResolvedSyncConfigEntry | undefined;
+
+  for (const entry of config.entries) {
+    if (entry.kind !== "directory") {
+      continue;
+    }
+
+    const relativeLocalPath = resolveRelativeLocalPath(
+      entry.localPath,
+      localPath,
+    );
+
+    if (
+      relativeLocalPath === undefined ||
+      relativeLocalPath === "" ||
+      (best !== undefined && entry.localPath.length <= best.localPath.length)
+    ) {
+      continue;
+    }
+
+    best = entry;
+  }
+
+  return best;
+};
+
 export const resolveSetTarget = async (
   target: string,
   config: Awaited<ReturnType<typeof readSyncConfig>>,
@@ -105,12 +153,17 @@ export const resolveSetTarget = async (
     const exactEntry = config.entries.find((e) => e.repoPath === localRepoPath);
 
     if (exactEntry !== undefined) {
+      const localPath = computeLocalPath(exactEntry, localRepoPath);
+
       return {
         entry: exactEntry,
-        localPath: localTargetPath,
+        localPath,
         relativePath: "",
         repoPath: localRepoPath,
-        stats: localStats,
+        stats:
+          localPath === localTargetPath
+            ? localStats
+            : await getPathStats(localPath),
       };
     }
 
@@ -123,11 +176,49 @@ export const resolveSetTarget = async (
       );
 
       if (relativePath !== undefined) {
+        const localPath = computeLocalPath(parentEntry, localRepoPath);
+
         return {
           entry: parentEntry,
-          localPath: localTargetPath,
+          localPath,
           relativePath,
           repoPath: localRepoPath,
+          stats:
+            localPath === localTargetPath
+              ? localStats
+              : await getPathStats(localPath),
+        };
+      }
+    }
+
+    const exactLocalEntry = config.entries.find(
+      (entry) => entry.localPath === localTargetPath,
+    );
+
+    if (exactLocalEntry !== undefined) {
+      return {
+        entry: exactLocalEntry,
+        localPath: localTargetPath,
+        relativePath: "",
+        repoPath: exactLocalEntry.repoPath,
+        stats: localStats,
+      };
+    }
+
+    const localParentEntry = findOwningLocalEntry(config, localTargetPath);
+
+    if (localParentEntry !== undefined) {
+      const relativePath = resolveRelativeLocalPath(
+        localParentEntry.localPath,
+        localTargetPath,
+      );
+
+      if (relativePath !== undefined && relativePath !== "") {
+        return {
+          entry: localParentEntry,
+          localPath: localTargetPath,
+          relativePath,
+          repoPath: posix.join(localParentEntry.repoPath, relativePath),
           stats: localStats,
         };
       }
@@ -263,7 +354,30 @@ export const setTargetMode = async (
 
   const childKind = target.stats?.isDirectory() ? "directory" : "file";
   const childRepoPath = target.repoPath;
-  const childConfiguredLocalPath = buildConfiguredHomeLocalPath(childRepoPath);
+  const childLocalRelativePath = resolveRelativeLocalPath(
+    homeDirectory,
+    target.localPath,
+  );
+
+  if (childLocalRelativePath === undefined || childLocalRelativePath === "") {
+    throw new DevsyncError(
+      "Sync set target must stay inside the configured home root.",
+      {
+        code: "TARGET_OUTSIDE_ROOT",
+        details: [
+          `Target: ${target.localPath}`,
+          `Allowed root: ${homeDirectory}`,
+        ],
+        hint: `Use a path inside ${homeDirectory}.`,
+      },
+    );
+  }
+
+  const childConfiguredLocalPath = buildConfiguredHomeLocalPath(
+    childLocalRelativePath,
+  );
+  const childConfiguredRepoPath =
+    childRepoPath === childLocalRelativePath ? undefined : childRepoPath;
 
   const existingChild = config.entries.find(
     (e) => e.repoPath === childRepoPath,
@@ -308,6 +422,9 @@ export const setTargetMode = async (
     configuredLocalPath: childConfiguredLocalPath,
     kind: childKind,
     localPath: target.localPath,
+    ...(childConfiguredRepoPath === undefined
+      ? {}
+      : { configuredRepoPath: childConfiguredRepoPath }),
     profiles: [],
     profilesExplicit: false,
     mode: request.mode,

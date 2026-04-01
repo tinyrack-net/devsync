@@ -180,7 +180,95 @@ describe("sync config", () => {
           HOME: homeDirectory,
         },
       ),
-    ).toThrowError("Duplicate");
+    ).toThrowError("same repository path");
+  });
+
+  it("uses explicit repoPath when configured", async () => {
+    const workspace = await createTemporaryDirectory("devsync-sync-config-");
+    const homeDirectory = join(workspace, "home");
+
+    const config = parseSyncConfig(
+      {
+        version: 7,
+        entries: [
+          {
+            kind: "file",
+            localPath: { default: "~/.config/tool/settings.json" },
+            repoPath: "profiles/shared/tool/settings.json",
+          },
+        ],
+      },
+      { HOME: homeDirectory },
+    );
+
+    expect(config.entries[0]?.repoPath).toBe(
+      "profiles/shared/tool/settings.json",
+    );
+    expect(config.entries[0]?.configuredRepoPath).toBe(
+      "profiles/shared/tool/settings.json",
+    );
+  });
+
+  it("rejects invalid explicit repoPath values", async () => {
+    const workspace = await createTemporaryDirectory("devsync-sync-config-");
+    const homeDirectory = join(workspace, "home");
+
+    expect(() =>
+      parseSyncConfig(
+        {
+          version: 7,
+          entries: [
+            {
+              kind: "file",
+              localPath: { default: "~/.gitconfig" },
+              repoPath: "../outside",
+            },
+          ],
+        },
+        { HOME: homeDirectory },
+      ),
+    ).toThrowError("Repository path must be a relative POSIX path");
+
+    expect(() =>
+      parseSyncConfig(
+        {
+          version: 7,
+          entries: [
+            {
+              kind: "file",
+              localPath: { default: "~/.gitconfig" },
+              repoPath: "/absolute/path",
+            },
+          ],
+        },
+        { HOME: homeDirectory },
+      ),
+    ).toThrowError("Repository path must be a relative POSIX path");
+  });
+
+  it("rejects duplicate resolved repo paths from implicit and explicit entries", async () => {
+    const workspace = await createTemporaryDirectory("devsync-sync-config-");
+    const homeDirectory = join(workspace, "home");
+
+    expect(() =>
+      parseSyncConfig(
+        {
+          version: 7,
+          entries: [
+            {
+              kind: "file",
+              localPath: { default: "~/.gitconfig" },
+            },
+            {
+              kind: "file",
+              localPath: { default: "~/.config/git/config" },
+              repoPath: ".gitconfig",
+            },
+          ],
+        },
+        { HOME: homeDirectory },
+      ),
+    ).toThrowError("same repository path");
   });
 
   it("allows parent-child path overlaps", async () => {

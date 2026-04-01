@@ -3,6 +3,7 @@ import { resolve } from "node:path";
 import { resolveConfiguredIdentityFile } from "#app/config/global-config.ts";
 import {
   normalizeSyncProfileName,
+  normalizeSyncRepoPath,
   type PlatformSyncMode,
   type ResolvedSyncConfigEntry,
   readSyncConfig,
@@ -27,6 +28,7 @@ import { ensureSyncRepository, resolveSyncPaths } from "./runtime.ts";
 export type TrackRequest = Readonly<{
   profiles?: readonly string[];
   mode: SyncMode;
+  repoPath?: string;
   target: string;
 }>;
 
@@ -63,6 +65,7 @@ const buildTrackEntryCandidate = async (
     identityFile: string | undefined;
     profiles?: readonly string[];
     mode: SyncMode;
+    repoPath?: string;
   }>,
 ) => {
   const targetStats = await getPathStats(targetPath);
@@ -116,15 +119,21 @@ const buildTrackEntryCandidate = async (
     );
   }
 
-  const repoPath = buildRepoPathWithinRoot(
+  const localRepoPath = buildRepoPathWithinRoot(
     targetPath,
     homeDirectory,
     "Sync target",
   );
-  const configuredLocalPath = buildConfiguredHomeLocalPath(repoPath);
+  const configuredLocalPath = buildConfiguredHomeLocalPath(localRepoPath);
+  const configuredRepoPath =
+    input.repoPath === undefined
+      ? undefined
+      : normalizeSyncRepoPath(input.repoPath);
+  const repoPath = configuredRepoPath ?? localRepoPath;
 
   return {
     configuredLocalPath,
+    ...(configuredRepoPath === undefined ? {} : { configuredRepoPath }),
     kind,
     localPath: targetPath,
     profiles: input.profiles?.map((m) => normalizeSyncProfileName(m)) ?? [],
@@ -173,14 +182,12 @@ export const trackTarget = async (
       identityFile,
       profiles: effectiveProfiles,
       mode: request.mode,
+      repoPath: request.repoPath,
     },
   );
-  const existingEntry = config.entries.find((entry) => {
-    return (
-      entry.localPath === candidate.localPath &&
-      entry.repoPath === candidate.repoPath
-    );
-  });
+  const existingEntry = config.entries.find(
+    (entry) => entry.localPath === candidate.localPath,
+  );
   const alreadyTracked =
     existingEntry !== undefined && existingEntry.kind === candidate.kind;
 
@@ -199,10 +206,41 @@ export const trackTarget = async (
     );
   }
 
+  const nextEntry =
+    existingEntry !== undefined && request.repoPath === undefined
+      ? {
+          ...candidate,
+          configuredRepoPath: existingEntry.configuredRepoPath,
+          repoPath: existingEntry.repoPath,
+        }
+      : candidate;
+
+  const repoPathConflict = config.entries.find((entry) => {
+    return (
+      entry.repoPath === nextEntry.repoPath &&
+      entry.localPath !== nextEntry.localPath
+    );
+  });
+
+  if (repoPathConflict !== undefined) {
+    throw new DevsyncError(
+      "Sync target conflicts with an existing tracked entry.",
+      {
+        code: "TARGET_CONFLICT",
+        details: [
+          `Requested local path: ${nextEntry.localPath}`,
+          `Requested repo path: ${nextEntry.repoPath}`,
+          `Existing entry: ${repoPathConflict.localPath} -> ${repoPathConflict.repoPath}`,
+        ],
+        hint: "Change --repo-path or untrack the conflicting entry first.",
+      },
+    );
+  }
+
   if (!alreadyTracked) {
     const nextConfig = createSyncConfigDocument({
       ...config,
-      entries: [...config.entries, candidate],
+      entries: [...config.entries, nextEntry],
     });
 
     await writeValidatedSyncConfig(syncDirectory, nextConfig);
@@ -211,11 +249,11 @@ export const trackTarget = async (
       alreadyTracked,
       changed: true,
       configPath,
-      kind: candidate.kind,
-      localPath: candidate.localPath,
-      profiles: candidate.profiles,
-      mode: candidate.mode,
-      repoPath: candidate.repoPath,
+      kind: nextEntry.kind,
+      localPath: nextEntry.localPath,
+      profiles: nextEntry.profiles,
+      mode: nextEntry.mode,
+      repoPath: nextEntry.repoPath,
       syncDirectory,
     };
   }
@@ -230,18 +268,28 @@ export const trackTarget = async (
     effectiveProfiles !== undefined &&
     (existingEntry?.profiles.length !== candidate.profiles.length ||
       !candidate.profiles.every((m) => existingEntry?.profiles.includes(m)));
-  const changed = modeChanged || profilesChanged;
+  const repoPathChanged =
+    request.repoPath !== undefined &&
+    (existingEntry?.repoPath !== nextEntry.repoPath ||
+      existingEntry?.configuredRepoPath !== nextEntry.configuredRepoPath);
+  const changed = modeChanged || profilesChanged || repoPathChanged;
 
   if (changed) {
     const nextConfig = createSyncConfigDocument({
       ...config,
       entries: config.entries.map((entry) => {
-        if (entry.repoPath !== candidate.repoPath) {
+        if (entry.localPath !== candidate.localPath) {
           return entry;
         }
 
         return {
           ...entry,
+          ...(repoPathChanged
+            ? {
+                configuredRepoPath: nextEntry.configuredRepoPath,
+                repoPath: nextEntry.repoPath,
+              }
+            : {}),
           ...(modeChanged
             ? {
                 configuredMode: requestedConfiguredMode,
@@ -265,13 +313,16 @@ export const trackTarget = async (
     alreadyTracked,
     changed,
     configPath,
-    kind: candidate.kind,
-    localPath: candidate.localPath,
+    kind: nextEntry.kind,
+    localPath: nextEntry.localPath,
     profiles: profilesChanged
-      ? candidate.profiles
+      ? nextEntry.profiles
       : (existingEntry?.profiles ?? []),
     mode: modeChanged ? request.mode : (existingEntry?.mode ?? request.mode),
-    repoPath: candidate.repoPath,
+    repoPath:
+      repoPathChanged || !alreadyTracked
+        ? nextEntry.repoPath
+        : (existingEntry?.repoPath ?? nextEntry.repoPath),
     syncDirectory,
   };
 };

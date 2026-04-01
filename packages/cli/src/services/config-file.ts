@@ -24,6 +24,9 @@ export const createSyncConfigDocument = (
     config.entries.map((entry): SyncConfig["entries"][number] => ({
       kind: entry.kind,
       localPath: entry.configuredLocalPath,
+      ...(entry.configuredRepoPath === undefined
+        ? {}
+        : { repoPath: entry.configuredRepoPath }),
       ...(entry.modeExplicit ? { mode: entry.configuredMode } : {}),
       ...(entry.permissionExplicit
         ? { permission: entry.configuredPermission }

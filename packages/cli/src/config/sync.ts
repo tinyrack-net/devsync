@@ -79,6 +79,7 @@ const syncConfigEntrySchema = z
   .object({
     kind: z.enum(syncEntryKinds),
     localPath: localPathSchema,
+    repoPath: requiredTrimmedStringSchema.optional(),
     profiles: syncProfileNameArraySchema.optional(),
     mode: platformSyncModeSchema.optional(),
     permission: platformPermissionSchema.optional(),
@@ -114,6 +115,7 @@ export type ResolvedSyncConfigEntry = Readonly<{
   configuredMode: PlatformSyncMode;
   configuredLocalPath: PlatformLocalPath;
   configuredPermission?: PlatformPermission;
+  configuredRepoPath?: string;
   kind: SyncConfigEntryKind;
   localPath: string;
   profiles: readonly string[];
@@ -410,15 +412,26 @@ const validatePathOverlaps = (
       const otherValue = otherEntry[property];
 
       if (currentValue === otherValue) {
+        const isRepoPath = property === "repoPath";
+
         throw new DevsyncError(
-          `Duplicate ${description.toLowerCase()} paths in ${syncConfigFileName}.`,
+          isRepoPath
+            ? `Multiple entries target the same repository path in ${syncConfigFileName}.`
+            : `Duplicate ${description.toLowerCase()} paths in ${syncConfigFileName}.`,
           {
             code: "DUPLICATE_PATHS",
-            details: [
-              `${currentEntry.repoPath}: ${currentValue}`,
-              `${otherEntry.repoPath}: ${otherValue}`,
-            ],
-            hint: `Remove the duplicate entry from ${syncConfigFileName}.`,
+            details: isRepoPath
+              ? [
+                  `${currentEntry.localPath} -> ${currentValue}`,
+                  `${otherEntry.localPath} -> ${otherValue}`,
+                ]
+              : [
+                  `${currentEntry.repoPath}: ${currentValue}`,
+                  `${otherEntry.repoPath}: ${otherValue}`,
+                ],
+            hint: isRepoPath
+              ? "Each entry must use a unique repoPath. Change or remove one of the conflicting entries."
+              : `Remove the duplicate entry from ${syncConfigFileName}.`,
           },
         );
       }
@@ -581,7 +594,13 @@ export const parseSyncConfig = (
       environment,
       platformKey,
     );
-    const repoPath = deriveRepoPathFromLocalPath(entry.localPath, environment);
+    const configuredRepoPath =
+      entry.repoPath === undefined
+        ? undefined
+        : normalizeSyncRepoPath(entry.repoPath);
+    const repoPath =
+      configuredRepoPath ??
+      deriveRepoPathFromLocalPath(entry.localPath, environment);
     const profiles = buildNormalizedProfiles(entry);
     const configuredMode = buildConfiguredMode(entry);
     const configuredPermission = buildConfiguredPermission(entry);
@@ -590,6 +609,7 @@ export const parseSyncConfig = (
       configuredMode,
       configuredLocalPath: entry.localPath,
       configuredPermission,
+      ...(configuredRepoPath === undefined ? {} : { configuredRepoPath }),
       kind: entry.kind,
       localPath: resolvedLocalPath,
       profiles,
