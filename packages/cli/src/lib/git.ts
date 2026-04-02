@@ -173,7 +173,7 @@ export const ensureRepository = async (directory: string) => {
 
 /**
  * @description
- * Creates a sync repository locally or clones it from a remote source.
+ * Creates a sync directory locally or clones it from a remote source.
  */
 export const initializeRepository = async (
   directory: string,
@@ -211,7 +211,7 @@ export const ensureGitRepository = async (syncDirectory: string) => {
     throw wrapUnknownError("Sync repository is not initialized.", error, {
       code: "SYNC_REPO_INVALID",
       details: [`Sync directory: ${syncDirectory}`],
-      hint: "Run 'devsync init' to create or clone the sync repository.",
+      hint: "Run 'devsync init' to create or clone the sync directory.",
     });
   }
 };

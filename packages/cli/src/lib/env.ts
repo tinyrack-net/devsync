@@ -72,7 +72,7 @@ const EnvSchema = z
      * @description
      * XDG Base Directory spec override for the user's config home. When set,
      * replaces the default `~/.config` location for all devsync configuration
-     * files (global config, identity keys, the sync repository). Expanded via
+     * files (global config, identity keys, the sync directory). Expanded via
      * Windows-style `%VARIABLE%` expansion when running under WSL or Windows.
      */
     XDG_CONFIG_HOME: z.string().optional(),
