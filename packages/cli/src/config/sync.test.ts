@@ -28,14 +28,14 @@ const forcePlatform = (platformKey: PlatformKey) => {
 };
 
 const parseSyncConfig = (input: unknown, environment: ConfigEnvironment) => {
-  return parseSyncConfigBase(
-    input,
-    forcedPlatformKey,
-    environment.HOME ?? "/tmp/home",
-    environment.XDG_CONFIG_HOME ??
-      join(environment.HOME ?? "/tmp/home", ".config"),
-    (name) => environment[name],
-  );
+  const homeDirectory = environment.HOME ?? "/tmp/home";
+  return parseSyncConfigBase(input, {
+    homeDirectory,
+    platformKey: forcedPlatformKey,
+    readEnv: (name: string) => environment[name],
+    xdgConfigHome:
+      environment.XDG_CONFIG_HOME ?? join(homeDirectory, ".config"),
+  });
 };
 
 describe("sync config", () => {

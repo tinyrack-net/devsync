@@ -81,8 +81,15 @@ export const expandConfiguredPath = (
   value: string,
   home: string | undefined,
   xdgConfigHome: string | undefined,
+  readEnv?: (name: string) => string | undefined,
 ) => {
-  let expandedValue = expandHomePath(value, home);
+  let expandedValue = value.trim();
+
+  if (readEnv !== undefined && expandedValue.includes("%")) {
+    expandedValue = expandWindowsEnvVars(expandedValue, readEnv);
+  }
+
+  expandedValue = expandHomePath(expandedValue, home);
   const resolvedXdgConfigHome = resolveXdgConfigHome(home, xdgConfigHome);
 
   if (expandedValue === xdgConfigHomeToken) {
@@ -108,8 +115,14 @@ export const resolveConfiguredAbsolutePath = (
   value: string,
   home: string | undefined,
   xdgConfigHome: string | undefined,
+  readEnv?: (name: string) => string | undefined,
 ) => {
-  const expandedValue = expandConfiguredPath(value, home, xdgConfigHome);
+  const expandedValue = expandConfiguredPath(
+    value,
+    home,
+    xdgConfigHome,
+    readEnv,
+  );
 
   if (!isAbsolute(expandedValue)) {
     throw new Error(
@@ -133,56 +146,4 @@ export const expandWindowsEnvVars = (
 
     return envValue;
   });
-};
-
-export const expandPlatformConfiguredPath = (
-  value: string,
-  home: string | undefined,
-  xdgConfigHome: string | undefined,
-  readEnv: (name: string) => string | undefined,
-): string => {
-  let expanded = value.trim();
-
-  if (expanded.includes("%")) {
-    expanded = expandWindowsEnvVars(expanded, readEnv);
-  }
-
-  return expandConfiguredPath(expanded, home, xdgConfigHome);
-};
-
-export const resolvePlatformConfiguredAbsolutePath = (
-  value: string,
-  home: string | undefined,
-  xdgConfigHome: string | undefined,
-  readEnv: (name: string) => string | undefined,
-) => {
-  const expandedValue = expandPlatformConfiguredPath(
-    value,
-    home,
-    xdgConfigHome,
-    readEnv,
-  );
-
-  if (!isAbsolute(expandedValue)) {
-    throw new Error(
-      `Configured path must be absolute or start with ~, ${xdgConfigHomeToken}, or %ENV_VAR%: ${value}`,
-    );
-  }
-
-  return resolve(expandedValue);
-};
-
-export const resolveHomeConfiguredAbsolutePath = (
-  value: string,
-  home: string | undefined,
-) => {
-  const expandedValue = expandHomePath(value, home);
-
-  if (!isAbsolute(expandedValue)) {
-    throw new Error(
-      `Configured path must be absolute or start with ~: ${value}`,
-    );
-  }
-
-  return resolve(expandedValue);
 };

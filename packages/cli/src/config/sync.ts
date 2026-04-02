@@ -5,26 +5,17 @@ import { z } from "zod";
 import { CONSTANTS } from "#app/config/constants.ts";
 import {
   type PlatformKey,
-  type PlatformLocalPath,
-  type PlatformRepoPath,
-  resolveLocalPathForPlatform,
-  resolveRepoPathForPlatform,
+  type PlatformStringValue,
+  resolvePlatformValue,
 } from "#app/config/platform.ts";
-import {
-  resolveHomeConfiguredAbsolutePath,
-  resolvePlatformConfiguredAbsolutePath,
-} from "#app/config/xdg.ts";
+import { resolveConfiguredAbsolutePath } from "#app/config/xdg.ts";
 import { DevsyncError } from "#app/lib/error.ts";
 import { parsePermissionOctal } from "#app/lib/file-mode.ts";
 import { doPathsOverlap } from "#app/lib/path.ts";
 import { ensureTrailingNewline } from "#app/lib/string.ts";
 import { formatInputIssues } from "#app/lib/validation.ts";
 
-export const syncConfigFileName = CONSTANTS.SYNC.CONFIG_FILE_NAME;
-export const syncSecretArtifactSuffix = CONSTANTS.SYNC.SECRET_ARTIFACT_SUFFIX;
-
 const syncEntryKinds = ["file", "directory"] as const;
-export const syncModes = CONSTANTS.SYNC.MODES;
 
 const requiredTrimmedStringSchema = z
   .string()
@@ -58,11 +49,11 @@ const platformRepoPathSchema = z
 const repoPathSchema = platformRepoPathSchema;
 const platformSyncModeSchema = z
   .object({
-    default: z.enum(syncModes),
-    win: z.enum(syncModes).optional(),
-    mac: z.enum(syncModes).optional(),
-    linux: z.enum(syncModes).optional(),
-    wsl: z.enum(syncModes).optional(),
+    default: z.enum(CONSTANTS.SYNC.MODES),
+    win: z.enum(CONSTANTS.SYNC.MODES).optional(),
+    mac: z.enum(CONSTANTS.SYNC.MODES).optional(),
+    linux: z.enum(CONSTANTS.SYNC.MODES).optional(),
+    wsl: z.enum(CONSTANTS.SYNC.MODES).optional(),
   })
   .strict();
 
@@ -112,16 +103,25 @@ const syncConfigSchemaV7 = z
 
 const syncConfigSchema = syncConfigSchemaV7;
 
+export const syncConfigFileName = CONSTANTS.SYNC.CONFIG_FILE_NAME;
+
 export type SyncConfigEntryKind = (typeof syncEntryKinds)[number];
-export type SyncMode = (typeof syncModes)[number];
-export type ConfiguredSyncRepoPath = PlatformRepoPath;
+export type SyncMode = (typeof CONSTANTS.SYNC.MODES)[number];
+export type ConfiguredSyncRepoPath = PlatformStringValue;
 export type PlatformSyncMode = z.infer<typeof platformSyncModeSchema>;
 export type PlatformPermission = z.infer<typeof platformPermissionSchema>;
 export type SyncConfig = z.infer<typeof syncConfigSchema>;
 
+export type SyncConfigResolutionContext = Readonly<{
+  homeDirectory: string;
+  platformKey: PlatformKey;
+  readEnv: (name: string) => string | undefined;
+  xdgConfigHome: string;
+}>;
+
 export type ResolvedSyncConfigEntry = Readonly<{
   configuredMode: PlatformSyncMode;
-  configuredLocalPath: PlatformLocalPath;
+  configuredLocalPath: PlatformStringValue;
   configuredPermission?: PlatformPermission;
   configuredRepoPath?: ConfiguredSyncRepoPath;
   kind: SyncConfigEntryKind;
@@ -135,19 +135,17 @@ export type ResolvedSyncConfigEntry = Readonly<{
   repoPath: string;
 }>;
 
-export type SyncAgeConfig = Readonly<{
+export type AgeConfig = Readonly<{
   recipients: readonly string[];
 }>;
 
-export type ResolvedSyncConfig = Readonly<{
-  age?: SyncAgeConfig;
+export type ResolvedManifest = Readonly<{
+  age?: AgeConfig;
   entries: readonly ResolvedSyncConfigEntry[];
   version: typeof CONSTANTS.SYNC.CONFIG_VERSION;
 }>;
 
-export const syncDefaultProfile = CONSTANTS.SYNC.DEFAULT_PROFILE;
-
-const defaultSyncMode: PlatformSyncMode = { default: syncModes[0] };
+const defaultSyncMode: PlatformSyncMode = { default: CONSTANTS.SYNC.MODES[0] };
 
 const resolveSyncModeForPlatform = (
   configuredMode: PlatformSyncMode,
@@ -179,28 +177,17 @@ const resolveSyncPermissionForPlatform = (
 const normalizeConfiguredRepoPath = (
   repoPath: ConfiguredSyncRepoPath,
 ): ConfiguredSyncRepoPath => {
-  return {
+  const result: Record<string, string> = {
     default: normalizeSyncRepoPath(repoPath.default),
-    ...(repoPath.win === undefined
-      ? {}
-      : { win: normalizeSyncRepoPath(repoPath.win) }),
-    ...(repoPath.mac === undefined
-      ? {}
-      : { mac: normalizeSyncRepoPath(repoPath.mac) }),
-    ...(repoPath.linux === undefined
-      ? {}
-      : { linux: normalizeSyncRepoPath(repoPath.linux) }),
-    ...(repoPath.wsl === undefined
-      ? {}
-      : { wsl: normalizeSyncRepoPath(repoPath.wsl) }),
   };
-};
 
-const resolveConfiguredRepoPath = (
-  repoPath: ConfiguredSyncRepoPath,
-  platformKey: PlatformKey,
-): string => {
-  return resolveRepoPathForPlatform(repoPath, platformKey);
+  for (const key of ["win", "mac", "linux", "wsl"] as const) {
+    if (repoPath[key] !== undefined) {
+      result[key] = normalizeSyncRepoPath(repoPath[key]);
+    }
+  }
+
+  return result as ConfiguredSyncRepoPath;
 };
 
 export const normalizeSyncRepoPath = (value: string) => {
@@ -225,7 +212,7 @@ export const normalizeSyncRepoPath = (value: string) => {
 
   if (hasReservedSyncArtifactSuffixSegment(normalizedValue)) {
     throw new DevsyncError(
-      `Repository path must not use the reserved suffix ${syncSecretArtifactSuffix}.`,
+      `Repository path must not use the reserved suffix ${CONSTANTS.SYNC.SECRET_ARTIFACT_SUFFIX}.`,
       {
         code: "RESERVED_SECRET_SUFFIX",
         details: [`Repository path: ${value}`],
@@ -281,7 +268,7 @@ export const hasReservedSyncArtifactSuffixSegment = (value: string) => {
   return value
     .replaceAll("\\", "/")
     .split("/")
-    .some((segment) => segment.endsWith(syncSecretArtifactSuffix));
+    .some((segment) => segment.endsWith(CONSTANTS.SYNC.SECRET_ARTIFACT_SUFFIX));
 };
 
 const matchesEntryPath = (
@@ -295,7 +282,7 @@ const matchesEntryPath = (
 };
 
 export const findOwningSyncEntry = (
-  config: Pick<ResolvedSyncConfig, "entries">,
+  config: Pick<ResolvedManifest, "entries">,
   repoPath: string,
 ): ResolvedSyncConfigEntry | undefined => {
   let best: ResolvedSyncConfigEntry | undefined;
@@ -313,7 +300,7 @@ export const findOwningSyncEntry = (
 };
 
 export const collectChildEntryPaths = (
-  config: Pick<ResolvedSyncConfig, "entries">,
+  config: Pick<ResolvedManifest, "entries">,
   repoPath: string,
 ): ReadonlySet<string> => {
   return new Set(
@@ -346,17 +333,15 @@ export const resolveEntryRelativeRepoPath = (
 };
 
 const resolveSyncEntryLocalPath = (
-  value: PlatformLocalPath,
-  platformKey: PlatformKey,
-  homeDirectory: string,
-  xdgConfigHome: string,
-  readEnv: (name: string) => string | undefined,
+  value: PlatformStringValue,
+  context: SyncConfigResolutionContext,
 ) => {
-  const platformPath = resolveLocalPathForPlatform(value, platformKey);
+  const { platformKey, homeDirectory, xdgConfigHome, readEnv } = context;
+  const platformPath = resolvePlatformValue(value, platformKey);
   let resolvedLocalPath: string;
 
   try {
-    resolvedLocalPath = resolvePlatformConfiguredAbsolutePath(
+    resolvedLocalPath = resolveConfiguredAbsolutePath(
       platformPath,
       homeDirectory,
       xdgConfigHome,
@@ -405,12 +390,13 @@ const resolveSyncEntryLocalPath = (
 };
 
 export const deriveRepoPathFromLocalPath = (
-  localPath: PlatformLocalPath,
+  localPath: PlatformStringValue,
   homeDirectory: string,
 ) => {
-  const resolvedDefaultPath = resolveHomeConfiguredAbsolutePath(
+  const resolvedDefaultPath = resolveConfiguredAbsolutePath(
     localPath.default,
     homeDirectory,
+    undefined,
   );
   const relativePath = relative(homeDirectory, resolvedDefaultPath);
 
@@ -448,8 +434,8 @@ const validatePathOverlaps = (
 
         throw new DevsyncError(
           isRepoPath
-            ? `Multiple entries target the same repository path in ${syncConfigFileName}.`
-            : `Duplicate ${description.toLowerCase()} paths in ${syncConfigFileName}.`,
+            ? `Multiple entries target the same repository path in ${CONSTANTS.SYNC.CONFIG_FILE_NAME}.`
+            : `Duplicate ${description.toLowerCase()} paths in ${CONSTANTS.SYNC.CONFIG_FILE_NAME}.`,
           {
             code: "DUPLICATE_PATHS",
             details: isRepoPath
@@ -463,7 +449,7 @@ const validatePathOverlaps = (
                 ],
             hint: isRepoPath
               ? "Each entry must use a unique repoPath. Change or remove one of the conflicting entries."
-              : `Remove the duplicate entry from ${syncConfigFileName}.`,
+              : `Remove the duplicate entry from ${CONSTANTS.SYNC.CONFIG_FILE_NAME}.`,
           },
         );
       }
@@ -485,7 +471,7 @@ const validatePathOverlaps = (
 
       if (overlaps) {
         throw new DevsyncError(
-          `${description} paths must not overlap in ${syncConfigFileName}.`,
+          `${description} paths must not overlap in ${CONSTANTS.SYNC.CONFIG_FILE_NAME}.`,
           {
             code: "OVERLAPPING_PATHS",
             details: [
@@ -505,32 +491,6 @@ export const validateResolvedSyncConfigEntries = (
 ) => {
   validatePathOverlaps(entries, "repoPath", "Repository");
   validatePathOverlaps(entries, "localPath", "Local");
-};
-
-const buildNormalizedProfiles = (
-  entry: z.infer<typeof syncConfigEntrySchema>,
-): readonly string[] => {
-  if (entry.profiles === undefined || entry.profiles.length === 0) {
-    return [];
-  }
-
-  for (const profile of entry.profiles) {
-    normalizeSyncProfileName(profile);
-  }
-
-  return entry.profiles;
-};
-
-const buildConfiguredMode = (
-  entry: z.infer<typeof syncConfigEntrySchema>,
-): PlatformSyncMode => {
-  return entry.mode ?? defaultSyncMode;
-};
-
-const buildConfiguredPermission = (
-  entry: z.infer<typeof syncConfigEntrySchema>,
-): PlatformPermission | undefined => {
-  return entry.permission;
 };
 
 const findNearestParentEntry = (
@@ -607,28 +567,23 @@ const applyEntryInheritance = (
 
 export const parseSyncConfig = (
   input: unknown,
-  platformKey: PlatformKey,
-  homeDirectory: string,
-  xdgConfigHome: string,
-  readEnv: (name: string) => string | undefined,
-): ResolvedSyncConfig => {
+  context: SyncConfigResolutionContext,
+): ResolvedManifest => {
+  const { platformKey, homeDirectory } = context;
   const result = syncConfigSchema.safeParse(input);
 
   if (!result.success) {
     throw new DevsyncError("Sync configuration is invalid.", {
       code: "CONFIG_VALIDATION_FAILED",
       details: formatInputIssues(result.error.issues).split("\n"),
-      hint: `Fix the invalid fields in ${syncConfigFileName}, then run the command again.`,
+      hint: `Fix the invalid fields in ${CONSTANTS.SYNC.CONFIG_FILE_NAME}, then run the command again.`,
     });
   }
 
   const rawEntries = result.data.entries.map((entry) => {
     const resolvedLocalPath = resolveSyncEntryLocalPath(
       entry.localPath,
-      platformKey,
-      homeDirectory,
-      xdgConfigHome,
-      readEnv,
+      context,
     );
     const configuredRepoPath =
       entry.repoPath === undefined
@@ -637,10 +592,20 @@ export const parseSyncConfig = (
     const repoPath =
       configuredRepoPath === undefined
         ? deriveRepoPathFromLocalPath(entry.localPath, homeDirectory)
-        : resolveConfiguredRepoPath(configuredRepoPath, platformKey);
-    const profiles = buildNormalizedProfiles(entry);
-    const configuredMode = buildConfiguredMode(entry);
-    const configuredPermission = buildConfiguredPermission(entry);
+        : resolvePlatformValue(configuredRepoPath, platformKey);
+
+    if (entry.profiles !== undefined && entry.profiles.length > 0) {
+      for (const profile of entry.profiles) {
+        normalizeSyncProfileName(profile);
+      }
+    }
+    const profiles =
+      entry.profiles !== undefined && entry.profiles.length > 0
+        ? entry.profiles
+        : [];
+
+    const configuredMode = entry.mode ?? defaultSyncMode;
+    const configuredPermission = entry.permission;
 
     return {
       configuredMode,
@@ -694,20 +659,13 @@ export const formatSyncConfig = (config: SyncConfig) => {
   return ensureTrailingNewline(JSON.stringify(config, null, 2));
 };
 
-export const resolveSyncConfigPath = (syncDirectory: string) => {
-  return posix.join(syncDirectory.replaceAll("\\", "/"), syncConfigFileName);
-};
-
 export const resolveSyncConfigFilePath = (syncDirectory: string) => {
-  return join(syncDirectory, syncConfigFileName);
+  return join(syncDirectory, CONSTANTS.SYNC.CONFIG_FILE_NAME);
 };
 
 export const readSyncConfig = async (
   syncDirectory: string,
-  platformKey: PlatformKey,
-  homeDirectory: string,
-  xdgConfigHome: string,
-  readEnv: (name: string) => string | undefined,
+  context: SyncConfigResolutionContext,
 ) => {
   try {
     const contents = await readFile(
@@ -715,13 +673,7 @@ export const readSyncConfig = async (
       "utf8",
     );
 
-    return parseSyncConfig(
-      JSON.parse(contents) as unknown,
-      platformKey,
-      homeDirectory,
-      xdgConfigHome,
-      readEnv,
-    );
+    return parseSyncConfig(JSON.parse(contents) as unknown, context);
   } catch (error: unknown) {
     if (error instanceof DevsyncError) {
       throw error;
@@ -734,7 +686,7 @@ export const readSyncConfig = async (
           `Config file: ${resolveSyncConfigFilePath(syncDirectory)}`,
           error.message,
         ],
-        hint: `Fix the JSON syntax in ${syncConfigFileName}, then run the command again.`,
+        hint: `Fix the JSON syntax in ${CONSTANTS.SYNC.CONFIG_FILE_NAME}, then run the command again.`,
       });
     }
 
@@ -754,19 +706,20 @@ const resolveProfileForEntry = (
   activeProfile: string | undefined,
 ): string | undefined => {
   if (entry.profiles.length === 0) {
-    return syncDefaultProfile;
+    return CONSTANTS.SYNC.DEFAULT_PROFILE;
   }
 
   const effective =
-    activeProfile !== undefined && activeProfile !== syncDefaultProfile
+    activeProfile !== undefined &&
+    activeProfile !== CONSTANTS.SYNC.DEFAULT_PROFILE
       ? activeProfile
-      : syncDefaultProfile;
+      : CONSTANTS.SYNC.DEFAULT_PROFILE;
 
   return entry.profiles.includes(effective) ? effective : undefined;
 };
 
 export const resolveSyncRule = (
-  config: ResolvedSyncConfig,
+  config: ResolvedManifest,
   repoPath: string,
   activeProfile?: string,
 ): { mode: SyncMode; profile: string } | undefined => {
@@ -786,7 +739,7 @@ export const resolveSyncRule = (
 };
 
 export const resolveSyncMode = (
-  config: ResolvedSyncConfig,
+  config: ResolvedManifest,
   repoPath: string,
   activeProfile?: string,
 ): SyncMode | undefined => {
@@ -794,21 +747,21 @@ export const resolveSyncMode = (
 };
 
 export const isIgnoredSyncPath = (
-  config: ResolvedSyncConfig,
+  config: ResolvedManifest,
   repoPath: string,
 ) => {
   return resolveSyncMode(config, repoPath) === "ignore";
 };
 
 export const isSecretSyncPath = (
-  config: ResolvedSyncConfig,
+  config: ResolvedManifest,
   repoPath: string,
 ) => {
   return resolveSyncMode(config, repoPath) === "secret";
 };
 
 export const resolveManagedSyncMode = (
-  config: ResolvedSyncConfig,
+  config: ResolvedManifest,
   repoPath: string,
   activeProfile?: string,
   context?: string,

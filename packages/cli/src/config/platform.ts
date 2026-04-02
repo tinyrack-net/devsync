@@ -1,15 +1,12 @@
 export type PlatformKey = "win" | "mac" | "linux" | "wsl";
 
-type PlatformStringValue = Readonly<{
+export type PlatformStringValue = Readonly<{
   default: string;
   win?: string;
   mac?: string;
   linux?: string;
   wsl?: string;
 }>;
-
-export type PlatformLocalPath = PlatformStringValue;
-export type PlatformRepoPath = PlatformStringValue;
 
 export const isWslEnvironment = (
   osRelease: string,
@@ -42,7 +39,7 @@ export const detectCurrentPlatformKey = (
   }
 };
 
-const resolveStringValueForPlatform = (
+export const resolvePlatformValue = (
   value: PlatformStringValue,
   platformKey: PlatformKey,
 ): string => {
@@ -51,18 +48,4 @@ const resolveStringValueForPlatform = (
   }
 
   return value[platformKey] ?? value.default;
-};
-
-export const resolveLocalPathForPlatform = (
-  localPath: PlatformLocalPath,
-  platformKey: PlatformKey,
-): string => {
-  return resolveStringValueForPlatform(localPath, platformKey);
-};
-
-export const resolveRepoPathForPlatform = (
-  repoPath: PlatformRepoPath,
-  platformKey: PlatformKey,
-): string => {
-  return resolveStringValueForPlatform(repoPath, platformKey);
 };

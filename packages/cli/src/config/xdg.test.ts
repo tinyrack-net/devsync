@@ -4,13 +4,10 @@ import { describe, expect, it } from "vitest";
 import {
   expandConfiguredPath,
   expandHomePath,
-  expandPlatformConfiguredPath,
   expandWindowsEnvVars,
   resolveConfiguredAbsolutePath,
   resolveDevsyncConfigDirectory,
-  resolveHomeConfiguredAbsolutePath,
   resolveHomeDirectory,
-  resolvePlatformConfiguredAbsolutePath,
   resolveXdgConfigHome,
 } from "#app/config/xdg.ts";
 
@@ -110,18 +107,45 @@ describe("resolveConfiguredAbsolutePath", () => {
       resolveConfiguredAbsolutePath("relative/path", undefined, undefined),
     ).toThrow(/must be absolute/u);
   });
-});
 
-describe("resolveHomeConfiguredAbsolutePath", () => {
   it("resolves ~ prefixed paths", () => {
-    expect(resolveHomeConfiguredAbsolutePath("~/.gitconfig", "/tmp/home")).toBe(
-      resolve("/tmp/home", ".gitconfig"),
-    );
+    expect(
+      resolveConfiguredAbsolutePath("~/.gitconfig", "/tmp/home", undefined),
+    ).toBe(resolve("/tmp/home", ".gitconfig"));
   });
 
-  it("throws for relative paths without ~", () => {
+  it("resolves %LOCALAPPDATA% paths when readEnv is provided", () => {
+    expect(
+      resolveConfiguredAbsolutePath(
+        "%LOCALAPPDATA%/app",
+        undefined,
+        undefined,
+        readEnv({
+          LOCALAPPDATA: "/tmp/appdata",
+        }),
+      ),
+    ).toBe(resolve("/tmp/appdata", "app"));
+  });
+
+  it("resolves ~ paths with readEnv", () => {
+    expect(
+      resolveConfiguredAbsolutePath(
+        "~/.config/app",
+        "/tmp/home",
+        undefined,
+        readEnv({}),
+      ),
+    ).toBe(resolve("/tmp/home", ".config", "app"));
+  });
+
+  it("throws for relative paths with readEnv", () => {
     expect(() =>
-      resolveHomeConfiguredAbsolutePath("relative/path", "/tmp/home"),
+      resolveConfiguredAbsolutePath(
+        "relative/path",
+        undefined,
+        undefined,
+        readEnv({}),
+      ),
     ).toThrow(/must be absolute/u);
   });
 });
@@ -173,10 +197,10 @@ describe("expandWindowsEnvVars", () => {
   });
 });
 
-describe("expandPlatformConfiguredPath", () => {
+describe("expandConfiguredPath with readEnv", () => {
   it("expands %LOCALAPPDATA% then resolves", () => {
     expect(
-      expandPlatformConfiguredPath(
+      expandConfiguredPath(
         "%LOCALAPPDATA%/app",
         undefined,
         undefined,
@@ -187,9 +211,9 @@ describe("expandPlatformConfiguredPath", () => {
     ).toBe("/tmp/appdata/app");
   });
 
-  it("expands ~ paths", () => {
+  it("expands ~ paths with readEnv", () => {
     expect(
-      expandPlatformConfiguredPath(
+      expandConfiguredPath(
         "~/.config/app",
         "/tmp/home",
         undefined,
@@ -198,51 +222,14 @@ describe("expandPlatformConfiguredPath", () => {
     ).toBe(resolve("/tmp/home", ".config", "app"));
   });
 
-  it("expands $XDG_CONFIG_HOME paths", () => {
+  it("expands $XDG_CONFIG_HOME paths with readEnv", () => {
     expect(
-      expandPlatformConfiguredPath(
+      expandConfiguredPath(
         "$XDG_CONFIG_HOME/app",
         undefined,
         "/custom/config",
         readEnv({}),
       ),
     ).toBe(resolve("/custom/config", "app"));
-  });
-});
-
-describe("resolvePlatformConfiguredAbsolutePath", () => {
-  it("resolves %LOCALAPPDATA% paths", () => {
-    expect(
-      resolvePlatformConfiguredAbsolutePath(
-        "%LOCALAPPDATA%/app",
-        undefined,
-        undefined,
-        readEnv({
-          LOCALAPPDATA: "/tmp/appdata",
-        }),
-      ),
-    ).toBe(resolve("/tmp/appdata", "app"));
-  });
-
-  it("resolves ~ paths", () => {
-    expect(
-      resolvePlatformConfiguredAbsolutePath(
-        "~/.config/app",
-        "/tmp/home",
-        undefined,
-        readEnv({}),
-      ),
-    ).toBe(resolve("/tmp/home", ".config", "app"));
-  });
-
-  it("throws for relative paths", () => {
-    expect(() =>
-      resolvePlatformConfiguredAbsolutePath(
-        "relative/path",
-        undefined,
-        undefined,
-        readEnv({}),
-      ),
-    ).toThrow(/must be absolute/u);
   });
 });

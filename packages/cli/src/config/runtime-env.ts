@@ -33,18 +33,18 @@ export const resolveXdgConfigHomeFromEnv = () => {
   );
 };
 
-export const resolveDevsyncConfigDirectoryFromEnv = () => {
-  return resolveDevsyncConfigDirectory(resolveXdgConfigHomeFromEnv());
-};
-
 export const resolveDevsyncGlobalConfigFilePathFromEnv = () => {
-  return resolveDevsyncGlobalConfigFilePath(
-    resolveDevsyncConfigDirectoryFromEnv(),
+  const configDirectory = resolveDevsyncConfigDirectory(
+    resolveXdgConfigHomeFromEnv(),
   );
+  return resolveDevsyncGlobalConfigFilePath(configDirectory);
 };
 
 export const resolveDevsyncSyncDirectoryFromEnv = () => {
-  return resolveDevsyncSyncDirectory(resolveDevsyncConfigDirectoryFromEnv());
+  const configDirectory = resolveDevsyncConfigDirectory(
+    resolveXdgConfigHomeFromEnv(),
+  );
+  return resolveDevsyncSyncDirectory(configDirectory);
 };
 
 export const resolveCurrentPlatformKey = () => {

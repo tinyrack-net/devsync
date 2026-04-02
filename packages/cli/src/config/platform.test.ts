@@ -3,8 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   detectCurrentPlatformKey,
   isWslEnvironment,
-  resolveLocalPathForPlatform,
-  resolveRepoPathForPlatform,
+  resolvePlatformValue,
 } from "#app/config/platform.ts";
 
 describe("detectCurrentPlatformKey", () => {
@@ -68,7 +67,7 @@ describe("isWslEnvironment", () => {
   });
 });
 
-describe("resolveLocalPathForPlatform", () => {
+describe("resolvePlatformValue", () => {
   it("returns platform-specific path when available", () => {
     const localPath = {
       default: "~/.config/app",
@@ -77,15 +76,13 @@ describe("resolveLocalPathForPlatform", () => {
       win: "%LOCALAPPDATA%/app",
     };
 
-    expect(resolveLocalPathForPlatform(localPath, "linux")).toBe(
+    expect(resolvePlatformValue(localPath, "linux")).toBe(
       "$XDG_CONFIG_HOME/app",
     );
-    expect(resolveLocalPathForPlatform(localPath, "mac")).toBe(
+    expect(resolvePlatformValue(localPath, "mac")).toBe(
       "~/Library/Application Support/app",
     );
-    expect(resolveLocalPathForPlatform(localPath, "win")).toBe(
-      "%LOCALAPPDATA%/app",
-    );
+    expect(resolvePlatformValue(localPath, "win")).toBe("%LOCALAPPDATA%/app");
   });
 
   it("falls back to default when platform key is absent", () => {
@@ -94,22 +91,20 @@ describe("resolveLocalPathForPlatform", () => {
       linux: "$XDG_CONFIG_HOME/app",
     };
 
-    expect(resolveLocalPathForPlatform(localPath, "win")).toBe("~/.config/app");
-    expect(resolveLocalPathForPlatform(localPath, "mac")).toBe("~/.config/app");
+    expect(resolvePlatformValue(localPath, "win")).toBe("~/.config/app");
+    expect(resolvePlatformValue(localPath, "mac")).toBe("~/.config/app");
   });
 
   it("returns default when only default is specified", () => {
     const localPath = { default: "~/.config/app" };
 
-    expect(resolveLocalPathForPlatform(localPath, "linux")).toBe(
-      "~/.config/app",
-    );
-    expect(resolveLocalPathForPlatform(localPath, "win")).toBe("~/.config/app");
+    expect(resolvePlatformValue(localPath, "linux")).toBe("~/.config/app");
+    expect(resolvePlatformValue(localPath, "win")).toBe("~/.config/app");
   });
 
   it("prefers wsl and falls back to linux on WSL", () => {
     expect(
-      resolveLocalPathForPlatform(
+      resolvePlatformValue(
         {
           default: "~/.config/app",
           linux: "$XDG_CONFIG_HOME/app-linux",
@@ -120,7 +115,7 @@ describe("resolveLocalPathForPlatform", () => {
     ).toBe("$XDG_CONFIG_HOME/app-wsl");
 
     expect(
-      resolveLocalPathForPlatform(
+      resolvePlatformValue(
         {
           default: "~/.config/app",
           linux: "$XDG_CONFIG_HOME/app-linux",
@@ -129,10 +124,8 @@ describe("resolveLocalPathForPlatform", () => {
       ),
     ).toBe("$XDG_CONFIG_HOME/app-linux");
   });
-});
 
-describe("resolveRepoPathForPlatform", () => {
-  it("returns platform-specific path when available", () => {
+  it("resolves repo paths the same way as local paths", () => {
     const repoPath = {
       default: ".config/app/config.json",
       linux: ".config/app/config.linux.json",
@@ -140,20 +133,20 @@ describe("resolveRepoPathForPlatform", () => {
       win: "AppData/Local/app/config.json",
     };
 
-    expect(resolveRepoPathForPlatform(repoPath, "linux")).toBe(
+    expect(resolvePlatformValue(repoPath, "linux")).toBe(
       ".config/app/config.linux.json",
     );
-    expect(resolveRepoPathForPlatform(repoPath, "mac")).toBe(
+    expect(resolvePlatformValue(repoPath, "mac")).toBe(
       "Library/Application Support/app/config.json",
     );
-    expect(resolveRepoPathForPlatform(repoPath, "win")).toBe(
+    expect(resolvePlatformValue(repoPath, "win")).toBe(
       "AppData/Local/app/config.json",
     );
   });
 
-  it("prefers wsl and falls back to linux on WSL", () => {
+  it("prefers wsl and falls back to linux for repo paths on WSL", () => {
     expect(
-      resolveRepoPathForPlatform(
+      resolvePlatformValue(
         {
           default: ".gnupg/gpg-agent.conf",
           linux: ".gnupg/gpg-agent.linux.conf",
@@ -164,7 +157,7 @@ describe("resolveRepoPathForPlatform", () => {
     ).toBe(".gnupg/gpg-agent.wsl.conf");
 
     expect(
-      resolveRepoPathForPlatform(
+      resolvePlatformValue(
         {
           default: ".gnupg/gpg-agent.conf",
           linux: ".gnupg/gpg-agent.linux.conf",
