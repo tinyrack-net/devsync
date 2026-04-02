@@ -146,9 +146,9 @@ describe("init service", () => {
     expect(messages[0]).toBe("Initializing sync directory...");
     expect(messages).toEqual(
       expect.arrayContaining([
-        `Cloning the sync repository from ${sourceRepository}...`,
+        `Cloning the sync directory from ${sourceRepository}...`,
         "Preparing sync encryption settings...",
-        "Writing sync manifest...",
+        "Writing sync config...",
       ]),
     );
     expect(
@@ -221,13 +221,13 @@ describe("init service", () => {
 
     await runGit(["init", "-b", "main", sourceRepository], workspace);
 
-    const manifest = createInitialSyncConfig({
+    const initialConfig = createInitialSyncConfig({
       recipients: [ageKeys.recipient],
     });
 
     await writeFile(
       join(sourceRepository, "manifest.json"),
-      formatSyncConfig(manifest),
+      formatSyncConfig(initialConfig),
       "utf8",
     );
     await runGit(["add", "manifest.json"], sourceRepository);
@@ -270,13 +270,13 @@ describe("init service", () => {
 
     await runGit(["init", "-b", "main", sourceRepository], workspace);
 
-    const manifest = createInitialSyncConfig({
+    const initialConfig = createInitialSyncConfig({
       recipients: [ageKeys.recipient],
     });
 
     await writeFile(
       join(sourceRepository, "manifest.json"),
-      formatSyncConfig(manifest),
+      formatSyncConfig(initialConfig),
       "utf8",
     );
     await runGit(["add", "manifest.json"], sourceRepository);

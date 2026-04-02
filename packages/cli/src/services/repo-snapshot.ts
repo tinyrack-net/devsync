@@ -9,7 +9,7 @@ import { getPathStats, listDirectoryEntries } from "#app/lib/filesystem.ts";
 import { addSnapshotNode, type SnapshotNode } from "./local-snapshot.ts";
 import {
   assertStorageSafeRepoPath,
-  collectArtifactNamespaces,
+  collectArtifactProfiles,
   parseArtifactRelativePath,
 } from "./repo-artifacts.ts";
 import type { EffectiveSyncConfig } from "./runtime.ts";
@@ -74,14 +74,14 @@ const readArtifactLeaf = async (
           `Repository path: ${artifact.repoPath}`,
           `Context: ${storagePath}`,
         ],
-        hint: "Add the parent path to devsync, or remove stray artifacts from the sync repository.",
+        hint: "Add the parent path to devsync, or remove stray artifacts from the sync directory.",
       },
     );
   }
 
   if (rule.profile !== artifact.profile) {
     throw new DevsyncError(
-      "Repository artifact is stored under the wrong profile namespace.",
+      "Repository artifact is stored under the wrong profile directory.",
       {
         code: "REPO_PROFILE_MISMATCH",
         details: [
@@ -252,21 +252,21 @@ export const buildRepositorySnapshot = async (
 ) => {
   const snapshot = new Map<string, SnapshotNode>();
   const artifactsDirectory = syncDirectory;
-  const namespaces = collectArtifactNamespaces(config.entries);
+  const artifactProfiles = collectArtifactProfiles(config.entries);
   const progressState = { scannedStorageEntryCount: 0 };
 
   await Promise.all(
-    [...namespaces].map(async (namespace) => {
-      const namespaceDirectory = join(artifactsDirectory, namespace);
-      const namespaceStats = await getPathStats(namespaceDirectory);
+    [...artifactProfiles].map(async (profile) => {
+      const profileDirectory = join(artifactsDirectory, profile);
+      const profileStats = await getPathStats(profileDirectory);
 
-      if (namespaceStats?.isDirectory()) {
-        reporter?.start(`Scanning repository namespace ${namespace}...`);
+      if (profileStats?.isDirectory()) {
+        reporter?.start(`Scanning repository profile ${profile}...`);
         await walkArtifactTree(
-          namespaceDirectory,
+          profileDirectory,
           config,
           snapshot,
-          namespace,
+          profile,
           reporter,
           progressState,
         );

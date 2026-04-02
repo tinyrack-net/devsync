@@ -16,7 +16,7 @@ import {
 } from "#app/config/runtime-env.ts";
 import {
   type AgeConfig,
-  type ResolvedManifest,
+  type ResolvedSyncConfig,
   readSyncConfig,
   resolveSyncConfigFilePath,
   type SyncConfigResolutionContext,
@@ -36,7 +36,7 @@ export type SyncPaths = Readonly<{
   syncDirectory: string;
 }>;
 
-export type EffectiveSyncConfig = ResolvedManifest &
+export type EffectiveSyncConfig = ResolvedSyncConfig &
   Readonly<{
     activeProfile?: string;
     age: RuntimeAgeConfig;
@@ -44,7 +44,7 @@ export type EffectiveSyncConfig = ResolvedManifest &
 
 export type LoadedSyncConfig = Readonly<{
   effectiveConfig: EffectiveSyncConfig;
-  fullConfig: ResolvedManifest;
+  fullConfig: ResolvedSyncConfig;
   globalConfig?: GlobalDevsyncConfig;
 }>;
 
@@ -81,7 +81,7 @@ export const resolveAgeFromSyncConfig = (age: AgeConfig): RuntimeAgeConfig => {
 };
 
 export const buildEffectiveSyncConfig = (
-  fullConfig: ResolvedManifest,
+  fullConfig: ResolvedSyncConfig,
   selection: ActiveProfileSelection,
   age: RuntimeAgeConfig,
 ): EffectiveSyncConfig => {

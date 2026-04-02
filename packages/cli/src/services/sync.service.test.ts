@@ -62,7 +62,7 @@ afterEach(async () => {
 });
 
 describe("sync service", () => {
-  it("tracks entries in v7 manifest format", async () => {
+  it("tracks entries in v7 config format", async () => {
     const workspace = await createWorkspace();
     const homeDirectory = join(workspace, "home");
     const xdgConfigHome = join(workspace, "xdg");
@@ -987,7 +987,7 @@ describe("sync service", () => {
     expect(stats.mode & 0o777).toBe(0o644);
   });
 
-  it("preserves permission field in manifest through round-trip", async () => {
+  it("preserves permission field in config through round-trip", async () => {
     const workspace = await createWorkspace();
     const homeDirectory = join(workspace, "home");
     const xdgConfigHome = join(workspace, "xdg");

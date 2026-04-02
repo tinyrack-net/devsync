@@ -145,7 +145,7 @@ export const pushChanges = async (
   reporter?.start("Starting push...");
   const { syncDirectory } = resolveSyncPaths();
 
-  reporter?.start("Checking sync repository...");
+  reporter?.start("Checking sync directory...");
   await ensureGitRepository(syncDirectory);
 
   reporter?.start("Loading sync configuration...");

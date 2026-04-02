@@ -3,7 +3,7 @@ import { join, posix } from "node:path";
 import type { ConsolaInstance } from "consola";
 import {
   collectChildEntryPaths,
-  type ResolvedManifest,
+  type ResolvedSyncConfig,
   resolveManagedSyncMode,
 } from "#app/config/sync.ts";
 import { DevsyncError } from "#app/lib/error.ts";
@@ -11,7 +11,7 @@ import { isExecutableMode } from "#app/lib/file-mode.ts";
 import { getPathStats, listDirectoryEntries } from "#app/lib/filesystem.ts";
 import { assertStorageSafeRepoPath } from "./repo-artifacts.ts";
 
-type SnapshotConfig = ResolvedManifest &
+type SnapshotConfig = ResolvedSyncConfig &
   Readonly<{
     activeProfile?: string;
   }>;

@@ -1,14 +1,14 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  createSyncConfigDocument,
+  buildSyncConfigDocument,
   sortSyncConfigEntries,
 } from "./config-file.ts";
 
 describe("config-file", () => {
   it("writes v7 directory entries", () => {
     expect(
-      createSyncConfigDocument({
+      buildSyncConfigDocument({
         entries: [
           {
             configuredMode: { default: "normal" },
@@ -38,7 +38,7 @@ describe("config-file", () => {
 
   it("writes v7 file entries with mode and profiles", () => {
     expect(
-      createSyncConfigDocument({
+      buildSyncConfigDocument({
         entries: [
           {
             configuredMode: { default: "secret" },
@@ -70,7 +70,7 @@ describe("config-file", () => {
 
   it("omits mode and profiles when not explicit", () => {
     expect(
-      createSyncConfigDocument({
+      buildSyncConfigDocument({
         entries: [
           {
             configuredMode: { default: "normal" },
@@ -100,7 +100,7 @@ describe("config-file", () => {
 
   it("writes explicit permissions unchanged", () => {
     expect(
-      createSyncConfigDocument({
+      buildSyncConfigDocument({
         entries: [
           {
             configuredMode: { default: "normal" },
@@ -150,7 +150,7 @@ describe("config-file", () => {
 
   it("writes explicit mode even when normal", () => {
     expect(
-      createSyncConfigDocument({
+      buildSyncConfigDocument({
         entries: [
           {
             configuredMode: { default: "normal" },
@@ -181,7 +181,7 @@ describe("config-file", () => {
 
   it("writes explicit platform-aware modes unchanged", () => {
     expect(
-      createSyncConfigDocument({
+      buildSyncConfigDocument({
         entries: [
           {
             configuredMode: {
@@ -232,7 +232,7 @@ describe("config-file", () => {
 
   it("writes explicit platform-aware repo paths unchanged", () => {
     expect(
-      createSyncConfigDocument({
+      buildSyncConfigDocument({
         entries: [
           {
             configuredMode: { default: "normal" },

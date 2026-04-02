@@ -112,16 +112,14 @@ describe("sync doctor", () => {
     });
     expect(reporter.start.mock.calls).toEqual([
       ["Running doctor checks..."],
-      ["Checking sync repository..."],
+      ["Checking sync directory..."],
     ]);
     expect(mocked.loadSyncConfig).not.toHaveBeenCalled();
   });
 
   it("returns a configuration failure after a successful repository check", async () => {
     mocked.ensureRepository.mockResolvedValueOnce(undefined);
-    mocked.loadSyncConfig.mockRejectedValueOnce(
-      new Error("manifest is invalid"),
-    );
+    mocked.loadSyncConfig.mockRejectedValueOnce(new Error("config is invalid"));
     const reporter = createReporter();
 
     const result = await runDoctorChecks(reporter);
@@ -135,7 +133,7 @@ describe("sync doctor", () => {
         },
         {
           checkId: "config",
-          detail: "manifest is invalid",
+          detail: "config is invalid",
           level: "fail",
         },
       ],
@@ -146,7 +144,7 @@ describe("sync doctor", () => {
     });
     expect(reporter.start.mock.calls).toEqual([
       ["Running doctor checks..."],
-      ["Checking sync repository..."],
+      ["Checking sync directory..."],
       ["Loading sync configuration..."],
     ]);
   });
@@ -225,7 +223,7 @@ describe("sync doctor", () => {
     );
     expect(reporter.start.mock.calls).toEqual([
       ["Running doctor checks..."],
-      ["Checking sync repository..."],
+      ["Checking sync directory..."],
       ["Loading sync configuration..."],
       ["Checking age identity..."],
       ["Scanning repository artifacts..."],
@@ -311,7 +309,7 @@ describe("sync doctor", () => {
     expect(mocked.pathExists).toHaveBeenCalledTimes(1);
   });
 
-  it("does not warn when missing local paths are already restorable from the sync repository", async () => {
+  it("does not warn when missing local paths are already restorable from the sync directory", async () => {
     mocked.ensureRepository.mockResolvedValueOnce(undefined);
     mocked.loadSyncConfig.mockResolvedValueOnce(
       createLoadedConfig({
@@ -331,7 +329,7 @@ describe("sync doctor", () => {
     expect(result.checks).toContainEqual({
       checkId: "local-paths",
       detail:
-        "All missing local paths are already restorable from the sync repository (1 entry).",
+        "All missing local paths are already restorable from the sync directory (1 entry).",
       level: "ok",
     });
   });

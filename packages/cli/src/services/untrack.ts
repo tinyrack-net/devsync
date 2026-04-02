@@ -13,12 +13,12 @@ import {
 import { ensureGitRepository } from "#app/lib/git.ts";
 import { isPathEqualOrNested } from "#app/lib/path.ts";
 import {
-  createSyncConfigDocument,
+  buildSyncConfigDocument,
   writeValidatedSyncConfig,
 } from "./config-file.ts";
 import { resolveTrackedEntry } from "./paths.ts";
 import {
-  collectArtifactNamespaces,
+  collectArtifactProfiles,
   isSecretArtifactPath,
   resolveArtifactRelativePath,
 } from "./repo-artifacts.ts";
@@ -86,9 +86,9 @@ const collectEntryArtifactCounts = async (
     plain: 0,
     secret: 0,
   };
-  const namespaces = collectArtifactNamespaces([entry]);
+  const artifactProfiles = collectArtifactProfiles([entry]);
 
-  for (const profile of namespaces) {
+  for (const profile of artifactProfiles) {
     const plainRelativePath = resolveArtifactRelativePath({
       category: "plain",
       profile,
@@ -159,9 +159,9 @@ const removeTrackedEntryArtifacts = async (
   entry: ResolvedSyncConfigEntry,
 ) => {
   const artifactsRoot = syncDirectory;
-  const namespaces = collectArtifactNamespaces([entry]);
+  const artifactProfiles = collectArtifactProfiles([entry]);
 
-  for (const profile of namespaces) {
+  for (const profile of artifactProfiles) {
     const plainPath = join(
       artifactsRoot,
       ...resolveArtifactRelativePath({
@@ -219,7 +219,7 @@ export const untrackTarget = async (
 
   const { plainArtifactCount, secretArtifactCount } =
     await collectEntryArtifactCounts(syncDirectory, entry);
-  const nextConfig = createSyncConfigDocument({
+  const nextConfig = buildSyncConfigDocument({
     ...config,
     entries: config.entries.filter((configEntry) => {
       return configEntry.repoPath !== entry.repoPath;

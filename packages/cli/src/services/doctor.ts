@@ -74,7 +74,7 @@ export const runDoctorChecks = async (
   const checks: DoctorCheck[] = [];
 
   try {
-    reporter?.start("Checking sync repository...");
+    reporter?.start("Checking sync directory...");
     await ensureRepository(syncDirectory);
     checks.push(ok("git", "Sync directory is a git repository."));
   } catch (error: unknown) {
@@ -190,7 +190,7 @@ export const runDoctorChecks = async (
           "local-paths",
           missingButRestorableEntries.size === 0
             ? "All tracked local paths currently exist."
-            : `All missing local paths are already restorable from the sync repository (${missingButRestorableEntries.size} entr${missingButRestorableEntries.size === 1 ? "y" : "ies"}).`,
+            : `All missing local paths are already restorable from the sync directory (${missingButRestorableEntries.size} entr${missingButRestorableEntries.size === 1 ? "y" : "ies"}).`,
         )
       : warn(
           "local-paths",

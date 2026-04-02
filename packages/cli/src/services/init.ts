@@ -213,10 +213,10 @@ export const initializeSyncDirectory = async (
   const configExists = await pathExists(configPath);
 
   if (configExists) {
-    reporter?.start("Checking the existing sync repository...");
+    reporter?.start("Checking the existing sync directory...");
     await ensureGitRepository(syncDirectory);
 
-    reporter?.start("Loading the existing sync manifest...");
+    reporter?.start("Loading the existing sync config...");
     const config = await readSyncConfig(syncDirectory, context);
     assertInitRequestMatchesConfig(config.age, request);
 
@@ -266,7 +266,7 @@ export const initializeSyncDirectory = async (
       reporter?.start(
         gitSourceInput === undefined
           ? "Initializing a new git repository..."
-          : `Cloning the sync repository from ${gitSourceInput}...`,
+          : `Cloning the sync directory from ${gitSourceInput}...`,
       );
       gitResult = await initializeRepository(
         syncDirectory,
@@ -276,8 +276,8 @@ export const initializeSyncDirectory = async (
     } catch (error: unknown) {
       throw wrapUnknownError(
         gitSourceInput === undefined
-          ? "Failed to initialize the sync repository."
-          : "Failed to clone the sync repository.",
+          ? "Failed to initialize the sync directory."
+          : "Failed to clone the sync directory.",
         error,
         {
           code:
@@ -306,7 +306,7 @@ export const initializeSyncDirectory = async (
   await mkdir(syncDirectory, { recursive: true });
 
   if (await pathExists(configPath)) {
-    reporter?.start("Loading the existing sync manifest...");
+    reporter?.start("Loading the existing sync config...");
     const config = await readSyncConfig(syncDirectory, context);
     assertInitRequestMatchesConfig(config.age, request);
 
@@ -354,12 +354,12 @@ export const initializeSyncDirectory = async (
   reporter?.start("Writing global devsync settings...");
   await writeGlobalSettings(globalConfigPath);
 
-  // Write sync manifest with age
+  // Write sync config with age
   const initialConfig = createInitialSyncConfig({
     recipients: [...new Set(ageBootstrap.recipients.map((r) => r.trim()))],
   });
 
-  reporter?.start("Writing sync manifest...");
+  reporter?.start("Writing sync config...");
   parseSyncConfig(initialConfig, context);
   await writeFile(configPath, formatSyncConfig(initialConfig), "utf8");
 

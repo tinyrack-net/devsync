@@ -31,19 +31,19 @@ const isActiveArtifactRule = (
   );
 };
 
-export const collectArtifactNamespaces = (
+export const collectArtifactProfiles = (
   entries: readonly Pick<ResolvedSyncConfigEntry, "profiles">[],
 ) => {
-  const namespaces = new Set<string>();
-  namespaces.add(CONSTANTS.SYNC.DEFAULT_PROFILE);
+  const profiles = new Set<string>();
+  profiles.add(CONSTANTS.SYNC.DEFAULT_PROFILE);
 
   for (const entry of entries) {
     for (const profile of entry.profiles) {
-      namespaces.add(profile);
+      profiles.add(profile);
     }
   }
 
-  return namespaces;
+  return profiles;
 };
 
 export type RepoArtifact =
@@ -291,7 +291,7 @@ export const collectExistingArtifactKeys = async (
 ) => {
   const keys = new Set<string>();
   const artifactsDirectory = syncDirectory;
-  const namespaces = collectArtifactNamespaces(config.entries);
+  const artifactProfiles = collectArtifactProfiles(config.entries);
   let discoveredArtifactCount = 0;
 
   const noteDiscoveredArtifact = (key: string) => {
@@ -307,11 +307,11 @@ export const collectExistingArtifactKeys = async (
   };
 
   await Promise.all(
-    [...namespaces].map(async (namespace) => {
+    [...artifactProfiles].map(async (profile) => {
       await collectArtifactLeafKeys(
-        join(artifactsDirectory, namespace),
+        join(artifactsDirectory, profile),
         keys,
-        namespace,
+        profile,
         noteDiscoveredArtifact,
       );
     }),

@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 const mocked = vi.hoisted(() => ({
   collectAllProfileNames: vi.fn(),
-  createSyncConfigDocument: vi.fn((config: unknown) => ({
+  buildSyncConfigDocument: vi.fn((config: unknown) => ({
     document: config,
   })),
   ensureGitRepository: vi.fn(),
@@ -43,7 +43,7 @@ vi.mock("#app/config/sync.ts", () => ({
 }));
 
 vi.mock("./config-file.ts", () => ({
-  createSyncConfigDocument: mocked.createSyncConfigDocument,
+  buildSyncConfigDocument: mocked.buildSyncConfigDocument,
   writeValidatedSyncConfig: mocked.writeValidatedSyncConfig,
 }));
 
@@ -262,7 +262,7 @@ describe("sync profiles service", () => {
       profiles: ["work"],
       syncDirectory: "/tmp/devsync",
     });
-    expect(mocked.createSyncConfigDocument).toHaveBeenCalledWith({
+    expect(mocked.buildSyncConfigDocument).toHaveBeenCalledWith({
       ...config,
       entries: [
         {
@@ -310,7 +310,7 @@ describe("sync profiles service", () => {
 
     await assignProfiles({ profiles: [], target: "~/.gitconfig" }, "/tmp/cwd");
 
-    expect(mocked.createSyncConfigDocument).toHaveBeenCalledWith({
+    expect(mocked.buildSyncConfigDocument).toHaveBeenCalledWith({
       ...config,
       entries: [
         {

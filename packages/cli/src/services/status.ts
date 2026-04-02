@@ -52,7 +52,7 @@ export const getStatus = async (
   const { syncDirectory } = resolveSyncPaths();
   const configPath = resolveSyncConfigFilePath(syncDirectory);
 
-  reporter?.start("Checking sync repository...");
+  reporter?.start("Checking sync directory...");
   await ensureGitRepository(syncDirectory);
 
   reporter?.start("Loading sync configuration...");

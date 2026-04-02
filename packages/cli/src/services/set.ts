@@ -14,7 +14,7 @@ import { getPathStats } from "#app/lib/filesystem.ts";
 import { ensureGitRepository } from "#app/lib/git.ts";
 import { isExplicitLocalPath } from "#app/lib/path.ts";
 import {
-  createSyncConfigDocument,
+  buildSyncConfigDocument,
   writeValidatedSyncConfig,
 } from "./config-file.ts";
 import {
@@ -341,7 +341,7 @@ export const setTargetMode = async (
       !hasPlatformSpecificModeOverride(target.entry.configuredMode)
         ? "unchanged"
         : "updated";
-    const nextConfig = createSyncConfigDocument({
+    const nextConfig = buildSyncConfigDocument({
       ...config,
       entries: config.entries.map((entry) => {
         if (entry.repoPath !== target.entry.repoPath) {
@@ -405,7 +405,7 @@ export const setTargetMode = async (
 
     const nextConfiguredMode = buildDefaultPlatformMode(request.mode);
 
-    const nextConfig = createSyncConfigDocument({
+    const nextConfig = buildSyncConfigDocument({
       ...config,
       entries: config.entries.map((entry) => {
         if (entry.repoPath !== childRepoPath) {
@@ -449,7 +449,7 @@ export const setTargetMode = async (
     repoPath: childRepoPath,
   };
 
-  const nextConfig = createSyncConfigDocument({
+  const nextConfig = buildSyncConfigDocument({
     ...config,
     entries: [...config.entries, newEntry],
   });

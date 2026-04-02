@@ -18,7 +18,7 @@ import { getPathStats } from "#app/lib/filesystem.ts";
 import { ensureGitRepository } from "#app/lib/git.ts";
 import { doPathsOverlap } from "#app/lib/path.ts";
 import {
-  createSyncConfigDocument,
+  buildSyncConfigDocument,
   writeValidatedSyncConfig,
 } from "./config-file.ts";
 import {
@@ -106,7 +106,7 @@ const buildTrackEntryCandidate = async (
   })();
 
   if (doPathsOverlap(targetPath, syncDirectory)) {
-    throw new DevsyncError("Sync target overlaps the devsync repository.", {
+    throw new DevsyncError("Sync target overlaps the devsync sync directory.", {
       code: "TARGET_OVERLAPS_SYNC_DIR",
       details: [`Target: ${targetPath}`, `Sync directory: ${syncDirectory}`],
       hint: "Choose a path outside the devsync sync directory.",
@@ -253,7 +253,7 @@ export const trackTarget = async (
   }
 
   if (!alreadyTracked) {
-    const nextConfig = createSyncConfigDocument({
+    const nextConfig = buildSyncConfigDocument({
       ...config,
       entries: [...config.entries, nextEntry],
     });
@@ -291,7 +291,7 @@ export const trackTarget = async (
   const changed = modeChanged || profilesChanged || repoPathChanged;
 
   if (changed) {
-    const nextConfig = createSyncConfigDocument({
+    const nextConfig = buildSyncConfigDocument({
       ...config,
       entries: config.entries.map((entry) => {
         if (entry.localPath !== candidate.localPath) {

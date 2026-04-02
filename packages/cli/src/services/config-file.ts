@@ -2,7 +2,7 @@ import { CONSTANTS } from "#app/config/constants.ts";
 import {
   formatSyncConfig,
   parseSyncConfig,
-  type ResolvedManifest,
+  type ResolvedSyncConfig,
   resolveSyncConfigFilePath,
   type SyncConfig,
   type SyncConfigResolutionContext,
@@ -17,8 +17,8 @@ export const sortSyncConfigEntries = (
   });
 };
 
-export const createSyncConfigDocument = (
-  config: ResolvedManifest,
+export const buildSyncConfigDocument = (
+  config: ResolvedSyncConfig,
 ): SyncConfig => {
   const entries = sortSyncConfigEntries(
     config.entries.map((entry): SyncConfig["entries"][number] => ({
@@ -54,7 +54,7 @@ export const writeValidatedSyncConfig = async (
   context: SyncConfigResolutionContext,
 ) => {
   const resolvedConfig = parseSyncConfig(config, context);
-  const nextConfig = createSyncConfigDocument(resolvedConfig);
+  const nextConfig = buildSyncConfigDocument(resolvedConfig);
 
   await writeTextFileAtomically(
     resolveSyncConfigFilePath(syncDirectory),

@@ -132,7 +132,7 @@ export const pullChanges = async (
   reporter?.start("Starting pull...");
   const { syncDirectory } = resolveSyncPaths();
 
-  reporter?.start("Checking sync repository...");
+  reporter?.start("Checking sync directory...");
   await ensureGitRepository(syncDirectory);
 
   reporter?.start("Loading sync configuration...");

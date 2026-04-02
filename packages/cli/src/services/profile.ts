@@ -12,7 +12,7 @@ import { DevsyncError } from "#app/lib/error.ts";
 import { writeTextFileAtomically } from "#app/lib/filesystem.ts";
 import { ensureGitRepository } from "#app/lib/git.ts";
 import {
-  createSyncConfigDocument,
+  buildSyncConfigDocument,
   writeValidatedSyncConfig,
 } from "./config-file.ts";
 import { resolveTrackedEntry } from "./paths.ts";
@@ -195,7 +195,7 @@ export const assignProfiles = async (
     };
   }
 
-  const nextConfig = createSyncConfigDocument({
+  const nextConfig = buildSyncConfigDocument({
     ...config,
     entries: config.entries.map((e) => {
       if (e.repoPath !== entry.repoPath) {

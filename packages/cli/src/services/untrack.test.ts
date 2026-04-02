@@ -7,7 +7,7 @@ import { createTemporaryDirectory } from "#app/test/helpers/sync-fixture.ts";
 import { resolveArtifactRelativePath } from "./repo-artifacts.ts";
 
 const mocked = vi.hoisted(() => ({
-  createSyncConfigDocument: vi.fn((config: unknown) => ({
+  buildSyncConfigDocument: vi.fn((config: unknown) => ({
     document: config,
   })),
   ensureGitRepository: vi.fn(),
@@ -35,7 +35,7 @@ vi.mock("#app/config/sync.ts", async () => {
 });
 
 vi.mock("./config-file.ts", () => ({
-  createSyncConfigDocument: mocked.createSyncConfigDocument,
+  buildSyncConfigDocument: mocked.buildSyncConfigDocument,
   writeValidatedSyncConfig: mocked.writeValidatedSyncConfig,
 }));
 
@@ -186,7 +186,7 @@ describe("untrack service", () => {
       secretArtifactCount: 2,
       syncDirectory: workspace,
     });
-    expect(mocked.createSyncConfigDocument).toHaveBeenCalledWith({
+    expect(mocked.buildSyncConfigDocument).toHaveBeenCalledWith({
       entries: [siblingEntry],
       version: 7,
     });

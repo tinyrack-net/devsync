@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type {
-  ResolvedManifest,
+  ResolvedSyncConfig,
   ResolvedSyncConfigEntry,
 } from "#app/config/sync.ts";
 
@@ -9,7 +9,7 @@ const mocked = vi.hoisted(() => ({
     default: `~/${repoPath}`,
   })),
   buildRepoPathWithinRoot: vi.fn(),
-  createSyncConfigDocument: vi.fn((config: unknown) => ({
+  buildSyncConfigDocument: vi.fn((config: unknown) => ({
     document: config,
   })),
   ensureGitRepository: vi.fn(),
@@ -52,7 +52,7 @@ vi.mock("#app/config/xdg.ts", () => ({
 }));
 
 vi.mock("./config-file.ts", () => ({
-  createSyncConfigDocument: mocked.createSyncConfigDocument,
+  buildSyncConfigDocument: mocked.buildSyncConfigDocument,
   writeValidatedSyncConfig: mocked.writeValidatedSyncConfig,
 }));
 
@@ -80,7 +80,7 @@ import { resolveSetTarget, setTargetMode } from "./set.ts";
 
 const createConfig = (
   entries: readonly ResolvedSyncConfigEntry[],
-): ResolvedManifest => ({
+): ResolvedSyncConfig => ({
   entries: [...entries],
   version: 7,
 });
@@ -368,7 +368,7 @@ describe("sync set service", () => {
     );
 
     expect(result.action).toBe("updated");
-    expect(mocked.createSyncConfigDocument).toHaveBeenCalledWith({
+    expect(mocked.buildSyncConfigDocument).toHaveBeenCalledWith({
       ...config,
       entries: [
         {
@@ -411,7 +411,7 @@ describe("sync set service", () => {
       repoPath: ".config/app/private.txt",
       syncDirectory: "/tmp/devsync",
     });
-    expect(mocked.createSyncConfigDocument).toHaveBeenCalledWith({
+    expect(mocked.buildSyncConfigDocument).toHaveBeenCalledWith({
       ...config,
       entries: [
         entry,

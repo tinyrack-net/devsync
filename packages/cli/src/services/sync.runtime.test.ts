@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import type { ResolvedManifest } from "#app/config/sync.ts";
+import type { ResolvedSyncConfig } from "#app/config/sync.ts";
 import { buildEffectiveSyncConfig, type RuntimeAgeConfig } from "./runtime.ts";
 
 const testAge: RuntimeAgeConfig = {
@@ -26,7 +26,7 @@ describe("sync runtime", () => {
         },
       ],
       version: 7 as const,
-    } satisfies ResolvedManifest;
+    } satisfies ResolvedSyncConfig;
 
     const effective = buildEffectiveSyncConfig(
       config,
@@ -64,7 +64,7 @@ describe("sync runtime", () => {
         },
       ],
       version: 7 as const,
-    } satisfies ResolvedManifest;
+    } satisfies ResolvedSyncConfig;
 
     expect(
       buildEffectiveSyncConfig(
