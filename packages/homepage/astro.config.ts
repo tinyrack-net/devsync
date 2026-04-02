@@ -25,6 +25,11 @@ export default defineConfig({
         },
       },
       title: "Devsync",
+      logo: {
+        src: "./src/assets/logo.svg",
+        alt: "Devsync",
+      },
+      favicon: "/favicon.svg",
       description:
         "Git-backed configuration sync for your development environment.",
       head: [
