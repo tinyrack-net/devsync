@@ -16,7 +16,7 @@ const statusCommand = buildCommand<StatusFlags, [], DevsyncCliContext>({
   docs: {
     brief: "Show planned push and pull changes for the current sync config",
     fullDescription:
-      "Compare the tracked local files with the sync repository and report what push would write to the repository and what pull would write back locally.",
+      "Compare the tracked local files with the sync directory and report what push would write to the repository and what pull would write back locally.",
   },
   async func(flags) {
     const verbose = flags.verbose ?? false;

@@ -23,7 +23,7 @@ const trackCommand = buildCommand<TrackFlags, string[], DevsyncCliContext>({
   docs: {
     brief: "Track local files or directories for syncing",
     fullDescription:
-      "Register one or more files or directories inside your home directory so devsync can mirror them into the sync repository. If a target is already tracked, its mode is updated. Targets may also be repository paths inside a tracked directory to create child entries with a specific mode.",
+      "Register one or more files or directories inside your home directory so devsync can mirror them into the sync directory. If a target is already tracked, its mode is updated. Targets may also be repository paths inside a tracked directory to create child entries with a specific mode.",
   },
   async func(flags, ...targets) {
     const verbose = flags.verbose ?? false;

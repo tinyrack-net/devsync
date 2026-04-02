@@ -14,7 +14,7 @@ export const buildRootRoute = (
     docs: {
       brief: "A personal CLI tool for git-backed configuration sync.",
       fullDescription:
-        "Manage tracked configuration files under your home directory, mirror them into a git-backed sync repository, and restore them later on other devices.",
+        "Manage tracked configuration files under your home directory, mirror them into a git-backed sync directory, and restore them later on other devices.",
       hideRoute: {
         [CONSTANTS.AUTOCOMPLETE.COMPLETE_SUBCOMMAND]: true,
       },

@@ -15,9 +15,9 @@ type PullFlags = {
 
 const pullCommand = buildCommand<PullFlags, [], DevsyncCliContext>({
   docs: {
-    brief: "Apply the git-backed sync repository to local config paths",
+    brief: "Apply the git-backed sync directory to local config paths",
     fullDescription:
-      "Read tracked artifacts from the sync repository and materialize them back onto local paths under your home directory. Secret artifacts are decrypted with the configured age identity before they are written locally.",
+      "Read tracked artifacts from the sync directory and materialize them back onto local paths under your home directory. Secret artifacts are decrypted with the configured age identity before they are written locally.",
   },
   async func(flags) {
     const verbose = flags.verbose ?? false;

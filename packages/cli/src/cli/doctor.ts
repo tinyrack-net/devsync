@@ -42,7 +42,7 @@ const doctorCommand = buildCommand<
 >({
   docs: {
     brief:
-      "Check sync repository, config, age identity, and tracked local paths",
+      "Check sync directory, config, age identity, and tracked local paths",
     fullDescription:
       "Run health checks for the local sync setup, including repository availability, config validity, age identity configuration, and whether tracked local paths still exist where devsync expects them.",
   },

@@ -18,7 +18,7 @@ const cdCommand = buildCommand<
   docs: {
     brief: "Launch a shell in the sync directory",
     fullDescription:
-      "Launch a child shell rooted at the local sync repository directory. Like chezmoi cd, this opens a new shell session instead of changing the current directory of your existing shell.",
+      "Launch a child shell rooted at the local sync directory. Like chezmoi cd, this opens a new shell session instead of changing the current directory of your existing shell.",
   },
   async func() {
     const syncDirectory = resolveDevsyncSyncDirectoryFromEnv();

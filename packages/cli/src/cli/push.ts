@@ -15,9 +15,9 @@ type PushFlags = {
 
 const pushCommand = buildCommand<PushFlags, [], DevsyncCliContext>({
   docs: {
-    brief: "Mirror local config into the git-backed sync repository",
+    brief: "Mirror local config into the git-backed sync directory",
     fullDescription:
-      "Collect the current state of tracked local files and directories, then update the sync repository artifacts to match. Secret targets are encrypted before they are written into the repository.",
+      "Collect the current state of tracked local files and directories, then update the sync directory artifacts to match. Secret targets are encrypted before they are written into the repository.",
   },
   async func(flags) {
     const verbose = flags.verbose ?? false;
