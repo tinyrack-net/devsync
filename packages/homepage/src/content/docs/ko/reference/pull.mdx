@@ -1,80 +1,48 @@
 ---
-title: devsync pull
-description: 동기화 저장소의 파일을 로컬에 적용해요.
+title: "devsync pull"
+description: "sync 디렉터리의 파일을 로컬에 적용해요."
 ---
 
-import { Aside, Tabs, TabItem } from "@astrojs/starlight/components";
+import { Aside } from "@astrojs/starlight/components";
 
-## 형식
+git 기반 sync 디렉터리의 내용을 로컬 설정 경로에 적용해요.
+
+sync 디렉터리에서 추적 중인 파일을 읽어 홈 디렉터리 아래 로컬 경로에 복원해요. secret 파일은 설정된 age identity로 복호화한 뒤 로컬에 기록해요.
+
+## Usage
+
+```bash
+devsync pull [flags]
+```
+
+## Flags
+
+| Flag               | Description                          |
+| ------------------ | ------------------------------------ |
+| `--dry-run`        | 실제로 쓰지 않고 변경 내용을 미리 확인해요.     |
+| `--profile <name>` | 특정 profile 레이어를 사용해요.        |
+| `--verbose`        | 상세한 출력을 보여줘요.                |
+
+## Examples
+
+추적 중인 모든 파일을 로컬 경로에 적용해요:
 
 ```bash
 devsync pull
 ```
 
-## 설명
-
-`devsync pull`은 동기화 저장소(`~/.config/devsync/repository/`)의 파일을 읽어 대응하는 로컬 경로에 복원해요. [`devsync push`](/ko/reference/push)의 반대 방향이에요.
-
-`mode: secret`으로 등록된 항목은 로컬에 쓰기 전에 설정된 age identity로 복호화돼요. 복호화된 원본 내용만 로컬 경로에 기록되고, 저장소의 `.devsync.secret` 파일은 변경되지 않아요.
-
-각 파일을 쓴 뒤에는 원래 파일 권한을 복원해요.
-
-`pull`은 `git pull`을 실행하지 않아요. 이미 로컬 동기화 저장소에 있는 내용만 읽어요. 원격에서 최신 변경 사항을 먼저 받으려면 [`devsync cd`](/ko/reference/cd)로 저장소에 진입해 `git pull`을 실행하고, 다시 나와서 `devsync pull`을 실행하면 돼요.
-
-## 옵션
-
-| 플래그 | 설명 |
-|--------|------|
-| `--dry-run` | 실제로 쓰지 않고 변경될 내용만 미리 보여요. |
-| `--profile NAME` | 이번 실행에 한해 활성 프로필을 재정의해요. `settings.json`에는 저장되지 않아요. |
-| `--verbose` | 작업 중 항목별·파일별 상세 내용을 표시해요. |
-
-## 예시
-
-<Tabs>
-  <TabItem label="기본">
-    ```bash
-    # 동기화 저장소의 현재 상태를 로컬에 적용
-    devsync pull
-    ```
-  </TabItem>
-  <TabItem label="드라이런">
-    ```bash
-    # 실제로 쓰지 않고 변경될 내용 미리 보기
-    devsync pull --dry-run
-    ```
-  </TabItem>
-  <TabItem label="프로필 재정의">
-    ```bash
-    # "personal" 프로필 항목만 pull (일회성 재정의)
-    devsync pull --profile personal
-    ```
-  </TabItem>
-</Tabs>
-
-## 새 기기 설정 워크플로우
+로컬에 어떤 변경이 생길지 미리 확인해요:
 
 ```bash
-# 1. 기존 dotfiles 저장소를 클론해서 초기화
-devsync init https://github.com/yourname/dotfiles.git
-
-# 2. 어떤 파일이 적용될지 미리 확인
 devsync pull --dry-run
-
-# 3. 모든 설정 파일 로컬에 적용
-devsync pull
 ```
 
-## 참고
+work profile 레이어만 적용해요:
 
-<Aside type="note">
-  `pull`은 원격 git 서버와 통신하지 않아요. 원격 변경 사항을 받으려면 동기화 저장소 안에서 먼저 git 명령을 실행한 뒤 `devsync pull`을 실행해야 해요.
-</Aside>
+```bash
+devsync pull --profile work
+```
 
-<Aside type="caution">
-  `pull`은 로컬 파일을 저장소 버전으로 덮어써요. 로컬 파일에 별도로 수정한 내용이 있을 수 있으니, 실행 전에 `devsync status`로 변경될 내용을 먼저 확인하는 것을 권장해요.
-</Aside>
-
-<Aside type="caution">
-  `mode: ignore`인 항목은 pull 시에도 완전히 건너뛰어요. 저장소에 해당 파일이 있어도 로컬에 쓰지 않아요.
+<Aside type="tip">
+적용 전에 `devsync status`를 먼저 실행하면 `pull`이 바꿀 내용을 미리 확인할 수 있어요.
 </Aside>

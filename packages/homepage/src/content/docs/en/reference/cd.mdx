@@ -1,53 +1,20 @@
 ---
-title: devsync cd
-description: Launch a shell inside the sync repository directory.
+title: "devsync cd"
+description: "Open a shell in the sync directory."
 ---
 
 import { Aside } from "@astrojs/starlight/components";
 
-## Synopsis
+Launch a shell in the sync directory.
+
+Like `chezmoi cd`, this opens a new child shell rooted at the local sync directory instead of changing the current directory of your existing shell. Exit the shell to return to your previous session.
+
+## Usage
 
 ```bash
 devsync cd
 ```
 
-## Description
-
-`devsync cd` spawns a child shell with its working directory set to `~/.config/devsync/repository/` — the sync repository. This gives you direct access to the git repository that stores your dotfile artifacts.
-
-From inside this shell you can run any git command: `git status`, `git log`, `git add`, `git commit`, `git push`, `git pull`, and so on. When you are done, type `exit` or press `Ctrl-D` to close the child shell and return to your original session.
-
-The child shell inherits your current environment, including `$SHELL`, `$PATH`, and any shell configuration. If your default shell is `zsh`, the child shell will also be `zsh`.
-
-## Examples
-
-```bash
-# Open the sync directory in a shell
-devsync cd
-
-# You are now inside ~/.config/devsync/repository/
-git status
-git add -A
-git commit -m "update dotfiles"
-git push origin main
-
-# Return to your original shell
-exit
-```
-
-## Typical use cases
-
-- **Commit and push after `devsync push`**: devsync does not create git commits automatically. Use `devsync cd` to commit and push once you have updated the repository with `devsync push`.
-- **Pull from remote before `devsync pull`**: Run `git pull` inside the sync directory to fetch the latest commits from the remote, then exit and run `devsync pull` to apply them locally.
-- **Inspect history**: Use `git log` or `git diff` to review what changed between syncs.
-- **Resolve conflicts**: If git reports merge conflicts in the sync repository, resolve them here.
-
-## Notes
-
-<Aside type="note">
-  The sync directory is a standard git repository. All normal git workflows apply. devsync itself does not interfere with git history — it only reads and writes file contents.
-</Aside>
-
-<Aside type="note">
-  If you prefer not to use `devsync cd`, you can `cd ~/.config/devsync/repository` directly. The command is a convenience shortcut.
+<Aside type="tip">
+Use this to run git commands (`commit`, `push`, `pull`) directly inside the sync directory.
 </Aside>

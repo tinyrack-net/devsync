@@ -1,131 +1,123 @@
 ---
 title: 작동 방식
-description: Devsync의 동작 원리와 내부 구조
+description: devsync의 동작 원리와 설계 철학을 알아보세요.
 ---
 
-import { Aside, FileTree, Steps } from "@astrojs/starlight/components";
+import { Aside, Steps } from "@astrojs/starlight/components";
 
-Devsync의 핵심 철학은 하나예요: **진실의 원천은 항상 로컬 파일**이에요. 저장소는 동기화 사본일 뿐, 정본(canonical version)이 아니에요.
+내부 동작을 이해하면 devsync를 더 예측 가능하게 사용할 수 있어요.
+이 가이드에서는 멘탈 모델, push와 pull의 데이터 흐름, 그리고 설계 결정들을
+다뤄요.
 
-이 문서에서는 개념 모델, 데이터 흐름, 내부 구조를 설명해요.
+## 멘탈 모델
 
----
+devsync는 로컬 설정 파일과 Git으로 추적되는 sync 디렉터리 사이의
+**양방향 미러**라고 생각하면 돼요:
 
-## 개념 모델
+- **로컬 파일**이 작업 중에는 원본(source of truth)이에요.
+- **sync 디렉터리**는 Git 리모트에 push하고 다른 기기에서 pull할 수 있는
+  미러예요.
 
-대부분의 dotfile 도구는 저장소를 정본으로 취급해요. 도구를 통해 파일을 편집하면, 도구가 저장소와 로컬 파일 시스템 모두에 반영해요.
-
-Devsync는 반대예요. `~/.zshrc`를 그냥 편집기로 열어서 수정하면 돼요 — 특별한 명령이 필요 없어요. 동기화할 준비가 되면 `devsync push`를 실행하면 현재 로컬 파일을 읽어 저장소에 복사해요.
-
-```
-편집기 → 로컬 파일 → devsync push → sync 저장소 → git push → 원격
-                                                               ↓
-다른 기기 ← devsync pull ← sync 저장소 ← git pull ← 원격
-```
-
-이 방식의 장점은 파일 편집 방식을 전혀 바꾸지 않아도 된다는 거예요. 트레이드오프는 저장소 상태가 마지막 push를 기준으로 한다는 점이에요 — 현재 로컬 파일의 최신 상태가 아닐 수 있어요.
-
----
+devsync는 뒤에서 몰래 파일을 수정하지 않아요 — `push`로 미러를 업데이트하거나
+`pull`로 미러의 변경사항을 적용하는 걸 직접 실행해야 해요.
 
 ## 데이터 흐름
 
-### Push
-
-`devsync push`를 실행하면 다음 순서로 동작해요.
-
-<Steps>
-
-1. `manifest.json`을 읽어 활성 프로필을 결정해요
-2. 각 추적 경로의 로컬 파일 트리를 탐색해요
-3. 로컬 파일과 sync 디렉터리의 기존 파일을 비교해요
-4. `secret` 모드 파일을 age로 암호화해요
-5. 복사된 파일을 sync 디렉터리에 저장해요
-6. 변경 사항을 출력해요
-
-</Steps>
-
-### Pull
-
-`devsync pull`을 실행하면 다음 순서로 동작해요.
-
-<Steps>
-
-1. `manifest.json`을 읽어 활성 프로필을 결정해요
-2. sync 디렉터리의 파일을 읽어요
-3. `secret` 파일을 age 개인키로 복호화해요
-4. 필요한 상위 디렉터리를 생성하고 파일을 로컬 경로에 저장해요
-5. 파일 권한을 적용해요
-6. 변경 사항을 출력해요
-
-</Steps>
-
-<Aside type="note">
-`push`와 `pull` 모두 git commit을 만들지 않아요. `devsync cd`로 sync 저장소 안에서 직접 git 명령을 실행해야 해요.
-</Aside>
-
----
-
-## 디렉터리 구조
-
-Devsync의 모든 상태는 `~/.config/devsync/` 아래에 저장돼요.
-
-<FileTree>
-- ~/.config/devsync/
-  - sync/                     Git 저장소 (동기화된 파일이 저장되는 곳)
-    - .git/
-    - manifest.json           설정 및 추적 레지스트리
-    - default/                기본(전역) 프로필 파일
-      - .gitconfig            ~/.gitconfig 미러
-      - .config/
-        - nvim/               ~/.config/nvim 미러
-    - work/                   "work" 프로필 파일
-      - ...
-  - age/
-    - keys.txt                age 개인키 (시크릿 파일 복호화에 사용)
-  - settings.json             전역 설정 (활성 프로필 등)
-</FileTree>
-
-### manifest.json
-
-매니페스트는 중앙 레지스트리예요. 추적 경로마다 소스 경로, 동기화 모드, 프로필 지정 정보가 담긴 항목이 들어있어요.
-
-```json
-{
-  "entries": [
-    {
-      "localPath": ".gitconfig",
-      "mode": "normal",
-      "profiles": []
-    },
-    {
-      "localPath": ".ssh/config",
-      "mode": "secret",
-      "profiles": []
-    },
-    {
-      "localPath": {
-        "default": ".config/nvim",
-        "win": "AppData/Local/nvim"
-      },
-      "mode": "normal",
-      "profiles": ["linux", "mac"]
-    }
-  ]
-}
+```
+에디터 → 로컬 파일 → devsync push → sync 디렉터리 → git push → 리모트
+                                                                    ↓
+다른 기기 ← devsync pull ← sync 디렉터리 ← git pull ← 리모트
 ```
 
-`localPath`의 경로는 홈 디렉터리(`~`)를 기준으로 한 상대 경로예요.
+두 가지 별도의 작업이 있어요. Git 전송은 그 사이에 위치하지만 전적으로
+사용자가 관리해요.
 
----
+### Push 흐름
 
-## stow, chezmoi와의 차이
+<Steps>
 
-| | Devsync | chezmoi | stow |
-|---|---|---|---|
-| 진실의 원천 | 로컬 파일 | 저장소 | 저장소 |
-| 파일 편집 방식 | 파일 직접 열기 | `chezmoi edit` | 저장소에서 편집 |
-| 홈 디렉터리 | 변경 없음 | 변경 없음 | 심볼릭 링크 |
-| 템플릿 지원 | 없음 | 있음 | 없음 |
-| 기기별 내용 분기 | 프로필 / 플랫폼 경로 | 템플릿 | 오버레이 |
+1. **`manifest.json` 로드** — devsync가 설정 파일을 읽어 추적 중인 모든
+   파일과 설정을 파악해요.
 
-Devsync는 **기존 편집 흐름을 최대한 유지**하는 것을 우선으로 해요. 이미 편한 설정이 있고, 그것을 여러 기기에 그대로 복제하고 싶다면 Devsync가 잘 맞아요.
+2. **로컬 파일 탐색** — 각 항목에 대해 현재 플랫폼에 맞는 `localPath`의
+   파일을 읽어요.
+
+3. **기존 파일과 비교** — sync 디렉터리의 파일이 이미 동일하면 아무것도
+   쓰지 않아요.
+
+4. **시크릿 암호화** — secret으로 표시된 항목은
+   [age](https://github.com/FiloSottile/age)로 암호화한 뒤 저장해요.
+
+5. **파일 쓰기** — (암호화된 경우도 포함해서) 내용을 sync 디렉터리의
+   `repoPath`에 써요.
+
+</Steps>
+
+### Pull 흐름
+
+<Steps>
+
+1. **`manifest.json` 로드** — 같은 설정 파일, 같은 해석 방식.
+
+2. **파일 읽기** — sync 디렉터리에서 각 파일을 읽어요.
+
+3. **시크릿 복호화** — 암호화된 파일은 로컬 age 키로 복호화해요.
+
+4. **로컬 경로에 쓰기** — 내용을 해석된 `localPath`에 써요.
+
+5. **퍼미션 적용** — 설정 파일에 기록된 파일 퍼미션을 복원해서 실수로
+   모든 사용자가 읽을 수 있게 되는 걸 방지해요.
+
+</Steps>
+
+<Aside>
+`push`도 `pull`도 Git commit을 만들지 않아요. `git add`, `git commit`,
+`git push`는 직접 실행해야 해요. 이렇게 해서 commit 히스토리를 완전히
+통제할 수 있어요.
+</Aside>
+
+## 설계 결정
+
+### 로컬 우선
+
+에디터가 디스크의 실제 파일에 쓰고, devsync는 같은 파일을 읽어요.
+데이터베이스도, 데몬도, 백그라운드 감시자도 없어요. 동기화 시점은 사용자가
+정해요.
+
+### 심링크 없음
+
+일부 dotfile 관리 도구는 설정 파일을 저장소 안의 파일을 가리키는 심링크로
+대체해요. devsync는 의도적으로 파일을 복사하는 방식을 택했어요. 퍼미션 문제,
+파일 시스템 간 이슈, 심링크를 따라가지 못하는 도구로 인한 의외의 상황을
+피할 수 있어요.
+
+### age 암호화
+
+시크릿은 sync 디렉터리에서 [age](https://github.com/FiloSottile/age)로
+암호화된 상태로 저장돼요. 단순함 때문에 age를 선택했어요 — 키 파일 하나면 되고,
+키 서버도 없고, 만료 관리도 없어요. 비밀 키는 절대 기기 밖으로 나가지 않아요.
+
+### Git을 전송 수단으로
+
+devsync는 자체 동기화 프로토콜을 만드는 대신 Git에 올라타요. 브랜치, 히스토리,
+merge 충돌 도구, 호스팅(GitHub, GitLab 등)을 공짜로 사용할 수 있어요.
+
+## sync 디렉터리 구조
+
+sync 디렉터리는 예측 가능한 레이아웃을 가진 일반 Git 저장소예요.
+전체 내용은 [디렉터리 구조](/ko/guides/directory-structure/) 가이드를 참고하세요.
+
+간략하게 보면:
+
+```
+~/dotfiles/          ← sync 디렉터리 루트 (Git repo)
+├── manifest.json    ← 추적 중인 모든 파일이 나열된 설정 파일
+├── .age-key         ← age 비밀 키 (git-ignored)
+├── .age-recipients  ← 암호화를 위한 age 공개 키
+└── ...              ← devsync push로 생성된 파일들
+```
+
+<Aside type="tip">
+`devsync cd`를 실행하면 sync 디렉터리로 바로 이동해서 직접 확인하거나 관리할 수
+있어요.
+</Aside>

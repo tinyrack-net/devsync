@@ -1,0 +1,155 @@
+---
+title: マルチデバイスワークフロー
+description: 初期設定から日常的な同期までの全体フロー。
+---
+
+import { Aside, Steps } from "@astrojs/starlight/components";
+
+このガイドでは、devsyncのライフサイクル全体を説明します — 最初のマシンのセットアップから、
+複数デバイスの日常的な同期まで。
+
+## マシンAでの初期セットアップ
+
+<Steps>
+
+1. **devsyncを初期化する**
+
+   ```bash
+   devsync init ~/dotfiles
+   ```
+
+   `~/dotfiles`にGitベースのsyncディレクトリが作成されます。
+
+2. **ファイルをトラッキングする**
+
+   ```bash
+   devsync track ~/.gitconfig
+   devsync track ~/.config/starship.toml
+   devsync track ~/.ssh/config --secret
+   ```
+
+   各コマンドがsyncディレクトリ内の`manifest.json`にエントリを追加します。
+
+3. **ローカルファイルをsyncディレクトリにpush**
+
+   ```bash
+   devsync push
+   ```
+
+4. **commitしてリモートにpush**
+
+   devsyncはGitのcommitを自動で作成しません — すべて自分でコントロールできます：
+
+   ```bash
+   devsync cd   # syncディレクトリ内でシェルを開く
+   git add -A && git commit -m "initial sync"
+   git remote add origin git@github.com:you/dotfiles.git
+   git push -u origin main
+   exit
+   ```
+
+</Steps>
+
+<Aside type="tip">
+pushやpullの前にいつでも`devsync status`を実行して、変更内容をプレビューできます。
+</Aside>
+
+## マシンBのセットアップ
+
+<Steps>
+
+1. **リモートURLから初期化する**
+
+   ```bash
+   devsync init ~/dotfiles --url git@github.com:you/dotfiles.git
+   ```
+
+2. **ファイルをローカルパスにpull**
+
+   ```bash
+   devsync pull
+   ```
+
+   devsyncが`manifest.json`を読み取り、プラットフォーム別パスを解決し、
+   シークレットを復号して、すべてのファイルを正しい場所に配置します。
+
+</Steps>
+
+## 日常のワークフロー
+
+両方のマシンのセットアップが完了すると、日々の操作はシンプルで予測可能です。
+
+**変更を行ったマシンで：**
+
+```bash
+devsync push
+devsync cd
+git add -A && git commit -m "update shell aliases"
+git push
+exit
+```
+
+**もう一方のマシンで：**
+
+```bash
+devsync cd
+git pull
+exit
+devsync pull
+```
+
+<Aside>
+パターンは常に、一方で**devsync push → git push**、
+もう一方で**git pull → devsync pull**です。
+</Aside>
+
+## コンフリクトの解決
+
+syncディレクトリは通常のGitリポジトリなので、コンフリクトはいつも通りの方法で
+解決します：
+
+```bash
+devsync cd
+git pull            # マージコンフリクトが報告される場合あり
+# 該当ファイルでコンフリクトを解決
+git add -A && git commit -m "resolve merge conflict"
+git push
+exit
+devsync pull        # 解決後の状態をローカルに適用
+```
+
+<Aside type="caution">
+2台のマシンが、いずれかが`git pull`する前に同じファイルに異なる編集をpushすると、
+通常のGitマージコンフリクトが発生します。syncディレクトリ内で解決してください — 
+devsync自体は自動マージを行いません。
+</Aside>
+
+## ヘルスチェック
+
+```bash
+devsync doctor
+```
+
+syncディレクトリの存在、Gitの設定、暗号化キーの状態、トラッキングパスへのアクセスを
+検証します。
+
+## マシンの追加
+
+3台目（4台目、5台目…）のマシンの追加は、マシンBと同じ手順です — リモートURLで
+`devsync init`してから`devsync pull`。以降の日常的なpush/pullサイクルは、
+すべてのデバイスで同じです。
+
+<Aside type="tip">
+新しいマシンのOSが異なる場合、devsyncはプラットフォーム別パスを自動的に解決します。
+[プラットフォーム別パス](/ja/guides/platform-specific-paths/)ガイドをご覧ください。
+</Aside>
+
+## クイックリファレンス
+
+| タスク                      | コマンド                                                  |
+| --------------------------- | --------------------------------------------------------- |
+| 変更のプレビュー             | `devsync status`                                          |
+| ローカルの編集を上流に送信    | `devsync push` → `git add -A && git commit` → `git push` |
+| 上流の編集を受信             | `git pull` → `devsync pull`                               |
+| コンフリクトの解決           | `devsync cd` → ファイルを修正 → `git commit` → `git push`  |
+| セットアップのヘルスチェック  | `devsync doctor`                                          |

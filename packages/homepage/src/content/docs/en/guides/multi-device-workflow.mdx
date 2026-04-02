@@ -1,188 +1,157 @@
 ---
 title: Multi-Device Workflow
-description: A complete walkthrough for setting up devsync on your first machine and replicating your config on additional devices.
+description: The complete flow from initial setup to daily syncing across machines.
 ---
 
 import { Aside, Steps } from "@astrojs/starlight/components";
 
-This guide walks through the full devsync workflow: from initial setup on your first machine, to syncing your config to a second device, to the day-to-day routine of keeping everything in sync.
+This guide walks through the entire lifecycle of using devsync — from setting up
+your first machine to keeping multiple devices in sync every day.
 
----
-
-## First Machine: Initial Setup
+## Initial setup on Machine A
 
 <Steps>
 
-1. **Install devsync and initialize**
+1. **Initialize devsync**
 
    ```bash
-   npm install -g @tinyrack/devsync
-   devsync init
+   devsync init ~/dotfiles
    ```
 
-   Press Enter when prompted for an age key — a new key pair is generated automatically. Note the private key printed during init and store it securely.
+   This creates a Git-backed sync directory at `~/dotfiles`.
 
 2. **Track your files**
 
    ```bash
    devsync track ~/.gitconfig
-   devsync track ~/.zshrc
-   devsync track ~/.config/nvim
-   devsync track ~/.ssh/config --mode secret
+   devsync track ~/.config/starship.toml
+   devsync track ~/.ssh/config --secret
    ```
 
-   Assign machine-specific files to a profile if needed:
+   Each command adds an entry to `manifest.json` inside the sync directory.
 
-   ```bash
-   devsync track ~/.config/work-tool --profile work
-   devsync profile use work
-   ```
-
-3. **Preview what will be pushed**
-
-   ```bash
-   devsync status
-   ```
-
-   Or do a dry run:
-
-   ```bash
-   devsync push --dry-run
-   ```
-
-4. **Push to the sync repository**
+3. **Push local files into the sync directory**
 
    ```bash
    devsync push
    ```
 
-5. **Publish to a remote Git repository**
+4. **Commit and push to a remote**
+
+   devsync never creates Git commits for you — you stay in full control:
 
    ```bash
-   devsync cd
-   git remote add origin https://github.com/yourname/dotfiles.git
-   git add .
-   git commit -m "Initial sync"
+   devsync cd   # opens a shell inside the sync directory
+   git add -A && git commit -m "initial sync"
+   git remote add origin git@github.com:you/dotfiles.git
    git push -u origin main
    exit
    ```
 
 </Steps>
 
----
+<Aside type="tip">
+Run `devsync status` at any point to preview what would change before you
+actually push or pull.
+</Aside>
 
-## Second Machine: Connecting to an Existing Repository
+## Setting up Machine B
 
 <Steps>
 
-1. **Install devsync**
+1. **Initialize from the remote URL**
 
    ```bash
-   npm install -g @tinyrack/devsync
+   devsync init ~/dotfiles --url git@github.com:you/dotfiles.git
    ```
 
-2. **Initialize with the existing repository and your age private key**
-
-   ```bash
-   devsync init https://github.com/yourname/dotfiles.git --key AGE-SECRET-KEY-1...
-   ```
-
-   This clones the repository into `~/.config/devsync/repository/` and registers your age key.
-
-3. **Set the active profile** (if applicable)
-
-   ```bash
-   devsync profile use work
-   ```
-
-4. **Preview what will be applied**
-
-   ```bash
-   devsync pull --dry-run
-   ```
-
-5. **Apply the config**
+2. **Pull files to their local paths**
 
    ```bash
    devsync pull
    ```
 
-   All tracked files are written to their local paths. Secret files are decrypted automatically.
+   devsync reads `manifest.json`, resolves platform-specific paths, decrypts
+   any secrets, and writes every file to the correct location.
 
 </Steps>
 
----
+## Daily workflow
 
-## Day-to-Day Workflow
+Once both machines are set up, the day-to-day flow is short and predictable.
 
-After the initial setup, the typical daily workflow is:
-
-### Making a change on one machine
+**On the machine where you made changes:**
 
 ```bash
-# 1. Edit your config normally
-vim ~/.zshrc
-
-# 2. Preview what changed
-devsync status
-
-# 3. Push to the sync repository
 devsync push
-
-# 4. Commit and push to git
 devsync cd
-git add .
-git commit -m "Update zsh aliases"
+git add -A && git commit -m "update shell aliases"
 git push
 exit
 ```
 
-### Picking up changes on another machine
+**On the other machine:**
 
 ```bash
-# 1. Pull from git
 devsync cd
 git pull
 exit
-
-# 2. Preview what would be applied
-devsync pull --dry-run
-
-# 3. Apply
 devsync pull
 ```
 
-<Aside type="note">
-Devsync does not automatically run `git pull` or `git push` — you manage git history yourself. This keeps devsync simple and avoids merge conflicts inside the tool.
+<Aside>
+The pattern is always **devsync push → git push** on one side and
+**git pull → devsync pull** on the other.
 </Aside>
 
----
+## Handling conflicts
 
-## Resolving Conflicts
-
-Because devsync does not auto-commit, conflicts are standard git merge conflicts. If two machines both modified the same tracked file and both pushed:
+The sync directory is a regular Git repository, so conflicts are resolved the
+usual way:
 
 ```bash
 devsync cd
-git pull
-# → CONFLICT in .gitconfig (or whichever file)
-# Resolve the conflict manually
-git add .
-git commit -m "Merge: resolve .gitconfig conflict"
+git pull            # may report merge conflicts
+# resolve conflicts in the affected files
+git add -A && git commit -m "resolve merge conflict"
+git push
 exit
-
-# Then pull to apply the resolved state locally
-devsync pull
+devsync pull        # apply the resolved state locally
 ```
 
----
+<Aside type="caution">
+If two machines push different edits to the same file before either does a
+`git pull`, you'll get a normal Git merge conflict. Resolve it inside the sync
+directory — devsync itself doesn't auto-merge.
+</Aside>
 
-## Validating Your Setup
-
-If something seems off, use the `doctor` command to check your configuration, age key, and tracked paths:
+## Checking health
 
 ```bash
 devsync doctor
 ```
 
-This reports any issues such as a missing age key, unreachable tracked paths, or a broken manifest.
+This verifies the sync directory exists, Git is configured, encryption keys are
+in place, and tracked paths are accessible.
+
+## Adding more machines
+
+Adding a third (or fourth, or fifth) machine follows the same steps as
+Machine B — `devsync init` with the remote URL, then `devsync pull`. From
+there the daily push/pull cycle is identical on every device.
+
+<Aside type="tip">
+If the new machine runs a different OS, devsync automatically resolves
+platform-specific paths. See the
+[Platform-Specific Paths](/en/guides/platform-specific-paths/) guide.
+</Aside>
+
+## Quick reference
+
+| Task                        | Commands                                                  |
+| --------------------------- | --------------------------------------------------------- |
+| Preview changes             | `devsync status`                                          |
+| Send local edits upstream   | `devsync push` → `git add -A && git commit` → `git push` |
+| Receive upstream edits      | `git pull` → `devsync pull`                               |
+| Resolve conflicts           | `devsync cd` → fix files → `git commit` → `git push`     |
+| Check setup health          | `devsync doctor`                                          |

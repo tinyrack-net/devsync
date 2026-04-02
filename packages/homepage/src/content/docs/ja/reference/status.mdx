@@ -1,0 +1,41 @@
+---
+title: "devsync status"
+description: "pushとpullで変更される内容をプレビューします。"
+---
+
+import { Aside } from "@astrojs/starlight/components";
+
+現在のsync設定におけるpushとpullの変更予定を表示します。
+
+trackされたローカルファイルとsyncディレクトリを比較し、`push` でリポジトリに書き込まれる内容と、`pull` でローカルに書き戻される内容を表示します。
+
+## Usage
+
+```bash
+devsync status [flags]
+```
+
+## Flags
+
+| Flag               | Description                          |
+| ------------------ | ------------------------------------ |
+| `--profile <name>` | 特定のprofileレイヤーを使用します。        |
+| `--verbose`        | 詳細な出力を表示します。                |
+
+## Examples
+
+syncステータスの全体を表示する:
+
+```bash
+devsync status
+```
+
+特定のprofileのステータスを表示する:
+
+```bash
+devsync status --profile work
+```
+
+<Aside>
+`status` は `manifest.json` を読み込み、ファイルの内容を比較します。`git status` は実行**しません** — devsyncレベルの差分のみ表示します。
+</Aside>

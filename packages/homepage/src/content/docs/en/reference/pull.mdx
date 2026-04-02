@@ -1,80 +1,48 @@
 ---
-title: devsync pull
-description: Apply repository artifacts back to local files.
+title: "devsync pull"
+description: "Apply the sync directory contents to your local config paths."
 ---
 
-import { Aside, Tabs, TabItem } from "@astrojs/starlight/components";
+import { Aside } from "@astrojs/starlight/components";
 
-## Synopsis
+Apply the git-backed sync directory to local config paths.
+
+Read tracked artifacts from the sync directory and materialize them back onto local paths under your home directory. Secret artifacts are decrypted with the configured age identity before they are written locally.
+
+## Usage
 
 ```bash
-devsync pull
+devsync pull [flags]
 ```
 
-## Description
+## Flags
 
-`devsync pull` reads artifacts from the sync repository (`~/.config/devsync/repository/`) and materializes them onto the corresponding local paths. It is the reverse of [`devsync push`](/en/reference/push).
-
-For entries with `mode: secret`, the artifact is decrypted using the configured age identity before being written to disk. The decrypted content is written to the local path; the `.devsync.secret` artifact in the repository is never changed.
-
-After writing each file, `pull` restores the original file permissions.
-
-`pull` does **not** run `git pull`. It only reads what is already present in the local sync repository directory. To receive changes from a remote first, use `git pull` inside the sync directory (via [`devsync cd`](/en/reference/cd)), then run `devsync pull`.
-
-## Options
-
-| Flag | Description |
-|------|-------------|
-| `--dry-run` | Preview what would be written locally without making any changes. |
-| `--profile NAME` | Override the active profile for this single run. Does not persist to `settings.json`. |
-| `--verbose` | Show per-entry and per-file detail during the operation. |
+| Flag               | Description                          |
+| ------------------ | ------------------------------------ |
+| `--dry-run`        | Preview changes without writing.     |
+| `--profile <name>` | Use a specific profile layer.        |
+| `--verbose`        | Show detailed output.                |
 
 ## Examples
 
-<Tabs>
-  <TabItem label="Basic">
-    ```bash
-    # Apply the current sync repository state to local files
-    devsync pull
-    ```
-  </TabItem>
-  <TabItem label="Dry run">
-    ```bash
-    # Preview what pull would write without making changes
-    devsync pull --dry-run
-    ```
-  </TabItem>
-  <TabItem label="Profile override">
-    ```bash
-    # Pull only entries for the "personal" profile (one-time override)
-    devsync pull --profile personal
-    ```
-  </TabItem>
-</Tabs>
-
-## Typical workflow on a new machine
+Apply all tracked artifacts to local paths:
 
 ```bash
-# 1. Initialize by cloning your existing dotfiles repo
-devsync init https://github.com/yourname/dotfiles.git
-
-# 2. Preview what would be applied
-devsync pull --dry-run
-
-# 3. Apply everything
 devsync pull
 ```
 
-## Notes
+Preview what would change locally:
 
-<Aside type="note">
-  `pull` does not contact any remote git server. To pull changes from a remote first, run git commands inside the sync directory and then run `devsync pull`.
-</Aside>
+```bash
+devsync pull --dry-run
+```
 
-<Aside type="caution">
-  `pull` will overwrite local files with the repository versions. Run `devsync status` first to understand what will change, especially on machines where the local files may have diverged.
-</Aside>
+Pull only the work profile layer:
 
-<Aside type="caution">
-  Entries with `mode: ignore` are skipped entirely during pull, even if a corresponding artifact exists in the repository.
+```bash
+devsync pull --profile work
+```
+
+<Aside type="tip">
+Run `devsync status` first to see what `pull` would change before applying.
 </Aside>

@@ -1,38 +1,41 @@
 ---
 title: 동기화 모드
-description: normal, secret, ignore 세 가지 동기화 모드의 차이와 사용 시점
+description: normal, secret, ignore 세 가지 모드의 차이와 사용법을 알아보세요.
 ---
 
-import { Aside } from "@astrojs/starlight/components";
+import { Aside, Steps } from "@astrojs/starlight/components";
 
-추적된 항목마다 **동기화 모드**가 있어요. 이 모드는 push와 pull 시에 Devsync가 파일을 어떻게 처리할지 결정해요. 모드는 세 가지예요: `normal`, `secret`, `ignore`.
+모든 추적 항목에는 **동기화 모드**가 있어요. push와 pull 때 devsync가 해당 항목을 어떻게 처리할지를 결정해요. `normal`, `secret`, `ignore` 세 가지 모드 중에서 선택할 수 있어요.
 
 ---
 
-## normal
+## 한눈에 보기
 
-기본 모드예요. 파일을 변환 없이 그대로 저장소에 복사해요.
+| 모드 | sync 디렉터리에 저장 | 암호화 여부 | push/pull 시 동기화 |
+|---|---|---|---|
+| `normal` | 예 | 아니오 | 예 |
+| `secret` | 예 (`.age` 접미사) | 예 (age) | 예 |
+| `ignore` | 아니오 | — | 아니오 |
+
+---
+
+## normal (기본값)
+
+파일이 sync 디렉터리에 있는 그대로 복사돼요. 변환도, 암호화도 없이 — 보이는 그대로예요.
 
 ```bash
 devsync track ~/.gitconfig
-devsync track ~/.zshrc
+devsync track ~/.config/starship.toml
 devsync track ~/.config/nvim
 ```
 
-**이런 파일에 적합해요:**
-- 편집기 설정 (`.vimrc`, `init.lua`, VS Code 설정)
-- 셸 설정 (`.zshrc`, `.bashrc`, `.bash_profile`)
-- Git 설정 (`.gitconfig`)
-- 도구 설정 (`.tmux.conf`, `.wezterm.lua`, `starship.toml`)
-- 민감한 정보가 없는 파일
-
-저장소에 저장되는 파일 이름은 원본과 동일해요.
+**이런 파일에 적합해요:** 셸 설정 (`.zshrc`, `.bashrc`), 에디터 설정, Git config, `.tmux.conf`나 `starship.toml` 같은 도구 설정 — 시크릿이 포함되지 않은 모든 파일.
 
 ---
 
 ## secret
 
-파일을 [age](https://age-encryption.org/)로 암호화한 후 저장소에 저장해요. 저장된 파일에는 `.devsync.secret` 확장자가 붙어요.
+파일이 sync 디렉터리에 저장되기 전에 [age](https://age-encryption.org/)로 암호화돼요. 저장된 파일에는 `.age` 접미사가 붙어요.
 
 ```bash
 devsync track ~/.ssh/config --mode secret
@@ -40,50 +43,38 @@ devsync track ~/.config/gh/hosts.yml --mode secret
 devsync track ~/.aws/credentials --mode secret
 ```
 
-**다음과 같은 파일에 사용하세요:**
-- SSH 설정 및 키
-- API 토큰과 인증 정보
-- 실제 시크릿이 담긴 `.env` 파일
-- git 히스토리에 평문으로 노출되면 안 되는 모든 파일
+**이런 파일에 적합해요:** SSH 키와 설정, API 토큰, 실제 인증 정보가 담긴 `.env` 파일, GPG 키 — 저장소가 공개되었을 때 노출되면 안 되는 모든 파일.
 
-`pull` 시에는 암호화된 파일이 age 개인키로 자동 복호화된 뒤 디스크에 저장돼요.
+`pull` 중에 devsync는 age 비밀 키로 파일을 복호화한 뒤 디스크에 써요. 전체 설정 방법은 [시크릿 파일 동기화](/ko/guides/syncing-secrets/)를 참고하세요.
 
 <Aside type="caution">
-secret 모드는 파일 **내용**을 암호화하지만, **파일 이름과 경로**는 저장소에 그대로 보여요. 경로 자체가 민감한 정보라면 secret 모드를 쓰더라도 주의가 필요해요.
+secret 모드는 파일 **내용**을 암호화하지만, 파일 이름과 경로는 sync 디렉터리에 그대로 보여요. 경로 자체가 민감한 경우에는 이 점을 유의하세요.
 </Aside>
-
-### 저장소에서의 모습
-
-`~/.ssh/config`를 `--mode secret`으로 추적하면 다음 위치에 저장돼요.
-
-```
-~/.config/devsync/repository/default/.ssh/config.devsync.secret
-```
 
 ---
 
 ## ignore
 
-항목이 `manifest.json`에 등록되지만 push와 pull 시에 완전히 건너뛰어요. 파일을 읽거나 쓰거나 전송하지 않아요.
+항목은 `manifest.json`에 남아 있지만, push와 pull 때 완전히 건너뛰어요. 읽기, 쓰기, 전송 어떤 것도 일어나지 않아요.
 
 ```bash
 devsync track ~/.config/some-tool/cache --mode ignore
 devsync track ~/.local/share/generated-config --mode ignore
 ```
 
-**활용 예시:**
-- 기기 특화 설정으로 동기화는 필요 없지만 추적은 해두고 싶은 파일 (예: 호스트명에 의존하는 설정)
-- 기록만 남기고 복제할 필요는 없는 생성 파일이나 캐시
-- 매니페스트에서 제거하지 않고 일시적으로 비활성화하고 싶은 항목
+**이런 경우에 적합해요:**
+- 동기화 설정에서 제거하지 않고 일시적으로 비활성화하고 싶을 때
+- 잘못된 플랫폼에서 동기화하면 안 되는 OS별 파일
+- 기억은 해두되 복제하고 싶지 않은 기기별 설정
 
 ---
 
 ## 모드 변경하기
 
-추적된 항목의 모드를 변경하려면 새로운 `--mode` 옵션과 함께 `devsync track`을 다시 실행해요. 기존 항목이 교체돼요.
+`devsync track`을 새로운 `--mode` 플래그와 함께 다시 실행하면 돼요. 기존 항목이 업데이트돼요:
 
 ```bash
-# normal로 추적 중이었다면
+# 원래 normal로 추적됨
 devsync track ~/.ssh/config
 
 # secret으로 업그레이드
@@ -92,10 +83,13 @@ devsync track ~/.ssh/config --mode secret
 
 ---
 
-## 모드 요약
+## 항목별 오버라이드
 
-| 모드 | 저장소에 저장 | 암호화 | push/pull 동기화 |
-|---|---|---|---|
-| `normal` | 예 | 아니요 | 예 |
-| `secret` | 예 (`.devsync.secret`) | 예 (age) | 예 |
-| `ignore` | 아니요 | — | 아니요 |
+추적된 디렉터리 안에서 모드를 섞어서 사용할 수 있어요. 예를 들어, 디렉터리는 `normal`로 추적하되 특정 하위 파일만 `secret`으로 지정할 수 있어요:
+
+```bash
+devsync track ~/.config/my-tool
+devsync track ~/.config/my-tool/credentials.json --mode secret
+```
+
+디렉터리는 평소대로 동기화되지만, 그 안의 `credentials.json`은 암호화돼요. 하위 항목이 항상 상위 항목보다 우선해요.

@@ -12,14 +12,14 @@ type Props = {
   body: string;
   description: string;
   keywords: string;
-  lang: "en" | "ko";
+  lang: "en" | "ko" | "ja";
   tagline: string;
   title: string;
 };
 
 const { actions, body, description, keywords, lang, tagline, title } = Astro.props;
 
-const ogLocale = lang === "ko" ? "ko_KR" : "en_US";
+const ogLocale = lang === "ko" ? "ko_KR" : lang === "ja" ? "ja_JP" : "en_US";
 ---
 
 <StarlightPage

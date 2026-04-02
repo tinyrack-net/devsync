@@ -1,0 +1,48 @@
+---
+title: "devsync pull"
+description: "syncディレクトリのファイルをローカルに適用します。"
+---
+
+import { Aside } from "@astrojs/starlight/components";
+
+gitベースのsyncディレクトリの内容をローカルの設定パスに適用します。
+
+syncディレクトリからtrackされたアーティファクトを読み込み、ホームディレクトリ配下のローカルパスに展開します。secretアーティファクトは、設定されたage identityで復号されてからローカルに書き込まれます。
+
+## Usage
+
+```bash
+devsync pull [flags]
+```
+
+## Flags
+
+| Flag               | Description                          |
+| ------------------ | ------------------------------------ |
+| `--dry-run`        | 実際には書き込まず、変更内容をプレビューします。     |
+| `--profile <name>` | 特定のprofileレイヤーを使用します。        |
+| `--verbose`        | 詳細な出力を表示します。                |
+
+## Examples
+
+trackされたすべてのアーティファクトをローカルに適用する:
+
+```bash
+devsync pull
+```
+
+ローカルに何が変更されるかプレビューする:
+
+```bash
+devsync pull --dry-run
+```
+
+workプロファイルのレイヤーのみpullする:
+
+```bash
+devsync pull --profile work
+```
+
+<Aside type="tip">
+適用前に何が変更されるか確認するには、先に `devsync status` を実行してください。
+</Aside>

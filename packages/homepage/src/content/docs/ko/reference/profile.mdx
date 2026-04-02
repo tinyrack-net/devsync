@@ -1,105 +1,46 @@
 ---
-title: devsync profile
-description: 사용 가능한 프로필을 확인하고 활성 프로필을 전환해요.
+title: "devsync profile"
+description: "sync 프로필을 관리해요."
 ---
 
-import { Aside, Tabs, TabItem } from "@astrojs/starlight/components";
+활성 profile과 할당된 sync profile을 관리해요.
 
-## 형식
+설정된 profile을 확인하거나, devsync가 기본으로 사용할 profile을 변경할 수 있어요.
 
-```bash
-devsync profile list
-devsync profile use [profile]
-```
+## Subcommands
 
-## 설명
+### `devsync profile list`
 
-프로필을 사용하면 기기나 컨텍스트별로 추적 항목을 구분할 수 있어요. 프로필이 활성화되면 `push`, `pull`, `status`는 해당 프로필에 속한 항목과 프로필이 없는 전역 항목만 처리해요.
-
-프로필 이름은 자유롭게 지정할 수 있어요(예: `work`, `personal`, `home-mac`). 이름은 각 항목과 함께 `manifest.json`에 저장되고, 활성 프로필은 `~/.config/devsync/settings.json`에 저장돼요.
-
----
-
-## `profile list`
-
-`manifest.json`의 모든 항목에서 참조된 프로필 이름을 나열해요. 현재 활성화된 프로필을 함께 표시해요.
-
-### 옵션
-
-| 플래그 | 설명 |
-|--------|------|
-| `--verbose` | 상세 출력을 표시해요. |
-
-### 예시
+설정된 profile과 활성 profile을 보여줘요.
 
 ```bash
 devsync profile list
 ```
 
-```
-사용 가능한 프로필:
-  work
-  personal
-* home-mac   ← 활성
-```
+### `devsync profile use [name]`
 
----
-
-## `profile use`
-
-`~/.config/devsync/settings.json`에 활성 프로필을 설정해요. 이후의 `push`, `pull`, `status`는 `--profile`로 재정의하지 않는 한 이 프로필을 사용해요.
-
-프로필 이름 인수를 생략하면 활성 프로필이 **해제**돼요. 활성 프로필이 없으면 프로필이 지정되지 않은 전역 항목만 동기화 작업에 포함돼요.
-
-### 인수
-
-| 인수 | 설명 |
-|------|------|
-| `profile` | 선택 사항. 활성화할 프로필 이름. 생략하면 활성 프로필을 해제해요. |
-
-### 옵션
-
-| 플래그 | 설명 |
-|--------|------|
-| `--verbose` | 상세 출력을 표시해요. |
-
-### 예시
-
-<Tabs>
-  <TabItem label="프로필 전환">
-    ```bash
-    # "work" 프로필 활성화
-    devsync profile use work
-    ```
-  </TabItem>
-  <TabItem label="프로필 해제">
-    ```bash
-    # 활성 프로필 해제 — 전역 항목만 동기화
-    devsync profile use
-    ```
-  </TabItem>
-</Tabs>
-
----
-
-## 프로필과 `--profile` 플래그
-
-`push`, `pull`, `status`의 `--profile` 플래그는 `settings.json`의 활성 프로필을 바꾸지 않고 **해당 실행에만 일회성으로** 프로필을 재정의해요.
+활성 profile을 설정하거나 해제해요. 이름 없이 실행하면 활성 profile이 해제돼요.
 
 ```bash
-# "personal" 프로필로 상태를 일시 확인
-devsync status --profile personal
-
-# 이 명령 실행 후에도 활성 프로필은 변경되지 않아요
-devsync profile list   # 기존 활성 프로필 그대로 표시
+devsync profile use [name]
 ```
 
-## 참고
+## Examples
 
-<Aside type="note">
-  프로필에 할당된 추적 항목은 해당 프로필(또는 `--profile` 재정의)이 활성화된 경우에만 동기화돼요. 프로필이 지정되지 않은 항목은 활성 프로필에 관계없이 항상 동기화돼요.
-</Aside>
+설정된 모든 profile을 확인해요:
 
-<Aside type="note">
-  프로필 이름은 대소문자를 구분해요. `Work`와 `work`는 서로 다른 프로필이에요.
-</Aside>
+```bash
+devsync profile list
+```
+
+work profile을 활성화해요:
+
+```bash
+devsync profile use work
+```
+
+활성 profile을 해제해요:
+
+```bash
+devsync profile use
+```

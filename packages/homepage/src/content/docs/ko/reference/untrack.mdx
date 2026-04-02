@@ -1,55 +1,46 @@
 ---
-title: devsync untrack
-description: 경로를 manifest에서 제거하고 추적을 중단해요.
+title: "devsync untrack"
+description: "경로의 동기화 추적을 중단해요."
 ---
 
 import { Aside } from "@astrojs/starlight/components";
 
-## 형식
+추적 중인 경로의 동기화를 중단해요.
+
+devsync 설정에서 추적 중인 루트 항목이나 하위 재정의를 제거해요. 이 명령은 설정만 갱신하고, 실제 파일 변경은 다음 `push`나 `pull`에서 이루어져요. 로컬 경로를 지정하면 추적 대상 자체를 제거하고, 추적 중인 디렉터리 안의 저장소 상대 경로를 지정하면 해당 재정의만 제거해요.
+
+## Usage
 
 ```bash
-devsync untrack <path>
+devsync untrack <target> [flags]
 ```
 
-## 설명
+## Arguments
 
-`devsync untrack`은 경로를 `manifest.json`에서 제거해서 이후 `push`와 `pull` 작업에서 제외해요.
+| Argument   | Description                                             |
+| ---------- | ------------------------------------------------------- |
+| `<target>` | 추적을 중단할 로컬 경로 또는 저장소 경로예요. |
 
-로컬 절대 경로(예: `~/.gitconfig`)와 저장소 기준 상대 경로(예: `.gitconfig`) 모두 사용할 수 있어요. 두 형식 모두 같은 manifest 항목을 가리켜요.
+## Flags
 
-경로를 언트랙해도 **로컬 디스크의 파일은 삭제되지 않아요**. 동기화 저장소의 기존 파일도 제거되지 않아요. 변경 사항은 다음 `push` 또는 `pull` 실행 시부터 반영돼요.
+| Flag        | Description            |
+| ----------- | ---------------------- |
+| `--verbose` | 상세한 출력을 보여줘요.  |
 
-## 인수
+## Examples
 
-| 인수 | 설명 |
-|------|------|
-| `path` | 추적을 중단할 로컬 절대 경로 또는 저장소 기준 상대 경로. |
-
-## 옵션
-
-| 플래그 | 설명 |
-|--------|------|
-| `--verbose` | 상세 출력을 표시해요. |
-
-## 예시
+설정 파일의 추적을 중단해요:
 
 ```bash
-# 로컬 경로로 언트랙
-devsync untrack ~/.gitconfig
-
-# 틸다 경로로 언트랙
-devsync untrack ~/.config/nvim
-
-# 저장소 기준 상대 경로로 언트랙
-devsync untrack .gitconfig
+devsync untrack ~/.config/starship.toml
 ```
 
-## 참고
+추적 중인 디렉터리 안의 자식 재정의를 제거해요:
 
-<Aside type="note">
-  언트랙 후에도 동기화 저장소(`~/.config/devsync/repository/`)에는 기존 파일이 남아 있어요. 완전히 제거하려면 [`devsync cd`](/ko/reference/cd)로 저장소에 진입한 뒤 파일을 직접 삭제하고 커밋하면 돼요.
-</Aside>
+```bash
+devsync untrack .ssh/config
+```
 
-<Aside type="caution">
-  디렉터리를 언트랙해도 그 안에서 별도로 등록된 하위 경로 항목은 자동으로 제거되지 않아요. 각 하위 경로에 대해 개별적으로 `untrack`을 실행하거나, `manifest.json`을 직접 편집해서 정리해야 해요.
+<Aside>
+`untrack`은 `manifest.json`만 갱신해요. 로컬 파일이나 sync 디렉터리의 파일을 **삭제하지 않아요**.
 </Aside>

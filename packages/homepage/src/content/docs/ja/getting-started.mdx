@@ -1,0 +1,122 @@
+---
+title: はじめに
+description: devsyncをインストールして、最初の同期を設定しましょう。
+---
+
+import { Aside, Steps } from "@astrojs/starlight/components";
+
+## 前提条件
+
+- **Node.js 24**以降
+
+---
+
+## インストール
+
+```bash
+npm install -g @tinyrack/devsync
+```
+
+---
+
+## 新規セットアップ
+
+devsyncを初めて使う場合は、以下の手順で新しいsyncディレクトリを作成します。
+
+<Steps>
+
+1. **初期化**
+
+   シークレット暗号化用のageキーを含む新しいsyncディレクトリを作成します。
+
+   ```bash
+   devsync init
+   ```
+
+   これにより、`~/.config/devsync/`にGitリポジトリとageのidentityが設定されます。
+
+2. **ファイルをトラッキング**
+
+   同期したいファイルをdevsyncに登録します。例えば：
+
+   ```bash
+   devsync track ~/.zshrc
+   devsync track ~/.config/starship.toml
+   devsync track ~/.config/nvim
+   ```
+
+   SSHキーなどの機密ファイルにはsecretモードを使います：
+
+   ```bash
+   devsync track --mode secret ~/.ssh/config
+   ```
+
+3. **syncディレクトリにpush**
+
+   トラッキング中のファイルをsyncディレクトリにコピーします：
+
+   ```bash
+   devsync push
+   ```
+
+4. **Gitでcommit & push**
+
+   syncディレクトリを開いてリモートにpushします：
+
+   ```bash
+   devsync cd
+   git add -A && git commit -m "Initial sync"
+   git remote add origin <your-repo-url>
+   git push -u origin main
+   ```
+
+</Steps>
+
+<Aside type="tip">
+  セットアップが完了したら、[ディレクトリ構造](/ja/guides/directory-structure/)ガイドで、devsyncが設定ファイルと同期データをどこに保存するかを確認してみてください。
+</Aside>
+
+---
+
+## 既存のsyncディレクトリに接続する
+
+新しいマシンで、既存のsyncディレクトリをcloneします：
+
+<Steps>
+
+1. **cloneして初期化**
+
+   ```bash
+   devsync init <your-repo-url>
+   ```
+
+   リポジトリが`~/.config/devsync/repository/`にcloneされ、新しいageのidentityが設定されます。別のマシンのageプライベートキーをすでにお持ちの場合は、`--key`で指定できます：
+
+   ```bash
+   devsync init <your-repo-url> --key "AGE-SECRET-KEY-1..."
+   ```
+
+2. **ファイルをpull**
+
+   トラッキング中のすべてのファイルをローカルパスに復元します：
+
+   ```bash
+   devsync pull
+   ```
+
+</Steps>
+
+<Aside type="note">
+  syncディレクトリに暗号化されたシークレットが含まれている場合、すべてのマシンで同じageプライベートキーが必要です。詳しくは[シークレットファイルの同期](/ja/guides/syncing-secrets/)をご覧ください。
+</Aside>
+
+---
+
+## 次のステップ
+
+セットアップが完了したら、各ガイドを読んでみましょう：
+
+- [ディレクトリ構造](/ja/guides/directory-structure/) — devsyncがファイルを保存する場所を理解する
+- [ファイルのトラッキング](/ja/guides/tracking-files/) — トラッキングオプションの詳細
+- [同期モード](/ja/guides/sync-modes/) — normal、secret、ignoreモード
+- [シークレットファイルの同期](/ja/guides/syncing-secrets/) — ageで機密ファイルを暗号化する

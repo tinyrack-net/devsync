@@ -1,0 +1,111 @@
+---
+title: Directory Structure
+description: Where devsync stores your config and how files are organized.
+---
+
+import { Aside, FileTree } from "@astrojs/starlight/components";
+
+Everything devsync creates lives under a single directory: `~/.config/devsync/`. When you run `devsync init`, this structure is set up for you automatically.
+
+---
+
+## The Full Picture
+
+<FileTree>
+- ~/.config/devsync/
+  - settings.json
+  - keys.txt
+  - repository/
+    - manifest.json
+    - default/
+      - .gitconfig
+      - .zshrc
+      - .config/
+        - nvim/
+          - init.lua
+    - work/
+      - .config/
+        - work-tool/
+          - config.json
+      - .ssh/
+        - config.devsync.secret
+</FileTree>
+
+---
+
+## What Each File Does
+
+### `repository/` — the sync directory
+
+This is a Git repository that holds all your synced files. When you run `devsync push`, files are copied here. When you run `devsync pull`, files are restored from here. You can push this repository to a remote like GitHub to sync across machines.
+
+### `repository/manifest.json` — the config file
+
+The manifest is the source of truth. It lists every file and directory you're tracking, along with options like sync mode, profiles, and permissions. All `devsync track` and `devsync untrack` commands modify this file.
+
+### `repository/default/` — artifacts for the default profile
+
+Files that aren't assigned to a specific profile are stored here. This is where most of your dotfiles will end up.
+
+### `repository/<profile>/` — artifacts for named profiles
+
+If you use [profiles](/en/guides/profiles), each profile gets its own subdirectory. For example, entries tracked with `--profile work` are stored under `repository/work/`.
+
+### `keys.txt` — age identity file
+
+Your age private key for encrypting and decrypting [secret files](/en/guides/syncing-secrets). This is created during `devsync init`. It starts with `AGE-SECRET-KEY-`.
+
+<Aside type="caution">
+Back up your `keys.txt` somewhere safe — a password manager works great. If you lose it, you won't be able to decrypt your secret files.
+</Aside>
+
+### `settings.json` — user preferences
+
+Stores your active profile and other local settings. You usually don't edit this directly — commands like `devsync profile use work` update it for you.
+
+---
+
+## What `manifest.json` Looks Like
+
+Here's a simple example with a few tracked entries:
+
+```json
+{
+  "version": 7,
+  "age": {
+    "recipients": ["age1ql3z7hjy54pw3hyww5ayyfg7zqgvc7w3j2elw8zmrj2kg5sfn9aqmcac8p"]
+  },
+  "entries": [
+    {
+      "kind": "file",
+      "localPath": { "default": "~/.gitconfig" }
+    },
+    {
+      "kind": "directory",
+      "localPath": { "default": "~/.config/nvim" }
+    },
+    {
+      "kind": "file",
+      "localPath": { "default": "~/.ssh/config" },
+      "mode": { "default": "secret" },
+      "profiles": ["work"]
+    }
+  ]
+}
+```
+
+### Manifest structure
+
+- **`version`** — schema version (currently `7`). Devsync manages this automatically.
+- **`age`** — encryption config. The `recipients` array lists public keys used to encrypt secret files.
+- **`entries`** — the list of tracked files and directories. Each entry can have:
+  - **`kind`** — `"file"` or `"directory"`
+  - **`localPath`** — where the file lives on your machine (supports [platform-specific paths](/en/guides/platform-specific-paths))
+  - **`repoPath`** — custom path inside the sync directory (optional, derived from `localPath` by default)
+  - **`mode`** — [sync mode](/en/guides/sync-modes): `"normal"`, `"secret"`, or `"ignore"` (optional, defaults to `"normal"`)
+  - **`profiles`** — which [profiles](/en/guides/profiles) this entry belongs to (optional, global if omitted)
+  - **`permission`** — file permission in octal like `"0600"` (optional)
+
+<Aside type="note">
+You rarely need to edit `manifest.json` by hand. The `devsync track` and `devsync untrack` commands handle it for you.
+</Aside>

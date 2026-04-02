@@ -1,0 +1,61 @@
+---
+title: "devsync track"
+description: "ローカルファイルやディレクトリを同期対象として登録します。"
+---
+
+import { Aside } from "@astrojs/starlight/components";
+
+ローカルファイルやディレクトリを同期対象として登録します。
+
+ホームディレクトリ内のファイルやディレクトリを1つ以上登録し、devsyncがsyncディレクトリにミラーリングできるようにします。すでにtrackされているターゲットの場合は、modeが更新されます。trackされたディレクトリ内のリポジトリパスを指定して、特定のmodeを持つ子エントリを作成することもできます。
+
+## Usage
+
+```bash
+devsync track <targets...> [flags]
+```
+
+## Arguments
+
+| Argument       | Description                                            |
+| -------------- | ------------------------------------------------------ |
+| `<targets...>` | trackするローカルパスまたはリポジトリパスを1つ以上指定します。  |
+
+## Flags
+
+| Flag                  | Description                                                   |
+| --------------------- | ------------------------------------------------------------- |
+| `--mode <mode>`       | syncモード: `normal`（デフォルト）、`secret`、`ignore` のいずれかです。         |
+| `--profiles <names>`  | 同期を特定のprofileに限定します（カンマ区切り）。      |
+| `--repoPath <path>`   | profileディレクトリ配下のリポジトリ相対パスです。         |
+| `--verbose`           | 詳細な出力を表示します。                                         |
+
+## Examples
+
+設定ファイルをtrackする:
+
+```bash
+devsync track ~/.config/starship.toml
+```
+
+secretを含むディレクトリをtrackする:
+
+```bash
+devsync track ~/.ssh --mode secret
+```
+
+特定のprofileに限定してファイルをtrackする:
+
+```bash
+devsync track ~/.config/work-proxy.conf --profiles work
+```
+
+trackされたディレクトリ内の子パスのmodeを上書きする:
+
+```bash
+devsync track .ssh/config --mode ignore
+```
+
+<Aside>
+`track` は `manifest.json` を更新するだけです。ファイルをsyncディレクトリにコピーするには、続けて `devsync push` を実行してください。
+</Aside>

@@ -47,6 +47,10 @@ export default defineConfig({
           label: "한국어",
           lang: "ko",
         },
+        ja: {
+          label: "日本語",
+          lang: "ja",
+        },
       },
       social: [
         {
@@ -70,6 +74,7 @@ export default defineConfig({
           label: "Overview",
           translations: {
             ko: "시작하기",
+            ja: "はじめに",
           },
           items: [{ slug: "intro" }, { slug: "getting-started" }],
         },
@@ -77,8 +82,10 @@ export default defineConfig({
           label: "Guides",
           translations: {
             ko: "가이드",
+            ja: "ガイド",
           },
           items: [
+            { slug: "guides/directory-structure" },
             { slug: "guides/tracking-files" },
             { slug: "guides/sync-modes" },
             { slug: "guides/syncing-secrets" },
@@ -93,6 +100,7 @@ export default defineConfig({
           label: "Command Reference",
           translations: {
             ko: "명령어 레퍼런스",
+            ja: "コマンドリファレンス",
           },
           items: [
             { slug: "reference/init" },

@@ -1,158 +1,122 @@
 ---
-title: 빠른 시작
-description: Devsync 설치와 첫 동기화
+title: 시작하기
+description: devsync를 설치하고 첫 동기화를 설정해 보세요.
 ---
 
-import { Tabs, TabItem, Steps, FileTree, Aside } from "@astrojs/starlight/components";
+import { Aside, Steps } from "@astrojs/starlight/components";
+
+## 사전 준비
+
+- **Node.js 24** 이상
+
+---
 
 ## 설치
 
-Devsync는 Node.js 기반 CLI 도구예요. **Node.js 24 이상**이 필요해요.
-
-Node.js가 설치되어 있다면 npm, pnpm, yarn 중 원하는 패키지 매니저로 전역 설치할 수 있어요.
-
-<Tabs>
-  <TabItem label="npm">
-    ```bash
-    npm install -g @tinyrack/devsync
-    ```
-  </TabItem>
-  <TabItem label="pnpm">
-    ```bash
-    pnpm add -g @tinyrack/devsync
-    ```
-  </TabItem>
-  <TabItem label="yarn">
-    ```bash
-    yarn global add @tinyrack/devsync
-    ```
-  </TabItem>
-</Tabs>
-
-설치가 끝나면 아래 명령으로 정상 설치 여부를 확인할 수 있어요.
-
 ```bash
-devsync --version
+npm install -g @tinyrack/devsync
 ```
 
 ---
 
-## 새로운 저장소로 시작하기
+## 처음 시작하기
 
-Devsync를 처음 사용할 때 필요한 단계예요.
+devsync를 처음 사용한다면, 아래 단계를 따라 새로운 sync 디렉터리를 만들어 보세요.
 
 <Steps>
 
-1. **저장소 초기화**
+1. **초기화**
 
-   처음 사용 시 Devsync에서 사용할 저장소를 생성해야 해요.
+   새로운 sync 디렉터리를 만들고 시크릿 암호화를 위한 age 키를 생성해요.
 
    ```bash
    devsync init
    ```
 
-   이를 실행하면 `~/.config/devsync/` 아래에 다음 구조가 만들어져요.
+   `~/.config/devsync/`에 Git 저장소와 age identity가 설정돼요.
 
-   <FileTree>
-   - ~/.config/devsync/
-     - repository/       Git 저장소 (동기화 파일이 저장되는 곳)
-       - manifest.json   추적 파일 목록 및 동기화 설정
-     - keys.txt          age 개인키 (시크릿 파일 복호화에 사용)
-     - settings.json     전역 설정 (활성 프로필 등)
-   </FileTree>
+2. **파일 추적**
 
-   <Aside type="caution">
-   `keys.txt`는 암호화된 파일을 복호화할 때 반드시 필요한 개인키예요. 이 파일을 잃어버리면 암호화된 파일을 영구적으로 복원할 수 없어요. **반드시 안전한 곳에 별도로 백업해 두세요.**
-   </Aside>
-
-2. **파일 추적 등록**
-
-   이제 어떤 파일을 저장소로 동기화할지 Devsync에 알려줘야 해요. 다음을 참고해서 원하는 파일을 등록해 보세요.
+   동기화할 파일을 devsync에 알려주세요. 예를 들면:
 
    ```bash
-   devsync track ~/.gitconfig
    devsync track ~/.zshrc
+   devsync track ~/.config/starship.toml
    devsync track ~/.config/nvim
    ```
 
-   실행하면 저장소의 `manifest.json`에 추적 대상 파일들이 등록돼요.
-
-   SSH 설정처럼 민감한 파일은 `--mode secret`으로 등록하세요. 그러면 `age` 키로 암호화되어 저장소에 저장돼요.
+   SSH 키 같은 민감한 파일은 secret 모드를 사용하세요:
 
    ```bash
-   devsync track ~/.ssh/config --mode secret
+   devsync track --mode secret ~/.ssh/config
    ```
 
-3. **로컬 저장소에 반영**
+3. **sync 디렉터리로 push**
 
-   이제 추적 대상 파일들을 Git 저장소로 복사하는 단계예요.
+   추적 중인 파일을 sync 디렉터리에 복사해요:
 
    ```bash
    devsync push
    ```
 
-   이 명령은 `manifest.json`에 추적 대상으로 등록된 로컬 파일들을 `~/.config/devsync/repository/` 안으로 복사해요.
-   복사가 완료된 모습은 다음과 같아요.
+4. **Git으로 commit & push**
 
-   <FileTree>
-   - ~/.config/devsync/
-     - repository/       Git 저장소 (동기화 파일이 저장되는 곳)
-       - manifest.json   추적 파일 목록 및 동기화 설정
-       - default/
-         - .zshrc
-         - ssh/
-           - config.devsync.secret    암호화된 파일
-     - keys.txt          age 개인키 (시크릿 파일 복호화에 사용)
-     - settings.json     전역 설정 (활성 프로필 등)
-   </FileTree>
-
-
-4. **원격 저장소에 올리기**
-
-   이제 Git 저장소에 진입해서 변경사항을 `commit`하고 원하는 원격 저장소로 `push` 하세요.
-
-   `devsync cd`를 사용하면 devsync 의 저장소 경로로 바로 접근할 수 있어요.
+   sync 디렉터리를 열고 리모트에 push하세요:
 
    ```bash
    devsync cd
-   git remote add origin https://github.com/yourname/dotfiles.git
-   git add .
-   git commit -m "Initial sync"
+   git add -A && git commit -m "Initial sync"
+   git remote add origin <your-repo-url>
    git push -u origin main
    ```
 
 </Steps>
 
+<Aside type="tip">
+  설정을 마쳤다면, [디렉터리 구조](/ko/guides/directory-structure/) 가이드에서 devsync가 config과 동기화된 파일을 어디에 저장하는지 확인해 보세요.
+</Aside>
+
 ---
 
-## 기존 저장소 연동하기
+## 기존 sync 디렉터리 연결하기
 
-새 기기에서 기존 저장소를 연동해 설정 파일을 복원하는 방법이에요.
+새 기기에서는 기존 sync 디렉터리를 clone해서 연결할 수 있어요:
 
 <Steps>
 
-1. **저장소 클론 및 초기화**
-
-   먼저 저장소 URL을 지정해 초기화 명령어를 실행하세요.
+1. **Clone & 초기화**
 
    ```bash
-   devsync init https://github.com/yourname/dotfiles.git
+   devsync init <your-repo-url>
    ```
 
-   그러면 저장소가 `~/.config/devsync/repository` 경로로 `clone` 돼요.
+   저장소를 `~/.config/devsync/repository/`로 clone하고 새로운 age identity를 설정해요. 다른 기기에서 사용하던 age 비밀 키가 이미 있다면 `--key`로 전달하세요:
 
-   <Aside>
-   age 개인키는 `AGE-SECRET-KEY-` 로 시작하는 문자열이에요.
-   </Aside>
+   ```bash
+   devsync init <your-repo-url> --key "AGE-SECRET-KEY-1..."
+   ```
 
-2. **파일 복원**
+2. **파일 pull**
 
-   이제 복제해 온 저장소의 내용을 Devsync 를 통해 로컬 경로로 복사할 차례에요.
+   추적 중인 모든 파일을 로컬 경로로 복원해요:
 
    ```bash
    devsync pull
    ```
 
-   이 명령을 실행하면 `manifest.json`에 정의된 모든 파일이 지정된 로컬 경로로 복사돼요.
 </Steps>
 
+<Aside type="note">
+  sync 디렉터리에 암호화된 시크릿이 있다면, 모든 기기에 같은 age 비밀 키가 있어야 해요. 자세한 내용은 [시크릿 파일 동기화](/ko/guides/syncing-secrets/)를 참고하세요.
+</Aside>
+
+---
+
+## 다음은?
+
+설정을 마쳤으니, 가이드를 둘러보세요:
+
+- [디렉터리 구조](/ko/guides/directory-structure/) — devsync가 파일을 저장하는 위치
+- [파일 추적하기](/ko/guides/tracking-files/) — 추적 옵션 자세히 알아보기
+- [동기화 모드](/ko/guides/sync-modes/) — normal, secret, ignore 모드
+- [시크릿 파일 동기화](/ko/guides/syncing-secrets/) — age로 민감한 파일 암호화하기

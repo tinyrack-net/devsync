@@ -1,177 +1,113 @@
 ---
 title: Platform-Specific Paths
-description: Manage the same config file under different paths on Windows, macOS, Linux, and WSL.
+description: Handle cross-OS path differences for the same logical config.
 ---
 
-import { Aside, Tabs, TabItem } from "@astrojs/starlight/components";
+import { Aside } from "@astrojs/starlight/components";
 
-Some tools store their config in different locations depending on the platform. For example, Neovim's config lives at `~/.config/nvim` on Linux and macOS, but at `%APPDATA%\Local\nvim` on Windows. Devsync supports per-platform `localPath` variants to handle this.
+Most config files live at different paths depending on your operating system.
+VS Code settings, for example, are stored in `~/.config/Code/User/` on Linux
+but `~/Library/Application Support/Code/User/` on macOS. devsync handles this
+with **platform-specific path objects** in your `manifest.json`.
 
----
+## Platform keys
 
-## The Problem
+Every path field in `manifest.json` can be either a plain string or an object
+with one or more platform keys:
 
-When you run `devsync track ~/.config/nvim` on Linux, the entry records the Linux path. On Windows, you'd need a different path for the same logical entry. Without platform path support, you'd need two separate manifest entries — one per machine — and they'd conflict.
+| Key       | Matches                              |
+| --------- | ------------------------------------ |
+| `linux`   | Native Linux                         |
+| `mac`     | macOS                                |
+| `win`     | Windows                              |
+| `wsl`     | Windows Subsystem for Linux          |
+| `default` | Any platform not explicitly listed   |
 
----
+## How resolution works
 
-## Platform Keys
+When devsync reads a path, it picks the best match in this order:
 
-Devsync supports four platform keys in `manifest.json`:
+1. **Exact platform key** — if your OS has a dedicated entry, that wins.
+2. **Fallback** — `wsl` falls back to `linux` if no `wsl` key exists.
+3. **`default`** — used when no other key matches.
 
-| Key | Platform |
-|---|---|
-| `win` | Windows |
-| `mac` | macOS |
-| `linux` | Linux |
-| `wsl` | Windows Subsystem for Linux |
+If none of these resolve, the entry is skipped on that platform.
 
-Note that `wsl` is treated as a separate platform from `linux`. A file running under WSL uses the `wsl` key, not `linux`.
+## `localPath` — always a platform object
 
----
-
-## The localPath Format
-
-A single-platform entry uses a plain string:
-
-```json
-{
-  "localPath": ".config/nvim",
-  "mode": "normal",
-  "profiles": []
-}
-```
-
-A multi-platform entry uses an object with a `default` key and optional platform overrides:
+`localPath` tells devsync where a file lives on your machine. Because this is
+the field most likely to differ across operating systems, it is always written
+as a platform object:
 
 ```json
 {
   "localPath": {
-    "default": ".config/nvim",
-    "win": "AppData/Local/nvim",
-    "wsl": ".config/nvim"
-  },
-  "mode": "normal",
-  "profiles": []
-}
-```
-
-During push and pull, devsync picks the value matching the current platform, falling back to `default` if no specific key is present.
-
----
-
-## Setting Up Platform-Specific Paths
-
-`devsync track` records the path as it exists on the current platform. To add paths for other platforms, you edit `manifest.json` directly.
-
-<Tabs>
-  <TabItem label="Step 1: Track on current machine">
-    ```bash
-    # On Linux/macOS
-    devsync track ~/.config/nvim
-
-    # On Windows
-    devsync track ~/AppData/Local/nvim
-    ```
-
-    This creates an entry with a plain string `localPath` for the current platform.
-  </TabItem>
-
-  <TabItem label="Step 2: Edit manifest.json">
-    Open `manifest.json` in the sync directory:
-
-    ```bash
-    devsync cd
-    vim manifest.json
-    ```
-
-    Change the plain string to an object:
-
-    ```json
-    {
-      "localPath": {
-        "default": ".config/nvim",
-        "win": "AppData/Local/nvim"
-      },
-      "mode": "normal",
-      "profiles": []
-    }
-    ```
-
-    Save and exit.
-  </TabItem>
-
-  <TabItem label="Step 3: Push and commit">
-    ```bash
-    # Still inside devsync cd shell
-    git add manifest.json
-    git commit -m "Add Windows path for nvim config"
-    git push
-    exit
-    ```
-  </TabItem>
-</Tabs>
-
----
-
-## Example: Common Cross-Platform Configs
-
-### Neovim
-
-```json
-{
-  "localPath": {
-    "default": ".config/nvim",
-    "win": "AppData/Local/nvim"
-  },
-  "mode": "normal",
-  "profiles": []
-}
-```
-
-### VS Code settings
-
-```json
-{
-  "localPath": {
-    "default": ".config/Code/User/settings.json",
-    "mac": "Library/Application Support/Code/User/settings.json",
-    "win": "AppData/Roaming/Code/User/settings.json"
-  },
-  "mode": "normal",
-  "profiles": []
-}
-```
-
-### SSH config
-
-```json
-{
-  "localPath": ".ssh/config",
-  "mode": "secret",
-  "profiles": []
-}
-```
-
-SSH config lives at `~/.ssh/config` on all platforms, so no platform variant is needed here.
-
----
-
-## WSL Notes
-
-<Aside type="note">
-WSL has its own `wsl` platform key, separate from `linux`. If you run devsync under WSL, it will use the `wsl` path if present, otherwise fall back to `default`.
-
-If you also run devsync natively on Linux (not WSL), it uses the `linux` key (or `default`). You can have both:
-
-```json
-{
-  "localPath": {
-    "default": ".config/nvim",
-    "wsl": ".config/nvim",
-    "linux": ".config/nvim",
-    "win": "AppData/Local/nvim"
+    "default": "~/.config/Code/User/settings.json",
+    "mac": "~/Library/Application Support/Code/User/settings.json",
+    "win": "%APPDATA%/Code/User/settings.json"
   }
 }
 ```
+
+## `repoPath` — usually the same, but can differ
+
+`repoPath` is the path inside the sync directory. Most of the time it's
+identical across platforms, so a plain string is fine. If you need it to vary,
+use the same platform object format:
+
+```json
+{
+  "repoPath": {
+    "default": "vscode/settings.json",
+    "win": "vscode-win/settings.json"
+  }
+}
+```
+
+## `mode` — per-platform behavior
+
+You can also set `mode` per platform. This is handy when a config only makes
+sense on certain operating systems:
+
+```json
+{
+  "mode": {
+    "default": "copy",
+    "win": "ignore"
+  }
+}
+```
+
+With this setup the file is synced everywhere except Windows, where it is
+silently skipped.
+
+## Full example
+
+Here's a complete entry for VS Code settings that works on Linux, macOS, and
+Windows:
+
+```json
+{
+  "localPath": {
+    "default": "~/.config/Code/User/settings.json",
+    "mac": "~/Library/Application Support/Code/User/settings.json",
+    "win": "%APPDATA%/Code/User/settings.json"
+  },
+  "repoPath": "vscode/settings.json",
+  "mode": "copy"
+}
+```
+
+<Aside type="tip">
+When you run `devsync track`, the file's path is recorded under the `default`
+key automatically. If you need platform-specific paths, edit `manifest.json`
+directly and add the extra keys.
 </Aside>
+
+## Editing tips
+
+- You can always hand-edit `manifest.json` to add or adjust platform keys.
+- `devsync track` is a quick way to start — it captures the current platform's
+  path as `default`, and you can add other platforms later.
+- Use `devsync status` to verify that paths resolve correctly on the current
+  machine before pushing.

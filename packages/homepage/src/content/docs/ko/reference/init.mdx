@@ -1,80 +1,54 @@
 ---
-title: devsync init
-description: 새 동기화 저장소를 초기화하거나 기존 저장소에 연결해요.
+title: "devsync init"
+description: "sync 디렉터리를 새로 만들거나 기존 디렉터리에 연결해요."
 ---
 
-import { Aside, Steps, Code, Tabs, TabItem } from "@astrojs/starlight/components";
+import { Aside } from "@astrojs/starlight/components";
 
-## 형식
+git 기반 sync 디렉터리를 초기화해요.
+
+XDG config 디렉터리 아래에 로컬 devsync 저장소를 만들거나 연결한 뒤, 이후 `pull`과 `push`에서 사용할 sync 설정을 저장해요. repository 인자를 생략하면 sync 디렉터리에 로컬 git 저장소를 새로 만들어요.
+
+## Usage
 
 ```bash
 devsync init [repository]
 ```
 
-## 설명
+## Arguments
 
-`devsync init`은 Devsync 환경을 처음 구성할 때 실행하는 명령이에요. 새로운 로컬 동기화 저장소를 만들거나, 이미 존재하는 원격 저장소를 `~/.config/devsync/repository/`에 클론해요.
+| Argument       | Description                                              |
+| -------------- | -------------------------------------------------------- |
+| `[repository]` | clone할 원격 URL 또는 로컬 git 저장소 경로예요. 생략하면 새 로컬 저장소를 만들어요. |
 
-저장소 URL 없이 실행하면 새 git 저장소를 초기화하고 age 암호화 키를 자동으로 생성해요. URL을 지정하면 해당 저장소를 클론하고, 저장된 시크릿을 복호화하는 데 필요한 age 개인 키를 입력하도록 안내해요.
+## Flags
 
-초기화가 완료되면 다음 파일과 디렉터리가 생성돼요:
+| Flag                        | Description                                                    |
+| --------------------------- | -------------------------------------------------------------- |
+| `--key <age-private-key>`   | age 개인 키를 identity 파일에 저장해요.             |
+| `--promptKey`               | age 개인 키를 자동 생성하지 않고 직접 입력받아요. |
+| `--verbose`                 | 상세한 출력을 보여줘요.                                          |
 
-- `~/.config/devsync/repository/` — 동기화 저장소 디렉터리
-- `~/.config/devsync/settings.json` — 런타임 설정(활성 프로필, identity 경로 등)
-- `~/.config/devsync/keys.txt` — age 키 저장 파일
+## Examples
 
-## 인수
+새 로컬 sync 디렉터리를 초기화해요:
 
-| 인수 | 설명 |
-|------|------|
-| `repository` | 선택 사항. 클론할 git 저장소 URL (HTTPS 또는 SSH). |
+```bash
+devsync init
+```
 
-## 옵션
+원격 저장소를 clone해서 sync 디렉터리로 사용해요:
 
-| 플래그 | 설명 |
-|--------|------|
-| `--key KEY` | age 개인 키(`AGE-SECRET-KEY-…`)를 직접 전달해요. 스크립트나 비대화형 설정 시 유용해요. |
-| `--prompt-key` | age 개인 키를 대화형으로 입력받아요. 자동 생성 대신 기존 키를 직접 입력하고 싶을 때 사용해요. |
-| `--verbose` | 초기화 과정의 상세 출력을 표시해요. |
+```bash
+devsync init https://github.com/user/dotfiles.git
+```
 
-## 예시
+기존 age secret key로 초기화해요:
 
-<Tabs>
-  <TabItem label="새 저장소">
-    ```bash
-    # 새 로컬 동기화 저장소 생성 및 age 키 자동 생성
-    devsync init
-    ```
-  </TabItem>
-  <TabItem label="기존 저장소 클론">
-    ```bash
-    # GitHub에서 기존 동기화 저장소 클론 (age 키 입력 프롬프트)
-    devsync init https://github.com/yourname/dotfiles.git
-    ```
-  </TabItem>
-  <TabItem label="키 직접 전달">
-    ```bash
-    # 클론과 함께 age 키를 비대화형으로 전달
-    devsync init https://github.com/yourname/dotfiles.git \
-      --key AGE-SECRET-KEY-1QQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQ
-    ```
-  </TabItem>
-  <TabItem label="키 직접 입력">
-    ```bash
-    # 새 저장소에서도 기존 키를 대화형으로 입력
-    devsync init --prompt-key
-    ```
-  </TabItem>
-</Tabs>
+```bash
+devsync init --key "AGE-SECRET-KEY-1..."
+```
 
-## 참고
-
-<Aside type="note">
-  이미 설정이 된 환경에서 `devsync init`을 다시 실행해도 기존 동기화 데이터는 사라지지 않아요.
+<Aside type="tip">
+다른 머신에서 쓰던 age identity가 있다면 `--key`나 `--promptKey`로 전달하세요. secret 파일을 복호화할 수 있어요.
 </Aside>
-
-<Aside type="caution">
-  `--key`를 사용하면 age 개인 키가 셸 히스토리에 기록될 수 있어요. 보안을 위해 히스토리에 남지 않도록 명령 앞에 공백을 붙이거나, 대신 `--prompt-key`로 대화형으로 입력하는 방식을 권장해요.
-</Aside>
-
-초기화 후에는 [`devsync track`](/ko/reference/track)으로 파일을 등록하고, [`devsync push`](/ko/reference/push)로 동기화를 시작해 보세요.

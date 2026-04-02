@@ -1,129 +1,122 @@
 ---
-title: Quick Start
-description: Install Devsync and run your first sync.
+title: Getting Started
+description: Install devsync and set up your first sync in a few minutes.
 ---
 
-import { Tabs, TabItem, Steps, FileTree, Aside } from "@astrojs/starlight/components";
+import { Aside, Steps } from "@astrojs/starlight/components";
+
+## Prerequisites
+
+- **Node.js 24** or later
+
+---
 
 ## Installation
 
-<Tabs>
-  <TabItem label="npm">
-    ```bash
-    npm install -g @tinyrack/devsync
-    ```
-  </TabItem>
-  <TabItem label="pnpm">
-    ```bash
-    pnpm add -g @tinyrack/devsync
-    ```
-  </TabItem>
-  <TabItem label="yarn">
-    ```bash
-    yarn global add @tinyrack/devsync
-    ```
-  </TabItem>
-</Tabs>
-
-After installation, verify it's working:
-
 ```bash
-devsync --version
+npm install -g @tinyrack/devsync
 ```
 
 ---
 
-## Start with a new repository
+## Starting Fresh
+
+If this is your first time using devsync, follow these steps to create a new sync directory.
 
 <Steps>
 
-1. **Initialize Devsync**
+1. **Initialize**
+
+   Create a new sync directory with a fresh age key for encrypting secrets.
 
    ```bash
    devsync init
    ```
 
-   You'll be asked for an age private key. Press Enter to generate a new one automatically.
+   This sets up `~/.config/devsync/` with a Git repository and an age identity.
 
-   After initialization, the following structure is created under `~/.config/devsync/`:
+2. **Track your files**
 
-   <FileTree>
-   - ~/.config/devsync/
-     - repository/    Git repository where synced files are stored
-     - keys.txt       age private key used to decrypt secret files
-     - settings.json  Global settings (active profile, etc.)
-   </FileTree>
-
-   <Aside type="caution">
-   `keys.txt` is the private key used to decrypt your secret files. If you lose it, encrypted files cannot be recovered. **Back it up somewhere safe.**
-   </Aside>
-
-2. **Track files**
-
-   Register the files or directories you want to sync:
+   Tell devsync which files to sync. For example:
 
    ```bash
-   devsync track ~/.gitconfig
    devsync track ~/.zshrc
+   devsync track ~/.config/starship.toml
    devsync track ~/.config/nvim
    ```
 
-   For sensitive files, use `--mode secret` to store them encrypted in the repository:
+   For sensitive files like SSH keys, use secret mode:
 
    ```bash
-   devsync track ~/.ssh/config --mode secret
+   devsync track --mode secret ~/.ssh/config
    ```
 
-3. **Push to the sync repository**
+3. **Push to the sync directory**
+
+   Copy your tracked files into the sync directory:
 
    ```bash
    devsync push
    ```
 
-   This mirrors your local files into `~/.config/devsync/repository/`. No git commit is created at this point.
+4. **Commit and push with Git**
 
-4. **Publish to a remote Git repository**
-
-   Use `devsync cd` to enter the sync repository directory, then run git commands directly:
+   Open the sync directory and push to a remote:
 
    ```bash
    devsync cd
-   ```
-
-   ```bash
-   git remote add origin https://github.com/yourname/dotfiles.git
-   git add .
-   git commit -m "Initial sync"
+   git add -A && git commit -m "Initial sync"
+   git remote add origin <your-repo-url>
    git push -u origin main
-   exit
    ```
 
 </Steps>
 
----
-
-## Connect an existing repository
-
-If you're setting up a new machine and already have a dotfiles repository, pass the repository URL to `init`:
-
-```bash
-devsync init https://github.com/yourname/dotfiles.git
-```
-
-You'll be prompted to enter your age private key. Enter the key you backed up from your original machine.
-
-<Aside>
-The age private key is a string starting with `AGE-SECRET-KEY-`. If you have the key in a file, you can pass it directly with `--key`:
-
-```bash
-devsync init https://github.com/yourname/dotfiles.git --key AGE-SECRET-KEY-...
-```
+<Aside type="tip">
+  After setting up, check out the [Directory Structure](/en/guides/directory-structure/) guide to see where devsync stores your config and synced files.
 </Aside>
 
-After cloning, restore your files to their original paths:
+---
 
-```bash
-devsync pull
-```
+## Connecting an Existing Sync Directory
 
-Devsync automatically decrypts secret files with your age key.
+On a new machine, clone your existing sync directory:
+
+<Steps>
+
+1. **Clone and initialize**
+
+   ```bash
+   devsync init <your-repo-url>
+   ```
+
+   This clones the repository into `~/.config/devsync/repository/` and sets up a new age identity. If you already have an age private key from another machine, pass it with `--key`:
+
+   ```bash
+   devsync init <your-repo-url> --key "AGE-SECRET-KEY-1..."
+   ```
+
+2. **Pull your files**
+
+   Restore all tracked files to their local paths:
+
+   ```bash
+   devsync pull
+   ```
+
+</Steps>
+
+<Aside type="note">
+  If your sync directory contains encrypted secrets, you need the same age private key on all machines. See [Syncing Secrets](/en/guides/syncing-secrets/) for details.
+</Aside>
+
+---
+
+## What's Next?
+
+Now that you're set up, explore the guides:
+
+- [Directory Structure](/en/guides/directory-structure/) — understand where devsync stores files
+- [Tracking Files](/en/guides/tracking-files/) — learn more about tracking options
+- [Sync Modes](/en/guides/sync-modes/) — normal, secret, and ignore modes
+- [Syncing Secrets](/en/guides/syncing-secrets/) — encrypt sensitive files with age

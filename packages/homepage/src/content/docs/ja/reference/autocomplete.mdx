@@ -1,0 +1,42 @@
+---
+title: "devsync autocomplete"
+description: "シェルのタブ補完を設定します。"
+---
+
+シェル用のautocompleteスクリプトを出力します。
+
+evalベースのシェル設定で使用できる、シェル固有のautocompleteスクリプトを生成します。
+
+## Usage
+
+```bash
+devsync autocomplete <shell>
+```
+
+## Subcommands
+
+| Subcommand                  | Description                    |
+| --------------------------- | ------------------------------ |
+| `devsync autocomplete bash` | Bash用のautocompleteスクリプトを出力します。 |
+| `devsync autocomplete zsh`  | Zsh用のautocompleteスクリプトを出力します。  |
+| `devsync autocomplete fish` | Fish用のautocompleteスクリプトを出力します。 |
+
+## Examples
+
+**Bash** でautocompleteを設定する（`~/.bashrc` に追加）:
+
+```bash
+eval "$(devsync autocomplete bash)"
+```
+
+**Zsh** でautocompleteを設定する（`~/.zshrc` に追加）:
+
+```bash
+eval "$(devsync autocomplete zsh)"
+```
+
+**Fish** でautocompleteを設定する（`~/.config/fish/config.fish` に追加）:
+
+```fish
+devsync autocomplete fish | source
+```

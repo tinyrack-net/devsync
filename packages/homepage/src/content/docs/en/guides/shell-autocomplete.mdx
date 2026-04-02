@@ -1,123 +1,62 @@
 ---
 title: Shell Autocomplete
-description: Set up tab completion for devsync commands in bash and zsh.
+description: Set up tab completion for devsync in your shell.
 ---
 
-import { Aside, Tabs, TabItem } from "@astrojs/starlight/components";
+import { Aside } from "@astrojs/starlight/components";
 
-Devsync supports shell autocomplete for `bash`, `zsh`, and `powershell`. Once set up, pressing Tab will complete command names, flags, and subcommand arguments.
+Tab completion lets you discover commands, flags, and arguments without
+reaching for the docs. devsync supports **Bash**, **Zsh**, and **Fish**.
 
----
+## Bash
 
-## Generating the Completion Script
-
-Devsync can print a shell-specific completion script to stdout:
+Add this line to your `~/.bashrc`:
 
 ```bash
-devsync autocomplete bash
-devsync autocomplete zsh
-devsync autocomplete powershell
+eval "$(devsync autocomplete bash)"
 ```
 
-The output is a shell script that you source in your shell's startup file to enable completion.
-
----
-
-## Setup
-
-<Tabs>
-  <TabItem label="bash">
-    Add the following line to your `~/.bashrc`:
-
-    ```bash
-    eval "$(devsync autocomplete bash)"
-    ```
-
-    Then reload your shell:
-
-    ```bash
-    source ~/.bashrc
-    ```
-
-    <Aside type="note">
-    If you prefer not to evaluate on every shell startup (for faster startup time), you can write the script to a file and source it:
-
-    ```bash
-    devsync autocomplete bash > ~/.config/devsync/completion.bash
-    echo 'source ~/.config/devsync/completion.bash' >> ~/.bashrc
-    source ~/.bashrc
-    ```
-
-    Remember to re-run `devsync autocomplete bash > ~/.config/devsync/completion.bash` after upgrading devsync.
-    </Aside>
-  </TabItem>
-
-  <TabItem label="zsh">
-    Add the following line to your `~/.zshrc`:
-
-    ```zsh
-    eval "$(devsync autocomplete zsh)"
-    ```
-
-    Then reload your shell:
-
-    ```zsh
-    source ~/.zshrc
-    ```
-
-    <Aside type="note">
-    For faster startup, write the script to a file and source it:
-
-    ```zsh
-    devsync autocomplete zsh > ~/.config/devsync/completion.zsh
-    echo 'source ~/.config/devsync/completion.zsh' >> ~/.zshrc
-    source ~/.zshrc
-    ```
-
-    Remember to re-run the generation step after upgrading devsync.
-    </Aside>
-  </TabItem>
-
-  <TabItem label="powershell">
-    Run the following to append the completion script to your PowerShell profile:
-
-    ```powershell
-    devsync autocomplete powershell >> $PROFILE
-    ```
-
-    Then reload your profile:
-
-    ```powershell
-    . $PROFILE
-    ```
-
-    <Aside type="note">
-    If `$PROFILE` doesn't exist yet, create it first:
-
-    ```powershell
-    New-Item -ItemType File -Path $PROFILE -Force
-    ```
-    </Aside>
-  </TabItem>
-</Tabs>
-
----
-
-## What Gets Completed
-
-After setup, Tab completion works for:
-
-- Top-level commands: `push`, `pull`, `track`, `untrack`, `status`, `init`, `doctor`, `cd`, `profile`, `autocomplete`
-- Subcommands: `profile list`, `profile use`
-- Flags: `--mode`, `--profile`, `--dry-run`, `--verbose`, etc.
-- Flag values: `--mode` completes to `normal`, `secret`, `ignore`
-
----
-
-## Tracking Your Completion Script with devsync
-
-If you track your `.bashrc` or `.zshrc` with devsync, the `eval` line will be synced automatically to new machines. After pulling on a new machine, the autocomplete will work as soon as you reload your shell.
+Then reload your shell:
 
 ```bash
-devsync track ~/.zshrc
+source ~/.bashrc
 ```
+
+## Zsh
+
+Add this line to your `~/.zshrc`:
+
+```bash
+eval "$(devsync autocomplete zsh)"
+```
+
+Then reload your shell:
+
+```bash
+source ~/.zshrc
+```
+
+## Fish
+
+Add this line to your `~/.config/fish/config.fish`:
+
+```fish
+devsync autocomplete fish | source
+```
+
+Then reload your shell:
+
+```bash
+source ~/.config/fish/config.fish
+```
+
+<Aside type="tip">
+After adding the eval line, open a new terminal (or source the config file) and
+try typing `devsync ` followed by a Tab. You should see a list of available
+commands.
+</Aside>
+
+<Aside>
+If you installed devsync with a version manager like `volta` or `fnm`, make
+sure the `devsync` binary is on your `PATH` before the eval line runs.
+</Aside>

@@ -1,131 +1,126 @@
 ---
 title: How It Works
-description: Mental model, data flow, and internal structure of Devsync.
+description: The mental model, data flow, and design decisions behind devsync.
 ---
 
-import { Aside, FileTree, Steps } from "@astrojs/starlight/components";
+import { Aside, Steps } from "@astrojs/starlight/components";
 
-Devsync is built around a single idea: **your local files are always the source of truth**. The repository is a sync artifact, not the canonical version of your config.
+Understanding what happens under the hood makes devsync feel predictable.
+This guide covers the mental model, the data flow for push and pull, and
+the design decisions that shape the tool.
 
-This guide covers the mental model, data flow, and internal structure.
+## Mental model
 
----
+Think of devsync as a **two-way mirror** between your local config files and
+a Git-tracked sync directory:
 
-## The Mental Model
+- **Local files** are the source of truth while you work.
+- The **sync directory** is a mirror that can be pushed to a Git remote and
+  pulled down on another machine.
 
-Most dotfile tools treat the repository as the canonical state. You edit files through the tool, and the tool writes to both the repository and your local filesystem.
+devsync never modifies files behind your back — you explicitly run `push` to
+update the mirror or `pull` to apply changes from it.
 
-Devsync inverts this. You edit `~/.zshrc` directly in your editor — no special command needed. When you're ready to sync, you run `devsync push`, which reads your current local files and mirrors them into the repository.
+## Data flow
 
 ```
-Your editor → local files → devsync push → sync repository → git push → remote
-                                                                          ↓
-other machine ← devsync pull ← sync repository ← git pull ← remote
+editor → local files → devsync push → sync directory → git push → remote
+                                                                     ↓
+other machine ← devsync pull ← sync directory ← git pull ← remote
 ```
 
-The benefit is that your editing workflow stays completely natural. The trade-off is that the repository state reflects the last push, not the current state of your local files.
+There are two distinct operations. Git transport sits between them but is
+entirely in your hands.
 
----
-
-## Data Flow
-
-### Push
-
-When you run `devsync push`, devsync:
+### Push flow
 
 <Steps>
 
-1. Loads `manifest.json` and determines the active profile
-2. Walks the local file tree for each tracked path
-3. Compares local files with the existing artifacts in the sync directory
-4. Encrypts any `secret`-mode files using age before writing
-5. Writes the mirrored artifacts to the sync directory
-6. Reports what changed
+1. **Load `manifest.json`** — devsync reads the sync config to discover every
+   tracked file and its settings.
+
+2. **Walk local files** — for each entry it reads the file at the resolved
+   `localPath` for the current platform.
+
+3. **Compare with existing artifacts** — if the file in the sync directory is
+   already identical, nothing is written.
+
+4. **Encrypt secrets** — entries marked as secret are encrypted with
+   [age](https://github.com/FiloSottile/age) before being written.
+
+5. **Write artifacts** — the (possibly encrypted) content is written to
+   `repoPath` inside the sync directory.
 
 </Steps>
 
-### Pull
-
-When you run `devsync pull`, devsync:
+### Pull flow
 
 <Steps>
 
-1. Loads `manifest.json` and determines the active profile
-2. Reads the artifacts present in the sync directory
-3. Decrypts any `secret` artifacts using your age private key
-4. Writes files to their local paths, creating parent directories as needed
-5. Applies file permissions
-6. Reports what changed
+1. **Load `manifest.json`** — same config, same resolution logic.
+
+2. **Read artifacts** — devsync reads each file from the sync directory.
+
+3. **Decrypt secrets** — encrypted files are decrypted using your local age
+   key.
+
+4. **Write to local paths** — content is written to the resolved `localPath`.
+
+5. **Apply permissions** — file permissions recorded in the config are
+   restored so nothing ends up world-readable by accident.
 
 </Steps>
 
-<Aside type="note">
-Neither `push` nor `pull` creates a git commit. You manage git history yourself inside the sync directory with `devsync cd`.
+<Aside>
+Neither `push` nor `pull` creates Git commits. You run `git add`, `git commit`,
+and `git push` yourself. This keeps you in full control of your commit history.
 </Aside>
 
----
+## Design decisions
 
-## Directory Structure
+### Local-first
 
-All devsync state lives under `~/.config/devsync/`:
+Your editor writes to real files on disk, and devsync reads from those same
+files. There's no database, no daemon, and no background watcher. You decide
+when to sync.
 
-<FileTree>
-- ~/.config/devsync/
-  - sync/                     Git repository (synced files stored here)
-    - .git/
-    - manifest.json           Config and tracking registry
-    - default/                Artifacts for the default (global) profile
-      - .gitconfig            Mirrored from ~/.gitconfig
-      - .config/
-        - nvim/               Mirrored from ~/.config/nvim
-    - work/                   Artifacts for the "work" profile
-      - ...
-  - age/
-    - keys.txt                Age private key (for decrypting secrets)
-  - settings.json             Global settings (active profile, etc.)
-</FileTree>
+### No symlinks
 
-### manifest.json
+Some dotfile managers replace your config files with symlinks pointing into
+the repository. devsync deliberately copies files instead. This avoids
+permission headaches, cross-filesystem issues, and surprises when a tool
+doesn't follow symlinks.
 
-The manifest is the central registry. Every tracked path has an entry describing its source path, sync mode, and optional profile assignments:
+### age encryption
 
-```json
-{
-  "entries": [
-    {
-      "localPath": ".gitconfig",
-      "mode": "normal",
-      "profiles": []
-    },
-    {
-      "localPath": ".ssh/config",
-      "mode": "secret",
-      "profiles": []
-    },
-    {
-      "localPath": {
-        "default": ".config/nvim",
-        "win": "AppData/Local/nvim"
-      },
-      "mode": "normal",
-      "profiles": ["linux", "mac"]
-    }
-  ]
-}
+Secrets are encrypted at rest in the sync directory using
+[age](https://github.com/FiloSottile/age). age was chosen for its simplicity
+— a single key file, no key servers, no expiry management. Your private key
+never leaves the machine.
+
+### Git as transport
+
+devsync piggybacks on Git instead of inventing its own sync protocol. You get
+branching, history, merge conflict tooling, and hosting (GitHub, GitLab, etc.)
+for free.
+
+## Sync directory structure
+
+The sync directory is a regular Git repository with a predictable layout.
+For the full breakdown, see the
+[Directory Structure](/en/guides/directory-structure/) guide.
+
+At a glance:
+
+```
+~/dotfiles/          ← sync directory root (Git repo)
+├── manifest.json    ← sync config listing every tracked file
+├── .age-key         ← your age private key (git-ignored)
+├── .age-recipients  ← age public key(s) for encryption
+└── ...              ← artifacts written by devsync push
 ```
 
-Paths in `localPath` are relative to your home directory (`~`).
-
----
-
-## How This Differs from stow and chezmoi
-
-| | devsync | chezmoi | stow |
-|---|---|---|---|
-| Source of truth | Local files | Repository | Repository |
-| Edit workflow | Open file directly | `chezmoi edit` | Edit in repo |
-| Home directory | Unmodified | Unmodified | Symlinks |
-| Template support | No | Yes | No |
-| Per-machine content | Profiles / platform paths | Templates | Overlays |
-
-Devsync prioritizes **keeping your editing workflow natural**. If you already have a comfortable setup and just want it replicated across machines, devsync gets out of your way.
+<Aside type="tip">
+Run `devsync cd` to jump into the sync directory whenever you need to inspect
+or manage it directly.
+</Aside>

@@ -1,123 +1,61 @@
 ---
 title: 셸 자동완성
-description: 셸 탭 자동완성 설정 방법
+description: 셸에서 devsync 탭 자동완성을 설정하는 방법을 알아보세요.
 ---
 
-import { Aside, Tabs, TabItem } from "@astrojs/starlight/components";
+import { Aside } from "@astrojs/starlight/components";
 
-Devsync는 `bash`, `zsh`, `powershell`에서 셸 자동완성을 지원해요. 설정 후 Tab을 누르면 명령어 이름, 플래그, 서브 명령어 인자가 완성돼요.
+탭 자동완성을 사용하면 문서를 찾지 않아도 명령어, 플래그, 인자를 발견할 수
+있어요. devsync는 **Bash**, **Zsh**, **Fish**를 지원해요.
 
----
+## Bash
 
-## 완성 스크립트 생성
-
-Devsync는 셸별 완성 스크립트를 stdout으로 출력할 수 있어요.
+`~/.bashrc`에 이 줄을 추가하세요:
 
 ```bash
-devsync autocomplete bash
-devsync autocomplete zsh
-devsync autocomplete powershell
+eval "$(devsync autocomplete bash)"
 ```
 
-출력된 내용을 셸 시작 파일에서 source하면 자동완성이 활성화돼요.
-
----
-
-## 설정 방법
-
-<Tabs>
-  <TabItem label="bash">
-    `~/.bashrc`에 다음 줄을 추가해요.
-
-    ```bash
-    eval "$(devsync autocomplete bash)"
-    ```
-
-    그 다음 셸을 다시 불러와요.
-
-    ```bash
-    source ~/.bashrc
-    ```
-
-    <Aside type="note">
-    셸 시작 시간을 줄이고 싶다면 스크립트를 파일로 저장하고 source하는 방식을 사용할 수 있어요.
-
-    ```bash
-    devsync autocomplete bash > ~/.config/devsync/completion.bash
-    echo 'source ~/.config/devsync/completion.bash' >> ~/.bashrc
-    source ~/.bashrc
-    ```
-
-    Devsync를 업그레이드한 후에는 `devsync autocomplete bash > ~/.config/devsync/completion.bash`를 다시 실행해야 해요.
-    </Aside>
-  </TabItem>
-
-  <TabItem label="zsh">
-    `~/.zshrc`에 다음 줄을 추가해요.
-
-    ```zsh
-    eval "$(devsync autocomplete zsh)"
-    ```
-
-    그 다음 셸을 다시 불러와요.
-
-    ```zsh
-    source ~/.zshrc
-    ```
-
-    <Aside type="note">
-    빠른 시작을 원한다면 스크립트를 파일로 저장하고 source하는 방식을 사용해요.
-
-    ```zsh
-    devsync autocomplete zsh > ~/.config/devsync/completion.zsh
-    echo 'source ~/.config/devsync/completion.zsh' >> ~/.zshrc
-    source ~/.zshrc
-    ```
-
-    Devsync를 업그레이드한 후에는 생성 단계를 다시 실행해야 해요.
-    </Aside>
-  </TabItem>
-
-  <TabItem label="powershell">
-    다음 명령으로 완성 스크립트를 PowerShell 프로필에 추가해요.
-
-    ```powershell
-    devsync autocomplete powershell >> $PROFILE
-    ```
-
-    그 다음 프로필을 다시 불러와요.
-
-    ```powershell
-    . $PROFILE
-    ```
-
-    <Aside type="note">
-    `$PROFILE` 파일이 없다면 먼저 생성해요.
-
-    ```powershell
-    New-Item -ItemType File -Path $PROFILE -Force
-    ```
-    </Aside>
-  </TabItem>
-</Tabs>
-
----
-
-## 자동완성 대상
-
-설정 후 Tab 자동완성이 동작하는 대상이에요.
-
-- 최상위 명령어: `push`, `pull`, `track`, `untrack`, `status`, `init`, `doctor`, `cd`, `profile`, `autocomplete`
-- 서브 명령어: `profile list`, `profile use`
-- 플래그: `--mode`, `--profile`, `--dry-run`, `--verbose` 등
-- 플래그 값: `--mode`는 `normal`, `secret`, `ignore`로 완성돼요
-
----
-
-## Devsync로 완성 스크립트 추적하기
-
-`.bashrc`나 `.zshrc`를 Devsync로 추적하고 있다면, `eval` 줄이 새 기기에도 자동으로 동기화돼요. 새 기기에서 pull한 후 셸을 다시 불러오면 자동완성을 바로 사용할 수 있어요.
+그런 다음 셸을 다시 로드하세요:
 
 ```bash
-devsync track ~/.zshrc
+source ~/.bashrc
 ```
+
+## Zsh
+
+`~/.zshrc`에 이 줄을 추가하세요:
+
+```bash
+eval "$(devsync autocomplete zsh)"
+```
+
+그런 다음 셸을 다시 로드하세요:
+
+```bash
+source ~/.zshrc
+```
+
+## Fish
+
+`~/.config/fish/config.fish`에 이 줄을 추가하세요:
+
+```fish
+devsync autocomplete fish | source
+```
+
+그런 다음 셸을 다시 로드하세요:
+
+```bash
+source ~/.config/fish/config.fish
+```
+
+<Aside type="tip">
+eval 줄을 추가한 후, 새 터미널을 열거나 설정 파일을 source한 뒤 `devsync `를
+입력하고 Tab을 눌러 보세요. 사용 가능한 명령어 목록이 나타나야 해요.
+</Aside>
+
+<Aside>
+`volta`나 `fnm` 같은 버전 관리자로 devsync를 설치했다면, eval 줄이 실행되기
+전에 `devsync` 바이너리가 `PATH`에 포함되어 있는지 확인하세요.
+</Aside>

@@ -1,73 +1,41 @@
 ---
-title: devsync status
-description: Preview what push and pull would change without writing anything.
+title: "devsync status"
+description: "Preview what push and pull would change."
 ---
 
 import { Aside } from "@astrojs/starlight/components";
 
-## Synopsis
+Show planned push and pull changes for the current sync config.
+
+Compare the tracked local files with the sync directory and report what `push` would write to the repository and what `pull` would write back locally.
+
+## Usage
 
 ```bash
-devsync status
+devsync status [flags]
 ```
 
-## Description
+## Flags
 
-`devsync status` compares your tracked local files with the artifacts currently stored in the sync repository (`~/.config/devsync/repository/`) and reports the differences — without making any changes.
-
-It answers two questions at once:
-
-- **What would `push` write?** — local files that differ from their repository counterparts.
-- **What would `pull` restore?** — repository artifacts that differ from local files.
-
-This gives you a full picture of the sync state before committing to either direction.
-
-`status` always exits with code `0`, even when changes are detected. Use it freely in scripts or as a pre-commit check without worrying about it failing your pipeline.
-
-## Options
-
-| Flag | Description |
-|------|-------------|
-| `--profile NAME` | Override the active profile for this run. Does not persist. |
-| `--verbose` | Show per-entry and per-file detail in the output. |
+| Flag               | Description                          |
+| ------------------ | ------------------------------------ |
+| `--profile <name>` | Use a specific profile layer.        |
+| `--verbose`        | Show detailed output.                |
 
 ## Examples
 
+Show the full sync status:
+
 ```bash
-# Check sync state using the active profile
 devsync status
+```
 
-# Check sync state for a specific profile without switching to it
+Show status for a specific profile:
+
+```bash
 devsync status --profile work
-
-# Verbose output — shows individual file diffs
-devsync status --verbose
 ```
 
-## Output
-
-The output is grouped into two sections:
-
-```
-→ Would push (local → repo):
-  ~ .gitconfig
-  + .zshrc
-
-← Would pull (repo → local):
-  ~ .config/nvim/init.lua
-```
-
-| Symbol | Meaning |
-|--------|---------|
-| `+` | File exists locally (or in repo) but has no counterpart on the other side |
-| `~` | File exists on both sides but content differs |
-
-## Notes
-
-<Aside type="note">
-  `devsync status` reads `manifest.json` and compares file contents. It does **not** run `git status` or interact with the remote. To see pending git commits, open the sync directory with [`devsync cd`](/en/reference/cd) and run `git status` there.
-</Aside>
-
-<Aside type="note">
-  The `--profile` flag here only affects which manifest entries are evaluated for this single invocation. The active profile stored in `settings.json` is not changed.
+<Aside>
+`status` reads `manifest.json` and compares file contents. It does **not** run `git status` — it only reports devsync-level differences.
 </Aside>

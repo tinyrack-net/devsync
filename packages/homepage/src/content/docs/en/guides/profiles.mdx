@@ -1,145 +1,129 @@
 ---
 title: Profiles
-description: Use profiles to sync different subsets of your config on different machines or environments.
+description: Manage different configs for work, personal, or per-machine setups.
 ---
 
 import { Aside, Steps } from "@astrojs/starlight/components";
 
-Profiles let you assign tracked entries to named groups and selectively sync only the entries that belong to the active profile. This is useful when different machines need different subsets of your config.
+Not every config file belongs on every machine. Your work laptop needs work credentials, your personal desktop needs GPU settings, and your Linux server doesn't care about macOS configs. **Profiles** let you organize tracked entries into named groups so each machine syncs only what it needs — all from a single repository.
 
 ---
 
-## The Problem Profiles Solve
+## How Profiles Work
 
-Not every tracked file belongs on every machine. For example:
-
-- Work credentials should only sync to work machines
-- A GPU-tuning config should only apply to your desktop
-- A Linux-specific shell script shouldn't be pulled onto your Mac
-
-Without profiles, you'd need separate repositories for each environment. With profiles, a single repository can serve all your machines, and each machine only applies the entries it needs.
-
----
-
-## Global Entries vs. Profile Entries
-
-Every tracked entry is either **global** or **profile-scoped**:
-
-- **Global** — no profile assigned. Always included during push and pull, regardless of the active profile.
-- **Profile-scoped** — assigned to one or more named profiles. Only included when the active profile matches.
+When you track a file, you can assign it to one or more profiles using `--profiles`. Entries without a profile go into the **default** profile and sync everywhere.
 
 ```bash
-# Global — synced on every machine
+# Default profile — syncs on every machine
 devsync track ~/.gitconfig
 devsync track ~/.zshrc
 
-# Work profile only
-devsync track ~/.config/work-vpn --profile work
+# Only syncs when "work" profile is active
+devsync track ~/.config/work-vpn --profiles work
 
-# Desktop profile only
-devsync track ~/.config/gpu-settings --profile desktop
+# Only syncs when "personal" profile is active
+devsync track ~/.config/personal-tool --profiles personal
+```
 
-# Both work and linux profiles
-devsync track ~/.config/some-tool --profile work --profile linux
+---
+
+## Default vs. Named Profiles
+
+- **Default profile:** entries without `--profiles` go into the `default/` directory and sync everywhere.
+- **Named profiles:** entries with `--profiles work` go into `work/` and only sync when that profile is active.
+
+You can assign multiple profiles to a single entry — it syncs whenever any of them is active:
+
+```bash
+devsync track ~/.config/shared-tool --profiles work,personal
 ```
 
 ---
 
 ## Setting the Active Profile
 
-The active profile is stored in `~/.config/devsync/settings.json`.
+Tell devsync which profile to use on the current machine:
 
 ```bash
-# Set active profile to "work"
 devsync profile use work
-
-# Clear active profile (fall back to global-only)
-devsync profile use
 ```
 
-Once the active profile is set, `devsync push` and `devsync pull` will include global entries **plus** entries assigned to the active profile.
+From now on, `devsync push` and `devsync pull` on this machine will include default entries **plus** entries assigned to the `work` profile.
 
 ---
 
 ## Listing Profiles
 
+See all profiles that exist in your sync config:
+
 ```bash
 devsync profile list
 ```
 
-This shows all profile names that appear in any entry in `manifest.json`, along with the currently active profile.
+This shows every profile name that appears in `manifest.json`, along with which one is currently active.
 
 ---
 
-## Overriding the Profile for a Single Run
-
-Use `--profile` to temporarily override the active profile for a single command without changing `settings.json`:
+## Use Case: Work vs. Personal
 
 ```bash
-devsync push --profile work
-devsync pull --profile personal
-devsync status --profile desktop
+# Shared configs — no profile, synced everywhere
+devsync track ~/.gitconfig
+devsync track ~/.zshrc
+
+# Work-only files
+devsync track ~/.config/work-vpn --profiles work
+devsync track ~/.ssh/work-key --mode secret --profiles work
+
+# Personal-only files
+devsync track ~/.config/personal-app --profiles personal
 ```
 
-This is useful for testing or for pulling a specific profile on a shared machine.
+On your **work laptop**, set the work profile and push:
+
+```bash
+devsync profile use work
+devsync push    # pushes default + work entries
+```
+
+On your **personal machine**, set the personal profile and pull:
+
+```bash
+devsync profile use personal
+devsync pull    # pulls default + personal entries only
+```
+
+Work machine never sees personal configs, personal machine never sees work credentials. Clean separation, one repository.
 
 ---
 
-## Example: Work and Personal Setup
+## More Ideas for Profiles
 
-<Steps>
+Profiles aren't limited to work vs. personal. Here are a few other patterns:
 
-1. On your work machine, track work-specific files with `--profile work`:
-
-   ```bash
-   devsync track ~/.gitconfig                       # global
-   devsync track ~/.zshrc                           # global
-   devsync track ~/.config/work-tool --profile work
-   devsync track ~/.ssh/work-key --mode secret --profile work
-   ```
-
-2. Set the active profile on the work machine:
-
-   ```bash
-   devsync profile use work
-   ```
-
-3. Push:
-
-   ```bash
-   devsync push
-   ```
-
-4. On your personal machine, set a different profile (or none):
-
-   ```bash
-   devsync profile use personal
-   devsync pull
-   ```
-
-   Only global entries (`.gitconfig`, `.zshrc`) are applied. Work-specific files are not written.
-
-</Steps>
+- **Per-OS profiles:** `--profiles linux` or `--profiles macos` for OS-specific configs
+- **Shared base + machine overrides:** track common configs without a profile, then add machine-specific entries with `--profiles desktop` or `--profiles server`
 
 ---
 
-## Profile Storage in the Repository
-
-Profile-scoped entries are stored in a subdirectory named after the profile inside the sync directory:
+## How It Looks in the Sync Directory
 
 ```
-~/.config/devsync/repository/
+sync-directory/
 ├── manifest.json
-├── default/          ← global entries
+├── default/              ← default profile entries
 │   ├── .gitconfig
 │   └── .zshrc
-└── work/             ← work profile entries
-    ├── .config/
-    │   └── work-tool/
-    └── .ssh/
-        └── work-key.devsync.secret
+├── work/                 ← work profile entries
+│   ├── .config/
+│   │   └── work-vpn/
+│   └── .ssh/
+│       └── work-key.age
+└── personal/             ← personal profile entries
+    └── .config/
+        └── personal-app/
 ```
 
 <Aside type="note">
-An entry assigned to multiple profiles (e.g., `--profile work --profile linux`) is stored once in the repository and applied whenever either of those profiles is active.
+An entry assigned to multiple profiles (e.g., `--profiles work,personal`) is stored once in the sync directory and synced whenever either profile is active.
 </Aside>

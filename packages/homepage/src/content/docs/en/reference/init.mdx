@@ -1,89 +1,54 @@
 ---
-title: devsync init
-description: Initialize a new sync repository or connect to an existing one.
+title: "devsync init"
+description: "Initialize a new sync directory or connect to an existing one."
 ---
 
-import { Aside, Steps, Code, Tabs, TabItem } from "@astrojs/starlight/components";
+import { Aside } from "@astrojs/starlight/components";
 
-## Synopsis
+Initialize the git-backed sync directory.
+
+Create or connect the sync directory under your XDG config directory, then store the sync settings used by later `pull` and `push` operations. If you omit the repository argument, devsync initializes a local git repository in the sync directory.
+
+## Usage
 
 ```bash
 devsync init [repository]
 ```
 
-## Description
-
-`devsync init` bootstraps your devsync setup. It either creates a brand-new local sync repository or clones an existing remote repository into the standard location at `~/.config/devsync/repository/`.
-
-When run without a repository URL, it initializes a fresh git repository and generates a new age encryption key. When a URL is provided, it clones that repository and prompts you to supply the corresponding age private key needed to decrypt any secrets stored there.
-
-After initialization, devsync creates:
-
-- `~/.config/devsync/repository/` — the sync repository directory
-- `~/.config/devsync/settings.json` — runtime settings (active profile, identity path, etc.)
-- `~/.config/devsync/keys.txt` — age key storage
-
 ## Arguments
 
-| Argument | Description |
-|----------|-------------|
-| `repository` | Optional. A git repository URL to clone (HTTPS or SSH). |
+| Argument       | Description                                              |
+| -------------- | -------------------------------------------------------- |
+| `[repository]` | Remote URL or local git repository path to clone. Optional — when omitted, a new local repository is created. |
 
-## Options
+## Flags
 
-| Flag | Description |
-|------|-------------|
-| `--identity PATH` | Persist the path to an age identity file in `settings.json`. Useful when your key lives in a password manager export or a separate secure location. |
-| `--key KEY` | Pass an age private key (`AGE-SECRET-KEY-…`) directly. Useful for non-interactive or scripted setup. |
-| `--recipient AGE1...` | Add an age recipient public key. Can be repeated to add multiple recipients. Enables sharing encrypted secrets with other users. |
-| `--verbose` | Print detailed output during initialization. |
+| Flag                        | Description                                                    |
+| --------------------------- | -------------------------------------------------------------- |
+| `--key <age-private-key>`   | Persist an age private key into the identity file.             |
+| `--promptKey`               | Prompt to enter an age private key instead of generating one automatically. |
+| `--verbose`                 | Show detailed output.                                          |
 
 ## Examples
 
-<Tabs>
-  <TabItem label="New repository">
-    ```bash
-    # Create a new local sync repository with a fresh age key
-    devsync init
-    ```
-  </TabItem>
-  <TabItem label="Clone existing">
-    ```bash
-    # Clone an existing sync repository from GitHub
-    devsync init https://github.com/yourname/dotfiles.git
-    ```
-  </TabItem>
-  <TabItem label="Clone with key">
-    ```bash
-    # Clone and supply age key non-interactively
-    devsync init https://github.com/yourname/dotfiles.git \
-      --key AGE-SECRET-KEY-1QQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQ
-    ```
-  </TabItem>
-  <TabItem label="External identity file">
-    ```bash
-    # Point devsync to an age identity file stored elsewhere
-    devsync init --identity ~/.secrets/age-identity.txt
-    ```
-  </TabItem>
-  <TabItem label="Team recipients">
-    ```bash
-    # Add multiple recipients so teammates can decrypt secrets
-    devsync init \
-      --recipient age1alice... \
-      --recipient age1bob...
-    ```
-  </TabItem>
-</Tabs>
+Initialize a fresh local sync directory:
 
-## Notes
+```bash
+devsync init
+```
 
-<Aside type="note">
-  Running `devsync init` a second time in the same environment will overwrite settings but will not destroy existing sync data. It is safe to re-run if you need to update the age identity path or add new recipients.
+Clone a remote repository as the sync directory:
+
+```bash
+devsync init https://github.com/user/dotfiles.git
+```
+
+Initialize with an existing age secret key:
+
+```bash
+devsync init --key "AGE-SECRET-KEY-1..."
+```
+
+<Aside type="tip">
+If you already have an age identity you use on another machine, pass it with `--key` or `--promptKey` so devsync can decrypt your secret files.
 </Aside>
-
-<Aside type="caution">
-  When using `--key`, your age private key will appear in your shell history. Prefer `--identity` with a key file, or run the command with a leading space (history suppression) on supported shells.
-</Aside>
-
-After initialization, track your first file with [`devsync track`](/en/reference/track), then push with [`devsync push`](/en/reference/push).

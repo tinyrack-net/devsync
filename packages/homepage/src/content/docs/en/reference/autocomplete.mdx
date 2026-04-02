@@ -1,96 +1,42 @@
 ---
-title: devsync autocomplete
-description: Install shell autocomplete for devsync commands and flags.
+title: "devsync autocomplete"
+description: "Set up shell tab completion."
 ---
 
-import { Aside, Tabs, TabItem } from "@astrojs/starlight/components";
+Print shell autocomplete scripts.
 
-## Synopsis
+Emit shell-specific autocomplete scripts for use with eval-based shell setup.
+
+## Usage
 
 ```bash
-devsync autocomplete bash
-devsync autocomplete zsh
-devsync autocomplete powershell
+devsync autocomplete <shell>
 ```
 
-## Description
+## Subcommands
 
-`devsync autocomplete` prints a shell-specific completion script to stdout. Evaluating this script in your shell's rc file gives you tab-completion for all devsync commands, subcommands, and flags.
-
-Completion is handled by an internal `devsync __complete` subcommand that is invoked by the shell on each tab press. You do not need to call `__complete` directly.
-
-## Arguments
-
-| Argument | Description |
-|----------|-------------|
-| `bash` | Output a Bash completion script. |
-| `zsh` | Output a Zsh completion script. |
-| `powershell` | Output a PowerShell completion script. |
-
-## Setup
-
-<Tabs>
-  <TabItem label="Bash">
-    Add the following line to your `~/.bashrc`:
-
-    ```bash
-    eval "$(devsync autocomplete bash)"
-    ```
-
-    Then reload your shell:
-
-    ```bash
-    source ~/.bashrc
-    ```
-  </TabItem>
-  <TabItem label="Zsh">
-    Add the following line to your `~/.zshrc`:
-
-    ```zsh
-    eval "$(devsync autocomplete zsh)"
-    ```
-
-    Then reload your shell:
-
-    ```zsh
-    source ~/.zshrc
-    ```
-  </TabItem>
-  <TabItem label="PowerShell">
-    Add the following line to your PowerShell profile (`$PROFILE`):
-
-    ```powershell
-    Invoke-Expression (devsync autocomplete powershell | Out-String)
-    ```
-
-    Then reload your profile:
-
-    ```powershell
-    . $PROFILE
-    ```
-  </TabItem>
-</Tabs>
-
-## What gets completed
-
-Once installed, pressing `Tab` completes:
-
-- Top-level commands: `init`, `track`, `untrack`, `status`, `push`, `pull`, `doctor`, `cd`, `profile`, `autocomplete`
-- Subcommands: `profile list`, `profile use`
-- Flags and their values for every command
+| Subcommand                  | Description                    |
+| --------------------------- | ------------------------------ |
+| `devsync autocomplete bash` | Print autocomplete script for Bash. |
+| `devsync autocomplete zsh`  | Print autocomplete script for Zsh.  |
+| `devsync autocomplete fish` | Print autocomplete script for Fish. |
 
 ## Examples
 
-```bash
-# Print the Bash completion script (for inspection)
-devsync autocomplete bash
+Set up autocomplete in **Bash** (add to `~/.bashrc`):
 
-# Pipe to a file for manual sourcing
-devsync autocomplete zsh > ~/.zsh/completions/_devsync
+```bash
+eval "$(devsync autocomplete bash)"
 ```
 
-## Notes
+Set up autocomplete in **Zsh** (add to `~/.zshrc`):
 
-<Aside type="note">
-  If you update devsync to a new version that adds commands or flags, re-evaluate the autocomplete script (or reload your shell) to pick up the new completions. The `eval` approach in your rc file handles this automatically on every new shell session.
-</Aside>
+```bash
+eval "$(devsync autocomplete zsh)"
+```
+
+Set up autocomplete in **Fish** (add to `~/.config/fish/config.fish`):
+
+```fish
+devsync autocomplete fish | source
+```

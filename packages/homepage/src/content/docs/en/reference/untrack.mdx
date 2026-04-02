@@ -1,55 +1,46 @@
 ---
-title: devsync untrack
-description: Stop tracking a path and remove it from the manifest.
+title: "devsync untrack"
+description: "Remove a path from sync tracking."
 ---
 
 import { Aside } from "@astrojs/starlight/components";
 
-## Synopsis
+Stop tracking a synced path.
+
+Remove a tracked root entry or a nested override from devsync configuration. This only updates the sync config; actual file changes happen on the next `push` or `pull`. Use a local path to remove the main tracked target, or use a repository-relative child path inside a tracked directory to remove only that override.
+
+## Usage
 
 ```bash
-devsync untrack <path>
+devsync untrack <target> [flags]
 ```
-
-## Description
-
-`devsync untrack` removes a path from `manifest.json`, so it is no longer included in future `push` or `pull` operations.
-
-The command accepts both a local absolute path (e.g. `~/.gitconfig`) and a repository-relative path (the path as stored inside the sync repository, e.g. `.gitconfig`). Either form resolves to the same manifest entry.
-
-Untracking a path does **not** delete the file from your local disk, nor does it remove the existing artifact from the sync repository. The removal takes effect on the next `push` or `pull`.
 
 ## Arguments
 
-| Argument | Description |
-|----------|-------------|
-| `path` | The local absolute path or repository-relative path to remove from tracking. |
+| Argument   | Description                                             |
+| ---------- | ------------------------------------------------------- |
+| `<target>` | Tracked local path or repository path to stop tracking. |
 
-## Options
+## Flags
 
-| Flag | Description |
-|------|-------------|
-| `--verbose` | Print detailed output. |
+| Flag        | Description            |
+| ----------- | ---------------------- |
+| `--verbose` | Show detailed output.  |
 
 ## Examples
 
+Stop tracking a config file:
+
 ```bash
-# Untrack by local path
-devsync untrack ~/.gitconfig
-
-# Untrack using a tilde-prefixed path
-devsync untrack ~/.config/nvim
-
-# Untrack using a repository-relative path
-devsync untrack .gitconfig
+devsync untrack ~/.config/starship.toml
 ```
 
-## Notes
+Remove a child override inside a tracked directory:
 
-<Aside type="note">
-  After untracking, the artifact in the sync repository (`~/.config/devsync/repository/`) still exists. To remove it permanently, open the sync directory with [`devsync cd`](/en/reference/cd) and delete the file manually, then commit the change.
-</Aside>
+```bash
+devsync untrack .ssh/config
+```
 
-<Aside type="caution">
-  Untracking a directory does **not** automatically untrack child paths that were individually registered. Remove those entries separately with their own `untrack` calls, or inspect `manifest.json` directly.
+<Aside>
+`untrack` only updates `manifest.json`. It does **not** delete local files or sync directory artifacts.
 </Aside>

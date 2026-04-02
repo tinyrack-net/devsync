@@ -1,65 +1,35 @@
 ---
-title: devsync doctor
-description: Validate your devsync setup and detect configuration problems.
+title: "devsync doctor"
+description: "Check the health of your sync setup."
 ---
 
-import { Aside } from "@astrojs/starlight/components";
+Check sync directory, config, age identity, and tracked local paths.
 
-## Synopsis
+Run health checks for the local sync setup, including repository availability, config validity, age identity configuration, and whether tracked local paths still exist where devsync expects them.
+
+## Usage
 
 ```bash
-devsync doctor
+devsync doctor [flags]
 ```
 
-## Description
+## Flags
 
-`devsync doctor` runs a series of health checks against your devsync environment and reports any problems it finds. It is the quickest way to diagnose why `push`, `pull`, or decryption might be failing.
-
-Run `doctor` whenever you set up devsync on a new machine, after rotating your age key, or when a command produces unexpected errors.
-
-## Checks performed
-
-| Check | Description |
-|-------|-------------|
-| Repository directory | Verifies that `~/.config/devsync/repository/` exists and is a valid git repository. |
-| Manifest validity | Parses `manifest.json` and reports any schema or syntax errors. |
-| Age identity | Confirms that the age identity path in `settings.json` points to a readable file and that the key can be loaded. |
-| Tracked paths | Checks that each path registered in `manifest.json` currently exists on the local filesystem. |
-
-If any check fails, `doctor` exits with code `1`. All checks are always run so you receive a complete report in a single pass.
-
-## Options
-
-| Flag | Description |
-|------|-------------|
-| `--verbose` | Print detailed diagnostic information for each check. |
+| Flag               | Description                          |
+| ------------------ | ------------------------------------ |
+| `--profile <name>` | Use a specific profile layer.        |
+| `--verbose`        | Show detailed output.                |
 
 ## Examples
 
+Run all health checks:
+
 ```bash
-# Run all health checks
 devsync doctor
-
-# Run with verbose output to see details of each check
-devsync doctor --verbose
 ```
 
-## Example output
+Run checks for a specific profile:
 
+```bash
+devsync doctor --profile work
 ```
-✓ Repository directory exists and is a valid git repo
-✓ manifest.json is valid
-✗ Age identity: file not found at /home/user/.secrets/age-identity.txt
-✓ Tracked local paths: 12/13 exist
-  ✗ ~/.config/missing-tool/config.toml — not found
-```
-
-## Notes
-
-<Aside type="note">
-  Missing tracked paths (the last check) are reported as warnings rather than fatal errors. It is normal for some paths to be absent on a machine where a particular tool is not installed. Review the list and untrack paths that are not relevant to the current machine.
-</Aside>
-
-<Aside type="note">
-  `doctor` does not contact any remote or attempt to decrypt files. It only reads configuration and checks file system state.
-</Aside>
