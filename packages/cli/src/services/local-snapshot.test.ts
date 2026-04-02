@@ -3,7 +3,7 @@ import { join } from "node:path";
 import type { ConsolaInstance } from "consola";
 import { afterEach, describe, expect, it } from "vitest";
 import type {
-  ResolvedSyncConfig,
+  ResolvedManifest,
   ResolvedSyncConfigEntry,
   SyncConfigEntryKind,
   SyncMode,
@@ -43,7 +43,7 @@ const createEntry = (
 
 const createConfig = (
   entries: readonly ResolvedSyncConfigEntry[],
-): ResolvedSyncConfig => {
+): ResolvedManifest => {
   return {
     entries,
     version: 7,

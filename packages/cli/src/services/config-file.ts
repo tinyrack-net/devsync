@@ -1,11 +1,11 @@
 import { CONSTANTS } from "#app/config/constants.ts";
-import type { PlatformKey } from "#app/config/platform.ts";
 import {
   formatSyncConfig,
   parseSyncConfig,
-  type ResolvedSyncConfig,
+  type ResolvedManifest,
   resolveSyncConfigFilePath,
   type SyncConfig,
+  type SyncConfigResolutionContext,
 } from "#app/config/sync.ts";
 import { writeTextFileAtomically } from "#app/lib/filesystem.ts";
 
@@ -18,7 +18,7 @@ export const sortSyncConfigEntries = (
 };
 
 export const createSyncConfigDocument = (
-  config: ResolvedSyncConfig,
+  config: ResolvedManifest,
 ): SyncConfig => {
   const entries = sortSyncConfigEntries(
     config.entries.map((entry): SyncConfig["entries"][number] => ({
@@ -51,18 +51,9 @@ export const createSyncConfigDocument = (
 export const writeValidatedSyncConfig = async (
   syncDirectory: string,
   config: SyncConfig,
-  platformKey: PlatformKey,
-  homeDirectory: string,
-  xdgConfigHome: string,
-  readEnv: (name: string) => string | undefined,
+  context: SyncConfigResolutionContext,
 ) => {
-  const resolvedConfig = parseSyncConfig(
-    config,
-    platformKey,
-    homeDirectory,
-    xdgConfigHome,
-    readEnv,
-  );
+  const resolvedConfig = parseSyncConfig(config, context);
   const nextConfig = createSyncConfigDocument(resolvedConfig);
 
   await writeTextFileAtomically(

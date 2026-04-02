@@ -12,7 +12,7 @@ const mocked = vi.hoisted(() => ({
   })),
   buildRepositorySnapshot: vi.fn(),
   countDeletedLocalNodes: vi.fn(),
-  ensureSyncRepository: vi.fn(),
+  ensureGitRepository: vi.fn(),
   loadSyncConfig: vi.fn(),
   resolveSyncConfigFilePath: vi.fn(
     (syncDirectory: string) => `${syncDirectory}/manifest.json`,
@@ -37,8 +37,11 @@ vi.mock("./repo-snapshot.ts", () => ({
   buildRepositorySnapshot: mocked.buildRepositorySnapshot,
 }));
 
+vi.mock("#app/lib/git.ts", () => ({
+  ensureGitRepository: mocked.ensureGitRepository,
+}));
+
 vi.mock("./runtime.ts", () => ({
-  ensureSyncRepository: mocked.ensureSyncRepository,
   loadSyncConfig: mocked.loadSyncConfig,
   resolveSyncPaths: mocked.resolveSyncPaths,
 }));
@@ -201,7 +204,7 @@ describe("pull planning", () => {
       version: 7,
     };
 
-    mocked.ensureSyncRepository.mockResolvedValueOnce(undefined);
+    mocked.ensureGitRepository.mockResolvedValueOnce(undefined);
     mocked.loadSyncConfig.mockResolvedValueOnce({
       effectiveConfig: config,
     });

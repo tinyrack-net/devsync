@@ -10,11 +10,12 @@ const mocked = vi.hoisted(() => ({
   createSyncConfigDocument: vi.fn((config: unknown) => ({
     document: config,
   })),
-  ensureSyncRepository: vi.fn(),
+  ensureGitRepository: vi.fn(),
   readSyncConfig: vi.fn(),
   resolveSyncConfigResolutionContext: vi.fn(() => ({
     homeDirectory: "/tmp/home",
     platformKey: "linux",
+    readEnv: (_name: string) => undefined as string | undefined,
     xdgConfigHome: "/tmp/home/.config",
   })),
   resolveSyncPaths: vi.fn(),
@@ -42,8 +43,11 @@ vi.mock("./paths.ts", () => ({
   resolveTrackedEntry: mocked.resolveTrackedEntry,
 }));
 
+vi.mock("#app/lib/git.ts", () => ({
+  ensureGitRepository: mocked.ensureGitRepository,
+}));
+
 vi.mock("./runtime.ts", () => ({
-  ensureSyncRepository: mocked.ensureSyncRepository,
   resolveSyncConfigResolutionContext: mocked.resolveSyncConfigResolutionContext,
   resolveSyncPaths: mocked.resolveSyncPaths,
 }));
@@ -82,7 +86,7 @@ describe("untrack service", () => {
     await expect(
       untrackTarget({ target: "   " }, "/tmp/cwd"),
     ).rejects.toThrowError("Target path is required.");
-    expect(mocked.ensureSyncRepository).not.toHaveBeenCalled();
+    expect(mocked.ensureGitRepository).not.toHaveBeenCalled();
   });
 
   it("rejects targets that are not currently tracked", async () => {
@@ -93,7 +97,7 @@ describe("untrack service", () => {
       homeDirectory: "/tmp/home",
       syncDirectory: workspace,
     });
-    mocked.ensureSyncRepository.mockResolvedValueOnce(undefined);
+    mocked.ensureGitRepository.mockResolvedValueOnce(undefined);
     mocked.readSyncConfig.mockResolvedValueOnce({
       entries: [],
       version: 7,
@@ -162,7 +166,7 @@ describe("untrack service", () => {
       homeDirectory: "/tmp/home",
       syncDirectory: workspace,
     });
-    mocked.ensureSyncRepository.mockResolvedValueOnce(undefined);
+    mocked.ensureGitRepository.mockResolvedValueOnce(undefined);
     mocked.readSyncConfig.mockResolvedValueOnce({
       entries: [entry, siblingEntry],
       version: 7,
@@ -194,10 +198,11 @@ describe("untrack service", () => {
           version: 7,
         },
       },
-      "linux",
-      "/tmp/home",
-      "/tmp/home/.config",
-      expect.any(Function),
+      expect.objectContaining({
+        homeDirectory: "/tmp/home",
+        platformKey: "linux",
+        xdgConfigHome: "/tmp/home/.config",
+      }),
     );
     await expect(access(defaultPlainPath)).rejects.toThrowError();
     await expect(access(workPlainPath)).rejects.toThrowError();
@@ -233,7 +238,7 @@ describe("untrack service", () => {
       homeDirectory: "/tmp/home",
       syncDirectory: workspace,
     });
-    mocked.ensureSyncRepository.mockResolvedValueOnce(undefined);
+    mocked.ensureGitRepository.mockResolvedValueOnce(undefined);
     mocked.readSyncConfig.mockResolvedValueOnce({
       entries: [entry],
       version: 7,

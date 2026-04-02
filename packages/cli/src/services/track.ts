@@ -1,7 +1,7 @@
 import { resolve } from "node:path";
 
 import { resolveDefaultIdentityFile } from "#app/config/identity-file.ts";
-import type { PlatformRepoPath } from "#app/config/platform.ts";
+import type { PlatformStringValue } from "#app/config/platform.ts";
 import { readEnvValue } from "#app/config/runtime-env.ts";
 import {
   normalizeSyncProfileName,
@@ -15,6 +15,7 @@ import {
 import { expandHomePath } from "#app/config/xdg.ts";
 import { DevsyncError } from "#app/lib/error.ts";
 import { getPathStats } from "#app/lib/filesystem.ts";
+import { ensureGitRepository } from "#app/lib/git.ts";
 import { doPathsOverlap } from "#app/lib/path.ts";
 import {
   createSyncConfigDocument,
@@ -25,7 +26,6 @@ import {
   buildRepoPathWithinRoot,
 } from "./paths.ts";
 import {
-  ensureSyncRepository,
   resolveSyncConfigResolutionContext,
   resolveSyncPaths,
 } from "./runtime.ts";
@@ -62,7 +62,9 @@ const hasPlatformSpecificModeOverride = (configuredMode: PlatformSyncMode) => {
   );
 };
 
-const buildDefaultPlatformRepoPath = (repoPath: string): PlatformRepoPath => ({
+const buildDefaultPlatformRepoPath = (
+  repoPath: string,
+): PlatformStringValue => ({
   default: normalizeSyncRepoPath(repoPath),
 });
 
@@ -169,18 +171,11 @@ export const trackTarget = async (
   }
 
   const { syncDirectory, configPath } = resolveSyncPaths();
-  const { homeDirectory, platformKey, xdgConfigHome } =
-    resolveSyncConfigResolutionContext();
+  const context = resolveSyncConfigResolutionContext();
 
-  await ensureSyncRepository(syncDirectory);
+  await ensureGitRepository(syncDirectory);
 
-  const config = await readSyncConfig(
-    syncDirectory,
-    platformKey,
-    homeDirectory,
-    xdgConfigHome,
-    readEnvValue,
-  );
+  const config = await readSyncConfig(syncDirectory, context);
   const identityFile =
     config.age !== undefined
       ? resolveDefaultIdentityFile(
@@ -195,9 +190,9 @@ export const trackTarget = async (
   const effectiveProfiles = isProfileClear ? [] : request.profiles;
 
   const candidate = await buildTrackEntryCandidate(
-    resolve(cwd, expandHomePath(target, homeDirectory)),
+    resolve(cwd, expandHomePath(target, context.homeDirectory)),
     syncDirectory,
-    homeDirectory,
+    context.homeDirectory,
     {
       identityFile,
       profiles: effectiveProfiles,
@@ -263,14 +258,7 @@ export const trackTarget = async (
       entries: [...config.entries, nextEntry],
     });
 
-    await writeValidatedSyncConfig(
-      syncDirectory,
-      nextConfig,
-      platformKey,
-      homeDirectory,
-      xdgConfigHome,
-      readEnvValue,
-    );
+    await writeValidatedSyncConfig(syncDirectory, nextConfig, context);
 
     return {
       alreadyTracked,
@@ -334,14 +322,7 @@ export const trackTarget = async (
       }),
     });
 
-    await writeValidatedSyncConfig(
-      syncDirectory,
-      nextConfig,
-      platformKey,
-      homeDirectory,
-      xdgConfigHome,
-      readEnvValue,
-    );
+    await writeValidatedSyncConfig(syncDirectory, nextConfig, context);
   }
 
   return {

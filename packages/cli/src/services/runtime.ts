@@ -6,7 +6,6 @@ import {
   resolveActiveProfileSelection,
 } from "#app/config/global-config.ts";
 import { resolveDefaultIdentityFile } from "#app/config/identity-file.ts";
-import type { PlatformKey } from "#app/config/platform.ts";
 import {
   readEnvValue,
   resolveCurrentPlatformKey,
@@ -16,14 +15,13 @@ import {
   resolveXdgConfigHomeFromEnv,
 } from "#app/config/runtime-env.ts";
 import {
-  type ResolvedSyncConfig,
+  type AgeConfig,
+  type ResolvedManifest,
   readSyncConfig,
   resolveSyncConfigFilePath,
-  type SyncAgeConfig,
-  syncDefaultProfile,
+  type SyncConfigResolutionContext,
 } from "#app/config/sync.ts";
 import { DevsyncError } from "#app/lib/error.ts";
-import { ensureGitRepository } from "#app/lib/git.ts";
 
 export type RuntimeAgeConfig = Readonly<{
   identityFile: string;
@@ -38,7 +36,7 @@ export type SyncPaths = Readonly<{
   syncDirectory: string;
 }>;
 
-export type EffectiveSyncConfig = ResolvedSyncConfig &
+export type EffectiveSyncConfig = ResolvedManifest &
   Readonly<{
     activeProfile?: string;
     age: RuntimeAgeConfig;
@@ -46,14 +44,8 @@ export type EffectiveSyncConfig = ResolvedSyncConfig &
 
 export type LoadedSyncConfig = Readonly<{
   effectiveConfig: EffectiveSyncConfig;
-  fullConfig: ResolvedSyncConfig;
+  fullConfig: ResolvedManifest;
   globalConfig?: GlobalDevsyncConfig;
-}>;
-
-export type SyncConfigResolutionContext = Readonly<{
-  homeDirectory: string;
-  platformKey: PlatformKey;
-  xdgConfigHome: string;
 }>;
 
 export const resolveSyncConfigResolutionContext =
@@ -61,6 +53,7 @@ export const resolveSyncConfigResolutionContext =
     return {
       homeDirectory: resolveHomeDirectoryFromEnv(),
       platformKey: resolveCurrentPlatformKey(),
+      readEnv: readEnvValue,
       xdgConfigHome: resolveXdgConfigHomeFromEnv(),
     };
   };
@@ -77,13 +70,7 @@ export const resolveSyncPaths = (): SyncPaths => {
   };
 };
 
-export const ensureSyncRepository = async (syncDirectory: string) => {
-  await ensureGitRepository(syncDirectory);
-};
-
-export const resolveAgeFromSyncConfig = (
-  age: SyncAgeConfig,
-): RuntimeAgeConfig => {
+export const resolveAgeFromSyncConfig = (age: AgeConfig): RuntimeAgeConfig => {
   return {
     identityFile: resolveDefaultIdentityFile(
       readEnvValue("HOME"),
@@ -94,7 +81,7 @@ export const resolveAgeFromSyncConfig = (
 };
 
 export const buildEffectiveSyncConfig = (
-  fullConfig: ResolvedSyncConfig,
+  fullConfig: ResolvedManifest,
   selection: ActiveProfileSelection,
   age: RuntimeAgeConfig,
 ): EffectiveSyncConfig => {
@@ -102,9 +89,10 @@ export const buildEffectiveSyncConfig = (
     selection.mode === "single" ? selection.profile : undefined;
 
   const effectiveProfile =
-    activeProfile !== undefined && activeProfile !== syncDefaultProfile
+    activeProfile !== undefined &&
+    activeProfile !== CONSTANTS.SYNC.DEFAULT_PROFILE
       ? activeProfile
-      : syncDefaultProfile;
+      : CONSTANTS.SYNC.DEFAULT_PROFILE;
 
   const entries = fullConfig.entries.filter(
     (entry) =>
@@ -125,15 +113,8 @@ export const loadSyncConfig = async (
     profile?: string;
   }> = {},
 ): Promise<LoadedSyncConfig> => {
-  const { homeDirectory, platformKey, xdgConfigHome } =
-    resolveSyncConfigResolutionContext();
-  const fullConfig = await readSyncConfig(
-    syncDirectory,
-    platformKey,
-    homeDirectory,
-    xdgConfigHome,
-    readEnvValue,
-  );
+  const context = resolveSyncConfigResolutionContext();
+  const fullConfig = await readSyncConfig(syncDirectory, context);
   const globalConfig = await readGlobalDevsyncConfig(
     resolveDevsyncGlobalConfigFilePathFromEnv(),
   );

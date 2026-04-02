@@ -10,11 +10,11 @@ import {
 import { resolveDefaultIdentityFile } from "#app/config/identity-file.ts";
 import { readEnvValue } from "#app/config/runtime-env.ts";
 import {
+  type AgeConfig,
   createInitialSyncConfig,
   formatSyncConfig,
   parseSyncConfig,
   readSyncConfig,
-  type SyncAgeConfig,
   syncConfigFileName,
 } from "#app/config/sync.ts";
 import {
@@ -24,9 +24,12 @@ import {
 } from "#app/lib/crypto.ts";
 import { DevsyncError, wrapUnknownError } from "#app/lib/error.ts";
 import { pathExists, writeTextFileAtomically } from "#app/lib/filesystem.ts";
-import { ensureRepository, initializeRepository } from "#app/lib/git.ts";
 import {
-  ensureSyncRepository,
+  ensureGitRepository,
+  ensureRepository,
+  initializeRepository,
+} from "#app/lib/git.ts";
+import {
   resolveAgeFromSyncConfig,
   resolveSyncConfigResolutionContext,
   resolveSyncPaths,
@@ -133,7 +136,7 @@ const resolveInitAgeBootstrap = async (
 };
 
 const assertInitRequestMatchesConfig = (
-  age: SyncAgeConfig | undefined,
+  age: AgeConfig | undefined,
   request: InitRequest,
 ) => {
   if (age === undefined) {
@@ -206,22 +209,15 @@ export const initializeSyncDirectory = async (
 ): Promise<InitResult> => {
   reporter?.start("Initializing sync directory...");
   const { syncDirectory, configPath, globalConfigPath } = resolveSyncPaths();
-  const { homeDirectory, platformKey, xdgConfigHome } =
-    resolveSyncConfigResolutionContext();
+  const context = resolveSyncConfigResolutionContext();
   const configExists = await pathExists(configPath);
 
   if (configExists) {
     reporter?.start("Checking the existing sync repository...");
-    await ensureSyncRepository(syncDirectory);
+    await ensureGitRepository(syncDirectory);
 
     reporter?.start("Loading the existing sync manifest...");
-    const config = await readSyncConfig(
-      syncDirectory,
-      platformKey,
-      homeDirectory,
-      xdgConfigHome,
-      readEnvValue,
-    );
+    const config = await readSyncConfig(syncDirectory, context);
     assertInitRequestMatchesConfig(config.age, request);
 
     await resolveInitAgeBootstrap(request, reporter);
@@ -311,13 +307,7 @@ export const initializeSyncDirectory = async (
 
   if (await pathExists(configPath)) {
     reporter?.start("Loading the existing sync manifest...");
-    const config = await readSyncConfig(
-      syncDirectory,
-      platformKey,
-      homeDirectory,
-      xdgConfigHome,
-      readEnvValue,
-    );
+    const config = await readSyncConfig(syncDirectory, context);
     assertInitRequestMatchesConfig(config.age, request);
 
     const ageBootstrap = await resolveInitAgeBootstrap(request, reporter);
@@ -370,13 +360,7 @@ export const initializeSyncDirectory = async (
   });
 
   reporter?.start("Writing sync manifest...");
-  parseSyncConfig(
-    initialConfig,
-    platformKey,
-    homeDirectory,
-    xdgConfigHome,
-    readEnvValue,
-  );
+  parseSyncConfig(initialConfig, context);
   await writeFile(configPath, formatSyncConfig(initialConfig), "utf8");
 
   return {

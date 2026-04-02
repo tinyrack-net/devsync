@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type {
-  ResolvedSyncConfig,
+  ResolvedManifest,
   ResolvedSyncConfigEntry,
 } from "#app/config/sync.ts";
 
@@ -12,7 +12,7 @@ const mocked = vi.hoisted(() => ({
   createSyncConfigDocument: vi.fn((config: unknown) => ({
     document: config,
   })),
-  ensureSyncRepository: vi.fn(),
+  ensureGitRepository: vi.fn(),
   expandHomePath: vi.fn(),
   findOwningSyncEntry: vi.fn(),
   getPathStats: vi.fn(),
@@ -23,6 +23,7 @@ const mocked = vi.hoisted(() => ({
   resolveSyncConfigResolutionContext: vi.fn(() => ({
     homeDirectory: "/tmp/home",
     platformKey: "linux",
+    readEnv: (_name: string) => undefined as string | undefined,
     xdgConfigHome: "/tmp/home/.config",
   })),
   resolveSyncPaths: vi.fn(() => ({
@@ -66,8 +67,11 @@ vi.mock("./paths.ts", () => ({
   tryNormalizeRepoPathInput: mocked.tryNormalizeRepoPathInput,
 }));
 
+vi.mock("#app/lib/git.ts", () => ({
+  ensureGitRepository: mocked.ensureGitRepository,
+}));
+
 vi.mock("./runtime.ts", () => ({
-  ensureSyncRepository: mocked.ensureSyncRepository,
   resolveSyncConfigResolutionContext: mocked.resolveSyncConfigResolutionContext,
   resolveSyncPaths: mocked.resolveSyncPaths,
 }));
@@ -76,7 +80,7 @@ import { resolveSetTarget, setTargetMode } from "./set.ts";
 
 const createConfig = (
   entries: readonly ResolvedSyncConfigEntry[],
-): ResolvedSyncConfig => ({
+): ResolvedManifest => ({
   entries: [...entries],
   version: 7,
 });
@@ -320,7 +324,7 @@ describe("sync set service", () => {
     const entry = fileEntry();
     const config = createConfig([entry]);
 
-    mocked.ensureSyncRepository.mockResolvedValueOnce(undefined);
+    mocked.ensureGitRepository.mockResolvedValueOnce(undefined);
     mocked.readSyncConfig.mockResolvedValueOnce(config);
     mocked.isExplicitLocalPath.mockReturnValueOnce(false);
     mocked.expandHomePath.mockReturnValueOnce(".gitconfig");
@@ -349,7 +353,7 @@ describe("sync set service", () => {
     });
     const config = createConfig([entry]);
 
-    mocked.ensureSyncRepository.mockResolvedValueOnce(undefined);
+    mocked.ensureGitRepository.mockResolvedValueOnce(undefined);
     mocked.readSyncConfig.mockResolvedValueOnce(config);
     mocked.isExplicitLocalPath.mockReturnValueOnce(false);
     mocked.expandHomePath.mockReturnValueOnce(".gitconfig");
@@ -381,7 +385,7 @@ describe("sync set service", () => {
     const entry = directoryEntry();
     const config = createConfig([entry]);
 
-    mocked.ensureSyncRepository.mockResolvedValueOnce(undefined);
+    mocked.ensureGitRepository.mockResolvedValueOnce(undefined);
     mocked.readSyncConfig.mockResolvedValueOnce(config);
     mocked.isExplicitLocalPath.mockReturnValueOnce(false);
     mocked.expandHomePath.mockReturnValueOnce(".config/app/private.txt");
@@ -431,7 +435,7 @@ describe("sync set service", () => {
     const entry = directoryEntry();
     const config = createConfig([entry]);
 
-    mocked.ensureSyncRepository.mockResolvedValueOnce(undefined);
+    mocked.ensureGitRepository.mockResolvedValueOnce(undefined);
     mocked.readSyncConfig.mockResolvedValueOnce(config);
     mocked.isExplicitLocalPath.mockReturnValueOnce(false);
     mocked.expandHomePath.mockReturnValueOnce(".config/app/notes.txt");

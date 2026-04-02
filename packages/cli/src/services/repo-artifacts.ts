@@ -1,13 +1,12 @@
 import { lstat, mkdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { ConsolaInstance } from "consola";
+import { CONSTANTS } from "#app/config/constants.ts";
 import {
   findOwningSyncEntry,
   hasReservedSyncArtifactSuffixSegment,
   type ResolvedSyncConfigEntry,
   resolveSyncRule,
-  syncDefaultProfile,
-  syncSecretArtifactSuffix,
 } from "#app/config/sync.ts";
 import { decryptSecretFile, encryptSecretFile } from "#app/lib/crypto.ts";
 import { DevsyncError } from "#app/lib/error.ts";
@@ -36,7 +35,7 @@ export const collectArtifactNamespaces = (
   entries: readonly Pick<ResolvedSyncConfigEntry, "profiles">[],
 ) => {
   const namespaces = new Set<string>();
-  namespaces.add(syncDefaultProfile);
+  namespaces.add(CONSTANTS.SYNC.DEFAULT_PROFILE);
 
   for (const entry of entries) {
     for (const profile of entry.profiles) {
@@ -87,7 +86,7 @@ export const buildArtifactKey = (artifact: RepoArtifact) => {
 };
 
 export const isSecretArtifactPath = (relativePath: string) => {
-  return relativePath.endsWith(syncSecretArtifactSuffix);
+  return relativePath.endsWith(CONSTANTS.SYNC.SECRET_ARTIFACT_SUFFIX);
 };
 
 export const stripSecretArtifactSuffix = (relativePath: string) => {
@@ -95,7 +94,7 @@ export const stripSecretArtifactSuffix = (relativePath: string) => {
     return undefined;
   }
 
-  return relativePath.slice(0, -syncSecretArtifactSuffix.length);
+  return relativePath.slice(0, -CONSTANTS.SYNC.SECRET_ARTIFACT_SUFFIX.length);
 };
 
 export const assertStorageSafeRepoPath = (repoPath: string) => {
@@ -104,7 +103,7 @@ export const assertStorageSafeRepoPath = (repoPath: string) => {
   }
 
   throw new DevsyncError(
-    `Tracked sync paths must not use the reserved suffix ${syncSecretArtifactSuffix}.`,
+    `Tracked sync paths must not use the reserved suffix ${CONSTANTS.SYNC.SECRET_ARTIFACT_SUFFIX}.`,
     {
       code: "RESERVED_SECRET_SUFFIX",
       details: [`Repository path: ${repoPath}`],
@@ -119,14 +118,14 @@ export const resolveArtifactRelativePath = (
   const profileRelativePath = `${artifact.profile}/${artifact.repoPath}`;
 
   return artifact.category === "secret"
-    ? `${profileRelativePath}${syncSecretArtifactSuffix}`
+    ? `${profileRelativePath}${CONSTANTS.SYNC.SECRET_ARTIFACT_SUFFIX}`
     : profileRelativePath;
 };
 
 export const parseArtifactRelativePath = (relativePath: string) => {
-  const secret = relativePath.endsWith(syncSecretArtifactSuffix);
+  const secret = relativePath.endsWith(CONSTANTS.SYNC.SECRET_ARTIFACT_SUFFIX);
   const logicalPath = secret
-    ? relativePath.slice(0, -syncSecretArtifactSuffix.length)
+    ? relativePath.slice(0, -CONSTANTS.SYNC.SECRET_ARTIFACT_SUFFIX.length)
     : relativePath;
   const segments = logicalPath.split("/");
 

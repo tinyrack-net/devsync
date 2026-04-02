@@ -1,5 +1,4 @@
 import { isAbsolute, join, posix, relative, resolve } from "node:path";
-import { readEnvValue } from "#app/config/runtime-env.ts";
 import {
   findOwningSyncEntry,
   normalizeSyncRepoPath,
@@ -12,6 +11,7 @@ import {
 import { expandHomePath } from "#app/config/xdg.ts";
 import { DevsyncError } from "#app/lib/error.ts";
 import { getPathStats } from "#app/lib/filesystem.ts";
+import { ensureGitRepository } from "#app/lib/git.ts";
 import { isExplicitLocalPath } from "#app/lib/path.ts";
 import {
   createSyncConfigDocument,
@@ -24,7 +24,6 @@ import {
   tryNormalizeRepoPathInput,
 } from "./paths.ts";
 import {
-  ensureSyncRepository,
   resolveSyncConfigResolutionContext,
   resolveSyncPaths,
 } from "./runtime.ts";
@@ -308,23 +307,16 @@ export const setTargetMode = async (
   cwd: string,
 ): Promise<SetModeResult> => {
   const { syncDirectory, configPath } = resolveSyncPaths();
-  const { homeDirectory, platformKey, xdgConfigHome } =
-    resolveSyncConfigResolutionContext();
+  const context = resolveSyncConfigResolutionContext();
 
-  await ensureSyncRepository(syncDirectory);
+  await ensureGitRepository(syncDirectory);
 
-  const config = await readSyncConfig(
-    syncDirectory,
-    platformKey,
-    homeDirectory,
-    xdgConfigHome,
-    readEnvValue,
-  );
+  const config = await readSyncConfig(syncDirectory, context);
   const target = await resolveSetTarget(
     request.target,
     config,
     cwd,
-    homeDirectory,
+    context.homeDirectory,
   );
 
   const buildResult = (
@@ -365,14 +357,7 @@ export const setTargetMode = async (
     });
 
     if (action !== "unchanged") {
-      await writeValidatedSyncConfig(
-        syncDirectory,
-        nextConfig,
-        platformKey,
-        homeDirectory,
-        xdgConfigHome,
-        readEnvValue,
-      );
+      await writeValidatedSyncConfig(syncDirectory, nextConfig, context);
     }
 
     return buildResult(action);
@@ -381,7 +366,7 @@ export const setTargetMode = async (
   const childKind = target.stats?.isDirectory() ? "directory" : "file";
   const childRepoPath = target.repoPath;
   const childLocalRelativePath = resolveRelativeLocalPath(
-    homeDirectory,
+    context.homeDirectory,
     target.localPath,
   );
 
@@ -392,9 +377,9 @@ export const setTargetMode = async (
         code: "TARGET_OUTSIDE_ROOT",
         details: [
           `Target: ${target.localPath}`,
-          `Allowed root: ${homeDirectory}`,
+          `Allowed root: ${context.homeDirectory}`,
         ],
-        hint: `Use a path inside ${homeDirectory}.`,
+        hint: `Use a path inside ${context.homeDirectory}.`,
       },
     );
   }
@@ -435,14 +420,7 @@ export const setTargetMode = async (
       }),
     });
 
-    await writeValidatedSyncConfig(
-      syncDirectory,
-      nextConfig,
-      platformKey,
-      homeDirectory,
-      xdgConfigHome,
-      readEnvValue,
-    );
+    await writeValidatedSyncConfig(syncDirectory, nextConfig, context);
 
     return buildResult("updated");
   }
@@ -476,14 +454,7 @@ export const setTargetMode = async (
     entries: [...config.entries, newEntry],
   });
 
-  await writeValidatedSyncConfig(
-    syncDirectory,
-    nextConfig,
-    platformKey,
-    homeDirectory,
-    xdgConfigHome,
-    readEnvValue,
-  );
+  await writeValidatedSyncConfig(syncDirectory, nextConfig, context);
 
   return buildResult("added");
 };

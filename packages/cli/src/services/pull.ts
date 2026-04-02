@@ -1,5 +1,6 @@
 import type { ConsolaInstance } from "consola";
 import { resolveSyncConfigFilePath } from "#app/config/sync.ts";
+import { ensureGitRepository } from "#app/lib/git.ts";
 import {
   applyEntryMaterialization,
   buildEntryMaterialization,
@@ -7,10 +8,8 @@ import {
   countDeletedLocalNodes,
 } from "./local-materialization.ts";
 import { buildRepositorySnapshot } from "./repo-snapshot.ts";
-
 import {
   type EffectiveSyncConfig,
-  ensureSyncRepository,
   loadSyncConfig,
   resolveSyncPaths,
 } from "./runtime.ts";
@@ -134,7 +133,7 @@ export const pullChanges = async (
   const { syncDirectory } = resolveSyncPaths();
 
   reporter?.start("Checking sync repository...");
-  await ensureSyncRepository(syncDirectory);
+  await ensureGitRepository(syncDirectory);
 
   reporter?.start("Loading sync configuration...");
   const { effectiveConfig: config } = await loadSyncConfig(syncDirectory, {

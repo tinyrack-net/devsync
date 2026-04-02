@@ -4,7 +4,7 @@ import {
   type SyncConfigEntryKind,
   type SyncMode,
 } from "#app/config/sync.ts";
-
+import { ensureGitRepository } from "#app/lib/git.ts";
 import {
   buildPullPlan,
   buildPullPlanPreview,
@@ -15,11 +15,7 @@ import {
   buildPushPlanPreview,
   buildPushResultFromPlan,
 } from "./push.ts";
-import {
-  ensureSyncRepository,
-  loadSyncConfig,
-  resolveSyncPaths,
-} from "./runtime.ts";
+import { loadSyncConfig, resolveSyncPaths } from "./runtime.ts";
 
 export type StatusEntry = Readonly<{
   kind: SyncConfigEntryKind;
@@ -57,7 +53,7 @@ export const getStatus = async (
   const configPath = resolveSyncConfigFilePath(syncDirectory);
 
   reporter?.start("Checking sync repository...");
-  await ensureSyncRepository(syncDirectory);
+  await ensureGitRepository(syncDirectory);
 
   reporter?.start("Loading sync configuration...");
   const { effectiveConfig, fullConfig } = await loadSyncConfig(

@@ -1,6 +1,5 @@
 import { readdir, rm } from "node:fs/promises";
 import { dirname, join, posix } from "node:path";
-import { readEnvValue } from "#app/config/runtime-env.ts";
 import {
   type ResolvedSyncConfigEntry,
   readSyncConfig,
@@ -11,6 +10,7 @@ import {
   listDirectoryEntries,
   removePathAtomically,
 } from "#app/lib/filesystem.ts";
+import { ensureGitRepository } from "#app/lib/git.ts";
 import { isPathEqualOrNested } from "#app/lib/path.ts";
 import {
   createSyncConfigDocument,
@@ -23,7 +23,6 @@ import {
   resolveArtifactRelativePath,
 } from "./repo-artifacts.ts";
 import {
-  ensureSyncRepository,
   resolveSyncConfigResolutionContext,
   resolveSyncPaths,
 } from "./runtime.ts";
@@ -202,19 +201,17 @@ export const untrackTarget = async (
   }
 
   const { syncDirectory, configPath } = resolveSyncPaths();
-  const { homeDirectory, platformKey, xdgConfigHome } =
-    resolveSyncConfigResolutionContext();
+  const context = resolveSyncConfigResolutionContext();
 
-  await ensureSyncRepository(syncDirectory);
+  await ensureGitRepository(syncDirectory);
 
-  const config = await readSyncConfig(
-    syncDirectory,
-    platformKey,
-    homeDirectory,
-    xdgConfigHome,
-    readEnvValue,
+  const config = await readSyncConfig(syncDirectory, context);
+  const entry = resolveTrackedEntry(
+    target,
+    config.entries,
+    cwd,
+    context.homeDirectory,
   );
-  const entry = resolveTrackedEntry(target, config.entries, cwd, homeDirectory);
 
   if (entry === undefined) {
     throw new DevsyncError(`No tracked sync entry matches: ${target}`);
@@ -229,14 +226,7 @@ export const untrackTarget = async (
     }),
   });
 
-  await writeValidatedSyncConfig(
-    syncDirectory,
-    nextConfig,
-    platformKey,
-    homeDirectory,
-    xdgConfigHome,
-    readEnvValue,
-  );
+  await writeValidatedSyncConfig(syncDirectory, nextConfig, context);
   await removeTrackedEntryArtifacts(syncDirectory, entry);
 
   return {

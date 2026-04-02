@@ -13,7 +13,7 @@ vi.mock("#app/lib/env.ts", () => ({
 }));
 
 import type { ConsolaInstance } from "consola";
-import { syncSecretArtifactSuffix } from "#app/config/sync.ts";
+import { CONSTANTS } from "#app/config/constants.ts";
 import { initializeSyncDirectory } from "#app/services/init.ts";
 import { pullChanges } from "#app/services/pull.ts";
 import { pushChanges } from "#app/services/push.ts";
@@ -149,7 +149,7 @@ describe("sync dry runs", () => {
           "sync",
           "default",
           "bundle",
-          `token.txt${syncSecretArtifactSuffix}`,
+          `token.txt${CONSTANTS.SYNC.SECRET_ARTIFACT_SUFFIX}`,
         ),
         "utf8",
       ),

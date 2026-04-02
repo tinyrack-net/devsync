@@ -3,7 +3,7 @@ import { basename, dirname, join, posix } from "node:path";
 import type { ConsolaInstance } from "consola";
 import {
   collectChildEntryPaths,
-  type ResolvedSyncConfig,
+  type ResolvedManifest,
   type ResolvedSyncConfigEntry,
   resolveManagedSyncMode,
   resolveSyncRule,
@@ -22,7 +22,7 @@ import {
 import { buildDirectoryKey } from "#app/lib/path.ts";
 import type { FileLikeSnapshotNode, SnapshotNode } from "./local-snapshot.ts";
 
-type MaterializationConfig = ResolvedSyncConfig &
+type MaterializationConfig = ResolvedManifest &
   Readonly<{
     activeProfile?: string;
   }>;

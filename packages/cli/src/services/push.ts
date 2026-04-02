@@ -2,6 +2,7 @@ import { join } from "node:path";
 import type { ConsolaInstance } from "consola";
 import { resolveSyncConfigFilePath } from "#app/config/sync.ts";
 import { removePathAtomically } from "#app/lib/filesystem.ts";
+import { ensureGitRepository } from "#app/lib/git.ts";
 import { buildLocalSnapshot, type SnapshotNode } from "./local-snapshot.ts";
 import {
   buildArtifactKey,
@@ -12,7 +13,6 @@ import {
 } from "./repo-artifacts.ts";
 import {
   type EffectiveSyncConfig,
-  ensureSyncRepository,
   loadSyncConfig,
   resolveSyncPaths,
 } from "./runtime.ts";
@@ -146,7 +146,7 @@ export const pushChanges = async (
   const { syncDirectory } = resolveSyncPaths();
 
   reporter?.start("Checking sync repository...");
-  await ensureSyncRepository(syncDirectory);
+  await ensureGitRepository(syncDirectory);
 
   reporter?.start("Loading sync configuration...");
   const { effectiveConfig: config } = await loadSyncConfig(syncDirectory, {

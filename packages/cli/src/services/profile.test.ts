@@ -5,7 +5,7 @@ const mocked = vi.hoisted(() => ({
   createSyncConfigDocument: vi.fn((config: unknown) => ({
     document: config,
   })),
-  ensureSyncRepository: vi.fn(),
+  ensureGitRepository: vi.fn(),
   formatGlobalDevsyncConfig: vi.fn((config: unknown) =>
     JSON.stringify(config, null, 2),
   ),
@@ -17,6 +17,7 @@ const mocked = vi.hoisted(() => ({
   resolveSyncConfigResolutionContext: vi.fn(() => ({
     homeDirectory: "/tmp/home",
     platformKey: "linux",
+    readEnv: (_name: string) => undefined as string | undefined,
     xdgConfigHome: "/tmp/home/.config",
   })),
   resolveSyncPaths: vi.fn(() => ({
@@ -54,8 +55,11 @@ vi.mock("./paths.ts", () => ({
   resolveTrackedEntry: mocked.resolveTrackedEntry,
 }));
 
+vi.mock("#app/lib/git.ts", () => ({
+  ensureGitRepository: mocked.ensureGitRepository,
+}));
+
 vi.mock("./runtime.ts", () => ({
-  ensureSyncRepository: mocked.ensureSyncRepository,
   resolveSyncConfigResolutionContext: mocked.resolveSyncConfigResolutionContext,
   resolveSyncPaths: mocked.resolveSyncPaths,
 }));
@@ -120,7 +124,7 @@ describe("sync profiles service", () => {
       globalConfigPath: "/tmp/devsync/global.json",
       syncDirectory: "/tmp/devsync",
     });
-    expect(mocked.ensureSyncRepository).toHaveBeenCalledWith("/tmp/devsync");
+    expect(mocked.ensureGitRepository).toHaveBeenCalledWith("/tmp/devsync");
   });
 
   it("reports no active profile when the global config is absent", async () => {
@@ -188,7 +192,7 @@ describe("sync profiles service", () => {
     await expect(
       assignProfiles({ profiles: ["work"], target: "   " }, "/tmp/cwd"),
     ).rejects.toThrowError("Target path is required.");
-    expect(mocked.ensureSyncRepository).not.toHaveBeenCalled();
+    expect(mocked.ensureGitRepository).not.toHaveBeenCalled();
   });
 
   it("rejects assignments for untracked targets", async () => {
@@ -282,10 +286,11 @@ describe("sync profiles service", () => {
           ],
         },
       },
-      "linux",
-      "/tmp/home",
-      "/tmp/home/.config",
-      expect.any(Function),
+      expect.objectContaining({
+        homeDirectory: "/tmp/home",
+        platformKey: "linux",
+        xdgConfigHome: "/tmp/home/.config",
+      }),
     );
   });
 

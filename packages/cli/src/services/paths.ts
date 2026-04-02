@@ -1,6 +1,6 @@
 import { isAbsolute, relative, resolve } from "node:path";
 
-import type { PlatformLocalPath } from "#app/config/platform.ts";
+import type { PlatformStringValue } from "#app/config/platform.ts";
 import {
   normalizeSyncRepoPath,
   type ResolvedSyncConfigEntry,
@@ -50,7 +50,7 @@ export const buildRepoPathWithinRoot = (
 
 export const buildConfiguredHomeLocalPath = (
   repoPath: string,
-): PlatformLocalPath => {
+): PlatformStringValue => {
   return {
     default: `${homePrefix}${shellPathSeparator}${repoPath}`,
   };
