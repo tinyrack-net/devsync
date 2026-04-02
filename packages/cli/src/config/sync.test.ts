@@ -180,7 +180,7 @@ describe("sync config", () => {
     ).toThrowError("Sync configuration is invalid.");
   });
 
-  it("rejects age.identityFile in the manifest", async () => {
+  it("rejects age.identityFile in the config", async () => {
     const workspace = await createTemporaryDirectory("devsync-sync-config-");
     const homeDirectory = join(workspace, "home");
 
@@ -201,7 +201,7 @@ describe("sync config", () => {
     ).toThrowError("Sync configuration is invalid.");
   });
 
-  it("rejects string repoPath in the manifest", async () => {
+  it("rejects string repoPath in the config", async () => {
     const workspace = await createTemporaryDirectory("devsync-sync-config-");
     const homeDirectory = join(workspace, "home");
 
@@ -611,7 +611,7 @@ describe("sync config", () => {
     expect(leaf?.mode).toBe("secret");
   });
 
-  it("entry order in manifest does not affect inheritance", async () => {
+  it("entry order in config does not affect inheritance", async () => {
     const workspace = await createTemporaryDirectory("devsync-sync-config-");
     const homeDirectory = join(workspace, "home");
 
