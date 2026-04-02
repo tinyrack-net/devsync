@@ -1,6 +1,8 @@
 import { resolve } from "node:path";
 
-import { resolveConfiguredIdentityFile } from "#app/config/identity-file.ts";
+import { resolveDefaultIdentityFile } from "#app/config/identity-file.ts";
+import type { PlatformRepoPath } from "#app/config/platform.ts";
+import { readEnvValue } from "#app/config/runtime-env.ts";
 import {
   normalizeSyncProfileName,
   normalizeSyncRepoPath,
@@ -11,7 +13,6 @@ import {
   type SyncMode,
 } from "#app/config/sync.ts";
 import { expandHomePath } from "#app/config/xdg.ts";
-import { ENV } from "#app/lib/env.ts";
 import { DevsyncError } from "#app/lib/error.ts";
 import { getPathStats } from "#app/lib/filesystem.ts";
 import { doPathsOverlap } from "#app/lib/path.ts";
@@ -23,7 +24,11 @@ import {
   buildConfiguredHomeLocalPath,
   buildRepoPathWithinRoot,
 } from "./paths.ts";
-import { ensureSyncRepository, resolveSyncPaths } from "./runtime.ts";
+import {
+  ensureSyncRepository,
+  resolveSyncConfigResolutionContext,
+  resolveSyncPaths,
+} from "./runtime.ts";
 
 export type TrackRequest = Readonly<{
   profiles?: readonly string[];
@@ -56,6 +61,10 @@ const hasPlatformSpecificModeOverride = (configuredMode: PlatformSyncMode) => {
     configuredMode.wsl !== undefined
   );
 };
+
+const buildDefaultPlatformRepoPath = (repoPath: string): PlatformRepoPath => ({
+  default: normalizeSyncRepoPath(repoPath),
+});
 
 const buildTrackEntryCandidate = async (
   targetPath: string,
@@ -128,8 +137,8 @@ const buildTrackEntryCandidate = async (
   const configuredRepoPath =
     input.repoPath === undefined
       ? undefined
-      : normalizeSyncRepoPath(input.repoPath);
-  const repoPath = configuredRepoPath ?? localRepoPath;
+      : buildDefaultPlatformRepoPath(input.repoPath);
+  const repoPath = configuredRepoPath?.default ?? localRepoPath;
 
   return {
     configuredLocalPath,
@@ -159,14 +168,25 @@ export const trackTarget = async (
     });
   }
 
-  const { syncDirectory, configPath, homeDirectory } = resolveSyncPaths();
+  const { syncDirectory, configPath } = resolveSyncPaths();
+  const { homeDirectory, platformKey, xdgConfigHome } =
+    resolveSyncConfigResolutionContext();
 
   await ensureSyncRepository(syncDirectory);
 
-  const config = await readSyncConfig(syncDirectory, ENV);
+  const config = await readSyncConfig(
+    syncDirectory,
+    platformKey,
+    homeDirectory,
+    xdgConfigHome,
+    readEnvValue,
+  );
   const identityFile =
     config.age !== undefined
-      ? resolveConfiguredIdentityFile(config.age.identityFile, ENV)
+      ? resolveDefaultIdentityFile(
+          readEnvValue("HOME"),
+          readEnvValue("XDG_CONFIG_HOME"),
+        )
       : undefined;
   const isProfileClear =
     request.profiles !== undefined &&
@@ -175,7 +195,7 @@ export const trackTarget = async (
   const effectiveProfiles = isProfileClear ? [] : request.profiles;
 
   const candidate = await buildTrackEntryCandidate(
-    resolve(cwd, expandHomePath(target, ENV)),
+    resolve(cwd, expandHomePath(target, homeDirectory)),
     syncDirectory,
     homeDirectory,
     {
@@ -243,7 +263,14 @@ export const trackTarget = async (
       entries: [...config.entries, nextEntry],
     });
 
-    await writeValidatedSyncConfig(syncDirectory, nextConfig);
+    await writeValidatedSyncConfig(
+      syncDirectory,
+      nextConfig,
+      platformKey,
+      homeDirectory,
+      xdgConfigHome,
+      readEnvValue,
+    );
 
     return {
       alreadyTracked,
@@ -271,7 +298,8 @@ export const trackTarget = async (
   const repoPathChanged =
     request.repoPath !== undefined &&
     (existingEntry?.repoPath !== nextEntry.repoPath ||
-      existingEntry?.configuredRepoPath !== nextEntry.configuredRepoPath);
+      JSON.stringify(existingEntry?.configuredRepoPath) !==
+        JSON.stringify(nextEntry.configuredRepoPath));
   const changed = modeChanged || profilesChanged || repoPathChanged;
 
   if (changed) {
@@ -306,7 +334,14 @@ export const trackTarget = async (
       }),
     });
 
-    await writeValidatedSyncConfig(syncDirectory, nextConfig);
+    await writeValidatedSyncConfig(
+      syncDirectory,
+      nextConfig,
+      platformKey,
+      homeDirectory,
+      xdgConfigHome,
+      readEnvValue,
+    );
   }
 
   return {

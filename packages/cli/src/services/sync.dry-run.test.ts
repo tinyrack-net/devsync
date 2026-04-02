@@ -89,7 +89,6 @@ describe("sync dry runs", () => {
 
     setEnvironment(homeDirectory, xdgConfigHome);
     await initializeSyncDirectory({
-      identityFile: "$XDG_CONFIG_HOME/devsync/keys.txt",
       recipients: [ageKeys.recipient],
     });
     await trackTarget(
@@ -175,7 +174,6 @@ describe("sync dry runs", () => {
 
     setEnvironment(homeDirectory, xdgConfigHome);
     await initializeSyncDirectory({
-      identityFile: "$XDG_CONFIG_HOME/devsync/keys.txt",
       recipients: [ageKeys.recipient],
     });
     await trackTarget(
@@ -230,7 +228,6 @@ describe("sync dry runs", () => {
 
     setEnvironment(homeDirectory, xdgConfigHome);
     await initializeSyncDirectory({
-      identityFile: "$XDG_CONFIG_HOME/devsync/keys.txt",
       recipients: [ageKeys.recipient],
     });
     await trackTarget(

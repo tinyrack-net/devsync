@@ -1,62 +1,70 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import {
   detectCurrentPlatformKey,
+  isWslEnvironment,
   resolveLocalPathForPlatform,
   resolveRepoPathForPlatform,
 } from "#app/config/platform.ts";
 
-vi.mock("node:os", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("node:os")>();
-
-  return {
-    ...actual,
-    platform: vi.fn(() => "linux"),
-    release: vi.fn(() => "6.6.0"),
-  };
-});
-
-afterEach(() => {
-  vi.restoreAllMocks();
-  vi.unstubAllEnvs();
-});
-
 describe("detectCurrentPlatformKey", () => {
-  it("maps win32 to win", async () => {
-    const os = await import("node:os");
-    vi.mocked(os.platform).mockReturnValue("win32");
-
-    expect(detectCurrentPlatformKey()).toBe("win");
+  it("maps win32 to win", () => {
+    expect(
+      detectCurrentPlatformKey("win32", "10.0.0", undefined, undefined),
+    ).toBe("win");
   });
 
-  it("maps darwin to mac", async () => {
-    const os = await import("node:os");
-    vi.mocked(os.platform).mockReturnValue("darwin");
-
-    expect(detectCurrentPlatformKey()).toBe("mac");
+  it("maps darwin to mac", () => {
+    expect(
+      detectCurrentPlatformKey("darwin", "24.0.0", undefined, undefined),
+    ).toBe("mac");
   });
 
-  it("maps linux to linux", async () => {
-    const os = await import("node:os");
-    vi.mocked(os.platform).mockReturnValue("linux");
-    vi.mocked(os.release).mockReturnValue("6.6.0");
-
-    expect(detectCurrentPlatformKey({})).toBe("linux");
+  it("maps linux to linux", () => {
+    expect(
+      detectCurrentPlatformKey("linux", "6.6.0", undefined, undefined),
+    ).toBe("linux");
   });
 
-  it("maps linux with WSL markers to wsl", async () => {
-    const os = await import("node:os");
-    vi.mocked(os.platform).mockReturnValue("linux");
-    vi.mocked(os.release).mockReturnValue("6.6.87.2-microsoft-standard-WSL2");
-
-    expect(detectCurrentPlatformKey()).toBe("wsl");
+  it("maps linux with WSL markers to wsl", () => {
+    expect(
+      detectCurrentPlatformKey(
+        "linux",
+        "6.6.87.2-microsoft-standard-WSL2",
+        undefined,
+        undefined,
+      ),
+    ).toBe("wsl");
   });
 
-  it("maps unknown platforms to linux", async () => {
-    const os = await import("node:os");
-    vi.mocked(os.platform).mockReturnValue("freebsd" as NodeJS.Platform);
+  it("maps unknown platforms to linux", () => {
+    expect(
+      detectCurrentPlatformKey(
+        "freebsd" as NodeJS.Platform,
+        "14.0.0",
+        undefined,
+        undefined,
+      ),
+    ).toBe("linux");
+  });
+});
 
-    expect(detectCurrentPlatformKey()).toBe("linux");
+describe("isWslEnvironment", () => {
+  it("accepts explicit WSL markers", () => {
+    expect(isWslEnvironment("6.6.0", "Ubuntu", undefined)).toBe(true);
+    expect(isWslEnvironment("6.6.0", undefined, "/run/WSL/1_interop")).toBe(
+      true,
+    );
+  });
+
+  it("detects WSL from os release", () => {
+    expect(
+      isWslEnvironment(
+        "6.6.87.2-microsoft-standard-WSL2",
+        undefined,
+        undefined,
+      ),
+    ).toBe(true);
   });
 });
 

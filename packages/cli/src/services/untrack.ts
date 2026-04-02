@@ -1,11 +1,10 @@
 import { readdir, rm } from "node:fs/promises";
 import { dirname, join, posix } from "node:path";
-
+import { readEnvValue } from "#app/config/runtime-env.ts";
 import {
   type ResolvedSyncConfigEntry,
   readSyncConfig,
 } from "#app/config/sync.ts";
-import { ENV } from "#app/lib/env.ts";
 import { DevsyncError } from "#app/lib/error.ts";
 import {
   getPathStats,
@@ -23,7 +22,11 @@ import {
   isSecretArtifactPath,
   resolveArtifactRelativePath,
 } from "./repo-artifacts.ts";
-import { ensureSyncRepository, resolveSyncPaths } from "./runtime.ts";
+import {
+  ensureSyncRepository,
+  resolveSyncConfigResolutionContext,
+  resolveSyncPaths,
+} from "./runtime.ts";
 
 export type UntrackRequest = Readonly<{
   target: string;
@@ -199,11 +202,19 @@ export const untrackTarget = async (
   }
 
   const { syncDirectory, configPath } = resolveSyncPaths();
+  const { homeDirectory, platformKey, xdgConfigHome } =
+    resolveSyncConfigResolutionContext();
 
   await ensureSyncRepository(syncDirectory);
 
-  const config = await readSyncConfig(syncDirectory, ENV);
-  const entry = resolveTrackedEntry(target, config.entries, cwd);
+  const config = await readSyncConfig(
+    syncDirectory,
+    platformKey,
+    homeDirectory,
+    xdgConfigHome,
+    readEnvValue,
+  );
+  const entry = resolveTrackedEntry(target, config.entries, cwd, homeDirectory);
 
   if (entry === undefined) {
     throw new DevsyncError(`No tracked sync entry matches: ${target}`);
@@ -218,7 +229,14 @@ export const untrackTarget = async (
     }),
   });
 
-  await writeValidatedSyncConfig(syncDirectory, nextConfig);
+  await writeValidatedSyncConfig(
+    syncDirectory,
+    nextConfig,
+    platformKey,
+    homeDirectory,
+    xdgConfigHome,
+    readEnvValue,
+  );
   await removeTrackedEntryArtifacts(syncDirectory, entry);
 
   return {

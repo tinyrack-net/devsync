@@ -26,8 +26,10 @@ const mocked = vi.hoisted(() => ({
   pathExists: vi.fn(),
   pullChanges: vi.fn(),
   pushChanges: vi.fn(),
+  readEnvValue: vi.fn(),
   resolveConfiguredAbsolutePath: vi.fn(),
-  resolveConfiguredIdentityFile: vi.fn(),
+  resolveDefaultIdentityFile: vi.fn(),
+  resolveDevsyncConfigDirectory: vi.fn(),
   resolveDevsyncSyncDirectory: vi.fn(),
   runDoctorChecks: vi.fn(),
   setActiveProfile: vi.fn(),
@@ -42,11 +44,16 @@ vi.mock("node:fs/promises", () => ({
 
 vi.mock("#app/config/xdg.ts", () => ({
   resolveConfiguredAbsolutePath: mocked.resolveConfiguredAbsolutePath,
-  resolveDevsyncSyncDirectory: mocked.resolveDevsyncSyncDirectory,
+  resolveDevsyncConfigDirectory: mocked.resolveDevsyncConfigDirectory,
+}));
+
+vi.mock("#app/config/runtime-env.ts", () => ({
+  readEnvValue: mocked.readEnvValue,
+  resolveDevsyncSyncDirectoryFromEnv: mocked.resolveDevsyncSyncDirectory,
 }));
 
 vi.mock("#app/config/identity-file.ts", () => ({
-  resolveConfiguredIdentityFile: mocked.resolveConfiguredIdentityFile,
+  resolveDefaultIdentityFile: mocked.resolveDefaultIdentityFile,
 }));
 
 vi.mock("#app/lib/env.ts", () => ({
@@ -70,7 +77,6 @@ vi.mock("#app/services/untrack.ts", () => ({
 }));
 
 vi.mock("#app/services/init.ts", () => ({
-  defaultSyncIdentityFile: "$XDG_CONFIG_HOME/devsync/keys.txt",
   initializeSyncDirectory: mocked.initializeSyncDirectory,
 }));
 
@@ -157,7 +163,7 @@ beforeEach(() => {
   process.exitCode = undefined;
   vi.clearAllMocks();
 
-  mocked.resolveConfiguredIdentityFile.mockReturnValue("/tmp/keys.txt");
+  mocked.resolveDefaultIdentityFile.mockReturnValue("/tmp/keys.txt");
   mocked.resolveConfiguredAbsolutePath.mockReturnValue("/tmp/keys.txt");
   mocked.resolveDevsyncSyncDirectory.mockReturnValue("/tmp/devsync");
   mocked.pathExists.mockResolvedValue(true);
@@ -324,7 +330,6 @@ describe("CLI command modules", () => {
       {
         ageIdentity: "AGE-SECRET-KEY-123",
         generateAgeIdentity: false,
-        identityFile: undefined,
         recipients: [],
         repository: "git@example.com:dotfiles.git",
       },
@@ -349,7 +354,6 @@ describe("CLI command modules", () => {
       {
         ageIdentity: undefined,
         generateAgeIdentity: true,
-        identityFile: undefined,
         recipients: [],
         repository: "origin",
       },

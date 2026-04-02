@@ -3,9 +3,7 @@ import { isAbsolute, join, posix, relative, sep } from "node:path";
 
 import { z } from "zod";
 import { CONSTANTS } from "#app/config/constants.ts";
-import { resolveConfiguredIdentityFile } from "#app/config/identity-file.ts";
 import {
-  detectCurrentPlatformKey,
   type PlatformKey,
   type PlatformLocalPath,
   type PlatformRepoPath,
@@ -13,12 +11,9 @@ import {
   resolveRepoPathForPlatform,
 } from "#app/config/platform.ts";
 import {
-  resolveDevsyncSyncDirectory,
   resolveHomeConfiguredAbsolutePath,
-  resolveHomeDirectory,
   resolvePlatformConfiguredAbsolutePath,
 } from "#app/config/xdg.ts";
-import { ENV, type Env } from "#app/lib/env.ts";
 import { DevsyncError } from "#app/lib/error.ts";
 import { parsePermissionOctal } from "#app/lib/file-mode.ts";
 import { doPathsOverlap } from "#app/lib/path.ts";
@@ -60,10 +55,7 @@ const platformRepoPathSchema = z
     wsl: requiredTrimmedStringSchema.optional(),
   })
   .strict();
-const repoPathSchema = z.union([
-  requiredTrimmedStringSchema,
-  platformRepoPathSchema,
-]);
+const repoPathSchema = platformRepoPathSchema;
 const platformSyncModeSchema = z
   .object({
     default: z.enum(syncModes),
@@ -104,7 +96,6 @@ const syncConfigEntrySchema = z
 
 const syncConfigAgeSchema = z
   .object({
-    identityFile: requiredTrimmedStringSchema,
     recipients: z
       .array(requiredTrimmedStringSchema)
       .min(1, "At least one age recipient is required."),
@@ -123,7 +114,7 @@ const syncConfigSchema = syncConfigSchemaV7;
 
 export type SyncConfigEntryKind = (typeof syncEntryKinds)[number];
 export type SyncMode = (typeof syncModes)[number];
-export type ConfiguredSyncRepoPath = string | PlatformRepoPath;
+export type ConfiguredSyncRepoPath = PlatformRepoPath;
 export type PlatformSyncMode = z.infer<typeof platformSyncModeSchema>;
 export type PlatformPermission = z.infer<typeof platformPermissionSchema>;
 export type SyncConfig = z.infer<typeof syncConfigSchema>;
@@ -145,7 +136,6 @@ export type ResolvedSyncConfigEntry = Readonly<{
 }>;
 
 export type SyncAgeConfig = Readonly<{
-  identityFile: string;
   recipients: readonly string[];
 }>;
 
@@ -189,10 +179,6 @@ const resolveSyncPermissionForPlatform = (
 const normalizeConfiguredRepoPath = (
   repoPath: ConfiguredSyncRepoPath,
 ): ConfiguredSyncRepoPath => {
-  if (typeof repoPath === "string") {
-    return normalizeSyncRepoPath(repoPath);
-  }
-
   return {
     default: normalizeSyncRepoPath(repoPath.default),
     ...(repoPath.win === undefined
@@ -214,9 +200,7 @@ const resolveConfiguredRepoPath = (
   repoPath: ConfiguredSyncRepoPath,
   platformKey: PlatformKey,
 ): string => {
-  return typeof repoPath === "string"
-    ? repoPath
-    : resolveRepoPathForPlatform(repoPath, platformKey);
+  return resolveRepoPathForPlatform(repoPath, platformKey);
 };
 
 export const normalizeSyncRepoPath = (value: string) => {
@@ -363,21 +347,20 @@ export const resolveEntryRelativeRepoPath = (
 
 const resolveSyncEntryLocalPath = (
   value: PlatformLocalPath,
-  environment: Env,
   platformKey: PlatformKey,
+  homeDirectory: string,
+  xdgConfigHome: string,
+  readEnv: (name: string) => string | undefined,
 ) => {
-  const homeDirectory = resolveHomeDirectory(environment);
-  const platformPath = resolveLocalPathForPlatform(
-    value,
-    platformKey,
-    environment,
-  );
+  const platformPath = resolveLocalPathForPlatform(value, platformKey);
   let resolvedLocalPath: string;
 
   try {
     resolvedLocalPath = resolvePlatformConfiguredAbsolutePath(
       platformPath,
-      environment,
+      homeDirectory,
+      xdgConfigHome,
+      readEnv,
     );
   } catch (error: unknown) {
     throw new DevsyncError(
@@ -423,12 +406,11 @@ const resolveSyncEntryLocalPath = (
 
 export const deriveRepoPathFromLocalPath = (
   localPath: PlatformLocalPath,
-  environment: Env,
+  homeDirectory: string,
 ) => {
-  const homeDirectory = resolveHomeDirectory(environment);
   const resolvedDefaultPath = resolveHomeConfiguredAbsolutePath(
     localPath.default,
-    environment,
+    homeDirectory,
   );
   const relativePath = relative(homeDirectory, resolvedDefaultPath);
 
@@ -625,12 +607,11 @@ const applyEntryInheritance = (
 
 export const parseSyncConfig = (
   input: unknown,
-  environment: Env = ENV,
-  options: Readonly<{
-    configPath?: string;
-  }> = {},
+  platformKey: PlatformKey,
+  homeDirectory: string,
+  xdgConfigHome: string,
+  readEnv: (name: string) => string | undefined,
 ): ResolvedSyncConfig => {
-  const platformKey = detectCurrentPlatformKey(environment);
   const result = syncConfigSchema.safeParse(input);
 
   if (!result.success) {
@@ -644,8 +625,10 @@ export const parseSyncConfig = (
   const rawEntries = result.data.entries.map((entry) => {
     const resolvedLocalPath = resolveSyncEntryLocalPath(
       entry.localPath,
-      environment,
       platformKey,
+      homeDirectory,
+      xdgConfigHome,
+      readEnv,
     );
     const configuredRepoPath =
       entry.repoPath === undefined
@@ -653,7 +636,7 @@ export const parseSyncConfig = (
         : normalizeConfiguredRepoPath(entry.repoPath);
     const repoPath =
       configuredRepoPath === undefined
-        ? deriveRepoPathFromLocalPath(entry.localPath, environment)
+        ? deriveRepoPathFromLocalPath(entry.localPath, homeDirectory)
         : resolveConfiguredRepoPath(configuredRepoPath, platformKey);
     const profiles = buildNormalizedProfiles(entry);
     const configuredMode = buildConfiguredMode(entry);
@@ -687,15 +670,8 @@ export const parseSyncConfig = (
     result.data.age === undefined
       ? undefined
       : {
-          identityFile: result.data.age.identityFile,
           recipients: [...new Set(result.data.age.recipients)],
         };
-
-  if (age !== undefined) {
-    resolveConfiguredIdentityFile(age.identityFile, environment, {
-      configPath: options.configPath,
-    });
-  }
 
   return {
     ...(age === undefined ? {} : { age }),
@@ -705,7 +681,6 @@ export const parseSyncConfig = (
 };
 
 export const createInitialSyncConfig = (age: {
-  identityFile: string;
   recipients: string[];
 }): SyncConfig => {
   return {
@@ -719,22 +694,20 @@ export const formatSyncConfig = (config: SyncConfig) => {
   return ensureTrailingNewline(JSON.stringify(config, null, 2));
 };
 
-export const resolveSyncConfigPath = (environment: Env = ENV) => {
-  return posix.join(
-    resolveDevsyncSyncDirectory(environment).replaceAll("\\", "/"),
-    syncConfigFileName,
-  );
+export const resolveSyncConfigPath = (syncDirectory: string) => {
+  return posix.join(syncDirectory.replaceAll("\\", "/"), syncConfigFileName);
 };
 
-export const resolveSyncConfigFilePath = (
-  syncDirectory: string = resolveDevsyncSyncDirectory(),
-) => {
+export const resolveSyncConfigFilePath = (syncDirectory: string) => {
   return join(syncDirectory, syncConfigFileName);
 };
 
 export const readSyncConfig = async (
-  syncDirectory: string = resolveDevsyncSyncDirectory(),
-  environment: Env = ENV,
+  syncDirectory: string,
+  platformKey: PlatformKey,
+  homeDirectory: string,
+  xdgConfigHome: string,
+  readEnv: (name: string) => string | undefined,
 ) => {
   try {
     const contents = await readFile(
@@ -742,9 +715,13 @@ export const readSyncConfig = async (
       "utf8",
     );
 
-    return parseSyncConfig(JSON.parse(contents) as unknown, environment, {
-      configPath: resolveSyncConfigFilePath(syncDirectory),
-    });
+    return parseSyncConfig(
+      JSON.parse(contents) as unknown,
+      platformKey,
+      homeDirectory,
+      xdgConfigHome,
+      readEnv,
+    );
   } catch (error: unknown) {
     if (error instanceof DevsyncError) {
       throw error;

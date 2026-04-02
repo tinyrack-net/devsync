@@ -12,6 +12,11 @@ const mocked = vi.hoisted(() => ({
   })),
   ensureSyncRepository: vi.fn(),
   readSyncConfig: vi.fn(),
+  resolveSyncConfigResolutionContext: vi.fn(() => ({
+    homeDirectory: "/tmp/home",
+    platformKey: "linux",
+    xdgConfigHome: "/tmp/home/.config",
+  })),
   resolveSyncPaths: vi.fn(),
   resolveTrackedEntry: vi.fn(),
   writeValidatedSyncConfig: vi.fn(),
@@ -39,6 +44,7 @@ vi.mock("./paths.ts", () => ({
 
 vi.mock("./runtime.ts", () => ({
   ensureSyncRepository: mocked.ensureSyncRepository,
+  resolveSyncConfigResolutionContext: mocked.resolveSyncConfigResolutionContext,
   resolveSyncPaths: mocked.resolveSyncPaths,
 }));
 
@@ -84,6 +90,7 @@ describe("untrack service", () => {
 
     mocked.resolveSyncPaths.mockReturnValueOnce({
       configPath: join(workspace, "manifest.json"),
+      homeDirectory: "/tmp/home",
       syncDirectory: workspace,
     });
     mocked.ensureSyncRepository.mockResolvedValueOnce(undefined);
@@ -152,6 +159,7 @@ describe("untrack service", () => {
 
     mocked.resolveSyncPaths.mockReturnValueOnce({
       configPath: join(workspace, "manifest.json"),
+      homeDirectory: "/tmp/home",
       syncDirectory: workspace,
     });
     mocked.ensureSyncRepository.mockResolvedValueOnce(undefined);
@@ -178,12 +186,19 @@ describe("untrack service", () => {
       entries: [siblingEntry],
       version: 7,
     });
-    expect(mocked.writeValidatedSyncConfig).toHaveBeenCalledWith(workspace, {
-      document: {
-        entries: [siblingEntry],
-        version: 7,
+    expect(mocked.writeValidatedSyncConfig).toHaveBeenCalledWith(
+      workspace,
+      {
+        document: {
+          entries: [siblingEntry],
+          version: 7,
+        },
       },
-    });
+      "linux",
+      "/tmp/home",
+      "/tmp/home/.config",
+      expect.any(Function),
+    );
     await expect(access(defaultPlainPath)).rejects.toThrowError();
     await expect(access(workPlainPath)).rejects.toThrowError();
     await expect(access(defaultSecretPath)).rejects.toThrowError();
@@ -215,6 +230,7 @@ describe("untrack service", () => {
 
     mocked.resolveSyncPaths.mockReturnValueOnce({
       configPath: join(workspace, "manifest.json"),
+      homeDirectory: "/tmp/home",
       syncDirectory: workspace,
     });
     mocked.ensureSyncRepository.mockResolvedValueOnce(undefined);

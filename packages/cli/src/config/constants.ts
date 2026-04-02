@@ -1,6 +1,5 @@
 const APP_NAME = "devsync";
 const AUTOCOMPLETE_COMPLETE_SUBCOMMAND = "__complete";
-const XDG_CONFIG_HOME_TOKEN = "$XDG_CONFIG_HOME";
 
 export const CONSTANTS = {
   APP: {
@@ -17,8 +16,8 @@ export const CONSTANTS = {
     LEGACY_VERSION: 2,
   },
   INIT: {
-    DEFAULT_IDENTITY_FILE: `${XDG_CONFIG_HOME_TOKEN}/${APP_NAME}/keys.txt`,
-    LEGACY_IDENTITY_FILE: `${XDG_CONFIG_HOME_TOKEN}/${APP_NAME}/age/keys.txt`,
+    DEFAULT_IDENTITY_FILE: `~/.config/${APP_NAME}/keys.txt`,
+    LEGACY_IDENTITY_FILE: `~/.config/${APP_NAME}/age/keys.txt`,
   },
   SYNC: {
     CONFIG_FILE_NAME: "manifest.json",

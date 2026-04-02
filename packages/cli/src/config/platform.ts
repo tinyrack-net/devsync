@@ -1,7 +1,3 @@
-import { platform, release } from "node:os";
-
-import { ENV, type Env } from "#app/lib/env.ts";
-
 export type PlatformKey = "win" | "mac" | "linux" | "wsl";
 
 type PlatformStringValue = Readonly<{
@@ -15,26 +11,32 @@ type PlatformStringValue = Readonly<{
 export type PlatformLocalPath = PlatformStringValue;
 export type PlatformRepoPath = PlatformStringValue;
 
-const isWslEnvironment = (environment: Env = ENV): boolean => {
-  const wslDistroName = environment.WSL_DISTRO_NAME;
-  const wslInterop = environment.WSL_INTEROP;
-
+export const isWslEnvironment = (
+  osRelease: string,
+  wslDistroName: string | undefined,
+  wslInterop: string | undefined,
+): boolean => {
   return (
     Boolean(wslDistroName?.trim() || wslInterop?.trim()) ||
-    release().toLowerCase().includes("microsoft")
+    osRelease.toLowerCase().includes("microsoft")
   );
 };
 
 export const detectCurrentPlatformKey = (
-  environment: Env = ENV,
+  platformName: NodeJS.Platform,
+  osRelease: string,
+  wslDistroName: string | undefined,
+  wslInterop: string | undefined,
 ): PlatformKey => {
-  switch (platform()) {
+  switch (platformName) {
     case "win32":
       return "win";
     case "darwin":
       return "mac";
     case "linux":
-      return isWslEnvironment(environment) ? "wsl" : "linux";
+      return isWslEnvironment(osRelease, wslDistroName, wslInterop)
+        ? "wsl"
+        : "linux";
     default:
       return "linux";
   }
@@ -42,30 +44,25 @@ export const detectCurrentPlatformKey = (
 
 const resolveStringValueForPlatform = (
   value: PlatformStringValue,
-  platformKey?: PlatformKey,
-  environment: Env = ENV,
+  platformKey: PlatformKey,
 ): string => {
-  const key = platformKey ?? detectCurrentPlatformKey(environment);
-
-  if (key === "wsl") {
+  if (platformKey === "wsl") {
     return value.wsl ?? value.linux ?? value.default;
   }
 
-  return value[key] ?? value.default;
+  return value[platformKey] ?? value.default;
 };
 
 export const resolveLocalPathForPlatform = (
   localPath: PlatformLocalPath,
-  platformKey?: PlatformKey,
-  environment: Env = ENV,
+  platformKey: PlatformKey,
 ): string => {
-  return resolveStringValueForPlatform(localPath, platformKey, environment);
+  return resolveStringValueForPlatform(localPath, platformKey);
 };
 
 export const resolveRepoPathForPlatform = (
   repoPath: PlatformRepoPath,
-  platformKey?: PlatformKey,
-  environment: Env = ENV,
+  platformKey: PlatformKey,
 ): string => {
-  return resolveStringValueForPlatform(repoPath, platformKey, environment);
+  return resolveStringValueForPlatform(repoPath, platformKey);
 };

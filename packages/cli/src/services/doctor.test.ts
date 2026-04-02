@@ -67,7 +67,6 @@ const createLoadedConfig = (options: {
   return {
     effectiveConfig: {
       age: {
-        configuredIdentityFile: "$XDG_CONFIG_HOME/devsync/keys.txt",
         identityFile,
         recipients: Array.from(
           { length: options.recipientCount ?? 1 },
@@ -155,15 +154,9 @@ describe("sync doctor", () => {
   it("preserves config failure details and hint text in doctor output", async () => {
     mocked.ensureRepository.mockResolvedValueOnce(undefined);
     mocked.loadSyncConfig.mockRejectedValueOnce(
-      new DevsyncError(
-        "Configured age identity file uses the removed legacy path.",
-        {
-          details: [
-            "Configured identity file: $XDG_CONFIG_HOME/devsync/age/keys.txt",
-          ],
-          hint: "Update the identity file path to $XDG_CONFIG_HOME/devsync/keys.txt.",
-        },
-      ),
+      new DevsyncError("Sync configuration is invalid.", {
+        details: ['age: Unrecognized key(s) in object: "identityFile"'],
+      }),
     );
 
     const result = await runDoctorChecks(createReporter());
@@ -171,7 +164,7 @@ describe("sync doctor", () => {
     expect(result.checks).toContainEqual({
       checkId: "config",
       detail:
-        "Configured age identity file uses the removed legacy path.\nConfigured identity file: $XDG_CONFIG_HOME/devsync/age/keys.txt\nHint: Update the identity file path to $XDG_CONFIG_HOME/devsync/keys.txt.",
+        'Sync configuration is invalid.\nage: Unrecognized key(s) in object: "identityFile"',
       level: "fail",
     });
   });

@@ -1,10 +1,6 @@
 import { resolve } from "node:path";
 
-import { describe, expect, it, vi } from "vitest";
-
-vi.mock("#app/lib/env.ts", () => ({
-  ENV: { HOME: "/tmp/home", XDG_CONFIG_HOME: "/tmp/home/.config" },
-}));
+import { describe, expect, it } from "vitest";
 
 import type { ResolvedSyncConfigEntry } from "#app/config/sync.ts";
 import {
@@ -81,7 +77,12 @@ describe("path helpers", () => {
     });
 
     expect(
-      resolveTrackedEntry(".config/tool/settings.json", [entry], "/tmp/cwd"),
+      resolveTrackedEntry(
+        ".config/tool/settings.json",
+        [entry],
+        "/tmp/cwd",
+        "/tmp/home",
+      ),
     ).toEqual(entry);
   });
 
@@ -91,10 +92,12 @@ describe("path helpers", () => {
       repoPath: "bundle",
     });
 
-    expect(resolveTrackedEntry("~/bundle", [entry], "/tmp/cwd")).toEqual(entry);
-    expect(resolveTrackedEntry("./bundle", [entry], "/tmp/home")).toEqual(
-      entry,
-    );
+    expect(
+      resolveTrackedEntry("~/bundle", [entry], "/tmp/cwd", "/tmp/home"),
+    ).toEqual(entry);
+    expect(
+      resolveTrackedEntry("./bundle", [entry], "/tmp/home", "/tmp/home"),
+    ).toEqual(entry);
   });
 
   it("rejects ambiguous tracked entries for the same explicit local path", () => {
@@ -112,6 +115,7 @@ describe("path helpers", () => {
           }),
         ],
         "/tmp/cwd",
+        "/tmp/home",
       );
     }).toThrowError(/Multiple tracked sync entries match/u);
   });

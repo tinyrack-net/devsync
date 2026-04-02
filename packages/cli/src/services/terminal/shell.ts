@@ -1,7 +1,7 @@
 import { spawn } from "node:child_process";
 
 import type { PlatformKey } from "#app/config/platform.ts";
-import { detectCurrentPlatformKey } from "#app/config/platform.ts";
+import { resolveCurrentPlatformKey } from "#app/config/runtime-env.ts";
 import { ENV } from "#app/lib/env.ts";
 import { DevsyncError } from "#app/lib/error.ts";
 
@@ -309,11 +309,11 @@ export const resolveShellCommandForPlatform = async (
 };
 
 export const resolveShellCommand = async () => {
-  return await resolveShellCommandForPlatform(detectCurrentPlatformKey());
+  return await resolveShellCommandForPlatform(resolveCurrentPlatformKey());
 };
 
 const createShellFailureHint = () => {
-  return detectCurrentPlatformKey() === "win"
+  return resolveCurrentPlatformKey() === "win"
     ? "Set DEVSYNC_CD_COMMAND or COMSPEC to a valid shell executable."
     : "Set SHELL or DEVSYNC_CD_COMMAND to a valid shell executable.";
 };

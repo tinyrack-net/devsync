@@ -7,7 +7,8 @@ import {
   type GlobalDevsyncConfig,
   readGlobalDevsyncConfig,
 } from "#app/config/global-config.ts";
-import { resolveConfiguredIdentityFile } from "#app/config/identity-file.ts";
+import { resolveDefaultIdentityFile } from "#app/config/identity-file.ts";
+import { readEnvValue } from "#app/config/runtime-env.ts";
 import {
   createInitialSyncConfig,
   formatSyncConfig,
@@ -21,13 +22,13 @@ import {
   readAgeRecipientsFromIdentityFile,
   writeAgeIdentityFile,
 } from "#app/lib/crypto.ts";
-import { ENV } from "#app/lib/env.ts";
 import { DevsyncError, wrapUnknownError } from "#app/lib/error.ts";
 import { pathExists, writeTextFileAtomically } from "#app/lib/filesystem.ts";
 import { ensureRepository, initializeRepository } from "#app/lib/git.ts";
 import {
   ensureSyncRepository,
   resolveAgeFromSyncConfig,
+  resolveSyncConfigResolutionContext,
   resolveSyncPaths,
 } from "./runtime.ts";
 
@@ -65,15 +66,9 @@ const resolveInitAgeBootstrap = async (
   request: InitRequest,
   reporter?: ConsolaInstance,
 ) => {
-  const configuredIdentityFile =
-    request.identityFile?.trim() || defaultSyncIdentityFile;
-  const identityFile = resolveConfiguredIdentityFile(
-    configuredIdentityFile,
-    ENV,
-    {
-      hint: `Use ${defaultSyncIdentityFile} for new setups.`,
-      source: "Requested identity file",
-    },
+  const identityFile = resolveDefaultIdentityFile(
+    readEnvValue("HOME"),
+    readEnvValue("XDG_CONFIG_HOME"),
   );
   const explicitRecipients = normalizeRecipients(request.recipients);
 
@@ -85,7 +80,6 @@ const resolveInitAgeBootstrap = async (
     );
 
     return {
-      configuredIdentityFile,
       generatedIdentity: false,
       recipients: normalizeRecipients([...explicitRecipients, recipient]),
     };
@@ -95,7 +89,6 @@ const resolveInitAgeBootstrap = async (
     if (await pathExists(identityFile)) {
       reporter?.start("Loading age recipients from the existing identity...");
       return {
-        configuredIdentityFile,
         generatedIdentity: false,
         recipients: normalizeRecipients(
           await readAgeRecipientsFromIdentityFile(identityFile),
@@ -107,7 +100,6 @@ const resolveInitAgeBootstrap = async (
     const { recipient } = await createAgeIdentityFile(identityFile);
 
     return {
-      configuredIdentityFile,
       generatedIdentity: true,
       recipients: [recipient],
     };
@@ -118,7 +110,6 @@ const resolveInitAgeBootstrap = async (
     const { recipient } = await createAgeIdentityFile(identityFile);
 
     return {
-      configuredIdentityFile,
       generatedIdentity: true,
       recipients: normalizeRecipients([...explicitRecipients, recipient]),
     };
@@ -127,7 +118,6 @@ const resolveInitAgeBootstrap = async (
   if (await pathExists(identityFile)) {
     reporter?.start("Using the existing age identity file...");
     return {
-      configuredIdentityFile,
       generatedIdentity: false,
       recipients: explicitRecipients,
     };
@@ -137,7 +127,6 @@ const resolveInitAgeBootstrap = async (
   const { recipient } = await createAgeIdentityFile(identityFile);
 
   return {
-    configuredIdentityFile,
     generatedIdentity: true,
     recipients: normalizeRecipients([...explicitRecipients, recipient]),
   };
@@ -170,36 +159,6 @@ const assertInitRequestMatchesConfig = (
       },
     );
   }
-
-  if (
-    request.identityFile === undefined ||
-    request.identityFile.trim() === ""
-  ) {
-    return;
-  }
-
-  const resolvedIdentity = resolveConfiguredIdentityFile(
-    request.identityFile,
-    ENV,
-  );
-  const configuredIdentity = resolveConfiguredIdentityFile(
-    age.identityFile,
-    ENV,
-  );
-
-  if (resolvedIdentity !== configuredIdentity) {
-    throw new DevsyncError(
-      "Sync configuration already exists with a different age identity file.",
-      {
-        code: "INIT_IDENTITY_MISMATCH",
-        details: [
-          `Requested identity file: ${resolvedIdentity}`,
-          `Configured identity file: ${configuredIdentity}`,
-        ],
-        hint: `Reuse the configured identity file, or update ${syncConfigFileName} before re-running init.`,
-      },
-    );
-  }
 };
 
 const buildAlreadyInitializedResult = (
@@ -228,13 +187,12 @@ const buildAlreadyInitializedResult = (
 };
 
 const writeGlobalSettings = async (globalConfigPath: string) => {
-  const existingGlobalConfig = await readGlobalDevsyncConfig();
+  const existingGlobalConfig = await readGlobalDevsyncConfig(globalConfigPath);
   const globalConfigToWrite: GlobalDevsyncConfig = {
     activeProfile:
       existingGlobalConfig?.activeProfile ?? CONSTANTS.SYNC.DEFAULT_PROFILE,
     version: CONSTANTS.GLOBAL_CONFIG.CURRENT_VERSION,
   };
-
   await mkdir(dirname(globalConfigPath), { recursive: true });
   await writeTextFileAtomically(
     globalConfigPath,
@@ -248,6 +206,8 @@ export const initializeSyncDirectory = async (
 ): Promise<InitResult> => {
   reporter?.start("Initializing sync directory...");
   const { syncDirectory, configPath, globalConfigPath } = resolveSyncPaths();
+  const { homeDirectory, platformKey, xdgConfigHome } =
+    resolveSyncConfigResolutionContext();
   const configExists = await pathExists(configPath);
 
   if (configExists) {
@@ -255,7 +215,13 @@ export const initializeSyncDirectory = async (
     await ensureSyncRepository(syncDirectory);
 
     reporter?.start("Loading the existing sync manifest...");
-    const config = await readSyncConfig(syncDirectory, ENV);
+    const config = await readSyncConfig(
+      syncDirectory,
+      platformKey,
+      homeDirectory,
+      xdgConfigHome,
+      readEnvValue,
+    );
     assertInitRequestMatchesConfig(config.age, request);
 
     await resolveInitAgeBootstrap(request, reporter);
@@ -345,7 +311,13 @@ export const initializeSyncDirectory = async (
 
   if (await pathExists(configPath)) {
     reporter?.start("Loading the existing sync manifest...");
-    const config = await readSyncConfig(syncDirectory, ENV);
+    const config = await readSyncConfig(
+      syncDirectory,
+      platformKey,
+      homeDirectory,
+      xdgConfigHome,
+      readEnvValue,
+    );
     assertInitRequestMatchesConfig(config.age, request);
 
     const ageBootstrap = await resolveInitAgeBootstrap(request, reporter);
@@ -376,7 +348,10 @@ export const initializeSyncDirectory = async (
       generatedIdentity: ageBootstrap.generatedIdentity,
       identityFile:
         age?.identityFile ??
-        resolveConfiguredIdentityFile(ageBootstrap.configuredIdentityFile, ENV),
+        resolveDefaultIdentityFile(
+          readEnvValue("HOME"),
+          readEnvValue("XDG_CONFIG_HOME"),
+        ),
       recipientCount: age?.recipients.length ?? 0,
       syncDirectory,
     };
@@ -391,12 +366,17 @@ export const initializeSyncDirectory = async (
 
   // Write sync manifest with age
   const initialConfig = createInitialSyncConfig({
-    identityFile: ageBootstrap.configuredIdentityFile,
     recipients: [...new Set(ageBootstrap.recipients.map((r) => r.trim()))],
   });
 
   reporter?.start("Writing sync manifest...");
-  parseSyncConfig(initialConfig, ENV);
+  parseSyncConfig(
+    initialConfig,
+    platformKey,
+    homeDirectory,
+    xdgConfigHome,
+    readEnvValue,
+  );
   await writeFile(configPath, formatSyncConfig(initialConfig), "utf8");
 
   return {
@@ -406,9 +386,9 @@ export const initializeSyncDirectory = async (
     gitAction,
     ...(gitSource === undefined ? {} : { gitSource }),
     generatedIdentity: ageBootstrap.generatedIdentity,
-    identityFile: resolveConfiguredIdentityFile(
-      ageBootstrap.configuredIdentityFile,
-      ENV,
+    identityFile: resolveDefaultIdentityFile(
+      readEnvValue("HOME"),
+      readEnvValue("XDG_CONFIG_HOME"),
     ),
     recipientCount: ageBootstrap.recipients.length,
     syncDirectory,

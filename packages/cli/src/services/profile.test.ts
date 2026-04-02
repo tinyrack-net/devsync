@@ -14,8 +14,14 @@ const mocked = vi.hoisted(() => ({
   ),
   readGlobalDevsyncConfig: vi.fn(),
   readSyncConfig: vi.fn(),
+  resolveSyncConfigResolutionContext: vi.fn(() => ({
+    homeDirectory: "/tmp/home",
+    platformKey: "linux",
+    xdgConfigHome: "/tmp/home/.config",
+  })),
   resolveSyncPaths: vi.fn(() => ({
     configPath: "/tmp/devsync/manifest.json",
+    homeDirectory: "/tmp/home",
     globalConfigPath: "/tmp/devsync/global.json",
     syncDirectory: "/tmp/devsync",
   })),
@@ -50,6 +56,7 @@ vi.mock("./paths.ts", () => ({
 
 vi.mock("./runtime.ts", () => ({
   ensureSyncRepository: mocked.ensureSyncRepository,
+  resolveSyncConfigResolutionContext: mocked.resolveSyncConfigResolutionContext,
   resolveSyncPaths: mocked.resolveSyncPaths,
 }));
 
@@ -275,6 +282,10 @@ describe("sync profiles service", () => {
           ],
         },
       },
+      "linux",
+      "/tmp/home",
+      "/tmp/home/.config",
+      expect.any(Function),
     );
   });
 

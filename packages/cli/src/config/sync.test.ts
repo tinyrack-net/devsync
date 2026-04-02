@@ -2,22 +2,39 @@ import { join } from "node:path";
 
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import * as platformConfig from "#app/config/platform.ts";
+import type { PlatformKey } from "#app/config/platform.ts";
 import { createTemporaryDirectory } from "#app/test/helpers/sync-fixture.ts";
 import {
   normalizeSyncProfileName,
-  parseSyncConfig,
+  parseSyncConfig as parseSyncConfigBase,
   resolveSyncRule,
 } from "./sync.ts";
 
 afterEach(() => {
+  forcedPlatformKey = "linux";
   vi.restoreAllMocks();
   vi.unstubAllEnvs();
 });
 
-const forcePlatform = (platformKey: platformConfig.PlatformKey) => {
-  vi.spyOn(platformConfig, "detectCurrentPlatformKey").mockReturnValue(
-    platformKey,
+let forcedPlatformKey: PlatformKey = "linux";
+
+type ConfigEnvironment = Record<string, string | undefined> & {
+  HOME?: string;
+  XDG_CONFIG_HOME?: string;
+};
+
+const forcePlatform = (platformKey: PlatformKey) => {
+  forcedPlatformKey = platformKey;
+};
+
+const parseSyncConfig = (input: unknown, environment: ConfigEnvironment) => {
+  return parseSyncConfigBase(
+    input,
+    forcedPlatformKey,
+    environment.HOME ?? "/tmp/home",
+    environment.XDG_CONFIG_HOME ??
+      join(environment.HOME ?? "/tmp/home", ".config"),
+    (name) => environment[name],
   );
 };
 
@@ -163,16 +180,15 @@ describe("sync config", () => {
     ).toThrowError("Sync configuration is invalid.");
   });
 
-  it("rejects the removed legacy age identity path", async () => {
+  it("rejects age.identityFile in the manifest", async () => {
     const workspace = await createTemporaryDirectory("devsync-sync-config-");
     const homeDirectory = join(workspace, "home");
-    const xdgConfigHome = join(workspace, "xdg");
 
     expect(() =>
       parseSyncConfig(
         {
           age: {
-            identityFile: "$XDG_CONFIG_HOME/devsync/age/keys.txt",
+            identityFile: "$XDG_CONFIG_HOME/devsync/keys.txt",
             recipients: ["age1example"],
           },
           entries: [],
@@ -180,12 +196,32 @@ describe("sync config", () => {
         },
         {
           HOME: homeDirectory,
-          XDG_CONFIG_HOME: xdgConfigHome,
         },
       ),
-    ).toThrowError(
-      "Configured age identity file uses the removed legacy path.",
-    );
+    ).toThrowError("Sync configuration is invalid.");
+  });
+
+  it("rejects string repoPath in the manifest", async () => {
+    const workspace = await createTemporaryDirectory("devsync-sync-config-");
+    const homeDirectory = join(workspace, "home");
+
+    expect(() =>
+      parseSyncConfig(
+        {
+          version: 7,
+          entries: [
+            {
+              kind: "file",
+              localPath: { default: "~/.gitconfig" },
+              repoPath: ".gitconfig",
+            },
+          ],
+        },
+        {
+          HOME: homeDirectory,
+        },
+      ),
+    ).toThrowError("Sync configuration is invalid.");
   });
 
   it("rejects duplicate repo paths", async () => {
@@ -219,7 +255,7 @@ describe("sync config", () => {
           {
             kind: "file",
             localPath: { default: "~/.config/tool/settings.json" },
-            repoPath: "profiles/shared/tool/settings.json",
+            repoPath: { default: "profiles/shared/tool/settings.json" },
           },
         ],
       },
@@ -229,9 +265,9 @@ describe("sync config", () => {
     expect(config.entries[0]?.repoPath).toBe(
       "profiles/shared/tool/settings.json",
     );
-    expect(config.entries[0]?.configuredRepoPath).toBe(
-      "profiles/shared/tool/settings.json",
-    );
+    expect(config.entries[0]?.configuredRepoPath).toEqual({
+      default: "profiles/shared/tool/settings.json",
+    });
   });
 
   it("uses explicit platform-aware repoPath when configured", async () => {
@@ -277,7 +313,7 @@ describe("sync config", () => {
             {
               kind: "file",
               localPath: { default: "~/.gitconfig" },
-              repoPath: "../outside",
+              repoPath: { default: "../outside" },
             },
           ],
         },
@@ -293,7 +329,7 @@ describe("sync config", () => {
             {
               kind: "file",
               localPath: { default: "~/.gitconfig" },
-              repoPath: "/absolute/path",
+              repoPath: { default: "/absolute/path" },
             },
           ],
         },
@@ -318,7 +354,7 @@ describe("sync config", () => {
             {
               kind: "file",
               localPath: { default: "~/.config/git/config" },
-              repoPath: ".gitconfig",
+              repoPath: { default: ".gitconfig" },
             },
           ],
         },
@@ -348,7 +384,7 @@ describe("sync config", () => {
             {
               kind: "file",
               localPath: { default: "~/.config/gpg-agent/linux.conf" },
-              repoPath: ".gnupg/gpg-agent.linux.conf",
+              repoPath: { default: ".gnupg/gpg-agent.linux.conf" },
             },
           ],
         },

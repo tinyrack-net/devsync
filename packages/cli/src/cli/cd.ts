@@ -1,7 +1,7 @@
 import { mkdir } from "node:fs/promises";
 
 import { buildCommand } from "@stricli/core";
-import { resolveDevsyncSyncDirectory } from "#app/config/xdg.ts";
+import { resolveDevsyncSyncDirectoryFromEnv } from "#app/config/runtime-env.ts";
 import {
   type DevsyncCliContext,
   verboseFlag,
@@ -21,7 +21,7 @@ const cdCommand = buildCommand<
       "Launch a child shell rooted at the local sync repository directory. Like chezmoi cd, this opens a new shell session instead of changing the current directory of your existing shell.",
   },
   async func() {
-    const syncDirectory = resolveDevsyncSyncDirectory();
+    const syncDirectory = resolveDevsyncSyncDirectoryFromEnv();
 
     await mkdir(syncDirectory, { recursive: true });
     await launchShellInDirectory(syncDirectory);

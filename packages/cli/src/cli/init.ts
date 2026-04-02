@@ -1,11 +1,10 @@
 import { buildCommand } from "@stricli/core";
 import consola from "consola";
 import pc from "picocolors";
-import { resolveConfiguredIdentityFile } from "#app/config/identity-file.ts";
-import { ENV } from "#app/lib/env.ts";
+import { resolveDefaultIdentityFile } from "#app/config/identity-file.ts";
+import { readEnvValue } from "#app/config/runtime-env.ts";
 import { pathExists } from "#app/lib/filesystem.ts";
 import {
-  defaultSyncIdentityFile,
   type InitResult,
   initializeSyncDirectory,
 } from "#app/services/init.ts";
@@ -49,12 +48,9 @@ const initCommand = buildCommand<InitFlags, [string?], DevsyncCliContext>({
     const logger = createCliLogger({ verbose });
     const reporter = verbose ? logger : undefined;
     const requestedKey = flags.key?.trim();
-    const identityFile = resolveConfiguredIdentityFile(
-      defaultSyncIdentityFile,
-      ENV,
-      {
-        source: "Requested identity file",
-      },
+    const identityFile = resolveDefaultIdentityFile(
+      readEnvValue("HOME"),
+      readEnvValue("XDG_CONFIG_HOME"),
     );
     const identityFileExists = await pathExists(identityFile);
     const shouldPrompt =
@@ -80,7 +76,6 @@ const initCommand = buildCommand<InitFlags, [string?], DevsyncCliContext>({
           requestedKey === undefined &&
           (trimmedPromptedKey === "" ||
             (trimmedPromptedKey === undefined && !identityFileExists)),
-        identityFile: undefined,
         recipients: [],
         repository,
       },

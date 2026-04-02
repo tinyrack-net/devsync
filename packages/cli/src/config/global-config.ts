@@ -2,8 +2,6 @@ import { readFile } from "node:fs/promises";
 
 import { z } from "zod";
 import { CONSTANTS } from "#app/config/constants.ts";
-import { resolveDevsyncGlobalConfigFilePath } from "#app/config/xdg.ts";
-import { ENV, type Env } from "#app/lib/env.ts";
 import { DevsyncError } from "#app/lib/error.ts";
 import { ensureTrailingNewline } from "#app/lib/string.ts";
 import { formatInputIssues } from "#app/lib/validation.ts";
@@ -76,9 +74,7 @@ export const formatGlobalDevsyncConfig = (config: GlobalDevsyncConfig) => {
   return ensureTrailingNewline(JSON.stringify(config, null, 2));
 };
 
-export const readGlobalDevsyncConfig = async (environment: Env = ENV) => {
-  const filePath = resolveDevsyncGlobalConfigFilePath(environment);
-
+export const readGlobalDevsyncConfig = async (filePath: string) => {
   try {
     const contents = await readFile(filePath, "utf8");
 

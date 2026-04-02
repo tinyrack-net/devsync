@@ -2,16 +2,13 @@ import { homedir } from "node:os";
 import { isAbsolute, resolve } from "node:path";
 
 import { CONSTANTS } from "#app/config/constants.ts";
-import { ENV, type Env } from "#app/lib/env.ts";
 
 const xdgConfigHomeToken = "$XDG_CONFIG_HOME";
 const xdgConfigHomeTokenPrefix = `${xdgConfigHomeToken}/`;
 const bracedXdgConfigHomeToken = "${XDG_CONFIG_HOME}";
 const bracedXdgConfigHomePrefix = `${bracedXdgConfigHomeToken}/`;
 
-const readTrimmedEnvironmentValue = (environment: Env, key: string) => {
-  const value = environment[key];
-
+const trimConfiguredValue = (value: string | undefined) => {
   if (value === undefined) {
     return undefined;
   }
@@ -21,8 +18,17 @@ const readTrimmedEnvironmentValue = (environment: Env, key: string) => {
   return trimmedValue === "" ? undefined : trimmedValue;
 };
 
-export const resolveHomeDirectory = (environment: Env = ENV) => {
-  const configuredValue = readTrimmedEnvironmentValue(environment, "HOME");
+const readTrimmedEnvironmentValue = (
+  readEnv: (name: string) => string | undefined,
+  key: string,
+) => {
+  const value = readEnv(key);
+
+  return value === undefined ? undefined : trimConfiguredValue(value);
+};
+
+export const resolveHomeDirectory = (home: string | undefined) => {
+  const configuredValue = trimConfiguredValue(home);
 
   if (configuredValue !== undefined) {
     return resolve(configuredValue);
@@ -31,70 +37,66 @@ export const resolveHomeDirectory = (environment: Env = ENV) => {
   return resolve(homedir());
 };
 
-export const resolveXdgConfigHome = (environment: Env = ENV) => {
-  const configuredValue = readTrimmedEnvironmentValue(
-    environment,
-    "XDG_CONFIG_HOME",
-  );
+export const resolveXdgConfigHome = (
+  home: string | undefined,
+  xdgConfigHome: string | undefined,
+) => {
+  const configuredValue = trimConfiguredValue(xdgConfigHome);
 
   if (configuredValue !== undefined) {
     return resolve(configuredValue);
   }
 
-  return resolve(resolveHomeDirectory(environment), ".config");
+  return resolve(resolveHomeDirectory(home), ".config");
 };
 
-export const resolveDevsyncConfigDirectory = (environment: Env = ENV) => {
-  return resolve(
-    resolveXdgConfigHome(environment),
-    CONSTANTS.XDG.APP_DIRECTORY_NAME,
-  );
+export const resolveDevsyncConfigDirectory = (xdgConfigHome: string) => {
+  return resolve(xdgConfigHome, CONSTANTS.XDG.APP_DIRECTORY_NAME);
 };
 
-export const resolveDevsyncGlobalConfigFilePath = (environment: Env = ENV) => {
-  return resolve(
-    resolveDevsyncConfigDirectory(environment),
-    CONSTANTS.GLOBAL_CONFIG.FILE_NAME,
-  );
+export const resolveDevsyncGlobalConfigFilePath = (
+  devsyncConfigDirectory: string,
+) => {
+  return resolve(devsyncConfigDirectory, CONSTANTS.GLOBAL_CONFIG.FILE_NAME);
 };
 
-export const resolveDevsyncSyncDirectory = (environment: Env = ENV) => {
-  return resolve(
-    resolveDevsyncConfigDirectory(environment),
-    CONSTANTS.XDG.SYNC_DIRECTORY_NAME,
-  );
+export const resolveDevsyncSyncDirectory = (devsyncConfigDirectory: string) => {
+  return resolve(devsyncConfigDirectory, CONSTANTS.XDG.SYNC_DIRECTORY_NAME);
 };
 
-export const expandHomePath = (value: string, environment: Env = ENV) => {
+export const expandHomePath = (value: string, home: string | undefined) => {
   let expandedValue = value.trim();
+  const homeDirectory = resolveHomeDirectory(home);
 
   if (expandedValue === "~") {
-    expandedValue = resolveHomeDirectory(environment);
+    expandedValue = homeDirectory;
   } else if (expandedValue.startsWith("~/")) {
-    expandedValue = resolve(
-      resolveHomeDirectory(environment),
-      expandedValue.slice(2),
-    );
+    expandedValue = resolve(homeDirectory, expandedValue.slice(2));
   }
 
   return expandedValue;
 };
 
-export const expandConfiguredPath = (value: string, environment: Env = ENV) => {
-  let expandedValue = expandHomePath(value, environment);
+export const expandConfiguredPath = (
+  value: string,
+  home: string | undefined,
+  xdgConfigHome: string | undefined,
+) => {
+  let expandedValue = expandHomePath(value, home);
+  const resolvedXdgConfigHome = resolveXdgConfigHome(home, xdgConfigHome);
 
   if (expandedValue === xdgConfigHomeToken) {
-    expandedValue = resolveXdgConfigHome(environment);
+    expandedValue = resolvedXdgConfigHome;
   } else if (expandedValue.startsWith(xdgConfigHomeTokenPrefix)) {
     expandedValue = resolve(
-      resolveXdgConfigHome(environment),
+      resolvedXdgConfigHome,
       expandedValue.slice(xdgConfigHomeTokenPrefix.length),
     );
   } else if (expandedValue === bracedXdgConfigHomeToken) {
-    expandedValue = resolveXdgConfigHome(environment);
+    expandedValue = resolvedXdgConfigHome;
   } else if (expandedValue.startsWith(bracedXdgConfigHomePrefix)) {
     expandedValue = resolve(
-      resolveXdgConfigHome(environment),
+      resolvedXdgConfigHome,
       expandedValue.slice(bracedXdgConfigHomePrefix.length),
     );
   }
@@ -104,9 +106,10 @@ export const expandConfiguredPath = (value: string, environment: Env = ENV) => {
 
 export const resolveConfiguredAbsolutePath = (
   value: string,
-  environment: Env = ENV,
+  home: string | undefined,
+  xdgConfigHome: string | undefined,
 ) => {
-  const expandedValue = expandConfiguredPath(value, environment);
+  const expandedValue = expandConfiguredPath(value, home, xdgConfigHome);
 
   if (!isAbsolute(expandedValue)) {
     throw new Error(
@@ -119,10 +122,10 @@ export const resolveConfiguredAbsolutePath = (
 
 export const expandWindowsEnvVars = (
   value: string,
-  environment: Env = ENV,
+  readEnv: (name: string) => string | undefined,
 ): string => {
   return value.replace(/%([^%]+)%/g, (_match, varName: string) => {
-    const envValue = readTrimmedEnvironmentValue(environment, varName);
+    const envValue = readTrimmedEnvironmentValue(readEnv, varName);
 
     if (envValue === undefined) {
       throw new Error(`Environment variable %${varName}% is not defined.`);
@@ -134,22 +137,31 @@ export const expandWindowsEnvVars = (
 
 export const expandPlatformConfiguredPath = (
   value: string,
-  environment: Env = ENV,
+  home: string | undefined,
+  xdgConfigHome: string | undefined,
+  readEnv: (name: string) => string | undefined,
 ): string => {
   let expanded = value.trim();
 
   if (expanded.includes("%")) {
-    expanded = expandWindowsEnvVars(expanded, environment);
+    expanded = expandWindowsEnvVars(expanded, readEnv);
   }
 
-  return expandConfiguredPath(expanded, environment);
+  return expandConfiguredPath(expanded, home, xdgConfigHome);
 };
 
 export const resolvePlatformConfiguredAbsolutePath = (
   value: string,
-  environment: Env = ENV,
+  home: string | undefined,
+  xdgConfigHome: string | undefined,
+  readEnv: (name: string) => string | undefined,
 ) => {
-  const expandedValue = expandPlatformConfiguredPath(value, environment);
+  const expandedValue = expandPlatformConfiguredPath(
+    value,
+    home,
+    xdgConfigHome,
+    readEnv,
+  );
 
   if (!isAbsolute(expandedValue)) {
     throw new Error(
@@ -162,9 +174,9 @@ export const resolvePlatformConfiguredAbsolutePath = (
 
 export const resolveHomeConfiguredAbsolutePath = (
   value: string,
-  environment: Env = ENV,
+  home: string | undefined,
 ) => {
-  const expandedValue = expandHomePath(value, environment);
+  const expandedValue = expandHomePath(value, home);
 
   if (!isAbsolute(expandedValue)) {
     throw new Error(

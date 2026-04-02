@@ -168,7 +168,7 @@ describe("sync service", () => {
       {
         kind: "file",
         localPath: { default: "~/.gitconfig" },
-        repoPath: "profiles/shared/git/main.conf",
+        repoPath: { default: "profiles/shared/git/main.conf" },
         mode: { default: "normal" },
       },
     ]);
@@ -281,7 +281,6 @@ describe("sync service", () => {
         {
           version: 7,
           age: {
-            identityFile: "$XDG_CONFIG_HOME/devsync/keys.txt",
             recipients: [ageKeys.recipient],
           },
           entries: [
@@ -413,7 +412,7 @@ describe("sync service", () => {
         kind: string;
         localPath: { default: string };
         mode?: { default: string };
-        repoPath?: string;
+        repoPath?: { default: string };
       }>;
     };
 
@@ -421,13 +420,13 @@ describe("sync service", () => {
       {
         kind: "directory",
         localPath: { default: "~/.config/app" },
-        repoPath: "profiles/shared/app",
+        repoPath: { default: "profiles/shared/app" },
         mode: { default: "normal" },
       },
       {
         kind: "file",
         localPath: { default: "~/.config/app/secret.txt" },
-        repoPath: "profiles/shared/app/secret.txt",
+        repoPath: { default: "profiles/shared/app/secret.txt" },
         mode: { default: "secret" },
       },
     ]);
@@ -485,7 +484,6 @@ describe("sync service", () => {
         {
           version: 7,
           age: {
-            identityFile: "$XDG_CONFIG_HOME/devsync/keys.txt",
             recipients: [ageKeys.recipient],
           },
           entries: [
@@ -644,7 +642,6 @@ describe("sync service", () => {
         {
           version: 7,
           age: {
-            identityFile: "$XDG_CONFIG_HOME/devsync/keys.txt",
             recipients: [ageKeys.recipient],
           },
           entries: [
@@ -722,7 +719,6 @@ describe("sync service", () => {
         {
           version: 7,
           age: {
-            identityFile: "$XDG_CONFIG_HOME/devsync/keys.txt",
             recipients: [ageKeys.recipient],
           },
           entries: [
@@ -801,7 +797,6 @@ describe("sync service", () => {
         {
           version: 7,
           age: {
-            identityFile: "$XDG_CONFIG_HOME/devsync/keys.txt",
             recipients: [ageKeys.recipient],
           },
           entries: [
@@ -858,7 +853,6 @@ describe("sync service", () => {
         {
           version: 7,
           age: {
-            identityFile: "$XDG_CONFIG_HOME/devsync/keys.txt",
             recipients: [ageKeys.recipient],
           },
           entries: [
@@ -925,7 +919,6 @@ describe("sync service", () => {
         {
           version: 7,
           age: {
-            identityFile: "$XDG_CONFIG_HOME/devsync/keys.txt",
             recipients: [ageKeys.recipient],
           },
           entries: [
@@ -1023,7 +1016,6 @@ describe("sync service", () => {
         {
           version: 7,
           age: {
-            identityFile: "$XDG_CONFIG_HOME/devsync/keys.txt",
             recipients: [ageKeys.recipient],
           },
           entries: [

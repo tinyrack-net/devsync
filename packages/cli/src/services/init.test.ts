@@ -82,14 +82,16 @@ describe("init service", () => {
     setEnvironment(homeDirectory, xdgConfigHome);
     const result = await initializeSyncDirectory({
       ageIdentity: `  ${ageKeys.identity}  `,
-      identityFile: "$XDG_CONFIG_HOME/devsync/keys.txt",
       recipients: [ageKeys.recipient, extraRecipient.recipient],
       repository: sourceRepository,
     });
 
     expect(result.generatedIdentity).toBe(false);
     expect(
-      await readFile(join(xdgConfigHome, "devsync", "keys.txt"), "utf8"),
+      await readFile(
+        join(homeDirectory, ".config", "devsync", "keys.txt"),
+        "utf8",
+      ),
     ).toBe(`${ageKeys.identity}\n`);
     expect(
       JSON.parse(
@@ -97,7 +99,6 @@ describe("init service", () => {
       ),
     ).toMatchObject({
       age: {
-        identityFile: "$XDG_CONFIG_HOME/devsync/keys.txt",
         recipients: expect.arrayContaining([
           ageKeys.recipient,
           extraRecipient.recipient,
@@ -115,7 +116,6 @@ describe("init service", () => {
     await expect(
       initializeSyncDirectory({
         ageIdentity: "not-a-key",
-        identityFile: "$XDG_CONFIG_HOME/devsync/keys.txt",
         recipients: [],
       }),
     ).rejects.toThrowError(/Invalid age private key/u);
@@ -135,7 +135,6 @@ describe("init service", () => {
     setEnvironment(homeDirectory, xdgConfigHome);
     const result = await initializeSyncDirectory(
       {
-        identityFile: "$XDG_CONFIG_HOME/devsync/keys.txt",
         recipients: [ageKeys.recipient],
         repository: sourceRepository,
       },
@@ -157,7 +156,7 @@ describe("init service", () => {
     ).toContain('"version": 7');
     expect(
       await readFile(join(result.syncDirectory, "manifest.json"), "utf8"),
-    ).toContain("$XDG_CONFIG_HOME/devsync/keys.txt");
+    ).not.toContain("identityFile");
   });
 
   it("rejects non-empty sync directories that are not git repositories", async () => {
@@ -174,13 +173,11 @@ describe("init service", () => {
     setEnvironment(homeDirectory, xdgConfigHome);
     await expect(
       initializeSyncDirectory({
-        identityFile: "$XDG_CONFIG_HOME/devsync/keys.txt",
         recipients: [ageKeys.recipient],
       }),
     ).rejects.toThrowError(DevsyncError);
     await expect(
       initializeSyncDirectory({
-        identityFile: "$XDG_CONFIG_HOME/devsync/keys.txt",
         recipients: [ageKeys.recipient],
       }),
     ).rejects.toThrowError(/Sync directory already exists and is not empty/u);
@@ -205,34 +202,14 @@ describe("init service", () => {
     setEnvironment(homeDirectory, xdgConfigHome);
 
     await initializeSyncDirectory({
-      identityFile: "$XDG_CONFIG_HOME/devsync/keys.txt",
       recipients: [ageKeys.recipient],
     });
 
     await expect(
       initializeSyncDirectory({
-        identityFile: "$XDG_CONFIG_HOME/devsync/keys.txt",
         recipients: ["age1differentrecipient"],
       }),
     ).rejects.toThrowError(/different age recipients/u);
-  });
-
-  it("rejects the removed legacy age identity path during initialization", async () => {
-    const workspace = await createWorkspace();
-    const homeDirectory = join(workspace, "home");
-    const xdgConfigHome = join(workspace, "xdg");
-    const ageKeys = await createAgeKeyPair();
-
-    setEnvironment(homeDirectory, xdgConfigHome);
-
-    await expect(
-      initializeSyncDirectory({
-        identityFile: "$XDG_CONFIG_HOME/devsync/age/keys.txt",
-        recipients: [ageKeys.recipient],
-      }),
-    ).rejects.toThrowError(
-      /Configured age identity file uses the removed legacy path/u,
-    );
   });
 
   it("writes a supplied age private key when cloning a repo that already has manifest.json", async () => {
@@ -245,7 +222,6 @@ describe("init service", () => {
     await runGit(["init", "-b", "main", sourceRepository], workspace);
 
     const manifest = createInitialSyncConfig({
-      identityFile: "$XDG_CONFIG_HOME/devsync/keys.txt",
       recipients: [ageKeys.recipient],
     });
 
@@ -263,7 +239,6 @@ describe("init service", () => {
     setEnvironment(homeDirectory, xdgConfigHome);
     const result = await initializeSyncDirectory({
       ageIdentity: ageKeys.identity,
-      identityFile: "$XDG_CONFIG_HOME/devsync/keys.txt",
       recipients: [],
       repository: sourceRepository,
     });
@@ -271,7 +246,10 @@ describe("init service", () => {
     expect(result.alreadyInitialized).toBe(false);
     expect(result.generatedIdentity).toBe(false);
     expect(
-      await readFile(join(xdgConfigHome, "devsync", "keys.txt"), "utf8"),
+      await readFile(
+        join(homeDirectory, ".config", "devsync", "keys.txt"),
+        "utf8",
+      ),
     ).toBe(`${ageKeys.identity}\n`);
     expect(
       JSON.parse(
@@ -293,7 +271,6 @@ describe("init service", () => {
     await runGit(["init", "-b", "main", sourceRepository], workspace);
 
     const manifest = createInitialSyncConfig({
-      identityFile: "$XDG_CONFIG_HOME/devsync/keys.txt",
       recipients: [ageKeys.recipient],
     });
 
@@ -311,7 +288,6 @@ describe("init service", () => {
     setEnvironment(homeDirectory, xdgConfigHome);
     const result = await initializeSyncDirectory({
       generateAgeIdentity: true,
-      identityFile: "$XDG_CONFIG_HOME/devsync/keys.txt",
       recipients: [],
       repository: sourceRepository,
     });
@@ -319,7 +295,7 @@ describe("init service", () => {
     expect(result.alreadyInitialized).toBe(false);
     expect(result.generatedIdentity).toBe(true);
     const identityContent = await readFile(
-      join(xdgConfigHome, "devsync", "keys.txt"),
+      join(homeDirectory, ".config", "devsync", "keys.txt"),
       "utf8",
     );
     expect(identityContent.trim()).toMatch(/^AGE-SECRET-KEY-/u);

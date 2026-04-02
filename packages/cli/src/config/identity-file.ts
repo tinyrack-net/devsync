@@ -1,6 +1,5 @@
 import { CONSTANTS } from "#app/config/constants.ts";
 import { resolveConfiguredAbsolutePath } from "#app/config/xdg.ts";
-import { ENV, type Env } from "#app/lib/env.ts";
 import { DevsyncError } from "#app/lib/error.ts";
 
 export type ResolveConfiguredIdentityFileOptions = Readonly<{
@@ -11,23 +10,32 @@ export type ResolveConfiguredIdentityFileOptions = Readonly<{
 
 const defaultIdentityFileSource = "Configured identity file";
 
-export const resolveDefaultIdentityFile = (environment: Env = ENV) => {
+export const resolveDefaultIdentityFile = (
+  home: string | undefined,
+  xdgConfigHome: string | undefined,
+) => {
   return resolveConfiguredAbsolutePath(
     CONSTANTS.INIT.DEFAULT_IDENTITY_FILE,
-    environment,
+    home,
+    xdgConfigHome,
   );
 };
 
-export const resolveLegacyIdentityFile = (environment: Env = ENV) => {
+export const resolveLegacyIdentityFile = (
+  home: string | undefined,
+  xdgConfigHome: string | undefined,
+) => {
   return resolveConfiguredAbsolutePath(
     CONSTANTS.INIT.LEGACY_IDENTITY_FILE,
-    environment,
+    home,
+    xdgConfigHome,
   );
 };
 
 export const resolveConfiguredIdentityFile = (
   value: string,
-  environment: Env = ENV,
+  home: string | undefined,
+  xdgConfigHome: string | undefined,
   options: ResolveConfiguredIdentityFileOptions = {},
 ) => {
   const configuredIdentityFile = value.trim();
@@ -38,7 +46,8 @@ export const resolveConfiguredIdentityFile = (
   try {
     resolvedIdentityFile = resolveConfiguredAbsolutePath(
       configuredIdentityFile,
-      environment,
+      home,
+      xdgConfigHome,
     );
   } catch (error: unknown) {
     throw new DevsyncError(
@@ -57,7 +66,7 @@ export const resolveConfiguredIdentityFile = (
     );
   }
 
-  if (resolvedIdentityFile === resolveLegacyIdentityFile(environment)) {
+  if (resolvedIdentityFile === resolveLegacyIdentityFile(home, xdgConfigHome)) {
     throw new DevsyncError(
       "Configured age identity file uses the removed legacy path.",
       {
@@ -68,7 +77,7 @@ export const resolveConfiguredIdentityFile = (
             ? []
             : [`Config file: ${options.configPath}`]),
           `Resolved identity file: ${resolvedIdentityFile}`,
-          `Supported identity file: ${resolveDefaultIdentityFile(environment)}`,
+          `Supported identity file: ${resolveDefaultIdentityFile(home, xdgConfigHome)}`,
         ],
         hint:
           options.hint ??

@@ -17,8 +17,14 @@ const mocked = vi.hoisted(() => ({
   findOwningSyncEntry: vi.fn(),
   getPathStats: vi.fn(),
   isExplicitLocalPath: vi.fn(),
+  normalizeSyncRepoPath: vi.fn((value: string) => value),
   readSyncConfig: vi.fn(),
   resolveEntryRelativeRepoPath: vi.fn(),
+  resolveSyncConfigResolutionContext: vi.fn(() => ({
+    homeDirectory: "/tmp/home",
+    platformKey: "linux",
+    xdgConfigHome: "/tmp/home/.config",
+  })),
   resolveSyncPaths: vi.fn(() => ({
     configPath: "/tmp/devsync/manifest.json",
     homeDirectory: "/tmp/home",
@@ -31,6 +37,7 @@ const mocked = vi.hoisted(() => ({
 
 vi.mock("#app/config/sync.ts", () => ({
   findOwningSyncEntry: mocked.findOwningSyncEntry,
+  normalizeSyncRepoPath: mocked.normalizeSyncRepoPath,
   readSyncConfig: mocked.readSyncConfig,
   resolveEntryRelativeRepoPath: mocked.resolveEntryRelativeRepoPath,
 }));
@@ -61,6 +68,7 @@ vi.mock("./paths.ts", () => ({
 
 vi.mock("./runtime.ts", () => ({
   ensureSyncRepository: mocked.ensureSyncRepository,
+  resolveSyncConfigResolutionContext: mocked.resolveSyncConfigResolutionContext,
   resolveSyncPaths: mocked.resolveSyncPaths,
 }));
 
@@ -172,7 +180,7 @@ describe("sync set service", () => {
 
   it("resolves explicit child paths inside tracked directories with explicit repo paths", async () => {
     const entry = directoryEntry({
-      configuredRepoPath: "profiles/shared/app",
+      configuredRepoPath: { default: "profiles/shared/app" },
       repoPath: "profiles/shared/app",
     });
 

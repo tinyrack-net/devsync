@@ -3,12 +3,12 @@ import {
   formatGlobalDevsyncConfig,
   readGlobalDevsyncConfig,
 } from "#app/config/global-config.ts";
+import { readEnvValue } from "#app/config/runtime-env.ts";
 import {
   collectAllProfileNames,
   normalizeSyncProfileName,
   readSyncConfig,
 } from "#app/config/sync.ts";
-import { ENV } from "#app/lib/env.ts";
 import { DevsyncError } from "#app/lib/error.ts";
 import { writeTextFileAtomically } from "#app/lib/filesystem.ts";
 import {
@@ -16,7 +16,11 @@ import {
   writeValidatedSyncConfig,
 } from "./config-file.ts";
 import { resolveTrackedEntry } from "./paths.ts";
-import { ensureSyncRepository, resolveSyncPaths } from "./runtime.ts";
+import {
+  ensureSyncRepository,
+  resolveSyncConfigResolutionContext,
+  resolveSyncPaths,
+} from "./runtime.ts";
 
 export type ProfileAssignment = Readonly<{
   entryLocalPath: string;
@@ -58,12 +62,20 @@ type AssignProfilesResult = Readonly<{
 
 export const listProfiles = async (): Promise<ProfileListResult> => {
   const { syncDirectory, globalConfigPath } = resolveSyncPaths();
+  const { homeDirectory, platformKey, xdgConfigHome } =
+    resolveSyncConfigResolutionContext();
 
   await ensureSyncRepository(syncDirectory);
 
   const [globalConfig, syncConfig] = await Promise.all([
-    readGlobalDevsyncConfig(),
-    readSyncConfig(syncDirectory, ENV),
+    readGlobalDevsyncConfig(globalConfigPath),
+    readSyncConfig(
+      syncDirectory,
+      platformKey,
+      homeDirectory,
+      xdgConfigHome,
+      readEnvValue,
+    ),
   ]);
 
   return {
@@ -94,10 +106,18 @@ export const setActiveProfile = async (
 ): Promise<ProfileUpdateResult> => {
   const normalizedProfile = normalizeSyncProfileName(profile);
   const { syncDirectory, globalConfigPath } = resolveSyncPaths();
+  const { homeDirectory, platformKey, xdgConfigHome } =
+    resolveSyncConfigResolutionContext();
 
   await ensureSyncRepository(syncDirectory);
 
-  const syncConfig = await readSyncConfig(syncDirectory, ENV);
+  const syncConfig = await readSyncConfig(
+    syncDirectory,
+    platformKey,
+    homeDirectory,
+    xdgConfigHome,
+    readEnvValue,
+  );
   const knownProfiles = collectAllProfileNames(syncConfig.entries);
   const warning = knownProfiles.includes(normalizedProfile)
     ? undefined
@@ -154,11 +174,19 @@ export const assignProfiles = async (
   }
 
   const { syncDirectory, configPath } = resolveSyncPaths();
+  const { homeDirectory, platformKey, xdgConfigHome } =
+    resolveSyncConfigResolutionContext();
 
   await ensureSyncRepository(syncDirectory);
 
-  const config = await readSyncConfig(syncDirectory, ENV);
-  const entry = resolveTrackedEntry(target, config.entries, cwd);
+  const config = await readSyncConfig(
+    syncDirectory,
+    platformKey,
+    homeDirectory,
+    xdgConfigHome,
+    readEnvValue,
+  );
+  const entry = resolveTrackedEntry(target, config.entries, cwd, homeDirectory);
 
   if (entry === undefined) {
     throw new DevsyncError(`No tracked sync entry matches: ${target}`, {
@@ -199,7 +227,14 @@ export const assignProfiles = async (
     }),
   });
 
-  await writeValidatedSyncConfig(syncDirectory, nextConfig);
+  await writeValidatedSyncConfig(
+    syncDirectory,
+    nextConfig,
+    platformKey,
+    homeDirectory,
+    xdgConfigHome,
+    readEnvValue,
+  );
 
   return {
     action: "assigned",

@@ -1,7 +1,8 @@
 import { isAbsolute, join, posix, relative, resolve } from "node:path";
-
+import { readEnvValue } from "#app/config/runtime-env.ts";
 import {
   findOwningSyncEntry,
+  normalizeSyncRepoPath,
   type PlatformSyncMode,
   type ResolvedSyncConfigEntry,
   readSyncConfig,
@@ -9,7 +10,6 @@ import {
   type SyncMode,
 } from "#app/config/sync.ts";
 import { expandHomePath } from "#app/config/xdg.ts";
-import { ENV } from "#app/lib/env.ts";
 import { DevsyncError } from "#app/lib/error.ts";
 import { getPathStats } from "#app/lib/filesystem.ts";
 import { isExplicitLocalPath } from "#app/lib/path.ts";
@@ -23,7 +23,11 @@ import {
   tryBuildRepoPathWithinRoot,
   tryNormalizeRepoPathInput,
 } from "./paths.ts";
-import { ensureSyncRepository, resolveSyncPaths } from "./runtime.ts";
+import {
+  ensureSyncRepository,
+  resolveSyncConfigResolutionContext,
+  resolveSyncPaths,
+} from "./runtime.ts";
 
 export type SetModeRequest = Readonly<{
   mode: SyncMode;
@@ -46,6 +50,10 @@ export type SetModeResult = Readonly<{
 
 const buildDefaultPlatformMode = (mode: SyncMode): PlatformSyncMode => ({
   default: mode,
+});
+
+const buildDefaultConfiguredRepoPath = (repoPath: string) => ({
+  default: normalizeSyncRepoPath(repoPath),
 });
 
 const hasPlatformSpecificModeOverride = (configuredMode: PlatformSyncMode) => {
@@ -129,7 +137,10 @@ export const resolveSetTarget = async (
   }
 
   const explicit = isExplicitLocalPath(trimmedTarget);
-  const localTargetPath = resolve(cwd, expandHomePath(trimmedTarget, ENV));
+  const localTargetPath = resolve(
+    cwd,
+    expandHomePath(trimmedTarget, homeDirectory),
+  );
   const localRepoPath = explicit
     ? buildRepoPathWithinRoot(localTargetPath, homeDirectory, "Sync set target")
     : tryBuildRepoPathWithinRoot(
@@ -296,11 +307,19 @@ export const setTargetMode = async (
   request: SetModeRequest,
   cwd: string,
 ): Promise<SetModeResult> => {
-  const { syncDirectory, configPath, homeDirectory } = resolveSyncPaths();
+  const { syncDirectory, configPath } = resolveSyncPaths();
+  const { homeDirectory, platformKey, xdgConfigHome } =
+    resolveSyncConfigResolutionContext();
 
   await ensureSyncRepository(syncDirectory);
 
-  const config = await readSyncConfig(syncDirectory, ENV);
+  const config = await readSyncConfig(
+    syncDirectory,
+    platformKey,
+    homeDirectory,
+    xdgConfigHome,
+    readEnvValue,
+  );
   const target = await resolveSetTarget(
     request.target,
     config,
@@ -346,7 +365,14 @@ export const setTargetMode = async (
     });
 
     if (action !== "unchanged") {
-      await writeValidatedSyncConfig(syncDirectory, nextConfig);
+      await writeValidatedSyncConfig(
+        syncDirectory,
+        nextConfig,
+        platformKey,
+        homeDirectory,
+        xdgConfigHome,
+        readEnvValue,
+      );
     }
 
     return buildResult(action);
@@ -409,7 +435,14 @@ export const setTargetMode = async (
       }),
     });
 
-    await writeValidatedSyncConfig(syncDirectory, nextConfig);
+    await writeValidatedSyncConfig(
+      syncDirectory,
+      nextConfig,
+      platformKey,
+      homeDirectory,
+      xdgConfigHome,
+      readEnvValue,
+    );
 
     return buildResult("updated");
   }
@@ -424,7 +457,11 @@ export const setTargetMode = async (
     localPath: target.localPath,
     ...(childConfiguredRepoPath === undefined
       ? {}
-      : { configuredRepoPath: childConfiguredRepoPath }),
+      : {
+          configuredRepoPath: buildDefaultConfiguredRepoPath(
+            childConfiguredRepoPath,
+          ),
+        }),
     profiles: [],
     profilesExplicit: false,
     mode: request.mode,
@@ -439,7 +476,14 @@ export const setTargetMode = async (
     entries: [...config.entries, newEntry],
   });
 
-  await writeValidatedSyncConfig(syncDirectory, nextConfig);
+  await writeValidatedSyncConfig(
+    syncDirectory,
+    nextConfig,
+    platformKey,
+    homeDirectory,
+    xdgConfigHome,
+    readEnvValue,
+  );
 
   return buildResult("added");
 };

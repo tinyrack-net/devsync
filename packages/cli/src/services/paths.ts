@@ -6,7 +6,6 @@ import {
   type ResolvedSyncConfigEntry,
 } from "#app/config/sync.ts";
 import { expandHomePath } from "#app/config/xdg.ts";
-import { ENV } from "#app/lib/env.ts";
 import { DevsyncError } from "#app/lib/error.ts";
 import { isExplicitLocalPath } from "#app/lib/path.ts";
 
@@ -81,8 +80,12 @@ export const resolveTrackedEntry = (
   target: string,
   entries: readonly ResolvedSyncConfigEntry[],
   cwd: string,
+  homeDirectory: string,
 ): ResolvedSyncConfigEntry | undefined => {
-  const resolvedTargetPath = resolve(cwd, expandHomePath(target, ENV));
+  const resolvedTargetPath = resolve(
+    cwd,
+    expandHomePath(target, homeDirectory),
+  );
   const byLocalPath = entries.filter(
     (entry) => entry.localPath === resolvedTargetPath,
   );
