@@ -107,7 +107,7 @@ describe("sync CLI e2e", () => {
     ).toContain("AGE-SECRET-KEY-");
     expect(
       JSON.parse(
-        await readFile(join(ctx.xdgDir, "devsync", "settings.json"), "utf8"),
+        await readFile(join(ctx.xdgDir, "devsync", "settings.jsonc"), "utf8"),
       ),
     ).toMatchObject({
       activeProfile: "default",
@@ -115,13 +115,13 @@ describe("sync CLI e2e", () => {
     });
     expect(
       JSON.parse(
-        await readFile(join(ctx.xdgDir, "devsync", "settings.json"), "utf8"),
+        await readFile(join(ctx.xdgDir, "devsync", "settings.jsonc"), "utf8"),
       ),
     ).not.toHaveProperty("age");
     expect(
       JSON.parse(
         await readFile(
-          join(ctx.xdgDir, "devsync", "repository", "manifest.json"),
+          join(ctx.xdgDir, "devsync", "repository", "manifest.jsonc"),
           "utf8",
         ),
       ),
@@ -163,7 +163,7 @@ describe("sync CLI e2e", () => {
 
     await ctx.runGit(["init", "-b", "main", sourceRepository]);
     await writeFile(
-      join(sourceRepository, "manifest.json"),
+      join(sourceRepository, "manifest.jsonc"),
       formatSyncConfig(
         createInitialSyncConfig({
           recipients: [ageKeys.recipient],
@@ -171,7 +171,7 @@ describe("sync CLI e2e", () => {
       ),
       "utf8",
     );
-    await ctx.runGit(["add", "manifest.json"], sourceRepository);
+    await ctx.runGit(["add", "manifest.jsonc"], sourceRepository);
     await ctx.runGit(
       ["commit", "-m", "initial manifest", "--author", "test <test@test.com>"],
       sourceRepository,
@@ -227,7 +227,7 @@ describe("sync CLI e2e", () => {
 
     await ctx.runGit(["init", "-b", "main", sourceRepository]);
     await writeFile(
-      join(sourceRepository, "manifest.json"),
+      join(sourceRepository, "manifest.jsonc"),
       formatSyncConfig(
         createInitialSyncConfig({
           recipients: [ageKeys.recipient],
@@ -235,7 +235,7 @@ describe("sync CLI e2e", () => {
       ),
       "utf8",
     );
-    await ctx.runGit(["add", "manifest.json"], sourceRepository);
+    await ctx.runGit(["add", "manifest.jsonc"], sourceRepository);
     await ctx.runGit(
       ["commit", "-m", "initial manifest", "--author", "test <test@test.com>"],
       sourceRepository,
@@ -260,7 +260,7 @@ describe("sync CLI e2e", () => {
 
     await ctx.runGit(["init", "-b", "main", sourceRepository]);
     await writeFile(
-      join(sourceRepository, "manifest.json"),
+      join(sourceRepository, "manifest.jsonc"),
       formatSyncConfig(
         createInitialSyncConfig({
           recipients: [ageKeys.recipient],
@@ -268,7 +268,7 @@ describe("sync CLI e2e", () => {
       ),
       "utf8",
     );
-    await ctx.runGit(["add", "manifest.json"], sourceRepository);
+    await ctx.runGit(["add", "manifest.jsonc"], sourceRepository);
     await ctx.runGit(
       ["commit", "-m", "initial manifest", "--author", "test <test@test.com>"],
       sourceRepository,
@@ -343,7 +343,7 @@ describe("sync CLI e2e", () => {
       "ignore",
     ]);
     const configAfterSet = JSON.parse(
-      await readFile(join(syncDirectory, "manifest.json"), "utf8"),
+      await readFile(join(syncDirectory, "manifest.jsonc"), "utf8"),
     ) as {
       entries: Array<{
         kind: string;
@@ -387,7 +387,7 @@ describe("sync CLI e2e", () => {
     await ctx.runCli(["untrack", ".config/mytool/public.json"]);
 
     const configAfterUntrack = JSON.parse(
-      await readFile(join(syncDirectory, "manifest.json"), "utf8"),
+      await readFile(join(syncDirectory, "manifest.jsonc"), "utf8"),
     ) as {
       entries: unknown[];
     };
