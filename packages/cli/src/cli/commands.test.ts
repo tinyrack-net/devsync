@@ -18,6 +18,7 @@ const mocked = vi.hoisted(() => ({
   assignProfiles: vi.fn(),
   clearActiveProfile: vi.fn(),
   consolaPrompt: vi.fn(),
+  createMissingRepositoryAgeKeyError: vi.fn(),
   getStatus: vi.fn(),
   initializeSyncDirectory: vi.fn(),
   launchShellInDirectory: vi.fn(),
@@ -77,6 +78,7 @@ vi.mock("#app/services/untrack.ts", () => ({
 }));
 
 vi.mock("#app/services/init.ts", () => ({
+  createMissingRepositoryAgeKeyError: mocked.createMissingRepositoryAgeKeyError,
   initializeSyncDirectory: mocked.initializeSyncDirectory,
 }));
 
@@ -168,6 +170,11 @@ beforeEach(() => {
   mocked.resolveDevsyncSyncDirectory.mockReturnValue("/tmp/devsync");
   mocked.pathExists.mockResolvedValue(true);
   mocked.consolaPrompt.mockResolvedValue(undefined);
+  mocked.createMissingRepositoryAgeKeyError.mockImplementation(() => {
+    return new DevsyncError(
+      "Existing repository setup requires an age private key.",
+    );
+  });
   mocked.initializeSyncDirectory.mockResolvedValue({
     alreadyInitialized: false,
     configPath: "/tmp/config.json",
@@ -340,25 +347,21 @@ describe("CLI command modules", () => {
     );
   });
 
-  it("prompts for a key and requests generation when the prompt is blank", async () => {
+  it("rejects a blank prompted key when importing an existing repository", async () => {
     mocked.pathExists.mockResolvedValue(false);
     mocked.consolaPrompt.mockResolvedValue("   ");
 
-    await runCommand(initCommand, { promptKey: true }, "origin");
+    await expect(
+      runCommand(initCommand, { promptKey: true }, "origin"),
+    ).rejects.toThrowError(
+      /Existing repository setup requires an age private key/u,
+    );
 
     expect(mocked.consolaPrompt).toHaveBeenCalledWith(
-      "Enter an age private key (leave empty to generate a new one): ",
+      "Enter the age private key for the existing repository: ",
       { type: "text", cancel: "reject" },
     );
-    expect(mocked.initializeSyncDirectory).toHaveBeenCalledWith(
-      {
-        ageIdentity: undefined,
-        generateAgeIdentity: true,
-        recipients: [],
-        repository: "origin",
-      },
-      undefined,
-    );
+    expect(mocked.initializeSyncDirectory).not.toHaveBeenCalled();
   });
 
   it("tracks new targets and formats track output", async () => {

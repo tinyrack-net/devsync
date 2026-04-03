@@ -87,13 +87,13 @@ On a new machine, clone your existing sync directory:
 1. **Clone and initialize**
 
    ```bash
-   devsync init <your-repo-url>
+   devsync init <your-repo-url> --key "AGE-SECRET-KEY-1..."
    ```
 
-   This clones the repository into `~/.config/devsync/repository/` and sets up a new age identity. If you already have an age private key from another machine, pass it with `--key`:
+   This clones the repository into `~/.config/devsync/repository/`. When connecting an existing sync repository, you must provide the same age private key used to decrypt its secret files:
 
    ```bash
-   devsync init <your-repo-url> --key "AGE-SECRET-KEY-1..."
+   devsync init <your-repo-url> --promptKey
    ```
 
 2. **Pull your files**

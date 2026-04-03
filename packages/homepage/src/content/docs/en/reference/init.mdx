@@ -40,7 +40,7 @@ devsync init
 Clone a remote repository as the sync directory:
 
 ```bash
-devsync init https://github.com/user/dotfiles.git
+devsync init https://github.com/user/dotfiles.git --key "AGE-SECRET-KEY-1..."
 ```
 
 Initialize with an existing age secret key:
@@ -50,5 +50,5 @@ devsync init --key "AGE-SECRET-KEY-1..."
 ```
 
 <Aside type="tip">
-If you already have an age identity you use on another machine, pass it with `--key` or `--promptKey` so devsync can decrypt your secret files.
+If you pass a repository to `devsync init`, you must also provide the existing age private key with `--key` or `--promptKey` so devsync can decrypt your secret files.
 </Aside>

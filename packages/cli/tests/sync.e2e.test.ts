@@ -157,6 +157,39 @@ describe("sync CLI e2e", () => {
     ).toBe(`${ageKeys.identity}\n`);
   });
 
+  it("fails when importing an existing repository without supplying an age key", async () => {
+    const sourceRepository = join(ctx.workspace, "remote-sync");
+
+    await ctx.runGit(["init", "-b", "main", sourceRepository]);
+    const session = createPtySession({
+      args: [...cliNodeOptions, "init", sourceRepository],
+      cwd: ctx.workspace,
+      env: {
+        ...ctx.baseEnv,
+      },
+      file: process.execPath,
+    });
+
+    try {
+      await session.waitFor(
+        "Enter the age private key for the existing repository",
+        10_000,
+      );
+      session.write("\r");
+
+      const output = await session.waitFor(
+        "Existing repository setup requires an age private key",
+        10_000,
+      );
+
+      expect(output).toContain(
+        "Provide your existing age private key with '--key' or '--promptKey'.",
+      );
+    } finally {
+      session.close();
+    }
+  });
+
   it("does not warn about an existing config when cloning a repository with an existing manifest", async () => {
     const sourceRepository = join(ctx.workspace, "remote-sync");
     const ageKeys = await ctx.createAgeKeyPair();
@@ -284,7 +317,10 @@ describe("sync CLI e2e", () => {
     });
 
     try {
-      await session.waitFor("Enter an age private key", 10_000);
+      await session.waitFor(
+        "Enter the age private key for the existing repository",
+        10_000,
+      );
       session.write(`${ageKeys.identity}\r`);
 
       const output = await session.waitFor(
@@ -293,6 +329,40 @@ describe("sync CLI e2e", () => {
       );
 
       expect(output).not.toContain("Sync directory already initialized");
+    } finally {
+      session.close();
+    }
+  });
+
+  it("fails when an empty key is entered interactively for an existing repository", async () => {
+    const sourceRepository = join(ctx.workspace, "remote-sync");
+
+    await ctx.runGit(["init", "-b", "main", sourceRepository]);
+
+    const session = createPtySession({
+      args: [...cliNodeOptions, "init", "--prompt-key", sourceRepository],
+      cwd: ctx.workspace,
+      env: {
+        ...ctx.baseEnv,
+      },
+      file: process.execPath,
+    });
+
+    try {
+      await session.waitFor(
+        "Enter the age private key for the existing repository",
+        10_000,
+      );
+      session.write("\r");
+
+      const output = await session.waitFor(
+        "Existing repository setup requires an age private key",
+        10_000,
+      );
+
+      expect(output).toContain(
+        "Provide your existing age private key with '--key' or '--promptKey'.",
+      );
     } finally {
       session.close();
     }

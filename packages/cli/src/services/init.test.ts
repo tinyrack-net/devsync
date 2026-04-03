@@ -264,7 +264,7 @@ describe("init service", () => {
     });
   });
 
-  it("generates a new age identity when cloning a repo with manifest.json and no key is provided", async () => {
+  it("rejects cloning a repo with manifest.json when no key or identity file is available", async () => {
     const workspace = await createWorkspace();
     const homeDirectory = join(workspace, "home");
     const xdgConfigHome = join(workspace, "xdg");
@@ -289,18 +289,14 @@ describe("init service", () => {
     );
 
     setEnvironment(homeDirectory, xdgConfigHome);
-    const result = await initializeSyncDirectory({
-      generateAgeIdentity: true,
-      recipients: [],
-      repository: sourceRepository,
-    });
-
-    expect(result.alreadyInitialized).toBe(false);
-    expect(result.generatedIdentity).toBe(true);
-    const identityContent = await readFile(
-      join(homeDirectory, ".config", "devsync", "keys.txt"),
-      "utf8",
+    await expect(
+      initializeSyncDirectory({
+        generateAgeIdentity: true,
+        recipients: [],
+        repository: sourceRepository,
+      }),
+    ).rejects.toThrowError(
+      /Existing repository setup requires an age private key/u,
     );
-    expect(identityContent.trim()).toMatch(/^AGE-SECRET-KEY-/u);
   });
 });

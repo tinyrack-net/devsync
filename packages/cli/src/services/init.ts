@@ -58,6 +58,16 @@ export type InitResult = Readonly<{
 
 export const defaultSyncIdentityFile = CONSTANTS.INIT.DEFAULT_IDENTITY_FILE;
 
+export const createMissingRepositoryAgeKeyError = () => {
+  return new DevsyncError(
+    "Existing repository setup requires an age private key.",
+    {
+      code: "INIT_AGE_IDENTITY_REQUIRED",
+      hint: "Provide your existing age private key with '--key' or '--promptKey'.",
+    },
+  );
+};
+
 const normalizeRecipients = (recipients: readonly string[]) => {
   return [
     ...new Set(recipients.map((recipient) => recipient.trim()).filter(Boolean)),
@@ -213,6 +223,20 @@ export const initializeSyncDirectory = async (
   const context = resolveSyncConfigResolutionContext();
   const resolvedConfigPath = await resolveExistingConfigPath(configPath);
   const configExists = await pathExists(resolvedConfigPath);
+  const identityFile = resolveDefaultIdentityFile(
+    readEnvValue("HOME"),
+    readEnvValue("XDG_CONFIG_HOME"),
+  );
+  const importingRepository =
+    request.repository !== undefined && request.repository.trim() !== "";
+
+  if (
+    importingRepository &&
+    request.ageIdentity === undefined &&
+    !(await pathExists(identityFile))
+  ) {
+    throw createMissingRepositoryAgeKeyError();
+  }
 
   if (configExists) {
     reporter?.start("Checking the existing sync directory...");

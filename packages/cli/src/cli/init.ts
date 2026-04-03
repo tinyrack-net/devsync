@@ -5,6 +5,7 @@ import { resolveDefaultIdentityFile } from "#app/config/identity-file.ts";
 import { readEnvValue } from "#app/config/runtime-env.ts";
 import { pathExists } from "#app/lib/filesystem.ts";
 import {
+  createMissingRepositoryAgeKeyError,
   type InitResult,
   initializeSyncDirectory,
 } from "#app/services/init.ts";
@@ -53,17 +54,28 @@ const initCommand = buildCommand<InitFlags, [string?], DevsyncCliContext>({
       readEnvValue("XDG_CONFIG_HOME"),
     );
     const identityFileExists = await pathExists(identityFile);
+    const importingRepository =
+      repository !== undefined && repository.trim() !== "";
     const shouldPrompt =
       requestedKey === undefined &&
       !identityFileExists &&
-      ((flags.promptKey ?? false) || repository !== undefined);
+      ((flags.promptKey ?? false) || importingRepository);
     const promptedKey = shouldPrompt
       ? await consola.prompt(
-          "Enter an age private key (leave empty to generate a new one): ",
+          importingRepository
+            ? "Enter the age private key for the existing repository: "
+            : "Enter an age private key (leave empty to generate a new one): ",
           { type: "text", cancel: "reject" },
         )
       : undefined;
     const trimmedPromptedKey = promptedKey?.trim();
+    if (
+      importingRepository &&
+      requestedKey === undefined &&
+      trimmedPromptedKey === ""
+    ) {
+      throw createMissingRepositoryAgeKeyError();
+    }
     const result = await initializeSyncDirectory(
       {
         ageIdentity:
@@ -73,6 +85,7 @@ const initCommand = buildCommand<InitFlags, [string?], DevsyncCliContext>({
               ? trimmedPromptedKey
               : undefined,
         generateAgeIdentity:
+          !importingRepository &&
           requestedKey === undefined &&
           (trimmedPromptedKey === "" ||
             (trimmedPromptedKey === undefined && !identityFileExists)),
