@@ -180,7 +180,7 @@ describe("sync config", () => {
     ).toThrowError("Sync configuration is invalid.");
   });
 
-  it("rejects age.identityFile in the config", async () => {
+  it("ignores age.identityFile in the config (unknown field)", async () => {
     const workspace = await createTemporaryDirectory("devsync-sync-config-");
     const homeDirectory = join(workspace, "home");
 
@@ -198,7 +198,7 @@ describe("sync config", () => {
           HOME: homeDirectory,
         },
       ),
-    ).toThrowError("Sync configuration is invalid.");
+    ).not.toThrow();
   });
 
   it("rejects string repoPath in the config", async () => {
@@ -1100,57 +1100,6 @@ describe("sync config", () => {
     ).toThrowError("Sync configuration is invalid.");
   });
 
-  it("rejects unknown keys in localPath object", async () => {
-    const workspace = await createTemporaryDirectory("devsync-sync-config-");
-    const homeDirectory = join(workspace, "home");
-
-    expect(() =>
-      parseSyncConfig(
-        {
-          entries: [
-            {
-              kind: "file",
-              localPath: {
-                default: "~/.gitconfig",
-                unknownKey: "value",
-              },
-            },
-          ],
-          version: 7,
-        },
-        {
-          HOME: homeDirectory,
-        },
-      ),
-    ).toThrowError("Sync configuration is invalid.");
-  });
-
-  it("rejects unknown keys in repoPath object", async () => {
-    const workspace = await createTemporaryDirectory("devsync-sync-config-");
-    const homeDirectory = join(workspace, "home");
-
-    expect(() =>
-      parseSyncConfig(
-        {
-          entries: [
-            {
-              kind: "file",
-              localPath: { default: "~/.gitconfig" },
-              repoPath: {
-                default: ".gitconfig",
-                unknownKey: ".gitconfig.work",
-              },
-            },
-          ],
-          version: 7,
-        },
-        {
-          HOME: homeDirectory,
-        },
-      ),
-    ).toThrowError("Sync configuration is invalid.");
-  });
-
   it("rejects localPath object missing default field", async () => {
     const workspace = await createTemporaryDirectory("devsync-sync-config-");
     const homeDirectory = join(workspace, "home");
@@ -1420,7 +1369,7 @@ describe("sync config", () => {
     });
   });
 
-  it("rejects permission objects with unsupported platform keys", async () => {
+  it("ignores unsupported platform keys in permission objects (unknown field)", async () => {
     const workspace = await createTemporaryDirectory("devsync-sync-config-");
     const homeDirectory = join(workspace, "home");
 
@@ -1438,7 +1387,7 @@ describe("sync config", () => {
         },
         { HOME: homeDirectory },
       ),
-    ).toThrowError("Sync configuration is invalid.");
+    ).not.toThrow();
   });
 
   it("treats profiles as an allowlist", async () => {

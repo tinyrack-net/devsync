@@ -26,37 +26,32 @@ const syncProfileNameArraySchema = z
   .array(requiredTrimmedStringSchema)
   .min(1, "At least one profile must be specified.");
 
-const platformLocalPathSchema = z
-  .object({
-    default: requiredTrimmedStringSchema,
-    win: requiredTrimmedStringSchema.optional(),
-    mac: requiredTrimmedStringSchema.optional(),
-    linux: requiredTrimmedStringSchema.optional(),
-    wsl: requiredTrimmedStringSchema.optional(),
-  })
-  .strict();
+const platformLocalPathSchema = z.object({
+  default: requiredTrimmedStringSchema,
+  win: requiredTrimmedStringSchema.optional(),
+  mac: requiredTrimmedStringSchema.optional(),
+  linux: requiredTrimmedStringSchema.optional(),
+  wsl: requiredTrimmedStringSchema.optional(),
+});
 
 const localPathSchema = platformLocalPathSchema;
-const platformRepoPathSchema = z
-  .object({
-    default: requiredTrimmedStringSchema,
-    win: requiredTrimmedStringSchema.optional(),
-    mac: requiredTrimmedStringSchema.optional(),
-    linux: requiredTrimmedStringSchema.optional(),
-    wsl: requiredTrimmedStringSchema.optional(),
-  })
-  .strict();
+const platformRepoPathSchema = z.object({
+  default: requiredTrimmedStringSchema,
+  win: requiredTrimmedStringSchema.optional(),
+  mac: requiredTrimmedStringSchema.optional(),
+  linux: requiredTrimmedStringSchema.optional(),
+  wsl: requiredTrimmedStringSchema.optional(),
+});
+
 const repoPathSchema = platformRepoPathSchema;
 
-const platformSyncModeSchema = z
-  .object({
-    default: z.enum(CONSTANTS.SYNC.MODES),
-    win: z.enum(CONSTANTS.SYNC.MODES).optional(),
-    mac: z.enum(CONSTANTS.SYNC.MODES).optional(),
-    linux: z.enum(CONSTANTS.SYNC.MODES).optional(),
-    wsl: z.enum(CONSTANTS.SYNC.MODES).optional(),
-  })
-  .strict();
+const platformSyncModeSchema = z.object({
+  default: z.enum(CONSTANTS.SYNC.MODES),
+  win: z.enum(CONSTANTS.SYNC.MODES).optional(),
+  mac: z.enum(CONSTANTS.SYNC.MODES).optional(),
+  linux: z.enum(CONSTANTS.SYNC.MODES).optional(),
+  wsl: z.enum(CONSTANTS.SYNC.MODES).optional(),
+});
 
 const permissionOctalSchema = z
   .string()
@@ -65,42 +60,34 @@ const permissionOctalSchema = z
     "Permission must be a 4-character octal string like '0600' or '0755'.",
   );
 
-const platformPermissionSchema = z
-  .object({
-    default: permissionOctalSchema,
-    win: permissionOctalSchema.optional(),
-    mac: permissionOctalSchema.optional(),
-    linux: permissionOctalSchema.optional(),
-    wsl: permissionOctalSchema.optional(),
-  })
-  .strict();
+const platformPermissionSchema = z.object({
+  default: permissionOctalSchema,
+  win: permissionOctalSchema.optional(),
+  mac: permissionOctalSchema.optional(),
+  linux: permissionOctalSchema.optional(),
+  wsl: permissionOctalSchema.optional(),
+});
 
-const syncConfigEntrySchema = z
-  .object({
-    kind: z.enum(["file", "directory"] as const),
-    localPath: localPathSchema,
-    repoPath: repoPathSchema.optional(),
-    profiles: syncProfileNameArraySchema.optional(),
-    mode: platformSyncModeSchema.optional(),
-    permission: platformPermissionSchema.optional(),
-  })
-  .strict();
+const syncConfigEntrySchema = z.object({
+  kind: z.enum(["file", "directory"] as const),
+  localPath: localPathSchema,
+  repoPath: repoPathSchema.optional(),
+  profiles: syncProfileNameArraySchema.optional(),
+  mode: platformSyncModeSchema.optional(),
+  permission: platformPermissionSchema.optional(),
+});
 
-const syncConfigAgeSchema = z
-  .object({
-    recipients: z
-      .array(requiredTrimmedStringSchema)
-      .min(1, "At least one age recipient is required."),
-  })
-  .strict();
+const syncConfigAgeSchema = z.object({
+  recipients: z
+    .array(requiredTrimmedStringSchema)
+    .min(1, "At least one age recipient is required."),
+});
 
-const syncConfigSchemaV7 = z
-  .object({
-    version: z.literal(CONSTANTS.SYNC.CONFIG_VERSION),
-    age: syncConfigAgeSchema.optional(),
-    entries: z.array(syncConfigEntrySchema),
-  })
-  .strict();
+const syncConfigSchemaV7 = z.object({
+  version: z.literal(CONSTANTS.SYNC.CONFIG_VERSION),
+  age: syncConfigAgeSchema.optional(),
+  entries: z.array(syncConfigEntrySchema),
+});
 
 const syncConfigSchema = syncConfigSchemaV7;
 

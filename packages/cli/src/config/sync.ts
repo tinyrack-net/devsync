@@ -2,12 +2,16 @@ import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 
 import { CONSTANTS } from "#app/config/constants.ts";
+import { runConfigMigrations } from "#app/config/migration.ts";
 import {
   parseSyncConfig,
   type ResolvedSyncConfig,
   type SyncConfigResolutionContext,
 } from "#app/config/sync-schema.ts";
 import { DevsyncError } from "#app/lib/error.ts";
+import { parseJsonc, resolveExistingConfigPath } from "#app/lib/jsonc.ts";
+
+const syncConfigMigrationRegistry = new Map<number, never>();
 
 // ---------------------------------------------------------------------------
 // Re-exports: types, schema, entry utilities
@@ -65,13 +69,20 @@ export const readSyncConfig = async (
   syncDirectory: string,
   context: SyncConfigResolutionContext,
 ): Promise<ResolvedSyncConfig> => {
+  const filePath = await resolveExistingConfigPath(
+    resolveSyncConfigFilePath(syncDirectory),
+  );
   try {
-    const contents = await readFile(
-      resolveSyncConfigFilePath(syncDirectory),
-      "utf8",
+    const contents = await readFile(filePath, "utf8");
+    const parsed = parseJsonc(contents);
+    const migrated = await runConfigMigrations(
+      parsed,
+      syncConfigMigrationRegistry,
+      CONSTANTS.SYNC.CONFIG_VERSION,
+      filePath,
     );
 
-    return parseSyncConfig(JSON.parse(contents) as unknown, context);
+    return parseSyncConfig(migrated, context);
   } catch (error: unknown) {
     if (error instanceof DevsyncError) {
       throw error;
@@ -80,10 +91,7 @@ export const readSyncConfig = async (
     if (error instanceof SyntaxError) {
       throw new DevsyncError("Sync configuration is not valid JSON.", {
         code: "CONFIG_INVALID_JSON",
-        details: [
-          `Config file: ${resolveSyncConfigFilePath(syncDirectory)}`,
-          error.message,
-        ],
+        details: [`Config file: ${filePath}`, error.message],
         hint: `Fix the JSON syntax in ${CONSTANTS.SYNC.CONFIG_FILE_NAME}, then run the command again.`,
       });
     }
@@ -91,7 +99,7 @@ export const readSyncConfig = async (
     throw new DevsyncError("Failed to read sync configuration.", {
       code: "CONFIG_READ_FAILED",
       details: [
-        `Config file: ${resolveSyncConfigFilePath(syncDirectory)}`,
+        `Config file: ${filePath}`,
         ...(error instanceof Error ? [error.message] : []),
       ],
       hint: "Run 'devsync init' if the sync directory has not been initialized yet.",

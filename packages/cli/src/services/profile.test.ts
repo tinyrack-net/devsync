@@ -21,7 +21,7 @@ const mocked = vi.hoisted(() => ({
     xdgConfigHome: "/tmp/home/.config",
   })),
   resolveSyncPaths: vi.fn(() => ({
-    configPath: "/tmp/devsync/manifest.json",
+    configPath: "/tmp/devsync/manifest.jsonc",
     homeDirectory: "/tmp/home",
     globalConfigPath: "/tmp/devsync/global.json",
     syncDirectory: "/tmp/devsync",
@@ -228,7 +228,7 @@ describe("sync profiles service", () => {
       ),
     ).resolves.toEqual({
       action: "unchanged",
-      configPath: "/tmp/devsync/manifest.json",
+      configPath: "/tmp/devsync/manifest.jsonc",
       entryRepoPath: ".gitconfig",
       profiles: ["work", "default"],
       syncDirectory: "/tmp/devsync",
@@ -257,7 +257,7 @@ describe("sync profiles service", () => {
 
     expect(result).toEqual({
       action: "assigned",
-      configPath: "/tmp/devsync/manifest.json",
+      configPath: "/tmp/devsync/manifest.jsonc",
       entryRepoPath: ".gitconfig",
       profiles: ["work"],
       syncDirectory: "/tmp/devsync",

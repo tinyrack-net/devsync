@@ -8,7 +8,7 @@ const mocked = vi.hoisted(() => ({
   loadSyncConfig: vi.fn(),
   pathExists: vi.fn(),
   resolveSyncConfigFilePath: vi.fn(
-    (syncDirectory: string) => `${syncDirectory}/manifest.json`,
+    (syncDirectory: string) => `${syncDirectory}/manifest.jsonc`,
   ),
   resolveSyncPaths: vi.fn(() => ({
     syncDirectory: "/tmp/devsync",
@@ -105,7 +105,7 @@ describe("sync doctor", () => {
           level: "fail",
         },
       ],
-      configPath: "/tmp/devsync/manifest.json",
+      configPath: "/tmp/devsync/manifest.jsonc",
       hasFailures: true,
       hasWarnings: false,
       syncDirectory: "/tmp/devsync",
@@ -137,7 +137,7 @@ describe("sync doctor", () => {
           level: "fail",
         },
       ],
-      configPath: "/tmp/devsync/manifest.json",
+      configPath: "/tmp/devsync/manifest.jsonc",
       hasFailures: true,
       hasWarnings: false,
       syncDirectory: "/tmp/devsync",

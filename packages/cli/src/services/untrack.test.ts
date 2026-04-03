@@ -93,7 +93,7 @@ describe("untrack service", () => {
     const workspace = await createWorkspace();
 
     mocked.resolveSyncPaths.mockReturnValueOnce({
-      configPath: join(workspace, "manifest.json"),
+      configPath: join(workspace, "manifest.jsonc"),
       homeDirectory: "/tmp/home",
       syncDirectory: workspace,
     });
@@ -162,7 +162,7 @@ describe("untrack service", () => {
     await writeArtifactFile(workSecretPath, "secret-work\n");
 
     mocked.resolveSyncPaths.mockReturnValueOnce({
-      configPath: join(workspace, "manifest.json"),
+      configPath: join(workspace, "manifest.jsonc"),
       homeDirectory: "/tmp/home",
       syncDirectory: workspace,
     });
@@ -179,7 +179,7 @@ describe("untrack service", () => {
     );
 
     expect(result).toEqual({
-      configPath: join(workspace, "manifest.json"),
+      configPath: join(workspace, "manifest.jsonc"),
       localPath: entry.localPath,
       plainArtifactCount: 2,
       repoPath: entry.repoPath,
@@ -234,7 +234,7 @@ describe("untrack service", () => {
     await writeArtifactFile(siblingPath, "keep\n");
 
     mocked.resolveSyncPaths.mockReturnValueOnce({
-      configPath: join(workspace, "manifest.json"),
+      configPath: join(workspace, "manifest.jsonc"),
       homeDirectory: "/tmp/home",
       syncDirectory: workspace,
     });
@@ -248,7 +248,7 @@ describe("untrack service", () => {
     const result = await untrackTarget({ target: "~/.config/app" }, "/tmp/cwd");
 
     expect(result).toEqual({
-      configPath: join(workspace, "manifest.json"),
+      configPath: join(workspace, "manifest.jsonc"),
       localPath: entry.localPath,
       plainArtifactCount: 4,
       repoPath: entry.repoPath,

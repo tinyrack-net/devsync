@@ -11,16 +11,16 @@ describe("global config", () => {
     expect(
       parseGlobalDevsyncConfig({
         activeProfile: " work ",
-        version: 2,
+        version: 3,
       }),
     ).toEqual({
       activeProfile: "work",
-      version: 2,
+      version: 3,
     });
   });
 
-  it("parses v2 config with age settings (ignores age)", () => {
-    expect(
+  it("rejects v2 config (migration happens before parsing)", () => {
+    expect(() =>
       parseGlobalDevsyncConfig({
         age: {
           identityFile: "$XDG_CONFIG_HOME/devsync/keys.txt",
@@ -28,9 +28,7 @@ describe("global config", () => {
         },
         version: 2,
       }),
-    ).toEqual({
-      version: 2,
-    });
+    ).toThrow();
   });
 
   it("parses v3 config without age", () => {
@@ -58,7 +56,7 @@ describe("global config", () => {
   it("uses the configured active profile", () => {
     const selection = resolveActiveProfileSelection({
       activeProfile: "work",
-      version: 2,
+      version: 3,
     });
 
     expect(selection).toEqual({

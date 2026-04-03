@@ -29,6 +29,7 @@ import {
   ensureRepository,
   initializeRepository,
 } from "#app/lib/git.ts";
+import { resolveExistingConfigPath } from "#app/lib/jsonc.ts";
 import {
   resolveAgeFromSyncConfig,
   resolveSyncConfigResolutionContext,
@@ -210,7 +211,8 @@ export const initializeSyncDirectory = async (
   reporter?.start("Initializing sync directory...");
   const { syncDirectory, configPath, globalConfigPath } = resolveSyncPaths();
   const context = resolveSyncConfigResolutionContext();
-  const configExists = await pathExists(configPath);
+  const resolvedConfigPath = await resolveExistingConfigPath(configPath);
+  const configExists = await pathExists(resolvedConfigPath);
 
   if (configExists) {
     reporter?.start("Checking the existing sync directory...");
@@ -305,10 +307,9 @@ export const initializeSyncDirectory = async (
   reporter?.start("Preparing the sync artifact directory...");
   await mkdir(syncDirectory, { recursive: true });
 
-  if (await pathExists(configPath)) {
+  if (await pathExists(await resolveExistingConfigPath(configPath))) {
     reporter?.start("Loading the existing sync config...");
     const config = await readSyncConfig(syncDirectory, context);
-    assertInitRequestMatchesConfig(config.age, request);
 
     const ageBootstrap = await resolveInitAgeBootstrap(request, reporter);
 

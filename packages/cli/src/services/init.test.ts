@@ -95,7 +95,7 @@ describe("init service", () => {
     ).toBe(`${ageKeys.identity}\n`);
     expect(
       JSON.parse(
-        await readFile(join(result.syncDirectory, "manifest.json"), "utf8"),
+        await readFile(join(result.syncDirectory, "manifest.jsonc"), "utf8"),
       ),
     ).toMatchObject({
       age: {
@@ -152,10 +152,10 @@ describe("init service", () => {
       ]),
     );
     expect(
-      await readFile(join(result.syncDirectory, "manifest.json"), "utf8"),
+      await readFile(join(result.syncDirectory, "manifest.jsonc"), "utf8"),
     ).toContain('"version": 7');
     expect(
-      await readFile(join(result.syncDirectory, "manifest.json"), "utf8"),
+      await readFile(join(result.syncDirectory, "manifest.jsonc"), "utf8"),
     ).not.toContain("identityFile");
   });
 
@@ -226,11 +226,11 @@ describe("init service", () => {
     });
 
     await writeFile(
-      join(sourceRepository, "manifest.json"),
+      join(sourceRepository, "manifest.jsonc"),
       formatSyncConfig(initialConfig),
       "utf8",
     );
-    await runGit(["add", "manifest.json"], sourceRepository);
+    await runGit(["add", "manifest.jsonc"], sourceRepository);
     await runGit(
       ["commit", "-m", "initial config", "--author", "test <test@test.com>"],
       sourceRepository,
@@ -253,7 +253,10 @@ describe("init service", () => {
     ).toBe(`${ageKeys.identity}\n`);
     expect(
       JSON.parse(
-        await readFile(join(xdgConfigHome, "devsync", "settings.json"), "utf8"),
+        await readFile(
+          join(xdgConfigHome, "devsync", "settings.jsonc"),
+          "utf8",
+        ),
       ),
     ).toMatchObject({
       activeProfile: "default",
@@ -275,11 +278,11 @@ describe("init service", () => {
     });
 
     await writeFile(
-      join(sourceRepository, "manifest.json"),
+      join(sourceRepository, "manifest.jsonc"),
       formatSyncConfig(initialConfig),
       "utf8",
     );
-    await runGit(["add", "manifest.json"], sourceRepository);
+    await runGit(["add", "manifest.jsonc"], sourceRepository);
     await runGit(
       ["commit", "-m", "initial config", "--author", "test <test@test.com>"],
       sourceRepository,

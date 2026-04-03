@@ -77,7 +77,7 @@ describe("push helpers", () => {
         false,
       ),
     ).toEqual({
-      configPath: "/tmp/devsync/manifest.json",
+      configPath: "/tmp/devsync/manifest.jsonc",
       deletedArtifactCount: 5,
       directoryCount: 2,
       dryRun: false,

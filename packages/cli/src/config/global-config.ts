@@ -2,38 +2,26 @@ import { readFile } from "node:fs/promises";
 
 import { z } from "zod";
 import { CONSTANTS } from "#app/config/constants.ts";
+import { runConfigMigrations } from "#app/config/migration.ts";
 import { DevsyncError } from "#app/lib/error.ts";
+import { parseJsonc, resolveExistingConfigPath } from "#app/lib/jsonc.ts";
 import { ensureTrailingNewline } from "#app/lib/string.ts";
 import { formatInputIssues } from "#app/lib/validation.ts";
+import { migrateGlobalConfigV2ToV3 } from "#app/migrations/global-v3.ts";
 import { normalizeSyncProfileName } from "./sync.ts";
+
+const globalConfigMigrationRegistry = new Map([[2, migrateGlobalConfigV2ToV3]]);
 
 const optionalTrimmedStringSchema = z.string().trim().min(1).optional();
 
-const globalConfigSchemaV2 = z
-  .object({
-    activeProfile: optionalTrimmedStringSchema,
-    age: z.unknown().optional(),
-    version: z.literal(CONSTANTS.GLOBAL_CONFIG.LEGACY_VERSION),
-  })
-  .strict();
-
-const globalConfigSchemaV3 = z
-  .object({
-    activeProfile: optionalTrimmedStringSchema,
-    version: z.literal(CONSTANTS.GLOBAL_CONFIG.CURRENT_VERSION),
-  })
-  .strict();
-
-const globalConfigSchema = z.union([
-  globalConfigSchemaV2,
-  globalConfigSchemaV3,
-]);
+const globalConfigSchema = z.object({
+  activeProfile: optionalTrimmedStringSchema,
+  version: z.literal(CONSTANTS.GLOBAL_CONFIG.CURRENT_VERSION),
+});
 
 export type GlobalDevsyncConfig = Readonly<{
   activeProfile?: string;
-  version:
-    | typeof CONSTANTS.GLOBAL_CONFIG.LEGACY_VERSION
-    | typeof CONSTANTS.GLOBAL_CONFIG.CURRENT_VERSION;
+  version: typeof CONSTANTS.GLOBAL_CONFIG.CURRENT_VERSION;
 }>;
 
 export type ActiveProfileSelection = Readonly<
@@ -75,10 +63,18 @@ export const formatGlobalDevsyncConfig = (config: GlobalDevsyncConfig) => {
 };
 
 export const readGlobalDevsyncConfig = async (filePath: string) => {
+  const resolvedPath = await resolveExistingConfigPath(filePath);
   try {
-    const contents = await readFile(filePath, "utf8");
+    const contents = await readFile(resolvedPath, "utf8");
+    const parsed = parseJsonc(contents);
+    const migrated = await runConfigMigrations(
+      parsed,
+      globalConfigMigrationRegistry,
+      CONSTANTS.GLOBAL_CONFIG.CURRENT_VERSION,
+      resolvedPath,
+    );
 
-    return parseGlobalDevsyncConfig(JSON.parse(contents) as unknown);
+    return parseGlobalDevsyncConfig(migrated);
   } catch (error: unknown) {
     if (error instanceof DevsyncError) {
       throw error;
@@ -89,8 +85,8 @@ export const readGlobalDevsyncConfig = async (filePath: string) => {
         "Global devsync configuration is not valid JSON.",
         {
           code: "GLOBAL_CONFIG_INVALID_JSON",
-          details: [`Config file: ${filePath}`, error.message],
-          hint: "Fix the JSON syntax in ~/.config/devsync/settings.json, then run the command again.",
+          details: [`Config file: ${resolvedPath}`, error.message],
+          hint: "Fix the JSON syntax in ~/.config/devsync/settings.jsonc, then run the command again.",
         },
       );
     }
@@ -102,7 +98,7 @@ export const readGlobalDevsyncConfig = async (filePath: string) => {
     throw new DevsyncError("Failed to read global devsync configuration.", {
       code: "GLOBAL_CONFIG_READ_FAILED",
       details: [
-        `Config file: ${filePath}`,
+        `Config file: ${resolvedPath}`,
         ...(error instanceof Error ? [error.message] : []),
       ],
     });

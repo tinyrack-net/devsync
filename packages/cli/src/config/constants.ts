@@ -12,15 +12,14 @@ export const CONSTANTS = {
   },
   GLOBAL_CONFIG: {
     CURRENT_VERSION: 3,
-    FILE_NAME: "settings.json",
-    LEGACY_VERSION: 2,
+    FILE_NAME: "settings.jsonc",
   },
   INIT: {
     DEFAULT_IDENTITY_FILE: `~/.config/${APP_NAME}/keys.txt`,
     LEGACY_IDENTITY_FILE: `~/.config/${APP_NAME}/age/keys.txt`,
   },
   SYNC: {
-    CONFIG_FILE_NAME: "manifest.json",
+    CONFIG_FILE_NAME: "manifest.jsonc",
     CONFIG_VERSION: 7,
     DEFAULT_PROFILE: "default",
     MODES: ["normal", "secret", "ignore"],

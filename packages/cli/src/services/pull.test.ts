@@ -15,7 +15,7 @@ const mocked = vi.hoisted(() => ({
   ensureGitRepository: vi.fn(),
   loadSyncConfig: vi.fn(),
   resolveSyncConfigFilePath: vi.fn(
-    (syncDirectory: string) => `${syncDirectory}/manifest.json`,
+    (syncDirectory: string) => `${syncDirectory}/manifest.jsonc`,
   ),
   resolveSyncPaths: vi.fn(() => ({
     syncDirectory: "/tmp/devsync",
@@ -107,7 +107,7 @@ describe("pull helpers", () => {
         true,
       ),
     ).toEqual({
-      configPath: "/tmp/devsync/manifest.json",
+      configPath: "/tmp/devsync/manifest.jsonc",
       decryptedFileCount: 3,
       deletedLocalCount: 4,
       directoryCount: 1,

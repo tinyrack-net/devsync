@@ -27,7 +27,7 @@ const mocked = vi.hoisted(() => ({
     xdgConfigHome: "/tmp/home/.config",
   })),
   resolveSyncPaths: vi.fn(() => ({
-    configPath: "/tmp/devsync/manifest.json",
+    configPath: "/tmp/devsync/manifest.jsonc",
     homeDirectory: "/tmp/home",
     syncDirectory: "/tmp/devsync",
   })),
@@ -337,7 +337,7 @@ describe("sync set service", () => {
       setTargetMode({ mode: "secret", target: ".gitconfig" }, "/tmp/cwd"),
     ).resolves.toEqual({
       action: "unchanged",
-      configPath: "/tmp/devsync/manifest.json",
+      configPath: "/tmp/devsync/manifest.jsonc",
       entryRepoPath: ".gitconfig",
       localPath: "/tmp/home/.gitconfig",
       mode: "secret",
@@ -404,7 +404,7 @@ describe("sync set service", () => {
 
     expect(result).toEqual({
       action: "added",
-      configPath: "/tmp/devsync/manifest.json",
+      configPath: "/tmp/devsync/manifest.jsonc",
       entryRepoPath: ".config/app",
       localPath: "/tmp/home/.config/app/private.txt",
       mode: "secret",
@@ -454,7 +454,7 @@ describe("sync set service", () => {
       ),
     ).resolves.toEqual({
       action: "unchanged",
-      configPath: "/tmp/devsync/manifest.json",
+      configPath: "/tmp/devsync/manifest.jsonc",
       entryRepoPath: ".config/app",
       localPath: "/tmp/home/.config/app/notes.txt",
       mode: "normal",

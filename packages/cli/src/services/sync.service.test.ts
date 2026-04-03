@@ -103,7 +103,7 @@ describe("sync service", () => {
 
     const config = JSON.parse(
       await readFile(
-        join(xdgConfigHome, "devsync", "repository", "manifest.json"),
+        join(xdgConfigHome, "devsync", "repository", "manifest.jsonc"),
         "utf8",
       ),
     ) as {
@@ -158,7 +158,7 @@ describe("sync service", () => {
       xdgConfigHome,
       "devsync",
       "repository",
-      "manifest.json",
+      "manifest.jsonc",
     );
     const config = JSON.parse(await readFile(manifestPath, "utf8")) as {
       entries: Array<Record<string, unknown>>;
@@ -276,7 +276,7 @@ describe("sync service", () => {
       recipients: [ageKeys.recipient],
     });
     await writeFile(
-      join(xdgConfigHome, "devsync", "repository", "manifest.json"),
+      join(xdgConfigHome, "devsync", "repository", "manifest.jsonc"),
       JSON.stringify(
         {
           version: 7,
@@ -307,7 +307,7 @@ describe("sync service", () => {
 
     const config = JSON.parse(
       await readFile(
-        join(xdgConfigHome, "devsync", "repository", "manifest.json"),
+        join(xdgConfigHome, "devsync", "repository", "manifest.jsonc"),
         "utf8",
       ),
     ) as {
@@ -405,7 +405,7 @@ describe("sync service", () => {
       xdgConfigHome,
       "devsync",
       "repository",
-      "manifest.json",
+      "manifest.jsonc",
     );
     const config = JSON.parse(await readFile(manifestPath, "utf8")) as {
       entries: Array<{
@@ -479,7 +479,7 @@ describe("sync service", () => {
       recipients: [ageKeys.recipient],
     });
     await writeFile(
-      join(xdgConfigHome, "devsync", "repository", "manifest.json"),
+      join(xdgConfigHome, "devsync", "repository", "manifest.jsonc"),
       JSON.stringify(
         {
           version: 7,
@@ -510,7 +510,7 @@ describe("sync service", () => {
 
     const config = JSON.parse(
       await readFile(
-        join(xdgConfigHome, "devsync", "repository", "manifest.json"),
+        join(xdgConfigHome, "devsync", "repository", "manifest.jsonc"),
         "utf8",
       ),
     ) as {
@@ -602,7 +602,7 @@ describe("sync service", () => {
 
     const configAfterModeChange = JSON.parse(
       await readFile(
-        join(xdgConfigHome, "devsync", "repository", "manifest.json"),
+        join(xdgConfigHome, "devsync", "repository", "manifest.jsonc"),
         "utf8",
       ),
     ) as {
@@ -637,7 +637,7 @@ describe("sync service", () => {
       recipients: [ageKeys.recipient],
     });
     await writeFile(
-      join(xdgConfigHome, "devsync", "repository", "manifest.json"),
+      join(xdgConfigHome, "devsync", "repository", "manifest.jsonc"),
       JSON.stringify(
         {
           version: 7,
@@ -714,7 +714,7 @@ describe("sync service", () => {
       recipients: [ageKeys.recipient],
     });
     await writeFile(
-      join(xdgConfigHome, "devsync", "repository", "manifest.json"),
+      join(xdgConfigHome, "devsync", "repository", "manifest.jsonc"),
       JSON.stringify(
         {
           version: 7,
@@ -792,7 +792,7 @@ describe("sync service", () => {
     });
 
     await writeFile(
-      join(xdgConfigHome, "devsync", "repository", "manifest.json"),
+      join(xdgConfigHome, "devsync", "repository", "manifest.jsonc"),
       JSON.stringify(
         {
           version: 7,
@@ -848,7 +848,7 @@ describe("sync service", () => {
     });
 
     await writeFile(
-      join(xdgConfigHome, "devsync", "repository", "manifest.json"),
+      join(xdgConfigHome, "devsync", "repository", "manifest.jsonc"),
       JSON.stringify(
         {
           version: 7,
@@ -914,7 +914,7 @@ describe("sync service", () => {
     });
 
     await writeFile(
-      join(xdgConfigHome, "devsync", "repository", "manifest.json"),
+      join(xdgConfigHome, "devsync", "repository", "manifest.jsonc"),
       JSON.stringify(
         {
           version: 7,
@@ -1008,7 +1008,7 @@ describe("sync service", () => {
       xdgConfigHome,
       "devsync",
       "repository",
-      "manifest.json",
+      "manifest.jsonc",
     );
     await writeFile(
       manifestPath,
@@ -1077,7 +1077,7 @@ describe("sync service", () => {
 
     const config = JSON.parse(
       await readFile(
-        join(xdgConfigHome, "devsync", "repository", "manifest.json"),
+        join(xdgConfigHome, "devsync", "repository", "manifest.jsonc"),
         "utf8",
       ),
     ) as { entries: Array<{ profiles?: string[] }> };
@@ -1113,7 +1113,7 @@ describe("sync service", () => {
 
     const configAfter = JSON.parse(
       await readFile(
-        join(xdgConfigHome, "devsync", "repository", "manifest.json"),
+        join(xdgConfigHome, "devsync", "repository", "manifest.jsonc"),
         "utf8",
       ),
     ) as { entries: Array<{ profiles?: string[] }> };
