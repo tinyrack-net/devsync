@@ -87,13 +87,13 @@ devsync를 처음 사용한다면, 아래 단계를 따라 새로운 sync 디렉
 1. **Clone & 초기화**
 
    ```bash
-   devsync init <your-repo-url>
+   devsync init <your-repo-url> --key "AGE-SECRET-KEY-1..."
    ```
 
-   저장소를 `~/.config/devsync/repository/`로 clone하고 새로운 age identity를 설정해요. 다른 기기에서 사용하던 age 비밀 키가 이미 있다면 `--key`로 전달하세요:
+   저장소를 `~/.config/devsync/repository/`로 clone해요. 기존 sync 저장소에 연결할 때는 시크릿 파일 복호화에 사용했던 age 비밀 키를 반드시 제공해야 해요. 키를 직접 입력하는 대신 붙여넣기 프롬프트를 사용할 수도 있어요:
 
    ```bash
-   devsync init <your-repo-url> --key "AGE-SECRET-KEY-1..."
+   devsync init <your-repo-url> --promptKey
    ```
 
 2. **파일 pull**
@@ -116,7 +116,7 @@ devsync를 처음 사용한다면, 아래 단계를 따라 새로운 sync 디렉
 
 설정을 마쳤으니, 가이드를 둘러보세요:
 
-- [디렉터리 구조](/ko/guides/directory-structure/) — devsync가 파일을 저장하는 위치
-- [파일 추적하기](/ko/guides/tracking-files/) — 추적 옵션 자세히 알아보기
-- [동기화 모드](/ko/guides/sync-modes/) — normal, secret, ignore 모드
-- [시크릿 파일 동기화](/ko/guides/syncing-secrets/) — age로 민감한 파일 암호화하기
+- [디렉터리 구조](/ko/guides/directory-structure/): devsync가 파일을 저장하는 위치
+- [파일 추적하기](/ko/guides/tracking-files/): 추적 옵션 자세히 알아보기
+- [동기화 모드](/ko/guides/sync-modes/): normal, secret, ignore 모드
+- [시크릿 파일 동기화](/ko/guides/syncing-secrets/): age로 민감한 파일 암호화하기

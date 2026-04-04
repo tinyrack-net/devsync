@@ -18,7 +18,7 @@ devsync track ~/.gitconfig
 devsync track ~/.zshrc
 ```
 
-이렇게 하면 `manifest.json`에 항목이 추가돼요 — 그게 전부예요. 파일은 원래 위치에 그대로 있어요. 실제로 sync 디렉터리에 복사하려면 `devsync push`를 별도로 실행하세요.
+이렇게 하면 `manifest.json`에 항목이 추가돼요. 그게 전부예요. 파일은 원래 위치에 그대로 있어요. 실제로 sync 디렉터리에 복사하려면 `devsync push`를 별도로 실행하세요.
 
 ---
 
@@ -32,7 +32,7 @@ devsync track ~/.config/fish
 ```
 
 <Aside type="tip">
-디렉터리를 추적하면, 나중에 안에 새로 추가된 파일도 다음 push 때 자동으로 포함돼요 — 개별적으로 추적할 필요 없어요.
+디렉터리를 추적하면, 나중에 안에 새로 추가된 파일도 다음 push 때 자동으로 포함돼요. 개별적으로 추적할 필요 없어요.
 </Aside>
 
 ---
@@ -75,7 +75,7 @@ devsync track ~/Projects/scripts/deploy.sh --repoPath scripts/deploy.sh
 
 ## 활용 패턴
 
-**화이트리스트 방식** — 동기화하고 싶은 파일만 골라서 추적:
+**화이트리스트 방식**: 동기화하고 싶은 파일만 골라서 추적:
 
 ```bash
 devsync track ~/.gitconfig
@@ -84,7 +84,7 @@ devsync track ~/.config/starship.toml
 devsync push
 ```
 
-**블랙리스트 방식** — 디렉터리 전체를 추적한 뒤, 특정 하위 파일만 제외:
+**블랙리스트 방식**: 디렉터리 전체를 추적한 뒤, 특정 하위 파일만 제외:
 
 ```bash
 devsync track ~/.config/nvim
