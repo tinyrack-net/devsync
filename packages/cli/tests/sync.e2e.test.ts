@@ -1,5 +1,5 @@
 import { spawn } from "node:child_process";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
@@ -639,5 +639,99 @@ describe("sync CLI e2e", () => {
 
     expect(result.exitCode).not.toBe(0);
     expect(stripAnsi(result.stderr)).not.toBe("");
+  });
+
+  it("deletes local files that were removed from repository during pull", async () => {
+    const appDirectory = join(ctx.homeDir, ".config", "testapp");
+    const configFile = join(appDirectory, "config.yaml");
+    const dataFile = join(appDirectory, "data.json");
+    const ageKeys = await ctx.createAgeKeyPair();
+
+    await ctx.writeIdentityFile(ageKeys.identity);
+    await mkdir(appDirectory, { recursive: true });
+    await writeFile(configFile, "setting: value\n");
+    await writeFile(dataFile, '{"data": true}\n');
+
+    await ctx.runCli(["init"]);
+    await ctx.runCli(["track", appDirectory]);
+    await ctx.runCli(["push"]);
+
+    const repoConfigFile = join(
+      ctx.xdgDir,
+      "devsync",
+      "repository",
+      "default",
+      ".config",
+      "testapp",
+      "config.yaml",
+    );
+    const repoDataFile = join(
+      ctx.xdgDir,
+      "devsync",
+      "repository",
+      "default",
+      ".config",
+      "testapp",
+      "data.json",
+    );
+
+    expect(await readFile(repoConfigFile, "utf8")).toContain("setting: value");
+    expect(await readFile(repoDataFile, "utf8")).toContain('"data": true');
+
+    await rm(repoDataFile);
+
+    const result = await ctx.runCli(["pull"]);
+
+    expect(result.exitCode).toBe(0);
+    expect(stripAnsi(result.stdout)).toContain("remove");
+    expect(await readFile(configFile, "utf8")).toContain("setting: value");
+    await expect(readFile(dataFile, "utf8")).rejects.toThrow();
+  });
+
+  it("deletes multiple local files when they are removed from repository", async () => {
+    const notesDirectory = join(ctx.homeDir, ".config", "notes");
+    const note1 = join(notesDirectory, "todo.txt");
+    const note2 = join(notesDirectory, "ideas.txt");
+    const note3 = join(notesDirectory, "reminders.txt");
+    const ageKeys = await ctx.createAgeKeyPair();
+
+    await ctx.writeIdentityFile(ageKeys.identity);
+    await mkdir(notesDirectory, { recursive: true });
+    await writeFile(note1, "Buy milk\n");
+    await writeFile(note2, "New app idea\n");
+    await writeFile(note3, "Call mom\n");
+
+    await ctx.runCli(["init"]);
+    await ctx.runCli(["track", notesDirectory]);
+    await ctx.runCli(["push"]);
+
+    const repoNote2 = join(
+      ctx.xdgDir,
+      "devsync",
+      "repository",
+      "default",
+      ".config",
+      "notes",
+      "ideas.txt",
+    );
+    const repoNote3 = join(
+      ctx.xdgDir,
+      "devsync",
+      "repository",
+      "default",
+      ".config",
+      "notes",
+      "reminders.txt",
+    );
+
+    await rm(repoNote2);
+    await rm(repoNote3);
+
+    const result = await ctx.runCli(["pull"]);
+
+    expect(result.exitCode).toBe(0);
+    expect(await readFile(note1, "utf8")).toContain("Buy milk");
+    await expect(readFile(note2, "utf8")).rejects.toThrow();
+    await expect(readFile(note3, "utf8")).rejects.toThrow();
   });
 });

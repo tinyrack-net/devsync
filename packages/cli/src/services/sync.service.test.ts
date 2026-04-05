@@ -1120,4 +1120,190 @@ describe("sync service", () => {
 
     expect(configAfter.entries[0]?.profiles).toBeUndefined();
   });
+
+  it("deletes local files that were removed from repository during pull", async () => {
+    const workspace = await createWorkspace();
+    const homeDirectory = join(workspace, "home");
+    const xdgConfigHome = join(workspace, "xdg");
+    const appDirectory = join(homeDirectory, ".config", "myapp");
+    const fileA = join(appDirectory, "config.json");
+    const fileB = join(appDirectory, "settings.json");
+    const ageKeys = await createAgeKeyPair();
+
+    await writeIdentityFile(xdgConfigHome, ageKeys.identity);
+    await mkdir(appDirectory, { recursive: true });
+    await writeFile(fileA, '{"key": "value"}\n', "utf8");
+    await writeFile(fileB, '{"setting": "value"}\n', "utf8");
+
+    setEnvironment(homeDirectory, xdgConfigHome);
+
+    await initializeSyncDirectory({
+      identityFile: "$XDG_CONFIG_HOME/devsync/keys.txt",
+      recipients: [ageKeys.recipient],
+    });
+
+    await trackTarget(
+      {
+        mode: "normal",
+        target: appDirectory,
+      },
+      homeDirectory,
+    );
+
+    await pushChanges({ dryRun: false });
+
+    const repoPathA = join(
+      xdgConfigHome,
+      "devsync",
+      "repository",
+      "default",
+      ".config",
+      "myapp",
+      "config.json",
+    );
+    const repoPathB = join(
+      xdgConfigHome,
+      "devsync",
+      "repository",
+      "default",
+      ".config",
+      "myapp",
+      "settings.json",
+    );
+
+    expect(await readFile(repoPathA, "utf8")).toContain('"key": "value"');
+    expect(await readFile(repoPathB, "utf8")).toContain('"setting": "value"');
+
+    await rm(repoPathB);
+
+    await pullChanges({ dryRun: false });
+
+    expect(await readFile(fileA, "utf8")).toContain('"key": "value"');
+    await expect(readFile(fileB, "utf8")).rejects.toMatchObject({
+      code: "ENOENT",
+    });
+  });
+
+  it("deletes local files when entire tracked directory is removed from repository", async () => {
+    const workspace = await createWorkspace();
+    const homeDirectory = join(workspace, "home");
+    const xdgConfigHome = join(workspace, "xdg");
+    const sshDirectory = join(homeDirectory, ".ssh");
+    const keyFile = join(sshDirectory, "id_rsa");
+    const configFile = join(sshDirectory, "config");
+    const ageKeys = await createAgeKeyPair();
+
+    await writeIdentityFile(xdgConfigHome, ageKeys.identity);
+    await mkdir(sshDirectory, { recursive: true });
+    await writeFile(keyFile, "fake-private-key\n", "utf8");
+    await writeFile(configFile, "Host *\n  AddKeysToAgent yes\n", "utf8");
+
+    setEnvironment(homeDirectory, xdgConfigHome);
+
+    await initializeSyncDirectory({
+      identityFile: "$XDG_CONFIG_HOME/devsync/keys.txt",
+      recipients: [ageKeys.recipient],
+    });
+
+    await trackTarget(
+      {
+        mode: "normal",
+        target: sshDirectory,
+      },
+      homeDirectory,
+    );
+
+    await pushChanges({ dryRun: false });
+
+    const repoSshDir = join(
+      xdgConfigHome,
+      "devsync",
+      "repository",
+      "default",
+      ".ssh",
+    );
+
+    expect(await readFile(join(repoSshDir, "id_rsa"), "utf8")).toContain(
+      "fake-private-key",
+    );
+
+    await rm(repoSshDir, { force: true, recursive: true });
+
+    const result = await pullChanges({ dryRun: false });
+
+    expect(result.deletedLocalCount).toBeGreaterThanOrEqual(1);
+    await expect(readFile(keyFile, "utf8")).rejects.toMatchObject({
+      code: "ENOENT",
+    });
+    await expect(readFile(configFile, "utf8")).rejects.toMatchObject({
+      code: "ENOENT",
+    });
+  });
+
+  it("reports deleted local count in pull result", async () => {
+    const workspace = await createWorkspace();
+    const homeDirectory = join(workspace, "home");
+    const xdgConfigHome = join(workspace, "xdg");
+    const bundleDirectory = join(homeDirectory, ".config", "bundle");
+    const file1 = join(bundleDirectory, "file1.txt");
+    const file2 = join(bundleDirectory, "file2.txt");
+    const file3 = join(bundleDirectory, "file3.txt");
+    const ageKeys = await createAgeKeyPair();
+
+    await writeIdentityFile(xdgConfigHome, ageKeys.identity);
+    await mkdir(bundleDirectory, { recursive: true });
+    await writeFile(file1, "content1\n", "utf8");
+    await writeFile(file2, "content2\n", "utf8");
+    await writeFile(file3, "content3\n", "utf8");
+
+    setEnvironment(homeDirectory, xdgConfigHome);
+
+    await initializeSyncDirectory({
+      identityFile: "$XDG_CONFIG_HOME/devsync/keys.txt",
+      recipients: [ageKeys.recipient],
+    });
+
+    await trackTarget(
+      {
+        mode: "normal",
+        target: bundleDirectory,
+      },
+      homeDirectory,
+    );
+
+    await pushChanges({ dryRun: false });
+
+    const repoFile2 = join(
+      xdgConfigHome,
+      "devsync",
+      "repository",
+      "default",
+      ".config",
+      "bundle",
+      "file2.txt",
+    );
+    const repoFile3 = join(
+      xdgConfigHome,
+      "devsync",
+      "repository",
+      "default",
+      ".config",
+      "bundle",
+      "file3.txt",
+    );
+
+    await rm(repoFile2);
+    await rm(repoFile3);
+
+    const result = await pullChanges({ dryRun: false });
+
+    expect(result.deletedLocalCount).toBe(2);
+    expect(await readFile(file1, "utf8")).toBe("content1\n");
+    await expect(readFile(file2, "utf8")).rejects.toMatchObject({
+      code: "ENOENT",
+    });
+    await expect(readFile(file3, "utf8")).rejects.toMatchObject({
+      code: "ENOENT",
+    });
+  });
 });
