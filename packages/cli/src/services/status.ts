@@ -17,6 +17,11 @@ import {
   buildPushPlanPreview,
   buildPushResultFromPlan,
 } from "./push.ts";
+import {
+  buildArtifactKey,
+  isRepoArtifactCurrent,
+  parseArtifactRelativePath,
+} from "./repo-artifacts.ts";
 import { loadSyncConfig, resolveSyncPaths } from "./runtime.ts";
 
 export type StatusEntry = Readonly<{
@@ -55,21 +60,48 @@ export type StatusResult = Readonly<{
   syncDirectory: string;
 }>;
 
-const buildPushChanges = (plan: PushPlan): PushChanges => {
-  const snapshotKeys = [...plan.snapshot.keys()];
-  const added = snapshotKeys
-    .filter((key) => !plan.existingArtifactKeys.has(key))
-    .sort((a, b) => a.localeCompare(b));
-  const modified = snapshotKeys
-    .filter((key) => plan.existingArtifactKeys.has(key))
-    .sort((a, b) => a.localeCompare(b));
+const normalizeArtifactKeyToRepoPath = (artifactKey: string) => {
+  const relativePath = artifactKey.endsWith("/")
+    ? artifactKey.slice(0, -1)
+    : artifactKey;
+
+  return parseArtifactRelativePath(relativePath).repoPath;
+};
+
+const buildPushChanges = async (
+  plan: PushPlan,
+  syncDirectory: string,
+  identityFile: string,
+): Promise<PushChanges> => {
+  const added: string[] = [];
+  const modified: string[] = [];
+
+  for (const artifact of plan.artifacts) {
+    const artifactKey = buildArtifactKey(artifact);
+
+    if (
+      await isRepoArtifactCurrent(syncDirectory, artifact, {
+        identityFile,
+      })
+    ) {
+      continue;
+    }
+
+    if (plan.existingArtifactKeys.has(artifactKey)) {
+      modified.push(artifact.repoPath);
+    } else {
+      added.push(artifact.repoPath);
+    }
+  }
+
   const deleted = [...plan.existingArtifactKeys]
     .filter((key) => !plan.desiredArtifactKeys.has(key))
+    .map(normalizeArtifactKeyToRepoPath)
     .sort((a, b) => a.localeCompare(b));
 
   return {
-    added,
-    modified,
+    added: added.sort((a, b) => a.localeCompare(b)),
+    modified: modified.sort((a, b) => a.localeCompare(b)),
     deleted,
   };
 };
@@ -113,6 +145,11 @@ export const getStatus = async (
     syncDirectory,
     reporter,
   );
+  const pushChanges = await buildPushChanges(
+    pushPlan,
+    syncDirectory,
+    effectiveConfig.age.identityFile,
+  );
 
   return {
     ...(effectiveConfig.activeProfile === undefined
@@ -134,7 +171,7 @@ export const getStatus = async (
     },
     push: {
       ...buildPushResultFromPlan(pushPlan, syncDirectory, true),
-      changes: buildPushChanges(pushPlan),
+      changes: pushChanges,
       preview: buildPushPlanPreview(pushPlan),
     },
     recipientCount: effectiveConfig.age.recipients.length,
