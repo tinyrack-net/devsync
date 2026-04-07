@@ -531,13 +531,13 @@ describe("CLI command modules", () => {
       profile: "work",
       reporter: mockLogger,
     });
-    expect(mockLogger.info).toHaveBeenCalledWith(
-      expect.stringContaining("Pull preview"),
-    );
-    expect(mockLogger.info).toHaveBeenCalledWith(
-      expect.stringContaining("Push preview"),
-    );
     expect(mockLogger.info).toHaveBeenCalledWith("Sync status");
+    expect(mockLogger.log).toHaveBeenCalledWith(
+      expect.stringContaining("Push changes"),
+    );
+    expect(mockLogger.log).toHaveBeenCalledWith(
+      expect.stringContaining("Pull changes"),
+    );
   });
 
   it("skips prompting and exits when pull has no changes", async () => {
