@@ -1,4 +1,13 @@
-import { chmod, lstat, mkdir, mkdtemp, rm, symlink } from "node:fs/promises";
+import {
+  chmod,
+  lstat,
+  mkdir,
+  mkdtemp,
+  readFile,
+  readlink,
+  rm,
+  symlink,
+} from "node:fs/promises";
 import { basename, dirname, join, posix } from "node:path";
 import type { ConsolaInstance } from "consola";
 import {
@@ -9,7 +18,10 @@ import {
   resolveSyncRule,
 } from "#app/config/sync.ts";
 import { DevsyncError } from "#app/lib/error.ts";
-import { buildSearchableDirectoryMode } from "#app/lib/file-mode.ts";
+import {
+  buildExecutableMode,
+  buildSearchableDirectoryMode,
+} from "#app/lib/file-mode.ts";
 import {
   copyFilesystemNode,
   getPathStats,
@@ -46,7 +58,7 @@ const reportPullPlanningProgress = (
   }
 };
 
-type EntryMaterialization =
+export type EntryMaterialization =
   | Readonly<{
       desiredKeys: ReadonlySet<string>;
       type: "absent";
@@ -119,6 +131,46 @@ const copyIgnoredLocalNodesToDirectory = async (
   }
 
   return copiedNodeCount;
+};
+
+const materializedFileModeMatches = (
+  actualMode: number,
+  executable: boolean,
+  fileMode?: number,
+) => {
+  return (
+    (actualMode & 0o777) ===
+    ((fileMode ?? buildExecutableMode(executable)) & 0o777)
+  );
+};
+
+const isMaterializedFileLikeNodeCurrent = async (
+  targetPath: string,
+  node: FileLikeSnapshotNode,
+  fileMode?: number,
+) => {
+  const stats = await getPathStats(targetPath);
+
+  if (stats === undefined) {
+    return false;
+  }
+
+  if (node.type === "symlink") {
+    return (
+      stats.isSymbolicLink() && (await readlink(targetPath)) === node.linkTarget
+    );
+  }
+
+  if (!stats.isFile()) {
+    return false;
+  }
+
+  const currentContents = await readFile(targetPath);
+
+  return (
+    Buffer.compare(Buffer.from(node.contents), currentContents) === 0 &&
+    materializedFileModeMatches(stats.mode, node.executable, fileMode)
+  );
 };
 
 const stageAndReplaceFilePath = async (
@@ -306,6 +358,7 @@ const collectLocalLeafKeys = async (
   targetPath: string,
   repoPathPrefix: string,
   keys: Set<string>,
+  keyToLocalPath: Map<string, string> | undefined,
   childEntryPaths: ReadonlySet<string>,
   prefix?: string,
   reporter?: ConsolaInstance,
@@ -322,11 +375,14 @@ const collectLocalLeafKeys = async (
   if (!stats.isDirectory()) {
     reportPullPlanningProgress(reporter, progressState, repoPathPrefix);
     keys.add(repoPathPrefix);
+    keyToLocalPath?.set(repoPathPrefix, targetPath);
 
     return;
   }
 
-  keys.add(buildDirectoryKey(repoPathPrefix));
+  const directoryKey = buildDirectoryKey(repoPathPrefix);
+  keys.add(directoryKey);
+  keyToLocalPath?.set(directoryKey, targetPath);
 
   const entries = await listDirectoryEntries(targetPath);
 
@@ -348,6 +404,7 @@ const collectLocalLeafKeys = async (
         absolutePath,
         repoPathPrefix,
         keys,
+        keyToLocalPath,
         childEntryPaths,
         relativePath,
         reporter,
@@ -357,6 +414,7 @@ const collectLocalLeafKeys = async (
     }
 
     keys.add(repoPath);
+    keyToLocalPath?.set(repoPath, absolutePath);
   }
 };
 
@@ -366,6 +424,7 @@ export const countDeletedLocalNodes = async (
   config: MaterializationConfig,
   existingKeys: Set<string> = new Set<string>(),
   reporter?: ConsolaInstance,
+  keyToLocalPath?: Map<string, string>,
 ) => {
   const rule = resolveSyncRule(config, entry.repoPath, config.activeProfile);
 
@@ -383,6 +442,7 @@ export const countDeletedLocalNodes = async (
     entry.localPath,
     entry.repoPath,
     existingKeys,
+    keyToLocalPath,
     childEntryPaths,
     undefined,
     reporter,
@@ -392,6 +452,63 @@ export const countDeletedLocalNodes = async (
   return [...existingKeys].filter((key) => {
     return !desiredKeys.has(key);
   }).length;
+};
+
+export const collectChangedLocalPaths = async (
+  entry: ResolvedSyncConfigEntry,
+  materialization: EntryMaterialization,
+) => {
+  if (materialization.type === "absent") {
+    return [];
+  }
+
+  if (materialization.type === "file") {
+    return (await isMaterializedFileLikeNodeCurrent(
+      entry.localPath,
+      materialization.node,
+      entry.permission,
+    ))
+      ? []
+      : [entry.localPath];
+  }
+
+  const changedLocalPaths: string[] = [];
+
+  if (materialization.nodes.size === 0) {
+    const stats = await getPathStats(entry.localPath);
+
+    if (stats === undefined || !stats.isDirectory()) {
+      changedLocalPaths.push(entry.localPath);
+    }
+
+    return changedLocalPaths;
+  }
+
+  for (const relativePath of [...materialization.nodes.keys()].sort(
+    (left, right) => {
+      return left.localeCompare(right);
+    },
+  )) {
+    const node = materialization.nodes.get(relativePath);
+
+    if (node === undefined) {
+      continue;
+    }
+
+    const targetPath = join(entry.localPath, ...relativePath.split("/"));
+
+    if (
+      !(await isMaterializedFileLikeNodeCurrent(
+        targetPath,
+        node,
+        entry.permission,
+      ))
+    ) {
+      changedLocalPaths.push(targetPath);
+    }
+  }
+
+  return changedLocalPaths;
 };
 
 export const applyEntryMaterialization = async (

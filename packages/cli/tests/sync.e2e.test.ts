@@ -512,7 +512,7 @@ describe("sync CLI e2e", () => {
     ).toContain("BEGIN AGE ENCRYPTED FILE");
 
     await writeFile(secretsFile, "local-change\n");
-    await ctx.runCli(["pull"]);
+    await ctx.runCli(["pull", "-y"]);
 
     expect(await readFile(secretsFile, "utf8")).toContain("TOKEN=work");
   }, 15_000);
@@ -627,6 +627,134 @@ describe("sync CLI e2e", () => {
     expect(await readFile(configFile, "utf8")).toContain("version = 2");
   });
 
+  it("prints that there are no pull changes and exits without prompting", async () => {
+    const configDir = join(ctx.homeDir, ".config", "steadyapp");
+    const configFile = join(configDir, "config.toml");
+    const ageKeys = await ctx.createAgeKeyPair();
+
+    await ctx.writeIdentityFile(ageKeys.identity);
+    await mkdir(configDir, { recursive: true });
+    await writeFile(configFile, "version = 1\n");
+
+    await ctx.runCli(["init"]);
+    await ctx.runCli(["track", configDir]);
+    await ctx.runCli(["push"]);
+
+    const result = await ctx.runCli(["pull"]);
+
+    expect(result.exitCode).toBe(0);
+    expect(stripAnsi(result.stdout)).toContain("Already up to date");
+  });
+
+  it("fails in non-interactive mode without -y when pull changes exist", async () => {
+    const configDir = join(ctx.homeDir, ".config", "noninteractive-pull");
+    const configFile = join(configDir, "config.toml");
+    const ageKeys = await ctx.createAgeKeyPair();
+
+    await ctx.writeIdentityFile(ageKeys.identity);
+    await mkdir(configDir, { recursive: true });
+    await writeFile(configFile, "version = 1\n");
+
+    await ctx.runCli(["init"]);
+    await ctx.runCli(["track", configDir]);
+    await ctx.runCli(["push"]);
+    await writeFile(configFile, "version = 2\n");
+
+    const result = await ctx.runCli(["pull"], { reject: false });
+
+    expect(result.exitCode).not.toBe(0);
+    expect(stripAnsi(result.stderr)).toContain(
+      "Pull confirmation requires an interactive terminal.",
+    );
+    expect(stripAnsi(result.stderr)).toContain("devsync pull -y");
+    expect(await readFile(configFile, "utf8")).toContain("version = 2");
+  });
+
+  it("cancels pull interactively unless y is entered", async () => {
+    const configDir = join(ctx.homeDir, ".config", "interactive-pull");
+    const configFile = join(configDir, "config.toml");
+    const ageKeys = await ctx.createAgeKeyPair();
+
+    await ctx.writeIdentityFile(ageKeys.identity);
+    await mkdir(configDir, { recursive: true });
+    await writeFile(configFile, "version = 1\n");
+
+    await ctx.runCli(["init"]);
+    await ctx.runCli(["track", configDir]);
+    await ctx.runCli(["push"]);
+    await writeFile(configFile, "version = 2\n");
+
+    const session = createPtySession({
+      args: [...cliNodeOptions, "pull"],
+      cwd: ctx.workspace,
+      env: {
+        ...ctx.baseEnv,
+      },
+      file: process.execPath,
+    });
+
+    try {
+      const output = await session.waitFor(
+        "Apply these changes? [y/N]",
+        10_000,
+      );
+
+      expect(output).toContain(configFile);
+      session.write("n\r");
+
+      const cancelledOutput = await session.waitFor(
+        "Skipped pull changes",
+        10_000,
+      );
+
+      expect(cancelledOutput).toContain(configFile);
+      expect(await readFile(configFile, "utf8")).toContain("version = 2");
+    } finally {
+      session.close();
+    }
+  });
+
+  it("applies pull interactively when y is entered", async () => {
+    const configDir = join(ctx.homeDir, ".config", "interactive-accept");
+    const configFile = join(configDir, "config.toml");
+    const ageKeys = await ctx.createAgeKeyPair();
+
+    await ctx.writeIdentityFile(ageKeys.identity);
+    await mkdir(configDir, { recursive: true });
+    await writeFile(configFile, "version = 1\n");
+
+    await ctx.runCli(["init"]);
+    await ctx.runCli(["track", configDir]);
+    await ctx.runCli(["push"]);
+    await writeFile(configFile, "version = 2\n");
+
+    const session = createPtySession({
+      args: [...cliNodeOptions, "pull"],
+      cwd: ctx.workspace,
+      env: {
+        ...ctx.baseEnv,
+      },
+      file: process.execPath,
+    });
+
+    try {
+      const output = await session.waitFor(
+        "Apply these changes? [y/N]",
+        10_000,
+      );
+
+      expect(output).toContain(configFile);
+      session.write("y\r");
+
+      const appliedOutput = await session.waitFor("Pull complete", 10_000);
+
+      expect(appliedOutput).toContain(configFile);
+      expect(await readFile(configFile, "utf8")).toContain("version = 1");
+    } finally {
+      session.close();
+    }
+  });
+
   it("returns a non-zero exit code when pushing without init", async () => {
     const result = await ctx.runCli(["push"], { reject: false });
 
@@ -680,7 +808,7 @@ describe("sync CLI e2e", () => {
 
     await rm(repoDataFile);
 
-    const result = await ctx.runCli(["pull"]);
+    const result = await ctx.runCli(["pull", "-y"]);
 
     expect(result.exitCode).toBe(0);
     expect(stripAnsi(result.stdout)).toContain("remove");
@@ -727,7 +855,7 @@ describe("sync CLI e2e", () => {
     await rm(repoNote2);
     await rm(repoNote3);
 
-    const result = await ctx.runCli(["pull"]);
+    const result = await ctx.runCli(["pull", "-y"]);
 
     expect(result.exitCode).toBe(0);
     expect(await readFile(note1, "utf8")).toContain("Buy milk");

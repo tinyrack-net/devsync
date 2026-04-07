@@ -1,3 +1,4 @@
+import { sep } from "node:path";
 import type { ConsolaInstance } from "consola";
 import { resolveSyncConfigFilePath } from "#app/config/sync.ts";
 import { ensureGitRepository } from "#app/lib/git.ts";
@@ -5,7 +6,9 @@ import {
   applyEntryMaterialization,
   buildEntryMaterialization,
   buildPullCounts,
+  collectChangedLocalPaths,
   countDeletedLocalNodes,
+  type EntryMaterialization,
 } from "./local-materialization.ts";
 import { buildRepositorySnapshot } from "./repo-snapshot.ts";
 import {
@@ -33,13 +36,85 @@ export type PullResult = Readonly<{
 export type PullPlan = Readonly<{
   counts: ReturnType<typeof buildPullCounts>;
   deletedLocalCount: number;
+  deletedLocalPaths: readonly string[];
   desiredKeys: ReadonlySet<string>;
   existingKeys: ReadonlySet<string>;
-  materializations: readonly (
-    | ReturnType<typeof buildEntryMaterialization>
-    | undefined
-  )[];
+  materializations: readonly (EntryMaterialization | undefined)[];
+  updatedLocalPaths: readonly string[];
 }>;
+
+export type PreparedPull = Readonly<{
+  config: EffectiveSyncConfig;
+  plan: PullPlan;
+  syncDirectory: string;
+}>;
+
+const buildDeletedLocalPaths = (
+  desiredKeys: ReadonlySet<string>,
+  existingKeys: ReadonlySet<string>,
+  keyToLocalPath: ReadonlyMap<string, string>,
+) => {
+  return [...existingKeys]
+    .filter((key) => {
+      return !desiredKeys.has(key);
+    })
+    .map((key) => {
+      return keyToLocalPath.get(key);
+    })
+    .filter((path): path is string => {
+      return path !== undefined;
+    })
+    .sort((left, right) => {
+      return left.localeCompare(right);
+    });
+};
+
+const buildUpdatedLocalPaths = async (
+  config: EffectiveSyncConfig,
+  materializations: readonly (EntryMaterialization | undefined)[],
+) => {
+  const changedLocalPaths = new Set<string>();
+
+  for (let index = 0; index < config.entries.length; index += 1) {
+    const entry = config.entries[index];
+    const materialization = materializations[index];
+
+    if (entry === undefined || materialization === undefined) {
+      continue;
+    }
+
+    const childEntryLocalPaths =
+      entry.kind !== "directory"
+        ? []
+        : config.entries
+            .filter((candidate) => {
+              return (
+                candidate !== entry &&
+                (candidate.localPath === entry.localPath ||
+                  candidate.localPath.startsWith(`${entry.localPath}${sep}`))
+              );
+            })
+            .map((candidate) => {
+              return candidate.localPath;
+            });
+
+    for (const path of await collectChangedLocalPaths(entry, materialization)) {
+      if (
+        childEntryLocalPaths.some((childPath) => {
+          return path === childPath || path.startsWith(`${childPath}${sep}`);
+        })
+      ) {
+        continue;
+      }
+
+      changedLocalPaths.add(path);
+    }
+  }
+
+  return [...changedLocalPaths].sort((left, right) => {
+    return left.localeCompare(right);
+  });
+};
 
 export const buildPullPlan = async (
   config: EffectiveSyncConfig,
@@ -63,6 +138,7 @@ export const buildPullPlan = async (
 
   let deletedLocalCount = 0;
   const existingKeys = new Set<string>();
+  const keyToLocalPath = new Map<string, string>();
 
   reporter?.start("Scanning existing local paths...");
   for (let index = 0; index < config.entries.length; index += 1) {
@@ -79,35 +155,41 @@ export const buildPullPlan = async (
       config,
       existingKeys,
       reporter,
+      keyToLocalPath,
     );
   }
+
+  const desiredKeys = new Set(
+    materializations.flatMap((m) =>
+      m === undefined ? [] : [...m.desiredKeys],
+    ),
+  );
+  const deletedLocalPaths = buildDeletedLocalPaths(
+    desiredKeys,
+    existingKeys,
+    keyToLocalPath,
+  );
+  const updatedLocalPaths = await buildUpdatedLocalPaths(
+    config,
+    materializations,
+  );
 
   return {
     counts: buildPullCounts(materializations),
     deletedLocalCount,
-    desiredKeys: new Set(
-      materializations.flatMap((m) =>
-        m === undefined ? [] : [...m.desiredKeys],
-      ),
-    ),
+    deletedLocalPaths,
+    desiredKeys,
     existingKeys,
     materializations,
+    updatedLocalPaths,
   };
 };
 
 export const buildPullPlanPreview = (plan: PullPlan) => {
-  const desired = [...plan.desiredKeys].sort((left, right) => {
-    return left.localeCompare(right);
-  });
-  const deleted = [...plan.existingKeys]
-    .filter((key) => {
-      return !plan.desiredKeys.has(key);
-    })
-    .sort((left, right) => {
-      return left.localeCompare(right);
-    });
-
-  return [...desired.slice(0, 4), ...deleted.slice(0, 4)].slice(0, 6);
+  return [
+    ...plan.updatedLocalPaths.slice(0, 4),
+    ...plan.deletedLocalPaths.slice(0, 4),
+  ].slice(0, 6);
 };
 
 export const buildPullResultFromPlan = (
@@ -129,6 +211,23 @@ export const pullChanges = async (
   request: PullRequest,
   reporter?: ConsolaInstance,
 ): Promise<PullResult> => {
+  const prepared = await preparePull(request, reporter);
+
+  if (!request.dryRun) {
+    await applyPullPlan(prepared.config, prepared.plan, reporter);
+  }
+
+  return buildPullResultFromPlan(
+    prepared.plan,
+    prepared.syncDirectory,
+    request.dryRun,
+  );
+};
+
+export const preparePull = async (
+  request: PullRequest,
+  reporter?: ConsolaInstance,
+): Promise<PreparedPull> => {
   reporter?.start("Starting pull...");
   const { syncDirectory } = resolveSyncPaths();
 
@@ -141,6 +240,18 @@ export const pullChanges = async (
   });
   const plan = await buildPullPlan(config, syncDirectory, reporter);
 
+  return {
+    config,
+    plan,
+    syncDirectory,
+  };
+};
+
+export const applyPullPlan = async (
+  config: EffectiveSyncConfig,
+  plan: PullPlan,
+  reporter?: ConsolaInstance,
+) => {
   for (let index = 0; index < config.entries.length; index += 1) {
     const entry = config.entries[index];
     const materialization = plan.materializations[index];
@@ -149,11 +260,7 @@ export const pullChanges = async (
       continue;
     }
 
-    if (!request.dryRun) {
-      reporter?.start(`Applying ${entry.repoPath}...`);
-      await applyEntryMaterialization(entry, materialization, config, reporter);
-    }
+    reporter?.start(`Applying ${entry.repoPath}...`);
+    await applyEntryMaterialization(entry, materialization, config, reporter);
   }
-
-  return buildPullResultFromPlan(plan, syncDirectory, request.dryRun);
 };

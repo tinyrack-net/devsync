@@ -1,6 +1,12 @@
 import { buildCommand } from "@stricli/core";
+import consola from "consola";
 import pc from "picocolors";
-import { pullChanges } from "#app/services/pull.ts";
+import { DevsyncError } from "#app/lib/error.ts";
+import {
+  applyPullPlan,
+  buildPullResultFromPlan,
+  preparePull,
+} from "#app/services/pull.ts";
 import {
   type DevsyncCliContext,
   verboseFlag,
@@ -10,7 +16,34 @@ import { createCliLogger } from "#app/services/terminal/logger.ts";
 type PullFlags = {
   dryRun?: boolean;
   profile?: string;
+  yes?: boolean;
   verbose?: boolean;
+};
+
+const logPullPlanChanges = (
+  logger: ReturnType<typeof createCliLogger>,
+  updatedLocalPaths: readonly string[],
+  deletedLocalPaths: readonly string[],
+) => {
+  logger.info("Planned pull changes");
+
+  if (updatedLocalPaths.length > 0) {
+    logger.log(
+      `  ${pc.bold("Update from repository")} (${updatedLocalPaths.length})`,
+    );
+
+    for (const path of updatedLocalPaths) {
+      logger.log(pc.dim(`    + ${path}`));
+    }
+  }
+
+  if (deletedLocalPaths.length > 0) {
+    logger.log(`  ${pc.bold("Remove locally")} (${deletedLocalPaths.length})`);
+
+    for (const path of deletedLocalPaths) {
+      logger.log(pc.dim(`    - ${path}`));
+    }
+  }
 };
 
 const pullCommand = buildCommand<PullFlags, [], DevsyncCliContext>({
@@ -21,21 +54,67 @@ const pullCommand = buildCommand<PullFlags, [], DevsyncCliContext>({
   },
   async func(flags) {
     const verbose = flags.verbose ?? false;
+    const dryRun = flags.dryRun ?? false;
     const logger = createCliLogger({ verbose });
     const reporter = verbose ? logger : undefined;
-
-    const result = await pullChanges(
-      { dryRun: flags.dryRun ?? false, profile: flags.profile },
+    const prepared = await preparePull(
+      { dryRun, profile: flags.profile },
       reporter,
     );
+    const { config, plan, syncDirectory } = prepared;
 
-    const stats = `${result.plainFileCount} plain · ${result.decryptedFileCount} decrypted · ${result.symlinkCount} symlinks · ${result.directoryCount} dirs`;
+    if (
+      plan.updatedLocalPaths.length === 0 &&
+      plan.deletedLocalPaths.length === 0
+    ) {
+      logger.info("Already up to date");
 
-    if (result.dryRun) {
+      if (verbose) {
+        logger.log(pc.dim(`  sync dir  ${syncDirectory}`));
+        logger.log(
+          pc.dim(
+            `  config    ${buildPullResultFromPlan(plan, syncDirectory, dryRun).configPath}`,
+          ),
+        );
+      }
+
+      return;
+    }
+
+    logPullPlanChanges(logger, plan.updatedLocalPaths, plan.deletedLocalPaths);
+
+    if (dryRun) {
       logger.info(`Pull preview ${pc.dim("(dry run)")}`);
+    } else if (flags.yes ?? false) {
+      await applyPullPlan(config, plan, reporter);
+      logger.success("Pull complete");
     } else {
+      if (!(process.stdin.isTTY ?? false)) {
+        throw new DevsyncError(
+          "Pull confirmation requires an interactive terminal.",
+          {
+            hint: "Re-run 'devsync pull -y' to apply changes without a prompt.",
+          },
+        );
+      }
+
+      const answer = await consola.prompt("Apply these changes? [y/N] ", {
+        cancel: "reject",
+        type: "text",
+      });
+
+      if (answer.trim() !== "y") {
+        logger.info("Skipped pull changes");
+        return;
+      }
+
+      await applyPullPlan(config, plan, reporter);
       logger.success("Pull complete");
     }
+
+    const result = buildPullResultFromPlan(plan, syncDirectory, dryRun);
+
+    const stats = `${result.plainFileCount} plain · ${result.decryptedFileCount} decrypted · ${result.symlinkCount} symlinks · ${result.directoryCount} dirs`;
 
     logger.log(`  ${stats}`);
     logger.log(
@@ -61,7 +140,16 @@ const pullCommand = buildCommand<PullFlags, [], DevsyncCliContext>({
         parse: String,
         placeholder: "profile",
       },
+      yes: {
+        brief: "Apply pull changes without prompting",
+        kind: "boolean",
+        optional: true,
+        withNegated: false,
+      },
       verbose: verboseFlag,
+    },
+    aliases: {
+      y: "yes",
     },
   },
 });

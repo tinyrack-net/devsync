@@ -1,4 +1,4 @@
-import { mkdir, rm, writeFile } from "node:fs/promises";
+import { mkdir, rm, symlink, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { ConsolaInstance } from "consola";
 import { afterEach, describe, expect, it } from "vitest";
@@ -9,7 +9,10 @@ import type {
   SyncMode,
 } from "#app/config/sync.ts";
 import { buildDirectoryKey } from "#app/lib/path.ts";
-import { countDeletedLocalNodes } from "#app/services/local-materialization.ts";
+import {
+  collectChangedLocalPaths,
+  countDeletedLocalNodes,
+} from "#app/services/local-materialization.ts";
 import { createTemporaryDirectory } from "../test/helpers/sync-fixture.ts";
 
 const temporaryDirectories: string[] = [];
@@ -177,5 +180,96 @@ describe("local materialization", () => {
     expect(deletedLocalCount).toBe(0);
     expect(existingKeys.size).toBe(0);
     expect(messages).toEqual([]);
+  });
+
+  it("records deleted local paths while planning pull", async () => {
+    const workspace = await createWorkspace();
+    const appDirectory = join(workspace, ".config", "app");
+    const configFile = join(appDirectory, "config.json");
+    const cacheFile = join(appDirectory, "cache.json");
+
+    await mkdir(appDirectory, { recursive: true });
+    await writeFile(configFile, "{}\n", "utf8");
+    await writeFile(cacheFile, "{}\n", "utf8");
+
+    const existingKeys = new Set<string>();
+    const keyToLocalPath = new Map<string, string>();
+    const entry = createEntry(
+      "directory",
+      appDirectory,
+      ".config/app",
+      "normal",
+    );
+
+    const deletedLocalCount = await countDeletedLocalNodes(
+      entry,
+      new Set([buildDirectoryKey(".config/app"), ".config/app/config.json"]),
+      createConfig([entry]),
+      existingKeys,
+      undefined,
+      keyToLocalPath,
+    );
+
+    expect(deletedLocalCount).toBe(1);
+    expect(keyToLocalPath.get(".config/app/cache.json")).toBe(cacheFile);
+  });
+
+  it("collects only changed local paths for a materialized directory", async () => {
+    const workspace = await createWorkspace();
+    const appDirectory = join(workspace, ".config", "app");
+    const configFile = join(appDirectory, "config.json");
+    const linkPath = join(appDirectory, "current");
+
+    await mkdir(appDirectory, { recursive: true });
+    await writeFile(configFile, '{"version":1}\n', "utf8");
+    await symlink("./v1", linkPath);
+
+    const entry = createEntry(
+      "directory",
+      appDirectory,
+      ".config/app",
+      "normal",
+    );
+
+    await writeFile(join(appDirectory, "stale.txt"), "old\n", "utf8");
+
+    expect(
+      await collectChangedLocalPaths(entry, {
+        desiredKeys: new Set([
+          buildDirectoryKey(".config/app"),
+          ".config/app/config.json",
+          ".config/app/current",
+          ".config/app/missing.txt",
+        ]),
+        nodes: new Map([
+          [
+            "config.json",
+            {
+              contents: Buffer.from('{"version":1}\n'),
+              executable: false,
+              secret: false,
+              type: "file",
+            },
+          ],
+          [
+            "current",
+            {
+              linkTarget: "./v1",
+              type: "symlink",
+            },
+          ],
+          [
+            "missing.txt",
+            {
+              contents: Buffer.from("new\n"),
+              executable: false,
+              secret: false,
+              type: "file",
+            },
+          ],
+        ]),
+        type: "directory",
+      }),
+    ).toEqual([join(appDirectory, "missing.txt")]);
   });
 });

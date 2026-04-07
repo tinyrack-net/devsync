@@ -15,7 +15,9 @@ const mockLogger = vi.hoisted(() => ({
 }));
 
 const mocked = vi.hoisted(() => ({
+  applyPullPlan: vi.fn(),
   assignProfiles: vi.fn(),
+  buildPullResultFromPlan: vi.fn(),
   clearActiveProfile: vi.fn(),
   consolaPrompt: vi.fn(),
   createMissingRepositoryAgeKeyError: vi.fn(),
@@ -25,7 +27,7 @@ const mocked = vi.hoisted(() => ({
   listProfiles: vi.fn(),
   mkdir: vi.fn(),
   pathExists: vi.fn(),
-  pullChanges: vi.fn(),
+  preparePull: vi.fn(),
   pushChanges: vi.fn(),
   readEnvValue: vi.fn(),
   resolveConfiguredAbsolutePath: vi.fn(),
@@ -90,7 +92,9 @@ vi.mock("#app/services/profile.ts", () => ({
 }));
 
 vi.mock("#app/services/pull.ts", () => ({
-  pullChanges: mocked.pullChanges,
+  applyPullPlan: mocked.applyPullPlan,
+  buildPullResultFromPlan: mocked.buildPullResultFromPlan,
+  preparePull: mocked.preparePull,
 }));
 
 vi.mock("#app/services/push.ts", () => ({
@@ -234,7 +238,29 @@ beforeEach(() => {
     globalConfigPath: "/tmp/global-config.json",
     syncDirectory: "/tmp/devsync",
   });
-  mocked.pullChanges.mockResolvedValue({
+  mocked.preparePull.mockResolvedValue({
+    config: {
+      entries: [],
+      version: 7,
+    },
+    plan: {
+      counts: {
+        decryptedFileCount: 2,
+        directoryCount: 1,
+        plainFileCount: 3,
+        symlinkCount: 0,
+      },
+      deletedLocalCount: 1,
+      deletedLocalPaths: ["/tmp/home/.config/app/obsolete.txt"],
+      desiredKeys: new Set([".config/app/config.toml"]),
+      existingKeys: new Set(["obsolete-a"]),
+      materializations: [],
+      updatedLocalPaths: ["/tmp/home/.config/app/config.toml"],
+    },
+    syncDirectory: "/tmp/devsync",
+  });
+  mocked.applyPullPlan.mockResolvedValue(undefined);
+  mocked.buildPullResultFromPlan.mockReturnValue({
     configPath: "/tmp/config.json",
     decryptedFileCount: 2,
     deletedLocalCount: 1,
@@ -315,6 +341,10 @@ beforeEach(() => {
   });
   mocked.mkdir.mockResolvedValue(undefined);
   mocked.launchShellInDirectory.mockResolvedValue(undefined);
+  Object.defineProperty(process.stdin, "isTTY", {
+    configurable: true,
+    value: true,
+  });
 });
 
 afterEach(() => {
@@ -473,13 +503,14 @@ describe("CLI command modules", () => {
     });
     await runCommand(statusCommand, { profile: "work", verbose: true });
 
-    expect(mocked.pullChanges).toHaveBeenCalledWith(
+    expect(mocked.preparePull).toHaveBeenCalledWith(
       {
         dryRun: true,
         profile: "work",
       },
       mockLogger,
     );
+    expect(mocked.applyPullPlan).not.toHaveBeenCalled();
     expect(mocked.pushChanges).toHaveBeenCalledWith(
       {
         dryRun: true,
@@ -498,6 +529,77 @@ describe("CLI command modules", () => {
       expect.stringContaining("Push preview"),
     );
     expect(mockLogger.info).toHaveBeenCalledWith("Sync status");
+  });
+
+  it("skips prompting and exits when pull has no changes", async () => {
+    mocked.preparePull.mockResolvedValueOnce({
+      config: {
+        entries: [],
+        version: 7,
+      },
+      plan: {
+        counts: {
+          decryptedFileCount: 0,
+          directoryCount: 0,
+          plainFileCount: 0,
+          symlinkCount: 0,
+        },
+        deletedLocalCount: 0,
+        deletedLocalPaths: [],
+        desiredKeys: new Set<string>(),
+        existingKeys: new Set<string>(),
+        materializations: [],
+        updatedLocalPaths: [],
+      },
+      syncDirectory: "/tmp/devsync",
+    });
+
+    await runCommand(pullCommand, { verbose: false });
+
+    expect(mocked.consolaPrompt).not.toHaveBeenCalled();
+    expect(mocked.applyPullPlan).not.toHaveBeenCalled();
+    expect(mockLogger.info).toHaveBeenCalledWith("Already up to date");
+  });
+
+  it("applies pull changes after interactive confirmation", async () => {
+    mocked.consolaPrompt.mockResolvedValueOnce("y");
+
+    await runCommand(pullCommand, { verbose: false });
+
+    expect(mocked.consolaPrompt).toHaveBeenCalledWith(
+      "Apply these changes? [y/N] ",
+      { cancel: "reject", type: "text" },
+    );
+    expect(mocked.applyPullPlan).toHaveBeenCalledTimes(1);
+    expect(mockLogger.success).toHaveBeenCalledWith("Pull complete");
+  });
+
+  it("cancels pull changes when confirmation is not y", async () => {
+    mocked.consolaPrompt.mockResolvedValueOnce("n");
+
+    await runCommand(pullCommand, { verbose: false });
+
+    expect(mocked.applyPullPlan).not.toHaveBeenCalled();
+    expect(mockLogger.info).toHaveBeenCalledWith("Skipped pull changes");
+  });
+
+  it("skips prompting when --yes is provided", async () => {
+    await runCommand(pullCommand, { verbose: false, yes: true });
+
+    expect(mocked.consolaPrompt).not.toHaveBeenCalled();
+    expect(mocked.applyPullPlan).toHaveBeenCalledTimes(1);
+  });
+
+  it("fails in non-interactive mode without --yes when changes exist", async () => {
+    Object.defineProperty(process.stdin, "isTTY", {
+      configurable: true,
+      value: false,
+    });
+
+    await expect(runCommand(pullCommand, { verbose: false })).rejects.toThrow(
+      "Pull confirmation requires an interactive terminal.",
+    );
+    expect(mocked.applyPullPlan).not.toHaveBeenCalled();
   });
 
   it("untracks tracked targets relative to the current working directory", async () => {
