@@ -294,6 +294,10 @@ beforeEach(() => {
     ],
     entryCount: 1,
     pull: {
+      changes: {
+        updated: ["/tmp/home/.gitconfig"],
+        deleted: [],
+      },
       configPath: "/tmp/config.json",
       decryptedFileCount: 2,
       deletedLocalCount: 1,
@@ -305,6 +309,11 @@ beforeEach(() => {
       syncDirectory: "/tmp/devsync",
     },
     push: {
+      changes: {
+        added: [".gitconfig"],
+        modified: [],
+        deleted: [".oldconfig"],
+      },
       configPath: "/tmp/config.json",
       deletedArtifactCount: 2,
       directoryCount: 1,

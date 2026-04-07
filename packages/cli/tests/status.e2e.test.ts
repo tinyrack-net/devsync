@@ -31,8 +31,10 @@ describe("status CLI e2e", () => {
     const out = stripAnsi(result.stdout);
     expect(out).toContain("Sync status");
     expect(out).toContain("0 entries");
-    expect(out).toContain("push  0 plain");
-    expect(out).toContain("pull  0 plain");
+    expect(out).toContain("Push changes");
+    expect(out).toContain("No push changes");
+    expect(out).toContain("Pull changes");
+    expect(out).toContain("No pull changes");
   });
 
   it("reports files pending push after track and before push", async () => {
@@ -53,9 +55,12 @@ describe("status CLI e2e", () => {
     const out = stripAnsi(result.stdout);
     expect(out).toContain("Sync status");
     expect(out).toContain("1 entries");
-    // One file to push, nothing to pull yet
-    expect(out).toContain("push  1 plain");
-    expect(out).toContain("pull  0 plain");
+    // Files to push to repository
+    expect(out).toContain("Push changes");
+    expect(out).toContain("Add");
+    // Pull would remove local files that don't exist in repo yet
+    expect(out).toContain("Pull changes");
+    expect(out).toContain("Remove");
   });
 
   it("reports files pending pull after push and local modification", async () => {
@@ -80,7 +85,8 @@ describe("status CLI e2e", () => {
     const out = stripAnsi(result.stdout);
     expect(out).toContain("Sync status");
     // Repository still has original; pull would restore it
-    expect(out).toContain("pull  1 plain");
+    expect(out).toContain("Pull changes");
+    expect(out).toContain("Update");
   });
 
   it("shows entry details with --verbose", async () => {
@@ -99,7 +105,7 @@ describe("status CLI e2e", () => {
 
     expect(result.exitCode).toBe(0);
     const out = stripAnsi(result.stdout);
-    expect(out).toContain("entries:");
+    expect(out).toContain("Entries:");
     expect(out).toContain("sync dir");
     expect(out).toContain("config");
   });
