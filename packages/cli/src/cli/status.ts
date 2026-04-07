@@ -94,7 +94,7 @@ const logPullChanges = (
 
   if (changes.updated.length > 0) {
     logger.log(
-      `    ${pc.green("+")} ${pc.bold("Update")} (${changes.updated.length}):`,
+      `    ${pc.green("+")} ${pc.bold("Changed")} (${changes.updated.length}):`,
     );
     const displayItems = changes.updated.slice(0, MAX_DISPLAY_ITEMS);
     const remainingCount = changes.updated.length - displayItems.length;
