@@ -1,4 +1,4 @@
-import { lstat, mkdir, readFile } from "node:fs/promises";
+import { lstat, mkdir, readFile, readlink } from "node:fs/promises";
 import { join } from "node:path";
 import type { ConsolaInstance } from "consola";
 import { CONSTANTS } from "#app/config/constants.ts";
@@ -10,6 +10,7 @@ import {
 } from "#app/config/sync.ts";
 import { decryptSecretFile, encryptSecretFile } from "#app/lib/crypto.ts";
 import { DevsyncError } from "#app/lib/error.ts";
+import { buildExecutableMode } from "#app/lib/file-mode.ts";
 import {
   getPathStats,
   listDirectoryEntries,
@@ -365,6 +366,10 @@ type AgeWriteConfig = Readonly<{
   recipients: readonly string[];
 }>;
 
+const fileModeMatches = (actualMode: number, executable: boolean) => {
+  return (actualMode & 0o777) === buildExecutableMode(executable);
+};
+
 const isSecretArtifactUnchanged = async (
   artifactPath: string,
   plaintext: Uint8Array,
@@ -392,6 +397,51 @@ const isSecretArtifactUnchanged = async (
   } catch {
     return false;
   }
+};
+
+export const isRepoArtifactCurrent = async (
+  rootDirectory: string,
+  artifact: RepoArtifact,
+  ageConfig?: Pick<AgeWriteConfig, "identityFile">,
+) => {
+  const relativePath = resolveArtifactRelativePath(artifact);
+  const artifactPath = join(rootDirectory, ...relativePath.split("/"));
+  const stats = await getPathStats(artifactPath);
+
+  if (artifact.kind === "directory") {
+    return stats?.isDirectory() ?? false;
+  }
+
+  if (artifact.kind === "symlink") {
+    return (
+      stats?.isSymbolicLink() === true &&
+      (await readlink(artifactPath)) === artifact.linkTarget
+    );
+  }
+
+  if (stats?.isFile() !== true) {
+    return false;
+  }
+
+  if (!fileModeMatches(stats.mode, artifact.executable)) {
+    return false;
+  }
+
+  if (artifact.category === "secret") {
+    if (ageConfig === undefined) {
+      return false;
+    }
+
+    return isSecretArtifactUnchanged(
+      artifactPath,
+      artifact.contents,
+      ageConfig.identityFile,
+    );
+  }
+
+  const existingContents = await readFile(artifactPath);
+
+  return Buffer.compare(existingContents, Buffer.from(artifact.contents)) === 0;
 };
 
 export const writeArtifactsToDirectory = async (
