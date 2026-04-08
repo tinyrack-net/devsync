@@ -26,6 +26,7 @@ import * as platformConfig from "#app/config/platform.ts";
 import {
   createAgeKeyPair,
   createTemporaryDirectory,
+  runGit,
   writeIdentityFile,
 } from "../test/helpers/sync-fixture.ts";
 import { initializeSyncDirectory } from "./init.ts";
@@ -35,7 +36,7 @@ import {
   listProfiles,
   setActiveProfile,
 } from "./profile.ts";
-import { pullChanges } from "./pull.ts";
+import { preparePull, pullChanges } from "./pull.ts";
 import { pushChanges } from "./push.ts";
 import { setTargetMode } from "./set.ts";
 import { trackTarget } from "./track.ts";
@@ -201,6 +202,56 @@ describe("sync service", () => {
     await pullChanges({ dryRun: false });
 
     expect(await readFile(gitconfig, "utf8")).toBe("[user]\nname=test\n");
+  });
+
+  it("keeps repository artifact bytes stable under core.autocrlf before repeated pull", async () => {
+    const workspace = await createWorkspace();
+    const homeDirectory = join(workspace, "home");
+    const xdgConfigHome = join(workspace, "xdg");
+    const gitconfig = join(homeDirectory, ".gitconfig");
+    const ageKeys = await createAgeKeyPair();
+
+    await writeIdentityFile(xdgConfigHome, ageKeys.identity);
+    await mkdir(homeDirectory, { recursive: true });
+    await writeFile(gitconfig, "[user]\nname=test\n");
+
+    setEnvironment(homeDirectory, xdgConfigHome);
+
+    const { syncDirectory } = await initializeSyncDirectory({
+      identityFile: "$XDG_CONFIG_HOME/devsync/keys.txt",
+      recipients: [ageKeys.recipient],
+    });
+
+    await trackTarget(
+      {
+        mode: "normal",
+        target: gitconfig,
+      },
+      homeDirectory,
+    );
+    await pushChanges({ dryRun: false });
+
+    const artifactPath = join(syncDirectory, "default", ".gitconfig");
+
+    await runGit(["add", "."], syncDirectory);
+    await runGit(["commit", "-m", "store artifacts"], syncDirectory);
+    await runGit(["config", "core.autocrlf", "true"], syncDirectory);
+
+    await rm(artifactPath);
+    await runGit(["checkout", "--", "default/.gitconfig"], syncDirectory);
+
+    expect(await readFile(join(syncDirectory, ".gitattributes"), "utf8")).toBe(
+      "* -text\n",
+    );
+    expect(await readFile(artifactPath, "utf8")).toBe("[user]\nname=test\n");
+
+    await writeFile(gitconfig, "[user]\nname=changed\n");
+
+    await pullChanges({ dryRun: false });
+    const secondPull = await preparePull({ dryRun: true });
+
+    expect(await readFile(gitconfig, "utf8")).toBe("[user]\nname=test\n");
+    expect(secondPull.plan.updatedLocalPaths).toEqual([]);
   });
 
   it("updates repoPath when re-tracking an existing entry", async () => {
