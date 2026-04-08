@@ -50,14 +50,10 @@ export type PreparedPull = Readonly<{
 }>;
 
 const buildDeletedLocalPaths = (
-  desiredKeys: ReadonlySet<string>,
-  existingKeys: ReadonlySet<string>,
+  deletedKeys: ReadonlySet<string>,
   keyToLocalPath: ReadonlyMap<string, string>,
 ) => {
-  return [...existingKeys]
-    .filter((key) => {
-      return !desiredKeys.has(key);
-    })
+  return [...deletedKeys]
     .map((key) => {
       return keyToLocalPath.get(key);
     })
@@ -98,7 +94,11 @@ const buildUpdatedLocalPaths = async (
               return candidate.localPath;
             });
 
-    for (const path of await collectChangedLocalPaths(entry, materialization)) {
+    for (const path of await collectChangedLocalPaths(
+      entry,
+      materialization,
+      config,
+    )) {
       if (
         childEntryLocalPaths.some((childPath) => {
           return path === childPath || path.startsWith(`${childPath}${sep}`);
@@ -139,6 +139,7 @@ export const buildPullPlan = async (
   let deletedLocalCount = 0;
   const existingKeys = new Set<string>();
   const keyToLocalPath = new Map<string, string>();
+  const deletedKeys = new Set<string>();
 
   reporter?.start("Scanning existing local paths...");
   for (let index = 0; index < config.entries.length; index += 1) {
@@ -149,14 +150,26 @@ export const buildPullPlan = async (
       continue;
     }
 
+    const entryExistingKeys = new Set<string>();
+    const entryKeyToLocalPath = new Map<string, string>();
+
     deletedLocalCount += await countDeletedLocalNodes(
       entry,
       materialization.desiredKeys,
       config,
-      existingKeys,
+      entryExistingKeys,
       reporter,
-      keyToLocalPath,
+      entryKeyToLocalPath,
+      deletedKeys,
     );
+
+    for (const key of entryExistingKeys) {
+      existingKeys.add(key);
+    }
+
+    for (const [key, localPath] of entryKeyToLocalPath.entries()) {
+      keyToLocalPath.set(key, localPath);
+    }
   }
 
   const desiredKeys = new Set(
@@ -164,11 +177,7 @@ export const buildPullPlan = async (
       m === undefined ? [] : [...m.desiredKeys],
     ),
   );
-  const deletedLocalPaths = buildDeletedLocalPaths(
-    desiredKeys,
-    existingKeys,
-    keyToLocalPath,
-  );
+  const deletedLocalPaths = buildDeletedLocalPaths(deletedKeys, keyToLocalPath);
   const updatedLocalPaths = await buildUpdatedLocalPaths(
     config,
     materializations,

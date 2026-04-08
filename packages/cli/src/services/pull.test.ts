@@ -176,9 +176,10 @@ describe("pull planning", () => {
       config.entries[0],
       new Set([".config/app"]),
       config,
-      expect.any(Set),
+      new Set<string>(),
       undefined,
-      expect.any(Map),
+      new Map<string, string>(),
+      new Set<string>(),
     );
     expect(plan.materializations).toEqual([
       {
