@@ -14,7 +14,6 @@ import {
   collectChildEntryPaths,
   type ResolvedSyncConfig,
   type ResolvedSyncConfigEntry,
-  resolveManagedSyncMode,
   resolveSyncRule,
 } from "#app/config/sync.ts";
 import { DevsyncError } from "#app/lib/error.ts";
@@ -23,13 +22,11 @@ import {
   buildSearchableDirectoryMode,
 } from "#app/lib/file-mode.ts";
 import {
-  copyFilesystemNode,
   getPathStats,
   listDirectoryEntries,
   removePathAtomically,
   replacePathAtomically,
   writeFileNode,
-  writeSymlinkNode,
 } from "#app/lib/filesystem.ts";
 import { buildDirectoryKey } from "#app/lib/path.ts";
 import type { FileLikeSnapshotNode, SnapshotNode } from "./local-snapshot.ts";
@@ -74,63 +71,17 @@ export type EntryMaterialization =
       type: "directory";
     }>;
 
-const copyIgnoredLocalNodesToDirectory = async (
-  sourceDirectory: string,
-  targetDirectory: string,
-  config: MaterializationConfig,
-  repoPathPrefix: string,
-  reporter?: ConsolaInstance,
-): Promise<number> => {
-  const stats = await getPathStats(sourceDirectory);
-
-  if (stats === undefined || !stats.isDirectory()) {
-    return 0;
+const materializedDirectoryModeMatches = (
+  actualMode: number,
+  fileMode?: number,
+) => {
+  if (fileMode === undefined) {
+    return true;
   }
 
-  let copiedNodeCount = 0;
-  const entries = await listDirectoryEntries(sourceDirectory);
-  const directoryMode = resolveManagedSyncMode(
-    config,
-    repoPathPrefix,
-    config.activeProfile,
+  return (
+    (actualMode & 0o777) === (buildSearchableDirectoryMode(fileMode) & 0o777)
   );
-
-  if (directoryMode === "ignore") {
-    await mkdir(targetDirectory, { recursive: true });
-    copiedNodeCount += 1;
-  }
-
-  for (const entry of entries) {
-    const sourcePath = join(sourceDirectory, entry.name);
-    const targetPath = join(targetDirectory, entry.name);
-    const repoPath = posix.join(repoPathPrefix, entry.name);
-    const entryStats = await lstat(sourcePath);
-
-    if (entryStats.isDirectory()) {
-      copiedNodeCount += await copyIgnoredLocalNodesToDirectory(
-        sourcePath,
-        targetPath,
-        config,
-        repoPath,
-        reporter,
-      );
-      continue;
-    }
-
-    if (
-      resolveManagedSyncMode(config, repoPath, config.activeProfile) !==
-      "ignore"
-    ) {
-      continue;
-    }
-
-    await mkdir(dirname(targetPath), { recursive: true });
-    await copyFilesystemNode(sourcePath, targetPath, entryStats);
-    reporter?.verbose(`preserved ignored local path ${repoPath}`);
-    copiedNodeCount += 1;
-  }
-
-  return copiedNodeCount;
 };
 
 const materializedFileModeMatches = (
@@ -199,75 +150,76 @@ const stageAndReplaceFilePath = async (
   }
 };
 
-const stageAndReplaceMergedDirectoryPath = async (
-  entry: ResolvedSyncConfigEntry,
-  config: MaterializationConfig,
-  desiredNodes: ReadonlyMap<string, FileLikeSnapshotNode>,
-  reporter?: ConsolaInstance,
+const stageAndReplaceDirectoryPath = async (
+  targetPath: string,
   fileMode?: number,
 ) => {
-  await mkdir(dirname(entry.localPath), { recursive: true });
+  await mkdir(dirname(targetPath), { recursive: true });
   const stagingDirectory = await mkdtemp(
-    join(
-      dirname(entry.localPath),
-      `.${basename(entry.localPath)}.devsync-sync-`,
-    ),
+    join(dirname(targetPath), `.${basename(targetPath)}.devsync-sync-`),
   );
 
   try {
-    const preservedIgnoredNodeCount = await copyIgnoredLocalNodesToDirectory(
-      entry.localPath,
-      stagingDirectory,
-      config,
-      entry.repoPath,
-      reporter,
-    );
-    let stagedNodeCount = 0;
-
-    for (const relativePath of [...desiredNodes.keys()].sort((left, right) => {
-      return left.localeCompare(right);
-    })) {
-      const node = desiredNodes.get(relativePath);
-
-      if (node === undefined) {
-        continue;
-      }
-
-      const targetNodePath = join(stagingDirectory, ...relativePath.split("/"));
-
-      if (node.type === "symlink") {
-        await writeSymlinkNode(targetNodePath, node.linkTarget);
-      } else {
-        await writeFileNode(targetNodePath, node, fileMode);
-      }
-
-      stagedNodeCount += 1;
-
-      if ((reporter?.level ?? 0) >= 4) {
-        reporter?.verbose(
-          `staged local node ${posix.join(entry.repoPath, relativePath)}`,
-        );
-      } else if (stagedNodeCount % 100 === 0) {
-        reporter?.start(
-          `Staged ${stagedNodeCount} local nodes for ${entry.repoPath}...`,
-        );
-      }
-    }
-
-    if (preservedIgnoredNodeCount === 0 && desiredNodes.size === 0) {
-      await removePathAtomically(entry.localPath);
-
-      return;
-    }
-
     if (fileMode !== undefined) {
       await chmod(stagingDirectory, buildSearchableDirectoryMode(fileMode));
     }
 
-    await replacePathAtomically(entry.localPath, stagingDirectory);
+    await replacePathAtomically(targetPath, stagingDirectory);
   } finally {
     await rm(stagingDirectory, { force: true, recursive: true });
   }
+};
+
+const ensureMaterializedDirectoryPath = async (
+  targetPath: string,
+  fileMode?: number,
+) => {
+  const stats = await getPathStats(targetPath);
+
+  if (stats === undefined) {
+    await mkdir(targetPath, { recursive: true });
+
+    if (fileMode !== undefined) {
+      await chmod(targetPath, buildSearchableDirectoryMode(fileMode));
+    }
+
+    return;
+  }
+
+  if (!stats.isDirectory()) {
+    await stageAndReplaceDirectoryPath(targetPath, fileMode);
+    return;
+  }
+
+  if (
+    fileMode !== undefined &&
+    !materializedDirectoryModeMatches(stats.mode, fileMode)
+  ) {
+    await chmod(targetPath, buildSearchableDirectoryMode(fileMode));
+  }
+};
+
+const buildDesiredDirectoryKeys = (
+  entry: ResolvedSyncConfigEntry,
+  desiredNodes: ReadonlyMap<string, FileLikeSnapshotNode>,
+) => {
+  const desiredDirectoryKeys = new Set<string>([
+    buildDirectoryKey(entry.repoPath),
+  ]);
+
+  for (const relativePath of desiredNodes.keys()) {
+    const segments = relativePath.split("/");
+
+    for (let index = 1; index < segments.length; index += 1) {
+      desiredDirectoryKeys.add(
+        buildDirectoryKey(
+          posix.join(entry.repoPath, ...segments.slice(0, index)),
+        ),
+      );
+    }
+  }
+
+  return desiredDirectoryKeys;
 };
 
 export const buildEntryMaterialization = (
@@ -380,7 +332,9 @@ const collectLocalLeafKeys = async (
     return;
   }
 
-  const directoryKey = buildDirectoryKey(repoPathPrefix);
+  const currentRepoPath =
+    prefix === undefined ? repoPathPrefix : posix.join(repoPathPrefix, prefix);
+  const directoryKey = buildDirectoryKey(currentRepoPath);
   keys.add(directoryKey);
   keyToLocalPath?.set(directoryKey, targetPath);
 
@@ -418,6 +372,160 @@ const collectLocalLeafKeys = async (
   }
 };
 
+const buildLocalPathDepth = (localPath: string) => {
+  return localPath.split(/[/\\]+/u).length;
+};
+
+const collectDeletableLocalKeys = async (
+  existingKeys: ReadonlySet<string>,
+  desiredKeys: ReadonlySet<string>,
+  keyToLocalPath: ReadonlyMap<string, string>,
+) => {
+  const deletableKeys: string[] = [];
+  const scheduledLocalPaths = new Set<string>();
+  const staleKeys = [...existingKeys]
+    .filter((key) => {
+      return !desiredKeys.has(key);
+    })
+    .sort((left, right) => {
+      const leftPath = keyToLocalPath.get(left) ?? "";
+      const rightPath = keyToLocalPath.get(right) ?? "";
+      return (
+        buildLocalPathDepth(rightPath) - buildLocalPathDepth(leftPath) ||
+        rightPath.localeCompare(leftPath)
+      );
+    });
+
+  for (const key of staleKeys) {
+    const localPath = keyToLocalPath.get(key);
+
+    if (localPath === undefined) {
+      continue;
+    }
+
+    const stats = await getPathStats(localPath);
+
+    if (stats === undefined) {
+      continue;
+    }
+
+    if (!stats.isDirectory()) {
+      deletableKeys.push(key);
+      scheduledLocalPaths.add(localPath);
+      continue;
+    }
+
+    const entries = await listDirectoryEntries(localPath);
+    const canDeleteDirectory = entries.every((entry) => {
+      return scheduledLocalPaths.has(join(localPath, entry.name));
+    });
+
+    if (!canDeleteDirectory) {
+      continue;
+    }
+
+    deletableKeys.push(key);
+    scheduledLocalPaths.add(localPath);
+  }
+
+  return deletableKeys;
+};
+
+const reconcileMaterializedDirectoryPath = async (
+  entry: ResolvedSyncConfigEntry,
+  desiredKeys: ReadonlySet<string>,
+  desiredNodes: ReadonlyMap<string, FileLikeSnapshotNode>,
+  config: MaterializationConfig,
+  reporter?: ConsolaInstance,
+  fileMode?: number,
+) => {
+  const desiredRootKey = buildDirectoryKey(entry.repoPath);
+  const desiredRootExists = desiredKeys.has(desiredRootKey);
+
+  if (desiredRootExists) {
+    await ensureMaterializedDirectoryPath(entry.localPath, fileMode);
+  }
+
+  const desiredDirectoryKeys = desiredRootExists
+    ? buildDesiredDirectoryKeys(entry, desiredNodes)
+    : new Set<string>();
+
+  for (const directoryKey of [...desiredDirectoryKeys].sort((left, right) => {
+    return left.localeCompare(right);
+  })) {
+    if (directoryKey === desiredRootKey) {
+      continue;
+    }
+
+    const relativePath = directoryKey.slice(entry.repoPath.length + 1, -1);
+    await ensureMaterializedDirectoryPath(
+      join(entry.localPath, ...relativePath.split("/")),
+      fileMode,
+    );
+  }
+
+  let processedNodeCount = 0;
+
+  for (const relativePath of [...desiredNodes.keys()].sort((left, right) => {
+    return left.localeCompare(right);
+  })) {
+    const node = desiredNodes.get(relativePath);
+
+    if (node === undefined) {
+      continue;
+    }
+
+    const targetNodePath = join(entry.localPath, ...relativePath.split("/"));
+
+    if (
+      await isMaterializedFileLikeNodeCurrent(targetNodePath, node, fileMode)
+    ) {
+      continue;
+    }
+
+    await stageAndReplaceFilePath(targetNodePath, node, reporter, fileMode);
+    processedNodeCount += 1;
+
+    if ((reporter?.level ?? 0) >= 4) {
+      reporter?.verbose(
+        `updated local node ${posix.join(entry.repoPath, relativePath)}`,
+      );
+    } else if (processedNodeCount % 100 === 0) {
+      reporter?.start(
+        `Updated ${processedNodeCount} local nodes for ${entry.repoPath}...`,
+      );
+    }
+  }
+
+  const existingKeys = new Set<string>();
+  const keyToLocalPath = new Map<string, string>();
+  await countDeletedLocalNodes(
+    entry,
+    desiredKeys,
+    config,
+    existingKeys,
+    reporter,
+    keyToLocalPath,
+  );
+
+  const deletableKeys = await collectDeletableLocalKeys(
+    existingKeys,
+    desiredKeys,
+    keyToLocalPath,
+  );
+
+  for (const key of deletableKeys) {
+    const localPath = keyToLocalPath.get(key);
+
+    if (localPath === undefined) {
+      continue;
+    }
+
+    await removePathAtomically(localPath);
+    reporter?.verbose(`removed stale local path ${key}`);
+  }
+};
+
 export const countDeletedLocalNodes = async (
   entry: ResolvedSyncConfigEntry,
   desiredKeys: ReadonlySet<string>,
@@ -425,6 +533,7 @@ export const countDeletedLocalNodes = async (
   existingKeys: Set<string> = new Set<string>(),
   reporter?: ConsolaInstance,
   keyToLocalPath?: Map<string, string>,
+  deletedKeys?: Set<string>,
 ) => {
   const rule = resolveSyncRule(config, entry.repoPath, config.activeProfile);
 
@@ -449,17 +558,52 @@ export const countDeletedLocalNodes = async (
     progressState,
   );
 
-  return [...existingKeys].filter((key) => {
-    return !desiredKeys.has(key);
-  }).length;
+  const deletableKeys = await collectDeletableLocalKeys(
+    existingKeys,
+    desiredKeys,
+    keyToLocalPath ?? new Map<string, string>(),
+  );
+
+  for (const key of deletableKeys) {
+    deletedKeys?.add(key);
+  }
+
+  return deletableKeys.length;
 };
 
 export const collectChangedLocalPaths = async (
   entry: ResolvedSyncConfigEntry,
   materialization: EntryMaterialization,
+  config?: MaterializationConfig,
 ) => {
   if (materialization.type === "absent") {
-    return [];
+    if (config === undefined) {
+      return [];
+    }
+
+    const existingKeys = new Set<string>();
+    const keyToLocalPath = new Map<string, string>();
+    const deletedKeys = new Set<string>();
+    await countDeletedLocalNodes(
+      entry,
+      materialization.desiredKeys,
+      config,
+      existingKeys,
+      undefined,
+      keyToLocalPath,
+      deletedKeys,
+    );
+
+    return [...deletedKeys]
+      .map((key) => {
+        return keyToLocalPath.get(key);
+      })
+      .filter((path): path is string => {
+        return path !== undefined;
+      })
+      .sort((left, right) => {
+        return left.localeCompare(right);
+      });
   }
 
   if (materialization.type === "file") {
@@ -473,15 +617,14 @@ export const collectChangedLocalPaths = async (
   }
 
   const changedLocalPaths: string[] = [];
+  const rootStats = await getPathStats(entry.localPath);
 
-  if (materialization.nodes.size === 0) {
-    const stats = await getPathStats(entry.localPath);
-
-    if (stats === undefined || !stats.isDirectory()) {
-      changedLocalPaths.push(entry.localPath);
-    }
-
-    return changedLocalPaths;
+  if (rootStats === undefined || !rootStats.isDirectory()) {
+    changedLocalPaths.push(entry.localPath);
+  } else if (
+    !materializedDirectoryModeMatches(rootStats.mode, entry.permission)
+  ) {
+    changedLocalPaths.push(entry.localPath);
   }
 
   for (const relativePath of [...materialization.nodes.keys()].sort(
@@ -508,7 +651,32 @@ export const collectChangedLocalPaths = async (
     }
   }
 
-  return changedLocalPaths;
+  if (config !== undefined) {
+    const existingKeys = new Set<string>();
+    const keyToLocalPath = new Map<string, string>();
+    const deletedKeys = new Set<string>();
+    await countDeletedLocalNodes(
+      entry,
+      materialization.desiredKeys,
+      config,
+      existingKeys,
+      undefined,
+      keyToLocalPath,
+      deletedKeys,
+    );
+
+    for (const key of deletedKeys) {
+      const localPath = keyToLocalPath.get(key);
+
+      if (localPath !== undefined) {
+        changedLocalPaths.push(localPath);
+      }
+    }
+  }
+
+  return [...new Set(changedLocalPaths)].sort((left, right) => {
+    return left.localeCompare(right);
+  });
 };
 
 export const applyEntryMaterialization = async (
@@ -525,10 +693,11 @@ export const applyEntryMaterialization = async (
 
   if (materialization.type === "absent") {
     if (entry.kind === "directory") {
-      await stageAndReplaceMergedDirectoryPath(
+      await reconcileMaterializedDirectoryPath(
         entry,
-        config,
+        materialization.desiredKeys,
         new Map(),
+        config,
         reporter,
         entry.permission,
       );
@@ -552,10 +721,11 @@ export const applyEntryMaterialization = async (
     return;
   }
 
-  await stageAndReplaceMergedDirectoryPath(
+  await reconcileMaterializedDirectoryPath(
     entry,
-    config,
+    materialization.desiredKeys,
     materialization.nodes,
+    config,
     reporter,
     entry.permission,
   );

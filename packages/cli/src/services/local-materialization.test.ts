@@ -272,4 +272,89 @@ describe("local materialization", () => {
       }),
     ).toEqual([join(appDirectory, "missing.txt")]);
   });
+
+  it("includes stale local paths for incremental directory updates", async () => {
+    const workspace = await createWorkspace();
+    const appDirectory = join(workspace, ".config", "app");
+    const configFile = join(appDirectory, "config.json");
+    const staleFile = join(appDirectory, "stale.txt");
+
+    await mkdir(appDirectory, { recursive: true });
+    await writeFile(configFile, '{"version":1}\n', "utf8");
+    await writeFile(staleFile, "old\n", "utf8");
+
+    const entry = createEntry(
+      "directory",
+      appDirectory,
+      ".config/app",
+      "normal",
+    );
+
+    expect(
+      await collectChangedLocalPaths(
+        entry,
+        {
+          desiredKeys: new Set([
+            buildDirectoryKey(".config/app"),
+            ".config/app/config.json",
+          ]),
+          nodes: new Map([
+            [
+              "config.json",
+              {
+                contents: Buffer.from('{"version":1}\n'),
+                executable: false,
+                secret: false,
+                type: "file",
+              },
+            ],
+          ]),
+          type: "directory",
+        },
+        createConfig([entry]),
+      ),
+    ).toEqual([staleFile]);
+  });
+
+  it("does not count explicit child entry paths as stale parent paths", async () => {
+    const workspace = await createWorkspace();
+    const rootDirectory = join(workspace, ".config", "zsh");
+    const childDirectory = join(rootDirectory, "plugins");
+    const parentFile = join(rootDirectory, ".zshrc");
+    const childFile = join(childDirectory, "plugin.zsh");
+
+    await mkdir(childDirectory, { recursive: true });
+    await writeFile(parentFile, "source ~/.zsh/plugins/plugin.zsh\n", "utf8");
+    await writeFile(childFile, "echo plugin\n", "utf8");
+
+    const rootEntry = createEntry(
+      "directory",
+      rootDirectory,
+      ".config/zsh",
+      "normal",
+    );
+    const childEntry = createEntry(
+      "directory",
+      childDirectory,
+      ".config/zsh/plugins",
+      "normal",
+    );
+    const existingKeys = new Set<string>();
+    const keyToLocalPath = new Map<string, string>();
+
+    const deletedLocalCount = await countDeletedLocalNodes(
+      rootEntry,
+      new Set([buildDirectoryKey(".config/zsh"), ".config/zsh/.zshrc"]),
+      createConfig([rootEntry, childEntry]),
+      existingKeys,
+      undefined,
+      keyToLocalPath,
+    );
+
+    expect(deletedLocalCount).toBe(0);
+    expect(existingKeys).toEqual(
+      new Set([buildDirectoryKey(".config/zsh"), ".config/zsh/.zshrc"]),
+    );
+    expect(keyToLocalPath.has(".config/zsh/plugins/plugin.zsh")).toBe(false);
+  });
 });
