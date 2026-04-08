@@ -1,4 +1,13 @@
-import { lstat, mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import {
+  chmod,
+  lstat,
+  mkdir,
+  readFile,
+  readlink,
+  rm,
+  symlink,
+  writeFile,
+} from "node:fs/promises";
 import { join } from "node:path";
 
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -956,6 +965,115 @@ describe("sync service", () => {
     expect(keyStats.mode & 0o777).toBe(0o600);
   });
 
+  it("pull updates only changed files without replacing the tracked directory", async () => {
+    const workspace = await createWorkspace();
+    const homeDirectory = join(workspace, "home");
+    const xdgConfigHome = join(workspace, "xdg");
+    const appDirectory = join(homeDirectory, ".config", "myapp");
+    const configFile = join(appDirectory, "config.json");
+    const settingsFile = join(appDirectory, "settings.json");
+    const ageKeys = await createAgeKeyPair();
+
+    await writeIdentityFile(xdgConfigHome, ageKeys.identity);
+    await mkdir(appDirectory, { recursive: true });
+    await writeFile(configFile, '{"version":1}\n', "utf8");
+    await writeFile(settingsFile, '{"theme":"dark"}\n', "utf8");
+
+    setEnvironment(homeDirectory, xdgConfigHome);
+
+    await initializeSyncDirectory({
+      identityFile: "$XDG_CONFIG_HOME/devsync/keys.txt",
+      recipients: [ageKeys.recipient],
+    });
+    await trackTarget(
+      {
+        mode: "normal",
+        target: appDirectory,
+      },
+      homeDirectory,
+    );
+
+    await pushChanges({ dryRun: false });
+
+    const localDirectoryBefore = await lstat(appDirectory);
+    const localConfigBefore = await lstat(configFile);
+    const repoSettingsFile = join(
+      xdgConfigHome,
+      "devsync",
+      "repository",
+      "default",
+      ".config",
+      "myapp",
+      "settings.json",
+    );
+
+    await writeFile(repoSettingsFile, '{"theme":"light"}\n', "utf8");
+    await pullChanges({ dryRun: false });
+
+    const localDirectoryAfter = await lstat(appDirectory);
+    const localConfigAfter = await lstat(configFile);
+
+    expect(localDirectoryAfter.ino).toBe(localDirectoryBefore.ino);
+    expect(localConfigAfter.ino).toBe(localConfigBefore.ino);
+    expect(await readFile(configFile, "utf8")).toBe('{"version":1}\n');
+    expect(await readFile(settingsFile, "utf8")).toBe('{"theme":"light"}\n');
+  });
+
+  it("pull reconciles nested directories without recreating unchanged ancestors", async () => {
+    const workspace = await createWorkspace();
+    const homeDirectory = join(workspace, "home");
+    const xdgConfigHome = join(workspace, "xdg");
+    const appDirectory = join(homeDirectory, ".config", "myapp");
+    const themesDirectory = join(appDirectory, "themes");
+    const nestedThemeFile = join(themesDirectory, "dark.json");
+    const siblingFile = join(appDirectory, "settings.json");
+    const ageKeys = await createAgeKeyPair();
+
+    await writeIdentityFile(xdgConfigHome, ageKeys.identity);
+    await mkdir(themesDirectory, { recursive: true });
+    await writeFile(nestedThemeFile, '{"accent":"blue"}\n', "utf8");
+    await writeFile(siblingFile, '{"font":"mono"}\n', "utf8");
+
+    setEnvironment(homeDirectory, xdgConfigHome);
+
+    await initializeSyncDirectory({
+      identityFile: "$XDG_CONFIG_HOME/devsync/keys.txt",
+      recipients: [ageKeys.recipient],
+    });
+    await trackTarget({ mode: "normal", target: appDirectory }, homeDirectory);
+
+    await pushChanges({ dryRun: false });
+
+    const appDirectoryBefore = await lstat(appDirectory);
+    const themesDirectoryBefore = await lstat(themesDirectory);
+    const siblingFileBefore = await lstat(siblingFile);
+    const repoNestedThemeFile = join(
+      xdgConfigHome,
+      "devsync",
+      "repository",
+      "default",
+      ".config",
+      "myapp",
+      "themes",
+      "dark.json",
+    );
+
+    await writeFile(repoNestedThemeFile, '{"accent":"amber"}\n', "utf8");
+    await pullChanges({ dryRun: false });
+
+    const appDirectoryAfter = await lstat(appDirectory);
+    const themesDirectoryAfter = await lstat(themesDirectory);
+    const siblingFileAfter = await lstat(siblingFile);
+
+    expect(appDirectoryAfter.ino).toBe(appDirectoryBefore.ino);
+    expect(themesDirectoryAfter.ino).toBe(themesDirectoryBefore.ino);
+    expect(siblingFileAfter.ino).toBe(siblingFileBefore.ino);
+    expect(await readFile(nestedThemeFile, "utf8")).toBe(
+      '{"accent":"amber"}\n',
+    );
+    expect(await readFile(siblingFile, "utf8")).toBe('{"font":"mono"}\n');
+  });
+
   it("uses default executable mode when permission is not set", async () => {
     if (process.platform === "win32") {
       return;
@@ -1240,6 +1358,151 @@ describe("sync service", () => {
     });
   });
 
+  it("prunes stale empty managed directories during pull", async () => {
+    const workspace = await createWorkspace();
+    const homeDirectory = join(workspace, "home");
+    const xdgConfigHome = join(workspace, "xdg");
+    const appDirectory = join(homeDirectory, ".config", "bundle");
+    const cacheDirectory = join(appDirectory, "cache");
+    const cacheFile = join(cacheDirectory, "old.txt");
+    const keepFile = join(appDirectory, "keep.txt");
+    const ageKeys = await createAgeKeyPair();
+
+    await writeIdentityFile(xdgConfigHome, ageKeys.identity);
+    await mkdir(cacheDirectory, { recursive: true });
+    await writeFile(cacheFile, "old\n", "utf8");
+    await writeFile(keepFile, "keep\n", "utf8");
+
+    setEnvironment(homeDirectory, xdgConfigHome);
+
+    await initializeSyncDirectory({
+      identityFile: "$XDG_CONFIG_HOME/devsync/keys.txt",
+      recipients: [ageKeys.recipient],
+    });
+    await trackTarget({ mode: "normal", target: appDirectory }, homeDirectory);
+
+    await pushChanges({ dryRun: false });
+
+    const repoCacheFile = join(
+      xdgConfigHome,
+      "devsync",
+      "repository",
+      "default",
+      ".config",
+      "bundle",
+      "cache",
+      "old.txt",
+    );
+    const repoCacheDirectory = join(
+      xdgConfigHome,
+      "devsync",
+      "repository",
+      "default",
+      ".config",
+      "bundle",
+      "cache",
+    );
+    await rm(repoCacheFile);
+    await rm(repoCacheDirectory, { force: true, recursive: true });
+
+    await pullChanges({ dryRun: false });
+
+    await expect(readFile(cacheFile, "utf8")).rejects.toMatchObject({
+      code: "ENOENT",
+    });
+    await expect(lstat(cacheDirectory)).rejects.toMatchObject({
+      code: "ENOENT",
+    });
+    expect(await readFile(keepFile, "utf8")).toBe("keep\n");
+  });
+
+  it("pull replaces a tracked file with a directory when the repository type changes", async () => {
+    const workspace = await createWorkspace();
+    const homeDirectory = join(workspace, "home");
+    const xdgConfigHome = join(workspace, "xdg");
+    const appDirectory = join(homeDirectory, ".config", "app");
+    const currentPath = join(appDirectory, "current");
+    const ageKeys = await createAgeKeyPair();
+
+    await writeIdentityFile(xdgConfigHome, ageKeys.identity);
+    await mkdir(appDirectory, { recursive: true });
+    await writeFile(currentPath, "v1\n", "utf8");
+
+    setEnvironment(homeDirectory, xdgConfigHome);
+
+    await initializeSyncDirectory({
+      identityFile: "$XDG_CONFIG_HOME/devsync/keys.txt",
+      recipients: [ageKeys.recipient],
+    });
+    await trackTarget({ mode: "normal", target: appDirectory }, homeDirectory);
+
+    await pushChanges({ dryRun: false });
+
+    const repoCurrentPath = join(
+      xdgConfigHome,
+      "devsync",
+      "repository",
+      "default",
+      ".config",
+      "app",
+      "current",
+    );
+
+    await rm(repoCurrentPath);
+    await mkdir(repoCurrentPath, { recursive: true });
+    await writeFile(join(repoCurrentPath, "index.txt"), "v2\n", "utf8");
+
+    await pullChanges({ dryRun: false });
+
+    const currentStats = await lstat(currentPath);
+    expect(currentStats.isDirectory()).toBe(true);
+    expect(await readFile(join(currentPath, "index.txt"), "utf8")).toBe("v2\n");
+  });
+
+  it("pull replaces a tracked symlink with a file when the repository type changes", async () => {
+    const workspace = await createWorkspace();
+    const homeDirectory = join(workspace, "home");
+    const xdgConfigHome = join(workspace, "xdg");
+    const appDirectory = join(homeDirectory, ".config", "app");
+    const targetFile = join(appDirectory, "target.txt");
+    const currentPath = join(appDirectory, "current");
+    const ageKeys = await createAgeKeyPair();
+
+    await writeIdentityFile(xdgConfigHome, ageKeys.identity);
+    await mkdir(appDirectory, { recursive: true });
+    await writeFile(targetFile, "target\n", "utf8");
+    await symlink("./target.txt", currentPath);
+
+    setEnvironment(homeDirectory, xdgConfigHome);
+
+    await initializeSyncDirectory({
+      identityFile: "$XDG_CONFIG_HOME/devsync/keys.txt",
+      recipients: [ageKeys.recipient],
+    });
+    await trackTarget({ mode: "normal", target: appDirectory }, homeDirectory);
+
+    await pushChanges({ dryRun: false });
+
+    const repoCurrentPath = join(
+      xdgConfigHome,
+      "devsync",
+      "repository",
+      "default",
+      ".config",
+      "app",
+      "current",
+    );
+
+    await rm(repoCurrentPath);
+    await writeFile(repoCurrentPath, "plain\n", "utf8");
+
+    await pullChanges({ dryRun: false });
+
+    const currentStats = await lstat(currentPath);
+    expect(currentStats.isFile()).toBe(true);
+    expect(await readFile(currentPath, "utf8")).toBe("plain\n");
+  });
+
   it("reports deleted local count in pull result", async () => {
     const workspace = await createWorkspace();
     const homeDirectory = join(workspace, "home");
@@ -1305,5 +1568,135 @@ describe("sync service", () => {
     await expect(readFile(file3, "utf8")).rejects.toMatchObject({
       code: "ENOENT",
     });
+  });
+
+  it("skips rewriting unchanged plain artifacts on push", async () => {
+    const workspace = await createWorkspace();
+    const homeDirectory = join(workspace, "home");
+    const xdgConfigHome = join(workspace, "xdg");
+    const gitconfig = join(homeDirectory, ".gitconfig");
+    const ageKeys = await createAgeKeyPair();
+
+    await writeIdentityFile(xdgConfigHome, ageKeys.identity);
+    await mkdir(homeDirectory, { recursive: true });
+    await writeFile(gitconfig, "[user]\nname=test\n", "utf8");
+
+    setEnvironment(homeDirectory, xdgConfigHome);
+
+    await initializeSyncDirectory({
+      identityFile: "$XDG_CONFIG_HOME/devsync/keys.txt",
+      recipients: [ageKeys.recipient],
+    });
+    await trackTarget({ mode: "normal", target: gitconfig }, homeDirectory);
+
+    await pushChanges({ dryRun: false });
+
+    const artifactPath = join(
+      xdgConfigHome,
+      "devsync",
+      "repository",
+      "default",
+      ".gitconfig",
+    );
+    const beforeStats = await lstat(artifactPath);
+
+    await new Promise((resolve) => {
+      setTimeout(resolve, 20);
+    });
+    await pushChanges({ dryRun: false });
+
+    const afterStats = await lstat(artifactPath);
+
+    expect(afterStats.mtimeMs).toBe(beforeStats.mtimeMs);
+    expect(await readFile(artifactPath, "utf8")).toBe("[user]\nname=test\n");
+  });
+
+  it("skips recreating unchanged symlink artifacts on push", async () => {
+    const workspace = await createWorkspace();
+    const homeDirectory = join(workspace, "home");
+    const xdgConfigHome = join(workspace, "xdg");
+    const zshenv = join(homeDirectory, ".zshenv");
+    const zshrc = join(homeDirectory, ".zshrc");
+    const ageKeys = await createAgeKeyPair();
+
+    await writeIdentityFile(xdgConfigHome, ageKeys.identity);
+    await mkdir(homeDirectory, { recursive: true });
+    await writeFile(zshrc, "export PATH=~/.local/bin:$PATH\n", "utf8");
+    await symlink(".zshrc", zshenv);
+
+    setEnvironment(homeDirectory, xdgConfigHome);
+
+    await initializeSyncDirectory({
+      identityFile: "$XDG_CONFIG_HOME/devsync/keys.txt",
+      recipients: [ageKeys.recipient],
+    });
+    await trackTarget({ mode: "normal", target: zshenv }, homeDirectory);
+
+    await pushChanges({ dryRun: false });
+
+    const artifactPath = join(
+      xdgConfigHome,
+      "devsync",
+      "repository",
+      "default",
+      ".zshenv",
+    );
+    const beforeStats = await lstat(artifactPath);
+
+    await new Promise((resolve) => {
+      setTimeout(resolve, 20);
+    });
+    await pushChanges({ dryRun: false });
+
+    const afterStats = await lstat(artifactPath);
+
+    expect(afterStats.ino).toBe(beforeStats.ino);
+    expect(await readlink(artifactPath)).toBe(".zshrc");
+  });
+
+  it("updates repository artifacts when only the executable bit changes", async () => {
+    if (process.platform === "win32") {
+      return;
+    }
+
+    const workspace = await createWorkspace();
+    const homeDirectory = join(workspace, "home");
+    const xdgConfigHome = join(workspace, "xdg");
+    const scriptPath = join(homeDirectory, "bin", "hello.sh");
+    const ageKeys = await createAgeKeyPair();
+
+    await writeIdentityFile(xdgConfigHome, ageKeys.identity);
+    await mkdir(join(homeDirectory, "bin"), { recursive: true });
+    await writeFile(scriptPath, "#!/bin/sh\necho hello\n", "utf8");
+    await chmod(scriptPath, 0o644);
+
+    setEnvironment(homeDirectory, xdgConfigHome);
+
+    await initializeSyncDirectory({
+      identityFile: "$XDG_CONFIG_HOME/devsync/keys.txt",
+      recipients: [ageKeys.recipient],
+    });
+    await trackTarget({ mode: "normal", target: scriptPath }, homeDirectory);
+
+    await pushChanges({ dryRun: false });
+
+    const artifactPath = join(
+      xdgConfigHome,
+      "devsync",
+      "repository",
+      "default",
+      "bin",
+      "hello.sh",
+    );
+
+    expect((await lstat(artifactPath)).mode & 0o777).toBe(0o644);
+
+    await chmod(scriptPath, 0o755);
+    await pushChanges({ dryRun: false });
+
+    expect((await lstat(artifactPath)).mode & 0o777).toBe(0o755);
+    expect(await readFile(artifactPath, "utf8")).toBe(
+      "#!/bin/sh\necho hello\n",
+    );
   });
 });
