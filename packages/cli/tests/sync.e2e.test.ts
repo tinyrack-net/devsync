@@ -132,6 +132,12 @@ describe("sync CLI e2e", () => {
       entries: [],
       version: 7,
     });
+    expect(
+      await readFile(
+        join(ctx.xdgDir, "devsync", "repository", ".gitattributes"),
+        "utf8",
+      ),
+    ).toBe("* -text\n");
   });
 
   it("accepts a supplied age key during init without a precreated identity file", async () => {

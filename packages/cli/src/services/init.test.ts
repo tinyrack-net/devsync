@@ -157,6 +157,38 @@ describe("init service", () => {
     expect(
       await readFile(join(result.syncDirectory, "manifest.jsonc"), "utf8"),
     ).not.toContain("identityFile");
+    expect(
+      await readFile(join(result.syncDirectory, ".gitattributes"), "utf8"),
+    ).toBe("* -text\n");
+  });
+
+  it("backfills managed repository attributes for an existing initialized repo", async () => {
+    const workspace = await createWorkspace();
+    const homeDirectory = join(workspace, "home");
+    const xdgConfigHome = join(workspace, "xdg");
+    const ageKeys = await createAgeKeyPair();
+
+    await writeIdentityFile(xdgConfigHome, ageKeys.identity);
+    setEnvironment(homeDirectory, xdgConfigHome);
+
+    const initialResult = await initializeSyncDirectory({
+      recipients: [ageKeys.recipient],
+    });
+
+    await writeFile(
+      join(initialResult.syncDirectory, ".gitattributes"),
+      "* text=auto\n",
+      "utf8",
+    );
+
+    const result = await initializeSyncDirectory({
+      recipients: [ageKeys.recipient],
+    });
+
+    expect(result.alreadyInitialized).toBe(true);
+    expect(
+      await readFile(join(result.syncDirectory, ".gitattributes"), "utf8"),
+    ).toBe("* -text\n");
   });
 
   it("rejects non-empty sync directories that are not git repositories", async () => {
