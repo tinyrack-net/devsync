@@ -472,6 +472,22 @@ export const writeArtifactsToDirectory = async (
     const relativePath = resolveArtifactRelativePath(artifact);
     const artifactPath = join(rootDirectory, ...relativePath.split("/"));
 
+    if (
+      await isRepoArtifactCurrent(
+        rootDirectory,
+        artifact,
+        ageConfig === undefined
+          ? undefined
+          : { identityFile: ageConfig.identityFile },
+      )
+    ) {
+      noteProcessedArtifact(
+        relativePath,
+        "skipped unchanged repository artifact",
+      );
+      continue;
+    }
+
     if (artifact.kind === "directory") {
       await mkdir(artifactPath, { recursive: true });
       noteProcessedArtifact(relativePath, "ensured repository directory");
@@ -485,20 +501,6 @@ export const writeArtifactsToDirectory = async (
     }
 
     if (artifact.category === "secret" && ageConfig !== undefined) {
-      const unchanged = await isSecretArtifactUnchanged(
-        artifactPath,
-        artifact.contents,
-        ageConfig.identityFile,
-      );
-
-      if (unchanged) {
-        noteProcessedArtifact(
-          relativePath,
-          "skipped unchanged secret artifact",
-        );
-        continue;
-      }
-
       const encrypted = await encryptSecretFile(
         artifact.contents,
         ageConfig.recipients,

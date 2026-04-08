@@ -41,7 +41,11 @@ export const getPathStats = async (path: string) => {
   try {
     return await lstat(path);
   } catch (error: unknown) {
-    if (error instanceof Error && "code" in error && error.code === "ENOENT") {
+    if (
+      error instanceof Error &&
+      "code" in error &&
+      (error.code === "ENOENT" || error.code === "ENOTDIR")
+    ) {
       return undefined;
     }
     throw error;
