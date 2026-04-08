@@ -1,5 +1,5 @@
-import { mkdir, readdir, writeFile } from "node:fs/promises";
-import { dirname } from "node:path";
+import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
+import { dirname, join } from "node:path";
 import type { ConsolaInstance } from "consola";
 import { CONSTANTS } from "#app/config/constants.ts";
 import {
@@ -57,6 +57,9 @@ export type InitResult = Readonly<{
 }>;
 
 export const defaultSyncIdentityFile = CONSTANTS.INIT.DEFAULT_IDENTITY_FILE;
+
+const managedRepositoryAttributesFileName = ".gitattributes";
+const managedRepositoryAttributesContents = "* -text\n";
 
 export const createMissingRepositoryAgeKeyError = () => {
   return new DevsyncError(
@@ -214,6 +217,26 @@ const writeGlobalSettings = async (globalConfigPath: string) => {
   );
 };
 
+const ensureManagedRepositoryAttributes = async (syncDirectory: string) => {
+  const attributesPath = join(
+    syncDirectory,
+    managedRepositoryAttributesFileName,
+  );
+
+  if (await pathExists(attributesPath)) {
+    const existingContents = await readFile(attributesPath, "utf8");
+
+    if (existingContents === managedRepositoryAttributesContents) {
+      return;
+    }
+  }
+
+  await writeTextFileAtomically(
+    attributesPath,
+    managedRepositoryAttributesContents,
+  );
+};
+
 export const initializeSyncDirectory = async (
   request: InitRequest,
   reporter?: ConsolaInstance,
@@ -241,6 +264,7 @@ export const initializeSyncDirectory = async (
   if (configExists) {
     reporter?.start("Checking the existing sync directory...");
     await ensureGitRepository(syncDirectory);
+    await ensureManagedRepositoryAttributes(syncDirectory);
 
     reporter?.start("Loading the existing sync config...");
     const config = await readSyncConfig(syncDirectory, context);
@@ -330,6 +354,7 @@ export const initializeSyncDirectory = async (
 
   reporter?.start("Preparing the sync artifact directory...");
   await mkdir(syncDirectory, { recursive: true });
+  await ensureManagedRepositoryAttributes(syncDirectory);
 
   if (await pathExists(await resolveExistingConfigPath(configPath))) {
     reporter?.start("Loading the existing sync config...");
