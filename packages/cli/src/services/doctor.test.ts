@@ -52,6 +52,7 @@ const createReporter = (verbose = false) => {
 
 const createLoadedConfig = (options: {
   activeProfile?: string;
+  entryKinds?: readonly ("directory" | "file")[];
   entryLocalPaths: readonly string[];
   entryModes?: readonly ("normal" | "secret" | "ignore")[];
   identityFile?: string;
@@ -59,6 +60,7 @@ const createLoadedConfig = (options: {
 }) => {
   const identityFile = options.identityFile ?? "/tmp/devsync/keys.txt";
   const entries = options.entryLocalPaths.map((localPath, index) => ({
+    kind: options.entryKinds?.[index] ?? "file",
     mode: options.entryModes?.[index] ?? "normal",
     localPath,
     repoPath: `.config/item-${index}`,
@@ -167,7 +169,7 @@ describe("sync doctor", () => {
     });
   });
 
-  it("reports verbose details, a missing identity, and a singular missing local path warning", async () => {
+  it("reports verbose details and treats missing paths as healthy when they are absent in the current sync state", async () => {
     mocked.ensureRepository.mockResolvedValueOnce(undefined);
     mocked.loadSyncConfig.mockResolvedValueOnce(
       createLoadedConfig({
@@ -185,7 +187,7 @@ describe("sync doctor", () => {
     const result = await runDoctorChecks(reporter);
 
     expect(result.hasFailures).toBe(true);
-    expect(result.hasWarnings).toBe(true);
+    expect(result.hasWarnings).toBe(false);
     expect(result.checks).toEqual([
       {
         checkId: "git",
@@ -214,8 +216,9 @@ describe("sync doctor", () => {
       },
       {
         checkId: "local-paths",
-        detail: "1 tracked local path is missing.",
-        level: "warn",
+        detail:
+          "All missing local paths are healthy for the current sync state (1 entry).",
+        level: "ok",
       },
     ]);
     expect(reporter.verbose).toHaveBeenCalledWith(
@@ -233,7 +236,7 @@ describe("sync doctor", () => {
     expect(mocked.pathExists).toHaveBeenCalledWith("/tmp/home/.ssh/id_ed25519");
   });
 
-  it("reports batch progress and plural missing-path warnings when many entries are checked", async () => {
+  it("reports batch progress while treating multiple missing paths as healthy when nothing should be materialized", async () => {
     mocked.ensureRepository.mockResolvedValueOnce(undefined);
     mocked.loadSyncConfig.mockResolvedValueOnce(
       createLoadedConfig({
@@ -255,7 +258,7 @@ describe("sync doctor", () => {
     const result = await runDoctorChecks(reporter);
 
     expect(result.hasFailures).toBe(false);
-    expect(result.hasWarnings).toBe(true);
+    expect(result.hasWarnings).toBe(false);
     expect(result.checks).toContainEqual({
       checkId: "profiles",
       detail: "Active profile: work.",
@@ -273,8 +276,9 @@ describe("sync doctor", () => {
     });
     expect(result.checks).toContainEqual({
       checkId: "local-paths",
-      detail: "2 tracked local paths are missing.",
-      level: "warn",
+      detail:
+        "All missing local paths are healthy for the current sync state (2 entries).",
+      level: "ok",
     });
     expect(reporter.verbose).not.toHaveBeenCalled();
     expect(reporter.start).toHaveBeenCalledWith(
@@ -309,7 +313,7 @@ describe("sync doctor", () => {
     expect(mocked.pathExists).toHaveBeenCalledTimes(1);
   });
 
-  it("does not warn when missing local paths are already restorable from the sync directory", async () => {
+  it("does not warn when missing local paths are already materializable from the sync state", async () => {
     mocked.ensureRepository.mockResolvedValueOnce(undefined);
     mocked.loadSyncConfig.mockResolvedValueOnce(
       createLoadedConfig({
@@ -329,7 +333,7 @@ describe("sync doctor", () => {
     expect(result.checks).toContainEqual({
       checkId: "local-paths",
       detail:
-        "All missing local paths are already restorable from the sync directory (1 entry).",
+        "All missing local paths are healthy for the current sync state (1 entry).",
       level: "ok",
     });
   });
@@ -351,10 +355,60 @@ describe("sync doctor", () => {
 
     expect(result.checks).toContainEqual({
       checkId: "local-paths",
-      detail: "1 tracked local path is missing.",
-      level: "warn",
+      detail:
+        "All missing local paths are healthy for the current sync state (1 entry).",
+      level: "ok",
     });
     expect(mocked.pathExists).not.toHaveBeenCalledWith("/tmp/missing-ignore");
     expect(mocked.pathExists).toHaveBeenCalledWith("/tmp/missing-normal");
+  });
+
+  it("treats missing directory entries as healthy when the current sync state materializes nothing", async () => {
+    mocked.ensureRepository.mockResolvedValueOnce(undefined);
+    mocked.loadSyncConfig.mockResolvedValueOnce(
+      createLoadedConfig({
+        entryKinds: ["directory"],
+        entryLocalPaths: ["/tmp/home/.config/myapp"],
+      }),
+    );
+    mocked.buildRepositorySnapshot.mockResolvedValueOnce(new Map());
+    mocked.pathExists.mockImplementation(async (path: string) => {
+      return path === "/tmp/devsync/keys.txt";
+    });
+
+    const result = await runDoctorChecks(createReporter());
+
+    expect(result.hasWarnings).toBe(false);
+    expect(result.checks).toContainEqual({
+      checkId: "local-paths",
+      detail:
+        "All missing local paths are healthy for the current sync state (1 entry).",
+      level: "ok",
+    });
+  });
+
+  it("fails the local-paths check when repository materialization is inconsistent", async () => {
+    mocked.ensureRepository.mockResolvedValueOnce(undefined);
+    mocked.loadSyncConfig.mockResolvedValueOnce(
+      createLoadedConfig({
+        entryLocalPaths: ["/tmp/home/.gitconfig"],
+      }),
+    );
+    mocked.buildRepositorySnapshot.mockResolvedValueOnce(
+      new Map([[".config/item-0", { type: "directory" }]]),
+    );
+    mocked.pathExists.mockImplementation(async (path: string) => {
+      return path === "/tmp/devsync/keys.txt";
+    });
+
+    const result = await runDoctorChecks(createReporter());
+
+    expect(result.hasFailures).toBe(true);
+    expect(result.checks).toContainEqual({
+      checkId: "local-paths",
+      detail:
+        "File sync entry resolves to a directory in the repository.\nRepository path: .config/item-0\nHint: Run 'devsync push' or fix the repository so this path is stored as a file.",
+      level: "fail",
+    });
   });
 });

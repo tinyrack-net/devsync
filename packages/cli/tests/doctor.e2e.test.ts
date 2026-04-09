@@ -1,4 +1,4 @@
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -59,6 +59,29 @@ describe("doctor CLI e2e", () => {
 
     expect(result.exitCode).toBe(0);
     expect(stripAnsi(result.stdout)).toContain("Doctor passed");
+  });
+
+  it("does not warn when a tracked path is missing locally but absent from the current sync state", async () => {
+    const configDir = join(ctx.homeDir, ".config", "myapp");
+    const configFile = join(configDir, "config.toml");
+    const ageKeys = await ctx.createAgeKeyPair();
+
+    await ctx.writeIdentityFile(ageKeys.identity);
+    await mkdir(configDir, { recursive: true });
+    await writeFile(configFile, "key = value\n");
+
+    await ctx.runCli(["init"]);
+    await ctx.runCli(["track", configFile]);
+    await rm(configFile);
+
+    const result = await ctx.runCli(["doctor"]);
+    const out = stripAnsi(result.stdout);
+    const err = stripAnsi(result.stderr);
+
+    expect(result.exitCode).toBe(0);
+    expect(err).not.toContain("Doctor completed with warnings");
+    expect(out).toContain("Doctor passed");
+    expect(out).not.toContain("local – 1 tracked local path is missing");
   });
 
   it("shows detailed check results with --verbose", async () => {
