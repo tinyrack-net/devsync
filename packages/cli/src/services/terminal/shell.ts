@@ -58,37 +58,6 @@ const trimConfiguredValue = (value: string | undefined) => {
   return trimmed === undefined || trimmed === "" ? undefined : trimmed;
 };
 
-const parseShellArgsOverride = (value: string | undefined) => {
-  const trimmed = trimConfiguredValue(value);
-
-  if (trimmed === undefined) {
-    return [] as const;
-  }
-
-  let parsed: unknown;
-
-  try {
-    parsed = JSON.parse(trimmed);
-  } catch {
-    throw new DevsyncError("Invalid DEVSYNC_CD_ARGS value.", {
-      details: ["DEVSYNC_CD_ARGS must be valid JSON."],
-      hint: 'Use a JSON array of strings, for example: ["-i"]',
-    });
-  }
-
-  if (
-    !Array.isArray(parsed) ||
-    parsed.some((entry) => typeof entry !== "string")
-  ) {
-    throw new DevsyncError("Invalid DEVSYNC_CD_ARGS value.", {
-      details: ["DEVSYNC_CD_ARGS must be a JSON array of strings."],
-      hint: 'Use a JSON array of strings, for example: ["-i"]',
-    });
-  }
-
-  return parsed;
-};
-
 const decodeWindowsProcessField = (value: string | undefined) => {
   const trimmed = trimConfiguredValue(value);
 
@@ -239,19 +208,6 @@ const createShellCommandFromProcess = (
   };
 };
 
-const resolveShellOverride = (): ShellCommand | undefined => {
-  const command = trimConfiguredValue(ENV.DEVSYNC_CD_COMMAND);
-
-  if (command === undefined) {
-    return undefined;
-  }
-
-  return {
-    args: parseShellArgsOverride(ENV.DEVSYNC_CD_ARGS),
-    command,
-  };
-};
-
 const resolveWindowsShellCommand = async (
   options: ResolveShellCommandOptions,
 ): Promise<ShellCommand> => {
@@ -292,12 +248,6 @@ export const resolveShellCommandForPlatform = async (
   platformKey: PlatformKey,
   options: ResolveShellCommandOptions = {},
 ): Promise<ShellCommand> => {
-  const override = resolveShellOverride();
-
-  if (override !== undefined) {
-    return override;
-  }
-
   if (platformKey === "win") {
     return await resolveWindowsShellCommand(options);
   }
@@ -314,8 +264,8 @@ export const resolveShellCommand = async () => {
 
 const createShellFailureHint = () => {
   return resolveCurrentPlatformKey() === "win"
-    ? "Set DEVSYNC_CD_COMMAND or COMSPEC to a valid shell executable."
-    : "Set SHELL or DEVSYNC_CD_COMMAND to a valid shell executable.";
+    ? "Set COMSPEC to a valid shell executable."
+    : "Set SHELL to a valid shell executable.";
 };
 
 const createShellExitError = (

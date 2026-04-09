@@ -75,27 +75,3 @@ export const writeJsonFile = async (path: string, value: unknown) => {
   await mkdir(dirname(path), { recursive: true });
   await writeFile(path, `${JSON.stringify(value, null, 2)}\n`, "utf8");
 };
-
-export const createShellRecorderEnvironment = async (
-  workspace: string,
-  markerFile: string,
-) => {
-  const shellScript = join(workspace, "record-shell.mjs");
-
-  await writeFile(
-    shellScript,
-    [
-      'import { writeFileSync } from "node:fs";',
-      "const marker = process.env.DEVSYNC_SHELL_MARKER;",
-      'if (!marker) throw new Error("missing marker path");',
-      'writeFileSync(marker, process.cwd(), "utf8");',
-    ].join("\n"),
-    "utf8",
-  );
-
-  return {
-    DEVSYNC_CD_ARGS: JSON.stringify([shellScript]),
-    DEVSYNC_CD_COMMAND: process.execPath,
-    DEVSYNC_SHELL_MARKER: markerFile,
-  } satisfies NodeJS.ProcessEnv;
-};

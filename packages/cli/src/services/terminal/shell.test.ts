@@ -1,22 +1,30 @@
-import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
-import { join } from "node:path";
+import { EventEmitter } from "node:events";
+import { rm } from "node:fs/promises";
 
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 const mockEnv = vi.hoisted(() => ({
   COMSPEC: undefined as string | undefined,
-  DEVSYNC_CD_ARGS: undefined as string | undefined,
-  DEVSYNC_CD_COMMAND: undefined as string | undefined,
   HOME: undefined as string | undefined,
   SHELL: undefined as string | undefined,
   XDG_CONFIG_HOME: undefined as string | undefined,
 }));
 
+const spawnMock = vi.hoisted(() => vi.fn());
+
+vi.mock("node:child_process", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("node:child_process")>();
+
+  return {
+    ...actual,
+    spawn: spawnMock,
+  };
+});
+
 vi.mock("#app/lib/env.ts", () => ({
   ENV: mockEnv,
 }));
 
-import { DevsyncError } from "#app/lib/error.ts";
 import { createTemporaryDirectory } from "#app/test/helpers/sync-fixture.ts";
 
 import {
@@ -38,11 +46,10 @@ afterEach(async () => {
   vi.restoreAllMocks();
 
   mockEnv.COMSPEC = undefined;
-  mockEnv.DEVSYNC_CD_ARGS = undefined;
-  mockEnv.DEVSYNC_CD_COMMAND = undefined;
   mockEnv.HOME = undefined;
   mockEnv.SHELL = undefined;
   mockEnv.XDG_CONFIG_HOME = undefined;
+  spawnMock.mockReset();
 
   while (temporaryDirectories.length > 0) {
     const directory = temporaryDirectories.pop();
@@ -77,26 +84,6 @@ describe("shell launcher", () => {
       args: [],
       command: "C:\\Windows\\System32\\cmd.exe",
     });
-  });
-
-  it("uses explicit command overrides when configured", async () => {
-    const inspectWindowsProcess = vi.fn(async () => {
-      throw new Error("override should short-circuit Windows inspection");
-    });
-
-    mockEnv.COMSPEC = "C:\\Windows\\System32\\cmd.exe";
-    mockEnv.DEVSYNC_CD_ARGS = '["-i","--noprofile"]';
-    mockEnv.DEVSYNC_CD_COMMAND = "C:\\Program Files\\PowerShell\\7\\pwsh.exe";
-    expect(
-      await resolveShellCommandForPlatform("win", {
-        initialWindowsProcessId: 1,
-        inspectWindowsProcess,
-      }),
-    ).toEqual({
-      args: ["-i", "--noprofile"],
-      command: "C:\\Program Files\\PowerShell\\7\\pwsh.exe",
-    });
-    expect(inspectWindowsProcess).not.toHaveBeenCalled();
   });
 
   it("prefers the invoking PowerShell over wrapper cmd.exe on Windows", async () => {
@@ -166,42 +153,35 @@ describe("shell launcher", () => {
     expect(inspectWindowsProcess).toHaveBeenCalledTimes(1);
   });
 
-  it("rejects invalid command override arguments", async () => {
-    mockEnv.DEVSYNC_CD_ARGS = '{"interactive":true}';
-    mockEnv.DEVSYNC_CD_COMMAND = "/bin/bash";
-    await expect(resolveShellCommandForPlatform("linux")).rejects.toThrowError(
-      DevsyncError,
-    );
-  });
-
-  it("launches the configured command in the requested directory", async () => {
+  it("launches the resolved command in the requested directory", async () => {
     const workspace = await createWorkspace();
-    const syncDirectory = join(workspace, "sync");
-    const markerFile = join(workspace, "marker.txt");
-    const shellScript = join(workspace, "record-shell.mjs");
+    const shellDirectory = `${workspace}/sync`;
+    const child = new EventEmitter() as EventEmitter & {
+      stdout?: {
+        on: ReturnType<typeof vi.fn>;
+        setEncoding: ReturnType<typeof vi.fn>;
+      };
+    };
 
-    await mkdir(syncDirectory, { recursive: true });
-    await writeFile(
-      shellScript,
-      [
-        'import { writeFileSync } from "node:fs";',
-        "const marker = process.env.DEVSYNC_SHELL_MARKER;",
-        'if (!marker) throw new Error("missing marker path");',
-        'writeFileSync(marker, process.cwd(), "utf8");',
-      ].join("\n"),
-      "utf8",
-    );
+    mockEnv.SHELL = "/bin/zsh";
+    spawnMock.mockImplementation((command, args, options) => {
+      expect(command).toBe("/bin/zsh");
+      expect(args).toEqual([]);
+      expect(options).toMatchObject({
+        cwd: shellDirectory,
+        env: process.env,
+        stdio: "inherit",
+      });
+      queueMicrotask(() => {
+        child.emit("close", 0, null);
+      });
 
-    mockEnv.DEVSYNC_CD_ARGS = JSON.stringify([shellScript]);
-    mockEnv.DEVSYNC_CD_COMMAND = process.execPath;
-    Reflect.set(process.env, "DEVSYNC_SHELL_MARKER", markerFile);
+      return child;
+    });
 
-    try {
-      await launchShellInDirectory(syncDirectory);
-    } finally {
-      Reflect.deleteProperty(process.env, "DEVSYNC_SHELL_MARKER");
-    }
-
-    expect(await readFile(markerFile, "utf8")).toBe(syncDirectory);
+    await expect(
+      launchShellInDirectory(shellDirectory),
+    ).resolves.toBeUndefined();
+    expect(spawnMock).toHaveBeenCalledTimes(1);
   });
 });

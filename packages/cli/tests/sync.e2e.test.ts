@@ -13,10 +13,7 @@ import {
   type SyncE2EContext,
 } from "../src/test/helpers/e2e-context.ts";
 import { createPtySession } from "../src/test/helpers/pty.ts";
-import {
-  createShellRecorderEnvironment,
-  stripAnsi,
-} from "../src/test/helpers/sync-fixture.ts";
+import { stripAnsi } from "../src/test/helpers/sync-fixture.ts";
 
 let ctx: SyncE2EContext;
 
@@ -372,18 +369,6 @@ describe("sync CLI e2e", () => {
     } finally {
       session.close();
     }
-  });
-
-  it("launches a shell in the sync directory via cd command", async () => {
-    const markerFile = join(ctx.workspace, "shell-marker.txt");
-    const result = await ctx.runCli(["cd"], {
-      env: await createShellRecorderEnvironment(ctx.workspace, markerFile),
-    });
-
-    expect(result.stdout).toBe("");
-    expect(await readFile(markerFile, "utf8")).toBe(
-      join(ctx.xdgDir, "devsync", "repository"),
-    );
   });
 
   it("tracks roots, sets modes, and untracks from the CLI", async () => {

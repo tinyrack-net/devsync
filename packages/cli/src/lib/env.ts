@@ -12,32 +12,6 @@ const EnvSchema = z
 
     /**
      * @description
-     * JSON-encoded array of extra arguments passed to the shell launched by the
-     * `devsync cd` command. Combined with `DEVSYNC_CD_COMMAND` to fully override
-     * the default shell invocation on all platforms.
-     * Example: `DEVSYNC_CD_ARGS='["-i","--noprofile"]'`
-     */
-    DEVSYNC_CD_ARGS: z.string().optional(),
-
-    /**
-     * @description
-     * Absolute path to the shell executable launched by the `devsync cd` command.
-     * When set, skips all automatic shell detection (SHELL, COMSPEC, Windows process
-     * inspection) and launches this binary directly. Paired with `DEVSYNC_CD_ARGS`.
-     */
-    DEVSYNC_CD_COMMAND: z.string().optional(),
-
-    /**
-     * @description
-     * Internal marker used only in tests. The test suite writes the absolute path
-     * to a temporary file here so a spawned shell script can record the working
-     * directory it was launched in, letting the test verify that the correct
-     * directory was used.
-     */
-    DEVSYNC_SHELL_MARKER: z.string().optional(),
-
-    /**
-     * @description
      * The current user's home directory. Used as the root for resolving `~`-prefixed
      * local paths throughout config loading, path expansion, and sync entry
      * resolution on all platforms.
