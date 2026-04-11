@@ -1,6 +1,5 @@
 import starlight from "@astrojs/starlight";
 import tailwindcss from "@tailwindcss/vite";
-import type { AstroUserConfig } from "astro";
 import { defineConfig } from "astro/config";
 import starlightThemeBlack from "starlight-theme-black";
 
@@ -10,12 +9,16 @@ export default defineConfig({
   redirects: {
     "/": "/en/",
   },
+  server: {
+    port: 5432,
+    host: "0.0.0.0",
+    allowedHosts: true,
+  },
   vite: {
     server: {
-      host: "0.0.0.0",
-      allowedHosts: true,
+      strictPort: true,
     },
-    plugins: [tailwindcss()] as NonNullable<AstroUserConfig["vite"]>["plugins"],
+    plugins: [tailwindcss()],
   },
   integrations: [
     starlight({
