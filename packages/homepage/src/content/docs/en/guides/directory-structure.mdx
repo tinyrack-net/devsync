@@ -13,10 +13,10 @@ Everything devsync creates lives under a single directory: `~/.config/devsync/`.
 
 <FileTree>
 - ~/.config/devsync/
-  - settings.json
+  - settings.jsonc
   - keys.txt
   - repository/
-    - manifest.json
+    - manifest.jsonc
     - default/
       - .gitconfig
       - .zshrc
@@ -39,7 +39,7 @@ Everything devsync creates lives under a single directory: `~/.config/devsync/`.
 
 This is a Git repository that holds all your synced files. When you run `devsync push`, files are copied here. When you run `devsync pull`, files are restored from here. You can push this repository to a remote like GitHub to sync across machines.
 
-### `repository/manifest.json` — the config file
+### `repository/manifest.jsonc` — the config file
 
 The manifest is the source of truth. It lists every file and directory you're tracking, along with options like sync mode, profiles, and permissions. All `devsync track` and `devsync untrack` commands modify this file.
 
@@ -59,13 +59,13 @@ Your age private key for encrypting and decrypting [secret files](/en/guides/syn
 Back up your `keys.txt` somewhere safe — a password manager works great. If you lose it, you won't be able to decrypt your secret files.
 </Aside>
 
-### `settings.json` — user preferences
+### `settings.jsonc` — user preferences
 
 Stores your active profile and other local settings. You usually don't edit this directly — commands like `devsync profile use work` update it for you.
 
 ---
 
-## What `manifest.json` Looks Like
+## What `manifest.jsonc` Looks Like
 
 Here's a simple example with a few tracked entries:
 
@@ -107,5 +107,5 @@ Here's a simple example with a few tracked entries:
   - **`permission`** — file permission in octal like `"0600"` (optional)
 
 <Aside type="note">
-You rarely need to edit `manifest.json` by hand. The `devsync track` and `devsync untrack` commands handle it for you.
+You rarely need to edit `manifest.jsonc` by hand. The `devsync track` and `devsync untrack` commands handle it for you.
 </Aside>

@@ -5,7 +5,7 @@ description: How to register files and directories for syncing.
 
 import { Aside, Steps } from "@astrojs/starlight/components";
 
-Before devsync can sync anything, you need to **track** it. Tracking tells devsync "hey, I care about this file" by adding an entry to `manifest.json`. Nothing gets copied or pushed until you explicitly run `devsync push` afterward.
+Before devsync can sync anything, you need to **track** it. Tracking tells devsync "hey, I care about this file" by adding an entry to `manifest.jsonc`. Nothing gets copied or pushed until you explicitly run `devsync push` afterward.
 
 ---
 
@@ -18,7 +18,7 @@ devsync track ~/.gitconfig
 devsync track ~/.zshrc
 ```
 
-This adds entries to `manifest.json` — that's it. Your files stay exactly where they are. To actually copy them into the sync directory, run `devsync push` as a separate step.
+This adds entries to `manifest.jsonc` — that's it. Your files stay exactly where they are. To actually copy them into the sync directory, run `devsync push` as a separate step.
 
 ---
 
@@ -102,7 +102,7 @@ Changed your mind? Remove an entry with `devsync untrack`:
 devsync untrack ~/.gitconfig
 ```
 
-This removes the entry from `manifest.json`. It does **not** delete the local file or any existing copy in the sync directory.
+This removes the entry from `manifest.jsonc`. It does **not** delete the local file or any existing copy in the sync directory.
 
 ---
 

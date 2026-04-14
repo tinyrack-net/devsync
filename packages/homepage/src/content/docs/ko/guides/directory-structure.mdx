@@ -13,10 +13,10 @@ devsync가 생성하는 모든 파일은 하나의 디렉터리 안에 있어요
 
 <FileTree>
 - ~/.config/devsync/
-  - settings.json
+  - settings.jsonc
   - keys.txt
   - repository/
-    - manifest.json
+    - manifest.jsonc
     - default/
       - .gitconfig
       - .zshrc
@@ -39,7 +39,7 @@ devsync가 생성하는 모든 파일은 하나의 디렉터리 안에 있어요
 
 동기화된 파일을 보관하는 Git 저장소예요. `devsync push`를 실행하면 파일이 여기에 복사되고, `devsync pull`을 실행하면 여기에서 파일이 복원돼요. 이 저장소를 GitHub 같은 리모트에 push하면 여러 기기에서 동기화할 수 있어요.
 
-### `repository/manifest.json`: 설정 파일
+### `repository/manifest.jsonc`: 설정 파일
 
 설정 파일은 원본(source of truth)이에요. 추적 중인 모든 파일과 디렉터리가 동기화 모드, 프로필, 퍼미션 같은 옵션과 함께 나열돼 있어요. `devsync track`과 `devsync untrack` 명령어가 이 파일을 수정해요.
 
@@ -59,13 +59,13 @@ devsync가 생성하는 모든 파일은 하나의 디렉터리 안에 있어요
 `keys.txt`를 안전한 곳에 백업해 두세요. 비밀번호 관리자가 좋은 선택이에요. 이 키를 잃어버리면 시크릿 파일을 복호화할 수 없어요.
 </Aside>
 
-### `settings.json`: 사용자 설정
+### `settings.jsonc`: 사용자 설정
 
 활성 프로필과 기타 로컬 설정을 저장해요. 보통 직접 편집할 필요는 없으며, `devsync profile use work` 같은 명령어가 자동으로 업데이트해 줘요.
 
 ---
 
-## `manifest.json`의 모습
+## `manifest.jsonc`의 모습
 
 추적 항목 몇 개가 포함된 간단한 예시예요:
 
@@ -107,5 +107,5 @@ devsync가 생성하는 모든 파일은 하나의 디렉터리 안에 있어요
   - **`permission`**: `"0600"` 같은 8진수 파일 퍼미션 (선택 사항)
 
 <Aside type="note">
-`manifest.json`을 직접 편집할 일은 거의 없어요. `devsync track`과 `devsync untrack` 명령어가 대신 처리해 줘요.
+`manifest.jsonc`를 직접 편집할 일은 거의 없어요. `devsync track`과 `devsync untrack` 명령어가 대신 처리해 줘요.
 </Aside>

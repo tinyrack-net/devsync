@@ -28,7 +28,7 @@ your first machine to keeping multiple devices in sync every day.
    devsync track ~/.ssh/config --secret
    ```
 
-   Each command adds an entry to `manifest.json` inside the sync directory.
+   Each command adds an entry to `manifest.jsonc` inside the sync directory.
 
 3. **Push local files into the sync directory**
 
@@ -71,7 +71,7 @@ actually push or pull.
    devsync pull
    ```
 
-   devsync reads `manifest.json`, resolves platform-specific paths, decrypts
+   devsync reads `manifest.jsonc`, resolves platform-specific paths, decrypts
    any secrets, and writes every file to the correct location.
 
 </Steps>

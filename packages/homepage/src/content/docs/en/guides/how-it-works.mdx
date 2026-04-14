@@ -36,7 +36,7 @@ entirely in your hands.
 
 <Steps>
 
-1. **Load `manifest.json`** — devsync reads the sync config to discover every
+1. **Load `manifest.jsonc`** — devsync reads the sync config to discover every
    tracked file and its settings.
 
 2. **Walk local files** — for each entry it reads the file at the resolved
@@ -57,7 +57,7 @@ entirely in your hands.
 
 <Steps>
 
-1. **Load `manifest.json`** — same config, same resolution logic.
+1. **Load `manifest.jsonc`** — same config, same resolution logic.
 
 2. **Read artifacts** — devsync reads each file from the sync directory.
 
@@ -114,7 +114,7 @@ At a glance:
 
 ```
 ~/dotfiles/          ← sync directory root (Git repo)
-├── manifest.json    ← sync config listing every tracked file
+├── manifest.jsonc   ← sync config listing every tracked file
 ├── .age-key         ← your age private key (git-ignored)
 ├── .age-recipients  ← age public key(s) for encryption
 └── ...              ← artifacts written by devsync push

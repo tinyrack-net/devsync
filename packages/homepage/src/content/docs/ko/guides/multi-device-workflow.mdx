@@ -28,7 +28,7 @@ import { Aside, Steps } from "@astrojs/starlight/components";
    devsync track ~/.ssh/config --secret
    ```
 
-   각 명령어는 sync 디렉터리 안의 `manifest.json`에 항목을 추가해요.
+   각 명령어는 sync 디렉터리 안의 `manifest.jsonc`에 항목을 추가해요.
 
 3. **로컬 파일을 sync 디렉터리로 push**
 
@@ -71,7 +71,7 @@ push나 pull 전에 `devsync status`를 실행하면 어떤 변경이 있을지 
    devsync pull
    ```
 
-   devsync가 `manifest.json`을 읽고, 플랫폼별 경로를 해석하고, 시크릿을
+   devsync가 `manifest.jsonc`을 읽고, 플랫폼별 경로를 해석하고, 시크릿을
    복호화한 뒤 모든 파일을 올바른 위치에 써줘요.
 
 </Steps>
