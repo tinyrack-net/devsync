@@ -53,6 +53,8 @@ const runBashCompletion = async (
     .map((value) => shellQuote(value))
     .join(" ");
 
+  const homeDir = await mkdtemp(join(tmpdir(), "devsync-test-"));
+
   return execa(
     "bash",
     [
@@ -75,6 +77,7 @@ const runBashCompletion = async (
       cwd: options?.cwd,
       env: {
         FORCE_COLOR: "0",
+        HOME: homeDir,
         NODE_NO_WARNINGS: "1",
         NO_COLOR: "1",
       },
