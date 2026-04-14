@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
   parseJsonc,
-  resolveExistingConfigPath,
+  resolveJsoncConfigPath,
   stripJsoncComments,
 } from "./jsonc.ts";
 
@@ -65,7 +65,7 @@ describe("parseJsonc", () => {
   });
 });
 
-describe("resolveExistingConfigPath", () => {
+describe("resolveJsoncConfigPath", () => {
   let dir: string;
 
   beforeEach(async () => {
@@ -80,26 +80,30 @@ describe("resolveExistingConfigPath", () => {
   it("returns the .jsonc path when only .jsonc exists", async () => {
     const jsoncPath = join(dir, "config.jsonc");
     await writeFile(jsoncPath, "{}");
-    expect(await resolveExistingConfigPath(jsoncPath)).toBe(jsoncPath);
+    expect(await resolveJsoncConfigPath(jsoncPath)).toBe(jsoncPath);
   });
 
-  it("falls back to .json when only .json exists", async () => {
+  it("rejects .json when only .json exists", async () => {
     const jsoncPath = join(dir, "config.jsonc");
     const jsonPath = join(dir, "config.json");
     await writeFile(jsonPath, "{}");
-    expect(await resolveExistingConfigPath(jsoncPath)).toBe(jsonPath);
+    await expect(resolveJsoncConfigPath(jsoncPath)).rejects.toThrow(
+      /Unsupported devsync config file/u,
+    );
   });
 
-  it("prefers .jsonc when both exist", async () => {
+  it("rejects .json when both .jsonc and .json exist", async () => {
     const jsoncPath = join(dir, "config.jsonc");
     const jsonPath = join(dir, "config.json");
     await writeFile(jsoncPath, "{}");
     await writeFile(jsonPath, "{}");
-    expect(await resolveExistingConfigPath(jsoncPath)).toBe(jsoncPath);
+    await expect(resolveJsoncConfigPath(jsoncPath)).rejects.toThrow(
+      /Unsupported devsync config file/u,
+    );
   });
 
   it("returns the preferred path when neither exists", async () => {
     const jsoncPath = join(dir, "config.jsonc");
-    expect(await resolveExistingConfigPath(jsoncPath)).toBe(jsoncPath);
+    expect(await resolveJsoncConfigPath(jsoncPath)).toBe(jsoncPath);
   });
 });

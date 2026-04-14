@@ -244,7 +244,7 @@ describe("init service", () => {
     ).rejects.toThrowError(/different age recipients/u);
   });
 
-  it("writes a supplied age private key when cloning a repo that already has manifest.json", async () => {
+  it("writes a supplied age private key when cloning a repo that already has manifest.jsonc", async () => {
     const workspace = await createWorkspace();
     const homeDirectory = join(workspace, "home");
     const xdgConfigHome = join(workspace, "xdg");
@@ -296,7 +296,7 @@ describe("init service", () => {
     });
   });
 
-  it("rejects cloning a repo with manifest.json when no key or identity file is available", async () => {
+  it("rejects cloning a repo with manifest.jsonc when no key or identity file is available", async () => {
     const workspace = await createWorkspace();
     const homeDirectory = join(workspace, "home");
     const xdgConfigHome = join(workspace, "xdg");
@@ -330,5 +330,45 @@ describe("init service", () => {
     ).rejects.toThrowError(
       /Existing repository setup requires an age private key/u,
     );
+  });
+
+  it("rejects cloning a repo with manifest.json", async () => {
+    const workspace = await createWorkspace();
+    const homeDirectory = join(workspace, "home");
+    const xdgConfigHome = join(workspace, "xdg");
+    const sourceRepository = join(workspace, "remote-sync");
+    const ageKeys = await createAgeKeyPair();
+
+    await runGit(["init", "-b", "main", sourceRepository], workspace);
+
+    const initialConfig = createInitialSyncConfig({
+      recipients: [ageKeys.recipient],
+    });
+
+    await writeFile(
+      join(sourceRepository, "manifest.json"),
+      formatSyncConfig(initialConfig),
+      "utf8",
+    );
+    await runGit(["add", "manifest.json"], sourceRepository);
+    await runGit(
+      ["commit", "-m", "legacy config", "--author", "test <test@test.com>"],
+      sourceRepository,
+    );
+
+    setEnvironment(homeDirectory, xdgConfigHome);
+    await expect(
+      initializeSyncDirectory({
+        ageIdentity: ageKeys.identity,
+        recipients: [],
+        repository: sourceRepository,
+      }),
+    ).rejects.toMatchObject({
+      code: "CONFIG_JSON_UNSUPPORTED",
+      details: expect.arrayContaining([
+        expect.stringMatching(/Unsupported config file: .*manifest\.json/u),
+      ]),
+      message: "Unsupported devsync config file.",
+    });
   });
 });

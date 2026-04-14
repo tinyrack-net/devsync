@@ -9,7 +9,7 @@ import {
   type SyncConfigResolutionContext,
 } from "#app/config/sync-schema.ts";
 import { DevsyncError } from "#app/lib/error.ts";
-import { parseJsonc, resolveExistingConfigPath } from "#app/lib/jsonc.ts";
+import { parseJsonc, resolveJsoncConfigPath } from "#app/lib/jsonc.ts";
 
 const syncConfigMigrationRegistry = new Map<number, never>();
 
@@ -69,7 +69,7 @@ export const readSyncConfig = async (
   syncDirectory: string,
   context: SyncConfigResolutionContext,
 ): Promise<ResolvedSyncConfig> => {
-  const filePath = await resolveExistingConfigPath(
+  const filePath = await resolveJsoncConfigPath(
     resolveSyncConfigFilePath(syncDirectory),
   );
   try {

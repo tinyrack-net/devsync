@@ -29,7 +29,7 @@ import {
   ensureRepository,
   initializeRepository,
 } from "#app/lib/git.ts";
-import { resolveExistingConfigPath } from "#app/lib/jsonc.ts";
+import { resolveJsoncConfigPath } from "#app/lib/jsonc.ts";
 import {
   resolveAgeFromSyncConfig,
   resolveSyncConfigResolutionContext,
@@ -244,7 +244,7 @@ export const initializeSyncDirectory = async (
   reporter?.start("Initializing sync directory...");
   const { syncDirectory, configPath, globalConfigPath } = resolveSyncPaths();
   const context = resolveSyncConfigResolutionContext();
-  const resolvedConfigPath = await resolveExistingConfigPath(configPath);
+  const resolvedConfigPath = await resolveJsoncConfigPath(configPath);
   const configExists = await pathExists(resolvedConfigPath);
   const identityFile = resolveDefaultIdentityFile(
     readEnvValue("HOME"),
@@ -356,7 +356,7 @@ export const initializeSyncDirectory = async (
   await mkdir(syncDirectory, { recursive: true });
   await ensureManagedRepositoryAttributes(syncDirectory);
 
-  if (await pathExists(await resolveExistingConfigPath(configPath))) {
+  if (await pathExists(await resolveJsoncConfigPath(configPath))) {
     reporter?.start("Loading the existing sync config...");
     const config = await readSyncConfig(syncDirectory, context);
 
@@ -400,7 +400,7 @@ export const initializeSyncDirectory = async (
   reporter?.start("Preparing sync encryption settings...");
   const ageBootstrap = await resolveInitAgeBootstrap(request, reporter);
 
-  // Write global settings.json (without age)
+  // Write global settings.jsonc (without age)
   reporter?.start("Writing global devsync settings...");
   await writeGlobalSettings(globalConfigPath);
 

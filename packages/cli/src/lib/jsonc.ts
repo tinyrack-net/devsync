@@ -1,3 +1,4 @@
+import { DevsyncError } from "#app/lib/error.ts";
 import { pathExists } from "#app/lib/filesystem.ts";
 
 /**
@@ -67,22 +68,19 @@ export const parseJsonc = (input: string): unknown => {
   return JSON.parse(stripJsoncComments(input));
 };
 
-/**
- * Resolves the actual config file path to use for reading.
- * Prefers the given path (expected to end in .jsonc).
- * Falls back to the .json equivalent when the .jsonc file does not exist.
- */
-export const resolveExistingConfigPath = async (
+export const resolveJsoncConfigPath = async (
   preferredPath: string,
 ): Promise<string> => {
-  if (await pathExists(preferredPath)) {
-    return preferredPath;
-  }
-
   if (preferredPath.endsWith(".jsonc")) {
     const jsonPath = preferredPath.slice(0, -1); // .jsonc → .json
     if (await pathExists(jsonPath)) {
-      return jsonPath;
+      throw new DevsyncError("Unsupported devsync config file.", {
+        code: "CONFIG_JSON_UNSUPPORTED",
+        details: [
+          `Unsupported config file: ${jsonPath}`,
+          `Supported config file: ${preferredPath}`,
+        ],
+      });
     }
   }
 

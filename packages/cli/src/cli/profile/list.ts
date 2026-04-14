@@ -19,7 +19,7 @@ const profileListCommand = buildCommand<
   docs: {
     brief: "Show configured and active sync profiles",
     fullDescription:
-      "List the profile names referenced by the current sync configuration and show which profile is active through ~/.config/devsync/settings.json.",
+      "List the profile names referenced by the current sync configuration and show which profile is active through ~/.config/devsync/settings.jsonc.",
   },
   async func(flags) {
     const verbose = flags.verbose ?? false;

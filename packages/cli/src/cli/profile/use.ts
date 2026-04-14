@@ -19,7 +19,7 @@ const profileUseCommand = buildCommand<
   docs: {
     brief: "Set or clear the active sync profile",
     fullDescription:
-      "Write ~/.config/devsync/settings.json so plain push, pull, status, and doctor commands use the selected profile layer by default. Omit the profile name to clear the active profile.",
+      "Write ~/.config/devsync/settings.jsonc so plain push, pull, status, and doctor commands use the selected profile layer by default. Omit the profile name to clear the active profile.",
   },
   async func(flags, profile) {
     const verbose = flags.verbose ?? false;

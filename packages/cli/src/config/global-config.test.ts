@@ -1,12 +1,27 @@
-import { describe, expect, it } from "vitest";
+import { mkdir, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import {
   isProfileActive,
   parseGlobalDevsyncConfig,
+  readGlobalDevsyncConfig,
   resolveActiveProfileSelection,
 } from "./global-config.ts";
 
 describe("global config", () => {
+  let dir: string;
+
+  beforeEach(async () => {
+    dir = join(tmpdir(), `global-config-test-${Date.now()}`);
+    await mkdir(dir, { recursive: true });
+  });
+
+  afterEach(async () => {
+    await rm(dir, { force: true, recursive: true });
+  });
+
   it("normalizes the active profile name", () => {
     expect(
       parseGlobalDevsyncConfig({
@@ -66,5 +81,19 @@ describe("global config", () => {
     expect(isProfileActive(selection, undefined)).toBe(true);
     expect(isProfileActive(selection, "work")).toBe(true);
     expect(isProfileActive(selection, "personal")).toBe(false);
+  });
+
+  it("rejects settings.json files", async () => {
+    const filePath = join(dir, "settings.jsonc");
+
+    await writeFile(
+      join(dir, "settings.json"),
+      JSON.stringify({ activeProfile: "work", version: 3 }),
+      "utf8",
+    );
+
+    await expect(readGlobalDevsyncConfig(filePath)).rejects.toThrow(
+      /Unsupported devsync config file/u,
+    );
   });
 });
