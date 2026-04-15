@@ -181,12 +181,12 @@ describe("sync CLI e2e", () => {
       session.write("\r");
 
       const output = await session.waitFor(
-        "Existing repository setup requires an age private key",
+        "Provide your existing age private key with '--key' or '--promptKey'.",
         10_000,
       );
 
       expect(output).toContain(
-        "Provide your existing age private key with '--key' or '--promptKey'.",
+        "Existing repository setup requires an age private key",
       );
     } finally {
       session.close();
