@@ -1,7 +1,13 @@
 import starlight from "@astrojs/starlight";
 import tailwindcss from "@tailwindcss/vite";
+import { readFileSync } from "node:fs";
 import { defineConfig } from "astro/config";
 import starlightThemeBlack from "starlight-theme-black";
+
+const cliPackageJson = JSON.parse(
+  readFileSync(new URL("../cli/package.json", import.meta.url), "utf8"),
+);
+const cliVersion = String(cliPackageJson.version);
 
 export default defineConfig({
   site: "https://devsync.tinyrack.net",
@@ -17,6 +23,9 @@ export default defineConfig({
   vite: {
     server: {
       strictPort: true,
+    },
+    define: {
+      __CLI_VERSION__: JSON.stringify(cliVersion),
     },
     plugins: [tailwindcss()],
   },
@@ -75,6 +84,7 @@ export default defineConfig({
       ],
       customCss: ["./src/styles/tailwind.css"],
       components: {
+        Header: "./src/components/Header.astro",
         Hero: "./src/components/OverrideHero.astro",
       },
       sidebar: [
