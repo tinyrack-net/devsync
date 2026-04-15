@@ -597,6 +597,8 @@ describe("CLI command modules", () => {
 
     expect(mocked.consolaPrompt).not.toHaveBeenCalled();
     expect(mocked.applyPullPlan).toHaveBeenCalledTimes(1);
+    expect(mockLogger.log).toHaveBeenCalledWith("  1 local paths updated");
+    expect(mockLogger.log).toHaveBeenCalledWith("  1 local paths removed");
   });
 
   it("fails in non-interactive mode without --yes when changes exist", async () => {

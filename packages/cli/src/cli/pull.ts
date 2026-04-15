@@ -113,12 +113,14 @@ const pullCommand = buildCommand<PullFlags, [], DevsyncCliContext>({
     }
 
     const result = buildPullResultFromPlan(plan, syncDirectory, dryRun);
+    const updateAction = dryRun ? "would be updated" : "updated";
+    const removeAction = dryRun ? "would be removed" : "removed";
 
-    const stats = `${result.plainFileCount} plain · ${result.decryptedFileCount} decrypted · ${result.symlinkCount} symlinks · ${result.directoryCount} dirs`;
-
-    logger.log(`  ${stats}`);
     logger.log(
-      `  ${result.deletedLocalCount} local paths ${result.dryRun ? "would be removed" : "removed"}`,
+      `  ${plan.updatedLocalPaths.length} local paths ${updateAction}`,
+    );
+    logger.log(
+      `  ${plan.deletedLocalPaths.length} local paths ${removeAction}`,
     );
 
     if (verbose) {
