@@ -222,7 +222,8 @@ describe("local materialization", () => {
 
     await mkdir(appDirectory, { recursive: true });
     await writeFile(configFile, '{"version":1}\n', "utf8");
-    await symlink("./v1", linkPath);
+    await writeFile(join(appDirectory, "v1"), "", "utf8");
+    await symlink("./v1", linkPath, "file");
 
     const entry = createEntry(
       "directory",

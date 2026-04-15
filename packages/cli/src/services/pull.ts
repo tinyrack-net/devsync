@@ -1,7 +1,7 @@
-import { sep } from "node:path";
 import type { ConsolaInstance } from "consola";
 import { resolveSyncConfigFilePath } from "#app/config/sync.ts";
 import { ensureGitRepository } from "#app/lib/git.ts";
+import { isPathEqualOrNested } from "#app/lib/path.ts";
 import {
   applyEntryMaterialization,
   buildEntryMaterialization,
@@ -86,8 +86,7 @@ const buildUpdatedLocalPaths = async (
             .filter((candidate) => {
               return (
                 candidate !== entry &&
-                (candidate.localPath === entry.localPath ||
-                  candidate.localPath.startsWith(`${entry.localPath}${sep}`))
+                isPathEqualOrNested(candidate.localPath, entry.localPath)
               );
             })
             .map((candidate) => {
@@ -101,7 +100,7 @@ const buildUpdatedLocalPaths = async (
     )) {
       if (
         childEntryLocalPaths.some((childPath) => {
-          return path === childPath || path.startsWith(`${childPath}${sep}`);
+          return isPathEqualOrNested(path, childPath);
         })
       ) {
         continue;

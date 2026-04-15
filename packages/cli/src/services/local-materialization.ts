@@ -20,6 +20,7 @@ import { DevsyncError } from "#app/lib/error.ts";
 import {
   buildExecutableMode,
   buildSearchableDirectoryMode,
+  supportsPosixFileModes,
 } from "#app/lib/file-mode.ts";
 import {
   getPathStats,
@@ -75,6 +76,10 @@ const materializedDirectoryModeMatches = (
   actualMode: number,
   fileMode?: number,
 ) => {
+  if (!supportsPosixFileModes()) {
+    return true;
+  }
+
   if (fileMode === undefined) {
     return true;
   }
@@ -89,6 +94,10 @@ const materializedFileModeMatches = (
   executable: boolean,
   fileMode?: number,
 ) => {
+  if (!supportsPosixFileModes()) {
+    return true;
+  }
+
   return (
     (actualMode & 0o777) ===
     ((fileMode ?? buildExecutableMode(executable)) & 0o777)
@@ -107,8 +116,12 @@ const isMaterializedFileLikeNodeCurrent = async (
   }
 
   if (node.type === "symlink") {
+    const currentLinkTarget = await readlink(targetPath);
+
     return (
-      stats.isSymbolicLink() && (await readlink(targetPath)) === node.linkTarget
+      stats.isSymbolicLink() &&
+      normalizeLinkTargetForComparison(currentLinkTarget) ===
+        normalizeLinkTargetForComparison(node.linkTarget)
     );
   }
 
@@ -122,6 +135,10 @@ const isMaterializedFileLikeNodeCurrent = async (
     Buffer.compare(Buffer.from(node.contents), currentContents) === 0 &&
     materializedFileModeMatches(stats.mode, node.executable, fileMode)
   );
+};
+
+const normalizeLinkTargetForComparison = (target: string) => {
+  return process.platform === "win32" ? target.replaceAll("\\", "/") : target;
 };
 
 const stageAndReplaceFilePath = async (

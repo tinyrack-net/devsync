@@ -10,7 +10,10 @@ import {
 } from "#app/config/sync.ts";
 import { decryptSecretFile, encryptSecretFile } from "#app/lib/crypto.ts";
 import { DevsyncError } from "#app/lib/error.ts";
-import { buildExecutableMode } from "#app/lib/file-mode.ts";
+import {
+  buildExecutableMode,
+  supportsPosixFileModes,
+} from "#app/lib/file-mode.ts";
 import {
   getPathStats,
   listDirectoryEntries,
@@ -367,6 +370,10 @@ type AgeWriteConfig = Readonly<{
 }>;
 
 const fileModeMatches = (actualMode: number, executable: boolean) => {
+  if (!supportsPosixFileModes()) {
+    return true;
+  }
+
   return (actualMode & 0o777) === buildExecutableMode(executable);
 };
 
@@ -399,6 +406,10 @@ const isSecretArtifactUnchanged = async (
   }
 };
 
+const normalizeLinkTargetForComparison = (target: string) => {
+  return process.platform === "win32" ? target.replaceAll("\\", "/") : target;
+};
+
 export const isRepoArtifactCurrent = async (
   rootDirectory: string,
   artifact: RepoArtifact,
@@ -413,9 +424,13 @@ export const isRepoArtifactCurrent = async (
   }
 
   if (artifact.kind === "symlink") {
+    const linkTarget =
+      stats?.isSymbolicLink() === true ? await readlink(artifactPath) : "";
+
     return (
       stats?.isSymbolicLink() === true &&
-      (await readlink(artifactPath)) === artifact.linkTarget
+      normalizeLinkTargetForComparison(linkTarget) ===
+        normalizeLinkTargetForComparison(artifact.linkTarget)
     );
   }
 

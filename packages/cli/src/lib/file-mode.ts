@@ -1,5 +1,13 @@
 /**
  * @description
+ * Indicates whether the current filesystem can reliably round-trip POSIX modes.
+ */
+export const supportsPosixFileModes = () => {
+  return process.platform !== "win32";
+};
+
+/**
+ * @description
  * Builds the default file mode for regular sync artifacts.
  */
 export const buildExecutableMode = (executable: boolean) => {
