@@ -1,5 +1,7 @@
+import { createRequire } from "node:module";
 import { stripVTControlCharacters } from "node:util";
-import * as pty from "node-pty";
+
+const require = createRequire(import.meta.url);
 
 const applyBackspaces = (value: string) => {
   let result = "";
@@ -36,6 +38,7 @@ export const createPtySession = (options: {
   env?: Readonly<Record<string, string | undefined>>;
   file: string;
 }): PtySession => {
+  const pty = require("node-pty") as typeof import("node-pty");
   const terminal = pty.spawn(options.file, [...(options.args ?? [])], {
     cols: 120,
     cwd: options.cwd,

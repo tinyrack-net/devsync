@@ -16,6 +16,8 @@ import { createPtySession } from "../src/test/helpers/pty.ts";
 import { stripAnsi } from "../src/test/helpers/sync-fixture.ts";
 
 let ctx: SyncE2EContext;
+const supportsPtyE2E = process.platform !== "win32";
+const itWithPty = it.skipIf(!supportsPtyE2E);
 
 beforeEach(async () => {
   ctx = await createSyncE2EContext();
@@ -160,38 +162,41 @@ describe("sync CLI e2e", () => {
     ).toBe(`${ageKeys.identity}\n`);
   });
 
-  it("fails when importing an existing repository without supplying an age key", async () => {
-    const sourceRepository = join(ctx.workspace, "remote-sync");
+  itWithPty(
+    "fails when importing an existing repository without supplying an age key",
+    async () => {
+      const sourceRepository = join(ctx.workspace, "remote-sync");
 
-    await ctx.runGit(["init", "-b", "main", sourceRepository]);
-    const session = createPtySession({
-      args: [...cliNodeOptions, "init", sourceRepository],
-      cwd: ctx.workspace,
-      env: {
-        ...ctx.baseEnv,
-      },
-      file: process.execPath,
-    });
+      await ctx.runGit(["init", "-b", "main", sourceRepository]);
+      const session = createPtySession({
+        args: [...cliNodeOptions, "init", sourceRepository],
+        cwd: ctx.workspace,
+        env: {
+          ...ctx.baseEnv,
+        },
+        file: process.execPath,
+      });
 
-    try {
-      await session.waitFor(
-        "Enter the age private key for the existing repository",
-        10_000,
-      );
-      session.write("\r");
+      try {
+        await session.waitFor(
+          "Enter the age private key for the existing repository",
+          10_000,
+        );
+        session.write("\r");
 
-      const output = await session.waitFor(
-        "Provide your existing age private key with '--key' or '--promptKey'.",
-        10_000,
-      );
+        const output = await session.waitFor(
+          "Provide your existing age private key with '--key' or '--promptKey'.",
+          10_000,
+        );
 
-      expect(output).toContain(
-        "Existing repository setup requires an age private key",
-      );
-    } finally {
-      session.close();
-    }
-  });
+        expect(output).toContain(
+          "Existing repository setup requires an age private key",
+        );
+      } finally {
+        session.close();
+      }
+    },
+  );
 
   it("does not warn about an existing config when cloning a repository with an existing manifest", async () => {
     const sourceRepository = join(ctx.workspace, "remote-sync");
@@ -290,86 +295,98 @@ describe("sync CLI e2e", () => {
     );
   });
 
-  it("does not warn about an existing config when cloning a repository with an existing manifest and entering the key interactively", async () => {
-    const sourceRepository = join(ctx.workspace, "remote-sync");
-    const ageKeys = await ctx.createAgeKeyPair();
+  itWithPty(
+    "does not warn about an existing config when cloning a repository with an existing manifest and entering the key interactively",
+    async () => {
+      const sourceRepository = join(ctx.workspace, "remote-sync");
+      const ageKeys = await ctx.createAgeKeyPair();
 
-    await ctx.runGit(["init", "-b", "main", sourceRepository]);
-    await writeFile(
-      join(sourceRepository, "manifest.jsonc"),
-      formatSyncConfig(
-        createInitialSyncConfig({
-          recipients: [ageKeys.recipient],
-        }),
-      ),
-      "utf8",
-    );
-    await ctx.runGit(["add", "manifest.jsonc"], sourceRepository);
-    await ctx.runGit(
-      ["commit", "-m", "initial manifest", "--author", "test <test@test.com>"],
-      sourceRepository,
-    );
-
-    const session = createPtySession({
-      args: [...cliNodeOptions, "init", "--prompt-key", sourceRepository],
-      cwd: ctx.workspace,
-      env: {
-        ...ctx.baseEnv,
-      },
-      file: process.execPath,
-    });
-
-    try {
-      await session.waitFor(
-        "Enter the age private key for the existing repository",
-        10_000,
+      await ctx.runGit(["init", "-b", "main", sourceRepository]);
+      await writeFile(
+        join(sourceRepository, "manifest.jsonc"),
+        formatSyncConfig(
+          createInitialSyncConfig({
+            recipients: [ageKeys.recipient],
+          }),
+        ),
+        "utf8",
       );
-      session.write(`${ageKeys.identity}\r`);
-
-      const output = await session.waitFor(
-        "Sync directory initialized",
-        10_000,
+      await ctx.runGit(["add", "manifest.jsonc"], sourceRepository);
+      await ctx.runGit(
+        [
+          "commit",
+          "-m",
+          "initial manifest",
+          "--author",
+          "test <test@test.com>",
+        ],
+        sourceRepository,
       );
 
-      expect(output).not.toContain("Sync directory already initialized");
-    } finally {
-      session.close();
-    }
-  });
+      const session = createPtySession({
+        args: [...cliNodeOptions, "init", "--prompt-key", sourceRepository],
+        cwd: ctx.workspace,
+        env: {
+          ...ctx.baseEnv,
+        },
+        file: process.execPath,
+      });
 
-  it("fails when an empty key is entered interactively for an existing repository", async () => {
-    const sourceRepository = join(ctx.workspace, "remote-sync");
+      try {
+        await session.waitFor(
+          "Enter the age private key for the existing repository",
+          10_000,
+        );
+        session.write(`${ageKeys.identity}\r`);
 
-    await ctx.runGit(["init", "-b", "main", sourceRepository]);
+        const output = await session.waitFor(
+          "Sync directory initialized",
+          10_000,
+        );
 
-    const session = createPtySession({
-      args: [...cliNodeOptions, "init", "--prompt-key", sourceRepository],
-      cwd: ctx.workspace,
-      env: {
-        ...ctx.baseEnv,
-      },
-      file: process.execPath,
-    });
+        expect(output).not.toContain("Sync directory already initialized");
+      } finally {
+        session.close();
+      }
+    },
+  );
 
-    try {
-      await session.waitFor(
-        "Enter the age private key for the existing repository",
-        10_000,
-      );
-      session.write("\r");
+  itWithPty(
+    "fails when an empty key is entered interactively for an existing repository",
+    async () => {
+      const sourceRepository = join(ctx.workspace, "remote-sync");
 
-      const output = await session.waitFor(
-        "Existing repository setup requires an age private key",
-        10_000,
-      );
+      await ctx.runGit(["init", "-b", "main", sourceRepository]);
 
-      expect(output).toContain(
-        "Provide your existing age private key with '--key' or '--promptKey'.",
-      );
-    } finally {
-      session.close();
-    }
-  });
+      const session = createPtySession({
+        args: [...cliNodeOptions, "init", "--prompt-key", sourceRepository],
+        cwd: ctx.workspace,
+        env: {
+          ...ctx.baseEnv,
+        },
+        file: process.execPath,
+      });
+
+      try {
+        await session.waitFor(
+          "Enter the age private key for the existing repository",
+          10_000,
+        );
+        session.write("\r");
+
+        const output = await session.waitFor(
+          "Existing repository setup requires an age private key",
+          10_000,
+        );
+
+        expect(output).toContain(
+          "Provide your existing age private key with '--key' or '--promptKey'.",
+        );
+      } finally {
+        session.close();
+      }
+    },
+  );
 
   it("tracks roots, sets modes, and untracks from the CLI", async () => {
     const bundleDirectory = join(ctx.homeDir, ".config", "mytool");
@@ -661,89 +678,92 @@ describe("sync CLI e2e", () => {
     expect(await readFile(configFile, "utf8")).toContain("version = 2");
   });
 
-  it("cancels pull interactively unless y is entered", async () => {
-    const configDir = join(ctx.homeDir, ".config", "interactive-pull");
-    const configFile = join(configDir, "config.toml");
-    const ageKeys = await ctx.createAgeKeyPair();
+  itWithPty(
+    "cancels pull interactively unless y is entered",
+    async () => {
+      const configDir = join(ctx.homeDir, ".config", "interactive-pull");
+      const configFile = join(configDir, "config.toml");
+      const ageKeys = await ctx.createAgeKeyPair();
 
-    await ctx.writeIdentityFile(ageKeys.identity);
-    await mkdir(configDir, { recursive: true });
-    await writeFile(configFile, "version = 1\n");
+      await ctx.writeIdentityFile(ageKeys.identity);
+      await mkdir(configDir, { recursive: true });
+      await writeFile(configFile, "version = 1\n");
 
-    await ctx.runCli(["init"]);
-    await ctx.runCli(["track", configDir]);
-    await ctx.runCli(["push"]);
-    await writeFile(configFile, "version = 2\n");
+      await ctx.runCli(["init"]);
+      await ctx.runCli(["track", configDir]);
+      await ctx.runCli(["push"]);
+      await writeFile(configFile, "version = 2\n");
 
-    const session = createPtySession({
-      args: [...cliNodeOptions, "pull"],
-      cwd: ctx.workspace,
-      env: {
-        ...ctx.baseEnv,
-      },
-      file: process.execPath,
-    });
+      const session = createPtySession({
+        args: [...cliNodeOptions, "pull"],
+        cwd: ctx.workspace,
+        env: {
+          ...ctx.baseEnv,
+        },
+        file: process.execPath,
+      });
 
-    try {
-      const output = await session.waitFor(
-        "Apply these changes? [y/N]",
-        10_000,
-      );
+      try {
+        const output = await session.waitFor(
+          "Apply these changes? [y/N]",
+          10_000,
+        );
 
-      expect(output).toContain(configFile);
-      session.write("n\r");
+        expect(output).toContain(configFile);
+        session.write("n\r");
 
-      const cancelledOutput = await session.waitFor(
-        "Skipped pull changes",
-        10_000,
-      );
+        const cancelledOutput = await session.waitFor(
+          "Skipped pull changes",
+          10_000,
+        );
 
-      expect(cancelledOutput).toContain(configFile);
-      expect(await readFile(configFile, "utf8")).toContain("version = 2");
-    } finally {
-      session.close();
-    }
-  });
+        expect(cancelledOutput).toContain(configFile);
+        expect(await readFile(configFile, "utf8")).toContain("version = 2");
+      } finally {
+        session.close();
+      }
+    },
+  );
 
-  it("applies pull interactively when y is entered", async () => {
-    const configDir = join(ctx.homeDir, ".config", "interactive-accept");
-    const configFile = join(configDir, "config.toml");
-    const ageKeys = await ctx.createAgeKeyPair();
+  itWithPty("applies pull interactively when y is entered", async () => {
+      const configDir = join(ctx.homeDir, ".config", "interactive-accept");
+      const configFile = join(configDir, "config.toml");
+      const ageKeys = await ctx.createAgeKeyPair();
 
-    await ctx.writeIdentityFile(ageKeys.identity);
-    await mkdir(configDir, { recursive: true });
-    await writeFile(configFile, "version = 1\n");
+      await ctx.writeIdentityFile(ageKeys.identity);
+      await mkdir(configDir, { recursive: true });
+      await writeFile(configFile, "version = 1\n");
 
-    await ctx.runCli(["init"]);
-    await ctx.runCli(["track", configDir]);
-    await ctx.runCli(["push"]);
-    await writeFile(configFile, "version = 2\n");
+      await ctx.runCli(["init"]);
+      await ctx.runCli(["track", configDir]);
+      await ctx.runCli(["push"]);
+      await writeFile(configFile, "version = 2\n");
 
-    const session = createPtySession({
-      args: [...cliNodeOptions, "pull"],
-      cwd: ctx.workspace,
-      env: {
-        ...ctx.baseEnv,
-      },
-      file: process.execPath,
-    });
+      const session = createPtySession({
+        args: [...cliNodeOptions, "pull"],
+        cwd: ctx.workspace,
+        env: {
+          ...ctx.baseEnv,
+        },
+        file: process.execPath,
+      });
 
-    try {
-      const output = await session.waitFor(
-        "Apply these changes? [y/N]",
-        10_000,
-      );
+      try {
+        const output = await session.waitFor(
+          "Apply these changes? [y/N]",
+          10_000,
+        );
 
-      expect(output).toContain(configFile);
-      session.write("y\r");
+        expect(output).toContain(configFile);
+        session.write("y\r");
 
-      const appliedOutput = await session.waitFor("Pull complete", 10_000);
+        const appliedOutput = await session.waitFor("Pull complete", 10_000);
 
-      expect(appliedOutput).toContain(configFile);
-      expect(await readFile(configFile, "utf8")).toContain("version = 1");
-    } finally {
-      session.close();
-    }
+        expect(appliedOutput).toContain(configFile);
+        expect(await readFile(configFile, "utf8")).toContain("version = 1");
+      } finally {
+        session.close();
+      }
   });
 
   it("returns a non-zero exit code when pushing without init", async () => {

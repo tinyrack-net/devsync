@@ -1,6 +1,6 @@
 import { execFile } from "node:child_process";
 import { mkdir, mkdtemp, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { devNull, tmpdir } from "node:os";
 import { basename, dirname, join } from "node:path";
 import { promisify } from "node:util";
 
@@ -20,7 +20,7 @@ export const gitTestEnvironment = {
   GIT_CONFIG_KEY_0: "commit.gpgsign",
   GIT_CONFIG_NOSYSTEM: "1",
   GIT_CONFIG_VALUE_0: "false",
-  GIT_CONFIG_GLOBAL: "/dev/null",
+  GIT_CONFIG_GLOBAL: process.platform === "win32" ? "NUL" : devNull,
 };
 
 export const createTemporaryDirectory = async (prefix: string) => {

@@ -1,13 +1,20 @@
 import { existsSync } from "node:fs";
 import { registerHooks } from "node:module";
-import { dirname, resolve } from "node:path";
+import { dirname, isAbsolute, relative, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 const packageRoot = fileURLToPath(new URL("../../../", import.meta.url));
 const sourceRoot = resolve(packageRoot, "src");
 
 const isSourceFile = (filePath: string) => {
-  return filePath === sourceRoot || filePath.startsWith(`${sourceRoot}/`);
+  const sourceRelativePath = relative(sourceRoot, filePath);
+
+  return (
+    sourceRelativePath === "" ||
+    (!isAbsolute(sourceRelativePath) &&
+      !sourceRelativePath.startsWith("..") &&
+      sourceRelativePath !== "..")
+  );
 };
 
 const toSourceUrl = (relativePath: string) => {
