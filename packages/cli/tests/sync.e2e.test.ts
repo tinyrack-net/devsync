@@ -678,92 +678,89 @@ describe("sync CLI e2e", () => {
     expect(await readFile(configFile, "utf8")).toContain("version = 2");
   });
 
-  itWithPty(
-    "cancels pull interactively unless y is entered",
-    async () => {
-      const configDir = join(ctx.homeDir, ".config", "interactive-pull");
-      const configFile = join(configDir, "config.toml");
-      const ageKeys = await ctx.createAgeKeyPair();
+  itWithPty("cancels pull interactively unless y is entered", async () => {
+    const configDir = join(ctx.homeDir, ".config", "interactive-pull");
+    const configFile = join(configDir, "config.toml");
+    const ageKeys = await ctx.createAgeKeyPair();
 
-      await ctx.writeIdentityFile(ageKeys.identity);
-      await mkdir(configDir, { recursive: true });
-      await writeFile(configFile, "version = 1\n");
+    await ctx.writeIdentityFile(ageKeys.identity);
+    await mkdir(configDir, { recursive: true });
+    await writeFile(configFile, "version = 1\n");
 
-      await ctx.runCli(["init"]);
-      await ctx.runCli(["track", configDir]);
-      await ctx.runCli(["push"]);
-      await writeFile(configFile, "version = 2\n");
+    await ctx.runCli(["init"]);
+    await ctx.runCli(["track", configDir]);
+    await ctx.runCli(["push"]);
+    await writeFile(configFile, "version = 2\n");
 
-      const session = createPtySession({
-        args: [...cliNodeOptions, "pull"],
-        cwd: ctx.workspace,
-        env: {
-          ...ctx.baseEnv,
-        },
-        file: process.execPath,
-      });
+    const session = createPtySession({
+      args: [...cliNodeOptions, "pull"],
+      cwd: ctx.workspace,
+      env: {
+        ...ctx.baseEnv,
+      },
+      file: process.execPath,
+    });
 
-      try {
-        const output = await session.waitFor(
-          "Apply these changes? [y/N]",
-          10_000,
-        );
+    try {
+      const output = await session.waitFor(
+        "Apply these changes? [y/N]",
+        10_000,
+      );
 
-        expect(output).toContain(configFile);
-        session.write("n\r");
+      expect(output).toContain(configFile);
+      session.write("n\r");
 
-        const cancelledOutput = await session.waitFor(
-          "Skipped pull changes",
-          10_000,
-        );
+      const cancelledOutput = await session.waitFor(
+        "Skipped pull changes",
+        10_000,
+      );
 
-        expect(cancelledOutput).toContain(configFile);
-        expect(await readFile(configFile, "utf8")).toContain("version = 2");
-      } finally {
-        session.close();
-      }
-    },
-  );
+      expect(cancelledOutput).toContain(configFile);
+      expect(await readFile(configFile, "utf8")).toContain("version = 2");
+    } finally {
+      session.close();
+    }
+  });
 
   itWithPty("applies pull interactively when y is entered", async () => {
-      const configDir = join(ctx.homeDir, ".config", "interactive-accept");
-      const configFile = join(configDir, "config.toml");
-      const ageKeys = await ctx.createAgeKeyPair();
+    const configDir = join(ctx.homeDir, ".config", "interactive-accept");
+    const configFile = join(configDir, "config.toml");
+    const ageKeys = await ctx.createAgeKeyPair();
 
-      await ctx.writeIdentityFile(ageKeys.identity);
-      await mkdir(configDir, { recursive: true });
-      await writeFile(configFile, "version = 1\n");
+    await ctx.writeIdentityFile(ageKeys.identity);
+    await mkdir(configDir, { recursive: true });
+    await writeFile(configFile, "version = 1\n");
 
-      await ctx.runCli(["init"]);
-      await ctx.runCli(["track", configDir]);
-      await ctx.runCli(["push"]);
-      await writeFile(configFile, "version = 2\n");
+    await ctx.runCli(["init"]);
+    await ctx.runCli(["track", configDir]);
+    await ctx.runCli(["push"]);
+    await writeFile(configFile, "version = 2\n");
 
-      const session = createPtySession({
-        args: [...cliNodeOptions, "pull"],
-        cwd: ctx.workspace,
-        env: {
-          ...ctx.baseEnv,
-        },
-        file: process.execPath,
-      });
+    const session = createPtySession({
+      args: [...cliNodeOptions, "pull"],
+      cwd: ctx.workspace,
+      env: {
+        ...ctx.baseEnv,
+      },
+      file: process.execPath,
+    });
 
-      try {
-        const output = await session.waitFor(
-          "Apply these changes? [y/N]",
-          10_000,
-        );
+    try {
+      const output = await session.waitFor(
+        "Apply these changes? [y/N]",
+        10_000,
+      );
 
-        expect(output).toContain(configFile);
-        session.write("y\r");
+      expect(output).toContain(configFile);
+      session.write("y\r");
 
-        const appliedOutput = await session.waitFor("Pull complete", 10_000);
+      const appliedOutput = await session.waitFor("Pull complete", 10_000);
 
-        expect(appliedOutput).toContain(configFile);
-        expect(await readFile(configFile, "utf8")).toContain("version = 1");
-      } finally {
-        session.close();
-      }
+      expect(appliedOutput).toContain(configFile);
+      expect(await readFile(configFile, "utf8")).toContain("version = 1");
+    } finally {
+      session.close();
+    }
   });
 
   it("returns a non-zero exit code when pushing without init", async () => {
