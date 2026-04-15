@@ -25,6 +25,10 @@ vi.mock("#app/lib/env.ts", () => ({
   ENV: mockEnv,
 }));
 
+vi.mock("#app/config/runtime-env.ts", () => ({
+  resolveCurrentPlatformKey: () => "linux",
+}));
+
 import { createTemporaryDirectory } from "#app/test/helpers/sync-fixture.ts";
 
 import {

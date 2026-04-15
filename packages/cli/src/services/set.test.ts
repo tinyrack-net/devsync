@@ -4,6 +4,9 @@ import type {
   ResolvedSyncConfigEntry,
 } from "#app/config/sync.ts";
 
+const nativePath = (value: string) =>
+  process.platform === "win32" ? `C:${value.replaceAll("/", "\\")}` : value;
+
 const mocked = vi.hoisted(() => ({
   buildConfiguredHomeLocalPath: vi.fn((repoPath: string) => ({
     default: `~/${repoPath}`,
@@ -21,10 +24,13 @@ const mocked = vi.hoisted(() => ({
   readSyncConfig: vi.fn(),
   resolveEntryRelativeRepoPath: vi.fn(),
   resolveSyncConfigResolutionContext: vi.fn(() => ({
-    homeDirectory: "/tmp/home",
+    homeDirectory: process.platform === "win32" ? "C:\\tmp\\home" : "/tmp/home",
     platformKey: "linux",
     readEnv: (_name: string) => undefined as string | undefined,
-    xdgConfigHome: "/tmp/home/.config",
+    xdgConfigHome:
+      process.platform === "win32"
+        ? "C:\\tmp\\home\\.config"
+        : "/tmp/home/.config",
   })),
   resolveSyncPaths: vi.fn(() => ({
     configPath: "/tmp/devsync/manifest.jsonc",
@@ -91,7 +97,7 @@ const directoryEntry = (
   configuredLocalPath: { default: "~/.config/app" },
   configuredMode: { default: "normal" },
   kind: "directory",
-  localPath: "/tmp/home/.config/app",
+  localPath: nativePath("/tmp/home/.config/app"),
   mode: "normal",
   modeExplicit: false,
   permissionExplicit: false,
@@ -107,7 +113,7 @@ const fileEntry = (
   configuredLocalPath: { default: "~/.gitconfig" },
   configuredMode: { default: "secret" },
   kind: "file",
-  localPath: "/tmp/home/.gitconfig",
+  localPath: nativePath("/tmp/home/.gitconfig"),
   mode: "secret",
   modeExplicit: true,
   permissionExplicit: false,
@@ -132,22 +138,29 @@ afterEach(() => {
 describe("sync set service", () => {
   it("rejects blank set targets", async () => {
     await expect(
-      resolveSetTarget("   ", createConfig([]), "/tmp/cwd", "/tmp/home"),
+      resolveSetTarget(
+        "   ",
+        createConfig([]),
+        nativePath("/tmp/cwd"),
+        nativePath("/tmp/home"),
+      ),
     ).rejects.toThrowError("Target path is required.");
   });
 
   it("rejects missing explicit local targets", async () => {
     mocked.isExplicitLocalPath.mockReturnValueOnce(true);
-    mocked.expandHomePath.mockReturnValueOnce("/tmp/home/.ssh/id_ed25519");
+    mocked.expandHomePath.mockReturnValueOnce(
+      nativePath("/tmp/home/.ssh/id_ed25519"),
+    );
     mocked.buildRepoPathWithinRoot.mockReturnValueOnce(".ssh/id_ed25519");
     mocked.getPathStats.mockResolvedValueOnce(undefined);
 
     await expect(
       resolveSetTarget(
-        "/tmp/home/.ssh/id_ed25519",
+        nativePath("/tmp/home/.ssh/id_ed25519"),
         createConfig([]),
-        "/tmp/cwd",
-        "/tmp/home",
+        nativePath("/tmp/cwd"),
+        nativePath("/tmp/home"),
       ),
     ).rejects.toThrowError("Sync set target does not exist.");
   });
@@ -157,7 +170,7 @@ describe("sync set service", () => {
 
     mocked.isExplicitLocalPath.mockReturnValueOnce(true);
     mocked.expandHomePath.mockReturnValueOnce(
-      "/tmp/home/.config/app/config.json",
+      nativePath("/tmp/home/.config/app/config.json"),
     );
     mocked.buildRepoPathWithinRoot.mockReturnValueOnce(
       ".config/app/config.json",
@@ -168,14 +181,14 @@ describe("sync set service", () => {
 
     await expect(
       resolveSetTarget(
-        "/tmp/home/.config/app/config.json",
+        nativePath("/tmp/home/.config/app/config.json"),
         createConfig([entry]),
-        "/tmp/cwd",
-        "/tmp/home",
+        nativePath("/tmp/cwd"),
+        nativePath("/tmp/home"),
       ),
     ).resolves.toEqual({
       entry,
-      localPath: "/tmp/home/.config/app/config.json",
+      localPath: nativePath("/tmp/home/.config/app/config.json"),
       relativePath: "config.json",
       repoPath: ".config/app/config.json",
       stats: fileStats,
@@ -190,7 +203,7 @@ describe("sync set service", () => {
 
     mocked.isExplicitLocalPath.mockReturnValueOnce(true);
     mocked.expandHomePath.mockReturnValueOnce(
-      "/tmp/home/.config/app/config.json",
+      nativePath("/tmp/home/.config/app/config.json"),
     );
     mocked.buildRepoPathWithinRoot.mockReturnValueOnce(
       ".config/app/config.json",
@@ -200,14 +213,14 @@ describe("sync set service", () => {
 
     await expect(
       resolveSetTarget(
-        "/tmp/home/.config/app/config.json",
+        nativePath("/tmp/home/.config/app/config.json"),
         createConfig([entry]),
-        "/tmp/cwd",
-        "/tmp/home",
+        nativePath("/tmp/cwd"),
+        nativePath("/tmp/home"),
       ),
     ).resolves.toEqual({
       entry,
-      localPath: "/tmp/home/.config/app/config.json",
+      localPath: nativePath("/tmp/home/.config/app/config.json"),
       relativePath: "config.json",
       repoPath: "profiles/shared/app/config.json",
       stats: fileStats,
@@ -216,17 +229,19 @@ describe("sync set service", () => {
 
   it("rejects explicit local targets outside tracked directories", async () => {
     mocked.isExplicitLocalPath.mockReturnValueOnce(true);
-    mocked.expandHomePath.mockReturnValueOnce("/tmp/home/.config/other/file");
+    mocked.expandHomePath.mockReturnValueOnce(
+      nativePath("/tmp/home/.config/other/file"),
+    );
     mocked.buildRepoPathWithinRoot.mockReturnValueOnce(".config/other/file");
     mocked.getPathStats.mockResolvedValueOnce(fileStats);
     mocked.findOwningSyncEntry.mockReturnValueOnce(undefined);
 
     await expect(
       resolveSetTarget(
-        "/tmp/home/.config/other/file",
+        nativePath("/tmp/home/.config/other/file"),
         createConfig([directoryEntry()]),
-        "/tmp/cwd",
-        "/tmp/home",
+        nativePath("/tmp/cwd"),
+        nativePath("/tmp/home"),
       ),
     ).rejects.toThrowError(
       "Local set target is not inside a tracked directory entry.",
@@ -240,7 +255,12 @@ describe("sync set service", () => {
     mocked.tryNormalizeRepoPathInput.mockReturnValueOnce(undefined);
 
     await expect(
-      resolveSetTarget("../outside", createConfig([]), "/tmp/cwd", "/tmp/home"),
+      resolveSetTarget(
+        "../outside",
+        createConfig([]),
+        nativePath("/tmp/cwd"),
+        nativePath("/tmp/home"),
+      ),
     ).rejects.toThrowError(
       "Sync set target is not a valid local or repository path.",
     );
@@ -260,12 +280,12 @@ describe("sync set service", () => {
       resolveSetTarget(
         ".gitconfig",
         createConfig([entry]),
-        "/tmp/cwd",
-        "/tmp/home",
+        nativePath("/tmp/cwd"),
+        nativePath("/tmp/home"),
       ),
     ).resolves.toEqual({
       entry,
-      localPath: "/tmp/home/.gitconfig",
+      localPath: nativePath("/tmp/home/.gitconfig"),
       relativePath: "",
       repoPath: ".gitconfig",
       stats: fileStats,
@@ -289,12 +309,12 @@ describe("sync set service", () => {
       resolveSetTarget(
         ".config/app/nested/config.json",
         createConfig([entry]),
-        "/tmp/cwd",
-        "/tmp/home",
+        nativePath("/tmp/cwd"),
+        nativePath("/tmp/home"),
       ),
     ).resolves.toEqual({
       entry,
-      localPath: "/tmp/home/.config/app/nested/config.json",
+      localPath: nativePath("/tmp/home/.config/app/nested/config.json"),
       relativePath: "nested/config.json",
       repoPath: ".config/app/nested/config.json",
       stats: fileStats,
@@ -312,8 +332,8 @@ describe("sync set service", () => {
       resolveSetTarget(
         ".config/other/file",
         createConfig([directoryEntry()]),
-        "/tmp/cwd",
-        "/tmp/home",
+        nativePath("/tmp/cwd"),
+        nativePath("/tmp/home"),
       ),
     ).rejects.toThrowError(
       "Repository set target is not inside a tracked directory entry.",
@@ -334,12 +354,15 @@ describe("sync set service", () => {
     mocked.getPathStats.mockResolvedValueOnce(fileStats);
 
     await expect(
-      setTargetMode({ mode: "secret", target: ".gitconfig" }, "/tmp/cwd"),
+      setTargetMode(
+        { mode: "secret", target: ".gitconfig" },
+        nativePath("/tmp/cwd"),
+      ),
     ).resolves.toEqual({
       action: "unchanged",
       configPath: "/tmp/devsync/manifest.jsonc",
       entryRepoPath: ".gitconfig",
-      localPath: "/tmp/home/.gitconfig",
+      localPath: nativePath("/tmp/home/.gitconfig"),
       mode: "secret",
       repoPath: ".gitconfig",
       syncDirectory: "/tmp/devsync",
@@ -364,7 +387,7 @@ describe("sync set service", () => {
 
     const result = await setTargetMode(
       { mode: "secret", target: ".gitconfig" },
-      "/tmp/cwd",
+      nativePath("/tmp/cwd"),
     );
 
     expect(result.action).toBe("updated");
@@ -399,14 +422,14 @@ describe("sync set service", () => {
 
     const result = await setTargetMode(
       { mode: "secret", target: ".config/app/private.txt" },
-      "/tmp/cwd",
+      nativePath("/tmp/cwd"),
     );
 
     expect(result).toEqual({
       action: "added",
       configPath: "/tmp/devsync/manifest.jsonc",
       entryRepoPath: ".config/app",
-      localPath: "/tmp/home/.config/app/private.txt",
+      localPath: nativePath("/tmp/home/.config/app/private.txt"),
       mode: "secret",
       repoPath: ".config/app/private.txt",
       syncDirectory: "/tmp/devsync",
@@ -419,7 +442,7 @@ describe("sync set service", () => {
           configuredLocalPath: { default: "~/.config/app/private.txt" },
           configuredMode: { default: "secret" },
           kind: "file",
-          localPath: "/tmp/home/.config/app/private.txt",
+          localPath: nativePath("/tmp/home/.config/app/private.txt"),
           mode: "secret",
           modeExplicit: true,
           permissionExplicit: false,
@@ -450,13 +473,13 @@ describe("sync set service", () => {
     await expect(
       setTargetMode(
         { mode: "normal", target: ".config/app/notes.txt" },
-        "/tmp/cwd",
+        nativePath("/tmp/cwd"),
       ),
     ).resolves.toEqual({
       action: "unchanged",
       configPath: "/tmp/devsync/manifest.jsonc",
       entryRepoPath: ".config/app",
-      localPath: "/tmp/home/.config/app/notes.txt",
+      localPath: nativePath("/tmp/home/.config/app/notes.txt"),
       mode: "normal",
       repoPath: ".config/app/notes.txt",
       syncDirectory: "/tmp/devsync",

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { resolveSyncConfigFilePath } from "#app/config/sync.ts";
 import { buildPushPlanPreview, buildPushResultFromPlan } from "./push.ts";
 
 describe("push helpers", () => {
@@ -58,6 +59,8 @@ describe("push helpers", () => {
   });
 
   it("builds push results from a completed plan", () => {
+    const syncDirectory = "/tmp/devsync";
+
     expect(
       buildPushResultFromPlan(
         {
@@ -73,18 +76,18 @@ describe("push helpers", () => {
           existingArtifactKeys: new Set(),
           snapshot: new Map(),
         },
-        "/tmp/devsync",
+        syncDirectory,
         false,
       ),
     ).toEqual({
-      configPath: "/tmp/devsync/manifest.jsonc",
+      configPath: resolveSyncConfigFilePath(syncDirectory),
       deletedArtifactCount: 5,
       directoryCount: 2,
       dryRun: false,
       encryptedFileCount: 3,
       plainFileCount: 4,
       symlinkCount: 1,
-      syncDirectory: "/tmp/devsync",
+      syncDirectory,
     });
   });
 });
