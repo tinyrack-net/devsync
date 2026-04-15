@@ -16,6 +16,10 @@ import {
   type ResolvedSyncConfigEntry,
   resolveSyncRule,
 } from "#app/config/sync.ts";
+import {
+  fileContentsEqual,
+  shouldNormalizeTextLineEndings,
+} from "#app/lib/content.ts";
 import { DevsyncError } from "#app/lib/error.ts";
 import {
   buildExecutableMode,
@@ -132,8 +136,9 @@ const isMaterializedFileLikeNodeCurrent = async (
   const currentContents = await readFile(targetPath);
 
   return (
-    Buffer.compare(Buffer.from(node.contents), currentContents) === 0 &&
-    materializedFileModeMatches(stats.mode, node.executable, fileMode)
+    fileContentsEqual(node.contents, currentContents, {
+      normalizeTextLineEndings: shouldNormalizeTextLineEndings(),
+    }) && materializedFileModeMatches(stats.mode, node.executable, fileMode)
   );
 };
 

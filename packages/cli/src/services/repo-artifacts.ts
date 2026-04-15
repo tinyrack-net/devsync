@@ -8,6 +8,10 @@ import {
   type ResolvedSyncConfigEntry,
   resolveSyncRule,
 } from "#app/config/sync.ts";
+import {
+  fileContentsEqual,
+  shouldNormalizeTextLineEndings,
+} from "#app/lib/content.ts";
 import { decryptSecretFile, encryptSecretFile } from "#app/lib/crypto.ts";
 import { DevsyncError } from "#app/lib/error.ts";
 import {
@@ -396,11 +400,9 @@ const isSecretArtifactUnchanged = async (
       identityFile,
     );
 
-    if (existingPlaintext.length !== plaintext.length) {
-      return false;
-    }
-
-    return existingPlaintext.every((byte, index) => byte === plaintext[index]);
+    return fileContentsEqual(existingPlaintext, plaintext, {
+      normalizeTextLineEndings: shouldNormalizeTextLineEndings(),
+    });
   } catch {
     return false;
   }
@@ -456,7 +458,9 @@ export const isRepoArtifactCurrent = async (
 
   const existingContents = await readFile(artifactPath);
 
-  return Buffer.compare(existingContents, Buffer.from(artifact.contents)) === 0;
+  return fileContentsEqual(existingContents, artifact.contents, {
+    normalizeTextLineEndings: shouldNormalizeTextLineEndings(),
+  });
 };
 
 export const writeArtifactsToDirectory = async (

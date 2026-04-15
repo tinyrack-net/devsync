@@ -654,6 +654,159 @@ describe("sync CLI e2e", () => {
     expect(stripAnsi(result.stdout)).toContain("Already up to date");
   });
 
+  it.skipIf(process.platform !== "win32")(
+    "treats opposite Windows text line endings as unchanged during pull",
+    async () => {
+      const sourceRepository = join(ctx.workspace, "remote-sync");
+      const configDir = join(ctx.homeDir, ".config", "line-endings-clean");
+      const configFile = join(configDir, "config.toml");
+      const reverseFile = join(configDir, "reverse.toml");
+      const ageKeys = await ctx.createAgeKeyPair();
+
+      await mkdir(
+        join(sourceRepository, "default", ".config", "line-endings-clean"),
+        {
+          recursive: true,
+        },
+      );
+      await mkdir(configDir, { recursive: true });
+      await writeFile(
+        join(sourceRepository, "manifest.jsonc"),
+        formatSyncConfig({
+          ...createInitialSyncConfig({
+            recipients: [ageKeys.recipient],
+          }),
+          entries: [
+            {
+              kind: "directory",
+              localPath: {
+                default: "~/.config/line-endings-clean",
+              },
+              mode: {
+                default: "normal",
+              },
+            },
+          ],
+        }),
+        "utf8",
+      );
+      await writeFile(
+        join(
+          sourceRepository,
+          "default",
+          ".config",
+          "line-endings-clean",
+          "config.toml",
+        ),
+        "version = 1\r\nname = test\r\n",
+        "utf8",
+      );
+      await writeFile(
+        join(
+          sourceRepository,
+          "default",
+          ".config",
+          "line-endings-clean",
+          "reverse.toml",
+        ),
+        "version = 1\nname = test\n",
+        "utf8",
+      );
+      await writeFile(configFile, "version = 1\nname = test\n", "utf8");
+      await writeFile(reverseFile, "version = 1\r\nname = test\r\n", "utf8");
+      await ctx.runGit(["init", "-b", "main"], sourceRepository);
+      await ctx.runGit(["add", "."], sourceRepository);
+      await ctx.runGit(
+        ["commit", "-m", "seed normalized line endings"],
+        sourceRepository,
+      );
+
+      await ctx.runCli(["init", sourceRepository, "--key", ageKeys.identity]);
+      const result = await ctx.runCli(["pull"]);
+
+      expect(result.exitCode).toBe(0);
+      expect(stripAnsi(result.stdout)).toContain("Already up to date");
+      expect(stripAnsi(result.stdout)).not.toContain("Planned pull changes");
+    },
+  );
+
+  it.skipIf(process.platform !== "win32")(
+    "normalizes Windows text line endings without hiding BOM changes during pull",
+    async () => {
+      const sourceRepository = join(ctx.workspace, "remote-sync");
+      const configDir = join(ctx.homeDir, ".config", "line-endings-bom");
+      const configFile = join(configDir, "config.toml");
+      const bomFile = join(configDir, "bom.toml");
+      const ageKeys = await ctx.createAgeKeyPair();
+
+      await mkdir(
+        join(sourceRepository, "default", ".config", "line-endings-bom"),
+        {
+          recursive: true,
+        },
+      );
+      await mkdir(configDir, { recursive: true });
+      await writeFile(
+        join(sourceRepository, "manifest.jsonc"),
+        formatSyncConfig({
+          ...createInitialSyncConfig({
+            recipients: [ageKeys.recipient],
+          }),
+          entries: [
+            {
+              kind: "directory",
+              localPath: {
+                default: "~/.config/line-endings-bom",
+              },
+              mode: {
+                default: "normal",
+              },
+            },
+          ],
+        }),
+        "utf8",
+      );
+      await writeFile(
+        join(
+          sourceRepository,
+          "default",
+          ".config",
+          "line-endings-bom",
+          "config.toml",
+        ),
+        "version = 1\r\nname = test\r\n",
+        "utf8",
+      );
+      await writeFile(
+        join(
+          sourceRepository,
+          "default",
+          ".config",
+          "line-endings-bom",
+          "bom.toml",
+        ),
+        "\uFEFFversion = 1\r\n",
+        "utf8",
+      );
+      await writeFile(configFile, "version = 1\nname = test\n", "utf8");
+      await writeFile(bomFile, "version = 1\n", "utf8");
+      await ctx.runGit(["init", "-b", "main"], sourceRepository);
+      await ctx.runGit(["add", "."], sourceRepository);
+      await ctx.runGit(
+        ["commit", "-m", "seed normalized line endings"],
+        sourceRepository,
+      );
+
+      await ctx.runCli(["init", sourceRepository, "--key", ageKeys.identity]);
+      const result = await ctx.runCli(["pull"], { reject: false });
+
+      expect(result.exitCode).not.toBe(0);
+      expect(stripAnsi(result.stdout)).toContain("Planned pull changes");
+      expect(stripAnsi(result.stdout)).toContain("bom.toml");
+      expect(stripAnsi(result.stdout)).not.toContain("config.toml");
+    },
+  );
+
   it("fails in non-interactive mode without -y when pull changes exist", async () => {
     const configDir = join(ctx.homeDir, ".config", "noninteractive-pull");
     const configFile = join(configDir, "config.toml");
