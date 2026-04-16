@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "pnpm run -r --filter @tinyrack/* dev",
     "build": "pnpm run -r --filter @tinyrack/* build",
+    "test": "pnpm run -r --filter @tinyrack/* test",
     "format": "biome format --write .",
     "format:check": "biome check ."
   },
