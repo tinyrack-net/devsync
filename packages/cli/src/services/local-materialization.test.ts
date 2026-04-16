@@ -359,4 +359,32 @@ describe("local materialization", () => {
     );
     expect(keyToLocalPath.has(".config/zsh/plugins/plugin.zsh")).toBe(false);
   });
+
+  it("should not throw EINVAL when a symlink node in snapshot exists as a directory locally", async () => {
+    const workspace = await createWorkspace();
+    const appDirectory = join(workspace, ".claude");
+    const skillsPath = join(appDirectory, "skills");
+
+    await mkdir(skillsPath, { recursive: true });
+
+    const entry = createEntry("directory", appDirectory, ".claude", "normal");
+
+    const snapshot = {
+      desiredKeys: new Set([".claude/skills"]),
+      nodes: new Map<string, any>([
+        [
+          "skills",
+          {
+            linkTarget: "/some/target",
+            type: "symlink",
+          },
+        ],
+      ]),
+      type: "directory" as const,
+    };
+
+    const changedPaths = await collectChangedLocalPaths(entry, snapshot);
+
+    expect(changedPaths).toContain(skillsPath);
+  });
 });
