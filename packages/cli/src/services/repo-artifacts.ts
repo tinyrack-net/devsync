@@ -25,6 +25,7 @@ import {
   writeSymlinkNode,
 } from "#app/lib/filesystem.ts";
 import { buildDirectoryKey } from "#app/lib/path.ts";
+import { limitConcurrency } from "#app/lib/promise.ts";
 import type { SnapshotNode } from "./local-snapshot.ts";
 import type { EffectiveSyncConfig } from "./runtime.ts";
 
@@ -487,53 +488,57 @@ export const writeArtifactsToDirectory = async (
     }
   };
 
-  for (const artifact of artifacts) {
-    const relativePath = resolveArtifactRelativePath(artifact);
-    const artifactPath = join(rootDirectory, ...relativePath.split("/"));
+  await limitConcurrency(
+    CONSTANTS.SYNC.DEFAULT_CONCURRENCY,
+    artifacts,
+    async (artifact) => {
+      const relativePath = resolveArtifactRelativePath(artifact);
+      const artifactPath = join(rootDirectory, ...relativePath.split("/"));
 
-    if (
-      await isRepoArtifactCurrent(
-        rootDirectory,
-        artifact,
-        ageConfig === undefined
-          ? undefined
-          : { identityFile: ageConfig.identityFile },
-      )
-    ) {
-      noteProcessedArtifact(
-        relativePath,
-        "skipped unchanged repository artifact",
-      );
-      continue;
-    }
+      if (
+        await isRepoArtifactCurrent(
+          rootDirectory,
+          artifact,
+          ageConfig === undefined
+            ? undefined
+            : { identityFile: ageConfig.identityFile },
+        )
+      ) {
+        noteProcessedArtifact(
+          relativePath,
+          "skipped unchanged repository artifact",
+        );
+        return;
+      }
 
-    if (artifact.kind === "directory") {
-      await mkdir(artifactPath, { recursive: true });
-      noteProcessedArtifact(relativePath, "ensured repository directory");
-      continue;
-    }
+      if (artifact.kind === "directory") {
+        await mkdir(artifactPath, { recursive: true });
+        noteProcessedArtifact(relativePath, "ensured repository directory");
+        return;
+      }
 
-    if (artifact.kind === "symlink") {
-      await writeSymlinkNode(artifactPath, artifact.linkTarget);
-      noteProcessedArtifact(relativePath, "wrote repository symlink");
-      continue;
-    }
+      if (artifact.kind === "symlink") {
+        await writeSymlinkNode(artifactPath, artifact.linkTarget);
+        noteProcessedArtifact(relativePath, "wrote repository symlink");
+        return;
+      }
 
-    if (artifact.category === "secret" && ageConfig !== undefined) {
-      const encrypted = await encryptSecretFile(
-        artifact.contents,
-        ageConfig.recipients,
-      );
+      if (artifact.category === "secret" && ageConfig !== undefined) {
+        const encrypted = await encryptSecretFile(
+          artifact.contents,
+          ageConfig.recipients,
+        );
 
-      await writeFileNode(artifactPath, {
-        contents: encrypted,
-        executable: artifact.executable,
-      });
-      noteProcessedArtifact(relativePath, "wrote repository secret artifact");
-      continue;
-    }
+        await writeFileNode(artifactPath, {
+          contents: encrypted,
+          executable: artifact.executable,
+        });
+        noteProcessedArtifact(relativePath, "wrote repository secret artifact");
+        return;
+      }
 
-    await writeFileNode(artifactPath, artifact);
-    noteProcessedArtifact(relativePath, "wrote repository file");
-  }
+      await writeFileNode(artifactPath, artifact);
+      noteProcessedArtifact(relativePath, "wrote repository file");
+    },
+  );
 };

@@ -1,8 +1,10 @@
 import { join } from "node:path";
 import type { ConsolaInstance } from "consola";
+import { CONSTANTS } from "#app/config/constants.ts";
 import { resolveSyncConfigFilePath } from "#app/config/sync.ts";
 import { removePathAtomically } from "#app/lib/filesystem.ts";
 import { ensureGitRepository } from "#app/lib/git.ts";
+import { limitConcurrency } from "#app/lib/promise.ts";
 import { buildLocalSnapshot, type SnapshotNode } from "./local-snapshot.ts";
 import {
   buildArtifactKey,
@@ -168,25 +170,29 @@ export const pushChanges = async (
 
     let removedArtifactCount = 0;
 
-    for (const staleKey of staleArtifactKeys) {
-      const relativePath = staleKey.endsWith("/")
-        ? staleKey.slice(0, -1)
-        : staleKey;
+    await limitConcurrency(
+      CONSTANTS.SYNC.DEFAULT_CONCURRENCY,
+      staleArtifactKeys,
+      async (staleKey) => {
+        const relativePath = staleKey.endsWith("/")
+          ? staleKey.slice(0, -1)
+          : staleKey;
 
-      removedArtifactCount += 1;
+        removedArtifactCount += 1;
 
-      if ((reporter?.level ?? 0) >= 4) {
-        reporter?.verbose(`removing stale repository artifact ${relativePath}`);
-      } else if (removedArtifactCount % 100 === 0) {
-        reporter?.start(
-          `Removed ${removedArtifactCount} stale repository artifacts...`,
+        if ((reporter?.level ?? 0) >= 4) {
+          reporter?.verbose(`removing stale repository artifact ${relativePath}`);
+        } else if (removedArtifactCount % 100 === 0) {
+          reporter?.start(
+            `Removed ${removedArtifactCount} stale repository artifacts...`,
+          );
+        }
+
+        await removePathAtomically(
+          join(artifactsDirectory, ...relativePath.split("/")),
         );
-      }
-
-      await removePathAtomically(
-        join(artifactsDirectory, ...relativePath.split("/")),
-      );
-    }
+      },
+    );
 
     reporter?.start(
       `Writing ${plan.artifacts.length} repository artifact${plan.artifacts.length === 1 ? "" : "s"}...`,

@@ -9,6 +9,7 @@ import {
 } from "node:fs/promises";
 import { basename, dirname, join, posix } from "node:path";
 import type { ConsolaInstance } from "consola";
+import { CONSTANTS } from "#app/config/constants.ts";
 import {
   collectChildEntryPaths,
   type ResolvedSyncConfig,
@@ -34,6 +35,7 @@ import {
   writeFileNode,
 } from "#app/lib/filesystem.ts";
 import { buildDirectoryKey } from "#app/lib/path.ts";
+import { limitConcurrency } from "#app/lib/promise.ts";
 import type { FileLikeSnapshotNode, SnapshotNode } from "./local-snapshot.ts";
 
 type MaterializationConfig = ResolvedSyncConfig &
@@ -475,52 +477,60 @@ const reconcileMaterializedDirectoryPath = async (
     ? buildDesiredDirectoryKeys(entry, desiredNodes)
     : new Set<string>();
 
-  for (const directoryKey of [...desiredDirectoryKeys].sort((left, right) => {
-    return left.localeCompare(right);
-  })) {
-    if (directoryKey === desiredRootKey) {
-      continue;
-    }
+  await limitConcurrency(
+    CONSTANTS.SYNC.DEFAULT_CONCURRENCY,
+    [...desiredDirectoryKeys].sort((left, right) => {
+      return left.localeCompare(right);
+    }),
+    async (directoryKey) => {
+      if (directoryKey === desiredRootKey) {
+        return;
+      }
 
-    const relativePath = directoryKey.slice(entry.repoPath.length + 1, -1);
-    await ensureMaterializedDirectoryPath(
-      join(entry.localPath, ...relativePath.split("/")),
-      fileMode,
-    );
-  }
+      const relativePath = directoryKey.slice(entry.repoPath.length + 1, -1);
+      await ensureMaterializedDirectoryPath(
+        join(entry.localPath, ...relativePath.split("/")),
+        fileMode,
+      );
+    },
+  );
 
   let processedNodeCount = 0;
 
-  for (const relativePath of [...desiredNodes.keys()].sort((left, right) => {
-    return left.localeCompare(right);
-  })) {
-    const node = desiredNodes.get(relativePath);
+  await limitConcurrency(
+    CONSTANTS.SYNC.DEFAULT_CONCURRENCY,
+    [...desiredNodes.keys()].sort((left, right) => {
+      return left.localeCompare(right);
+    }),
+    async (relativePath) => {
+      const node = desiredNodes.get(relativePath);
 
-    if (node === undefined) {
-      continue;
-    }
+      if (node === undefined) {
+        return;
+      }
 
-    const targetNodePath = join(entry.localPath, ...relativePath.split("/"));
+      const targetNodePath = join(entry.localPath, ...relativePath.split("/"));
 
-    if (
-      await isMaterializedFileLikeNodeCurrent(targetNodePath, node, fileMode)
-    ) {
-      continue;
-    }
+      if (
+        await isMaterializedFileLikeNodeCurrent(targetNodePath, node, fileMode)
+      ) {
+        return;
+      }
 
-    await stageAndReplaceFilePath(targetNodePath, node, reporter, fileMode);
-    processedNodeCount += 1;
+      await stageAndReplaceFilePath(targetNodePath, node, reporter, fileMode);
+      processedNodeCount += 1;
 
-    if ((reporter?.level ?? 0) >= 4) {
-      reporter?.verbose(
-        `updated local node ${posix.join(entry.repoPath, relativePath)}`,
-      );
-    } else if (processedNodeCount % 100 === 0) {
-      reporter?.start(
-        `Updated ${processedNodeCount} local nodes for ${entry.repoPath}...`,
-      );
-    }
-  }
+      if ((reporter?.level ?? 0) >= 4) {
+        reporter?.verbose(
+          `updated local node ${posix.join(entry.repoPath, relativePath)}`,
+        );
+      } else if (processedNodeCount % 100 === 0) {
+        reporter?.start(
+          `Updated ${processedNodeCount} local nodes for ${entry.repoPath}...`,
+        );
+      }
+    },
+  );
 
   const existingKeys = new Set<string>();
   const keyToLocalPath = new Map<string, string>();
@@ -539,16 +549,20 @@ const reconcileMaterializedDirectoryPath = async (
     keyToLocalPath,
   );
 
-  for (const key of deletableKeys) {
-    const localPath = keyToLocalPath.get(key);
+  await limitConcurrency(
+    CONSTANTS.SYNC.DEFAULT_CONCURRENCY,
+    deletableKeys,
+    async (key) => {
+      const localPath = keyToLocalPath.get(key);
 
-    if (localPath === undefined) {
-      continue;
-    }
+      if (localPath === undefined) {
+        return;
+      }
 
-    await removePathAtomically(localPath);
-    reporter?.verbose(`removed stale local path ${key}`);
-  }
+      await removePathAtomically(localPath);
+      reporter?.verbose(`removed stale local path ${key}`);
+    },
+  );
 };
 
 export const countDeletedLocalNodes = async (

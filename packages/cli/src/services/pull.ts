@@ -1,6 +1,8 @@
 import type { ConsolaInstance } from "consola";
+import { CONSTANTS } from "#app/config/constants.ts";
 import { resolveSyncConfigFilePath } from "#app/config/sync.ts";
 import { ensureGitRepository } from "#app/lib/git.ts";
+import { limitConcurrency } from "#app/lib/promise.ts";
 import { isPathEqualOrNested } from "#app/lib/path.ts";
 import {
   applyEntryMaterialization,
@@ -262,15 +264,18 @@ export const applyPullPlan = async (
   plan: PullPlan,
   reporter?: ConsolaInstance,
 ) => {
-  for (let index = 0; index < config.entries.length; index += 1) {
-    const entry = config.entries[index];
-    const materialization = plan.materializations[index];
+  await limitConcurrency(
+    CONSTANTS.SYNC.DEFAULT_CONCURRENCY,
+    config.entries,
+    async (entry, index) => {
+      const materialization = plan.materializations[index];
 
-    if (entry === undefined || materialization === undefined) {
-      continue;
-    }
+      if (entry === undefined || materialization === undefined) {
+        return;
+      }
 
-    reporter?.start(`Applying ${entry.repoPath}...`);
-    await applyEntryMaterialization(entry, materialization, config, reporter);
-  }
+      reporter?.start(`Applying ${entry.repoPath}...`);
+      await applyEntryMaterialization(entry, materialization, config, reporter);
+    },
+  );
 };
