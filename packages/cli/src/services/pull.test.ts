@@ -250,6 +250,61 @@ describe("pull planning", () => {
     expect(plan.updatedLocalPaths).toEqual(["/tmp/home/.config/zsh/.zshenv"]);
   });
 
+  it("does not report deleted local paths as repository updates", async () => {
+    mocked.buildRepositorySnapshot.mockResolvedValueOnce(new Map());
+    mocked.buildEntryMaterialization.mockReturnValueOnce({
+      desiredKeys: new Set([
+        ".config/app/",
+        ".config/app/config.json",
+      ]),
+      nodes: new Map(),
+      type: "directory",
+    });
+    mocked.countDeletedLocalNodes.mockImplementationOnce(
+      async (
+        _entry,
+        _desiredKeys,
+        _config,
+        existingKeys,
+        _reporter,
+        keyToLocalPath,
+        deletedKeys,
+      ) => {
+        existingKeys.add(".config/app/");
+        existingKeys.add(".config/app/config.json");
+        existingKeys.add(".config/app/cache.json");
+        keyToLocalPath?.set(".config/app/cache.json", "/tmp/home/.config/app/cache.json");
+        deletedKeys?.add(".config/app/cache.json");
+        return 1;
+      },
+    );
+    mocked.collectChangedLocalPaths.mockResolvedValueOnce([
+      "/tmp/home/.config/app/cache.json",
+      "/tmp/home/.config/app/config.json",
+    ]);
+
+    const config = {
+      age: {
+        identityFile: "/tmp/devsync/keys.txt",
+        recipients: ["age1recipient"],
+      },
+      entries: [
+        {
+          kind: "directory",
+          localPath: "/tmp/home/.config/app",
+          mode: "normal",
+          repoPath: ".config/app",
+        },
+      ],
+      version: 7,
+    };
+
+    const plan = await buildPullPlan(config as never, "/tmp/devsync");
+
+    expect(plan.updatedLocalPaths).toEqual(["/tmp/home/.config/app/config.json"]);
+    expect(plan.deletedLocalPaths).toEqual(["/tmp/home/.config/app/cache.json"]);
+  });
+
   it("does not apply ignore-mode entries during pull", async () => {
     const reporter = {
       level: 3,

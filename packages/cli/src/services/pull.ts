@@ -177,10 +177,15 @@ export const buildPullPlan = async (
     ),
   );
   const deletedLocalPaths = buildDeletedLocalPaths(deletedKeys, keyToLocalPath);
-  const updatedLocalPaths = await buildUpdatedLocalPaths(
-    config,
-    materializations,
-  );
+  const deletedLocalPathSet = new Set(deletedLocalPaths);
+  const updatedLocalPaths = (
+    await buildUpdatedLocalPaths(
+      config,
+      materializations,
+    )
+  ).filter((path) => {
+    return !deletedLocalPathSet.has(path);
+  });
 
   return {
     counts: buildPullCounts(materializations),
