@@ -120,12 +120,15 @@ const isMaterializedFileLikeNodeCurrent = async (
   }
 
   if (node.type === "symlink") {
+    if (!stats.isSymbolicLink()) {
+      return false;
+    }
+
     const currentLinkTarget = await readlink(targetPath);
 
     return (
-      stats.isSymbolicLink() &&
       normalizeLinkTargetForComparison(currentLinkTarget) ===
-        normalizeLinkTargetForComparison(node.linkTarget)
+      normalizeLinkTargetForComparison(node.linkTarget)
     );
   }
 
