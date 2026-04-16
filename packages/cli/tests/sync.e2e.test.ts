@@ -1023,4 +1023,32 @@ describe("sync CLI e2e", () => {
     await expect(readFile(note2, "utf8")).rejects.toThrow();
     await expect(readFile(note3, "utf8")).rejects.toThrow();
   });
+
+  it("recovers from an interrupted sync that left behind backup files", async () => {
+    const configDir = join(ctx.homeDir, ".config", "recoveryapp");
+    const configFile = join(configDir, "config.json");
+    const ageKeys = await ctx.createAgeKeyPair();
+
+    await ctx.writeIdentityFile(ageKeys.identity);
+    await mkdir(configDir, { recursive: true });
+    await writeFile(configFile, '{"version": 1}\n');
+
+    await ctx.runCli(["init"]);
+    await ctx.runCli(["track", configDir]);
+    await ctx.runCli(["push"]);
+
+    // Simulate an interrupted sync by manually creating a backup file
+    const backupFile = join(configDir, ".config.json.devsync-sync-backup-1234");
+    await writeFile(backupFile, '{"version": "backup"}\n');
+
+    // Run pull -y, it should still work and ideally clean up stray backup files
+    // (replacePathAtomically cleans up backup files in its finally block, 
+    // but here we are simulating one that stayed because the process was killed)
+    const result = await ctx.runCli(["pull", "-y"]);
+
+    expect(result.exitCode).toBe(0);
+    expect(await readFile(configFile, "utf8")).toContain('"version": 1');
+    // Note: The CLI doesn't currently proactively scan and delete *old* backup files from *previous* runs,
+    // but the sync should still succeed.
+  });
 });

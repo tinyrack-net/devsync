@@ -79,4 +79,9 @@ describe("git helpers", () => {
       ensureGitRepository(missingRepositoryPath),
     ).rejects.toThrowError(/Sync repository is not initialized/u);
   });
+
+  it("fails to initialize a repository in a non-writable location", async () => {
+    const readonlyPath = "/proc/invalid-repo";
+    await expect(initializeRepository(readonlyPath)).rejects.toThrow();
+  });
 });

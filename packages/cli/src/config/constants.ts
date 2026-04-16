@@ -21,6 +21,7 @@ export const CONSTANTS = {
   SYNC: {
     CONFIG_FILE_NAME: "manifest.jsonc",
     CONFIG_VERSION: 7,
+    DEFAULT_CONCURRENCY: 20,
     DEFAULT_PROFILE: "default",
     MODES: ["normal", "secret", "ignore"],
     SECRET_ARTIFACT_SUFFIX: ".devsync.secret",
