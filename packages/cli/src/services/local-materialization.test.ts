@@ -14,6 +14,7 @@ import {
   collectChangedLocalPaths,
   countDeletedLocalNodes,
 } from "#app/services/local-materialization.ts";
+import type { FileLikeSnapshotNode } from "#app/services/local-snapshot.ts";
 import { createTemporaryDirectory } from "../test/helpers/sync-fixture.ts";
 
 const temporaryDirectories: string[] = [];
@@ -371,7 +372,7 @@ describe("local materialization", () => {
 
     const snapshot = {
       desiredKeys: new Set([".claude/skills"]),
-      nodes: new Map<string, any>([
+      nodes: new Map<string, FileLikeSnapshotNode>([
         [
           "skills",
           {

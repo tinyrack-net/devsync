@@ -121,7 +121,9 @@ export const createSymlink = async (
     return;
   }
 
-  const absoluteTarget = isAbsolute(target) ? target : join(dirname(path), target);
+  const absoluteTarget = isAbsolute(target)
+    ? target
+    : join(dirname(path), target);
   const stats = await getFollowedPathStats(absoluteTarget);
   const resolvedType = stats?.isDirectory() ? "junction" : "file";
 

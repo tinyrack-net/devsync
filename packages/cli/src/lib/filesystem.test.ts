@@ -12,6 +12,7 @@ import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 
 import { isExecutableMode } from "#app/lib/file-mode.ts";
+import { createTemporaryDirectory } from "../test/helpers/sync-fixture.ts";
 import {
   copyFilesystemNode,
   createSymlink,
@@ -24,8 +25,6 @@ import {
   writeSymlinkNode,
   writeTextFileAtomically,
 } from "./filesystem.ts";
-
-import { createTemporaryDirectory } from "../test/helpers/sync-fixture.ts";
 
 const temporaryDirectories: string[] = [];
 

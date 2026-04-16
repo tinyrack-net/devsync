@@ -253,10 +253,7 @@ describe("pull planning", () => {
   it("does not report deleted local paths as repository updates", async () => {
     mocked.buildRepositorySnapshot.mockResolvedValueOnce(new Map());
     mocked.buildEntryMaterialization.mockReturnValueOnce({
-      desiredKeys: new Set([
-        ".config/app/",
-        ".config/app/config.json",
-      ]),
+      desiredKeys: new Set([".config/app/", ".config/app/config.json"]),
       nodes: new Map(),
       type: "directory",
     });
@@ -273,7 +270,10 @@ describe("pull planning", () => {
         existingKeys.add(".config/app/");
         existingKeys.add(".config/app/config.json");
         existingKeys.add(".config/app/cache.json");
-        keyToLocalPath?.set(".config/app/cache.json", "/tmp/home/.config/app/cache.json");
+        keyToLocalPath?.set(
+          ".config/app/cache.json",
+          "/tmp/home/.config/app/cache.json",
+        );
         deletedKeys?.add(".config/app/cache.json");
         return 1;
       },
@@ -301,8 +301,12 @@ describe("pull planning", () => {
 
     const plan = await buildPullPlan(config as never, "/tmp/devsync");
 
-    expect(plan.updatedLocalPaths).toEqual(["/tmp/home/.config/app/config.json"]);
-    expect(plan.deletedLocalPaths).toEqual(["/tmp/home/.config/app/cache.json"]);
+    expect(plan.updatedLocalPaths).toEqual([
+      "/tmp/home/.config/app/config.json",
+    ]);
+    expect(plan.deletedLocalPaths).toEqual([
+      "/tmp/home/.config/app/cache.json",
+    ]);
   });
 
   it("does not apply ignore-mode entries during pull", async () => {
