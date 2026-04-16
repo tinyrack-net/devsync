@@ -5,7 +5,6 @@ import {
   readFile,
   readlink,
   rm,
-  symlink,
   writeFile,
 } from "node:fs/promises";
 import { join } from "node:path";
@@ -15,6 +14,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { isExecutableMode } from "#app/lib/file-mode.ts";
 import {
   copyFilesystemNode,
+  createSymlink,
   getPathStats,
   listDirectoryEntries,
   pathExists,
@@ -23,7 +23,8 @@ import {
   writeFileNode,
   writeSymlinkNode,
   writeTextFileAtomically,
-} from "#app/lib/filesystem.ts";
+} from "./filesystem.ts";
+
 import { createTemporaryDirectory } from "../test/helpers/sync-fixture.ts";
 
 const temporaryDirectories: string[] = [];
@@ -105,10 +106,6 @@ describe("filesystem helpers", () => {
   });
 
   it("copies regular files and symlinks", async () => {
-    if (process.platform === "win32") {
-      return;
-    }
-
     const workspace = await createWorkspace();
     const sourceDirectory = join(workspace, "source");
     const targetDirectory = join(workspace, "target");
@@ -118,7 +115,7 @@ describe("filesystem helpers", () => {
     await mkdir(join(sourceDirectory, "nested"), { recursive: true });
     await writeFile(filePath, "payload\n", "utf8");
     await chmod(filePath, 0o755);
-    await symlink("value.txt", linkPath);
+    await createSymlink("value.txt", linkPath);
 
     await copyFilesystemNode(sourceDirectory, targetDirectory);
 

@@ -6,7 +6,6 @@ import {
   readFile,
   readlink,
   rm,
-  symlink,
 } from "node:fs/promises";
 import { basename, dirname, join, posix } from "node:path";
 import type { ConsolaInstance } from "consola";
@@ -27,6 +26,7 @@ import {
   supportsPosixFileModes,
 } from "#app/lib/file-mode.ts";
 import {
+  createSymlink,
   getPathStats,
   listDirectoryEntries,
   removePathAtomically,
@@ -161,7 +161,7 @@ const stageAndReplaceFilePath = async (
 
   try {
     if (node.type === "symlink") {
-      await symlink(node.linkTarget, stagedPath);
+      await createSymlink(node.linkTarget, stagedPath);
     } else {
       await writeFileNode(stagedPath, node, fileMode);
     }

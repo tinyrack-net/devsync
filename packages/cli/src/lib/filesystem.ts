@@ -10,10 +10,11 @@ import {
   readlink,
   rename,
   rm,
+  stat,
   symlink,
   writeFile,
 } from "node:fs/promises";
-import { basename, dirname, join } from "node:path";
+import { basename, dirname, isAbsolute, join } from "node:path";
 import { DevsyncError } from "#app/lib/error.ts";
 import { buildExecutableMode, isExecutableMode } from "#app/lib/file-mode.ts";
 
@@ -40,6 +41,25 @@ export const pathExists = async (path: string) => {
 export const getPathStats = async (path: string) => {
   try {
     return await lstat(path);
+  } catch (error: unknown) {
+    if (
+      error instanceof Error &&
+      "code" in error &&
+      (error.code === "ENOENT" || error.code === "ENOTDIR")
+    ) {
+      return undefined;
+    }
+    throw error;
+  }
+};
+
+/**
+ * @description
+ * Reads path metadata while following symlinks and treating missing paths as an absent result.
+ */
+export const getFollowedPathStats = async (path: string) => {
+  try {
+    return await stat(path);
   } catch (error: unknown) {
     if (
       error instanceof Error &&
@@ -82,12 +102,40 @@ export const writeFileNode = async (
 
 /**
  * @description
+ * Creates a symlink while correctly handling Windows symlink types.
+ */
+export const createSymlink = async (
+  target: string,
+  path: string,
+  type?: "file" | "dir" | "junction",
+) => {
+  if (process.platform !== "win32") {
+    await symlink(target, path);
+    return;
+  }
+
+  // On Windows, the symlink type (file, dir, junction) must be specified.
+  // Junctions are preferred for directories as they don't require admin privileges.
+  if (type !== undefined) {
+    await symlink(target, path, type);
+    return;
+  }
+
+  const absoluteTarget = isAbsolute(target) ? target : join(dirname(path), target);
+  const stats = await getFollowedPathStats(absoluteTarget);
+  const resolvedType = stats?.isDirectory() ? "junction" : "file";
+
+  await symlink(target, path, resolvedType);
+};
+
+/**
+ * @description
  * Replaces a path with a symlink node and its target.
  */
 export const writeSymlinkNode = async (path: string, linkTarget: string) => {
   await mkdir(dirname(path), { recursive: true });
   await rm(path, { force: true, recursive: true });
-  await symlink(linkTarget, path);
+  await createSymlink(linkTarget, path);
 };
 
 /**
@@ -117,7 +165,8 @@ export const copyFilesystemNode = async (
   }
 
   if (sourceStats.isSymbolicLink()) {
-    await writeSymlinkNode(targetPath, await readlink(sourcePath));
+    const linkTarget = await readlink(sourcePath);
+    await writeSymlinkNode(targetPath, linkTarget);
 
     return;
   }

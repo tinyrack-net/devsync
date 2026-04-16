@@ -1,4 +1,4 @@
-import { mkdir, rm, symlink, writeFile } from "node:fs/promises";
+import { mkdir, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { ConsolaInstance } from "consola";
 import { afterEach, describe, expect, it } from "vitest";
@@ -8,6 +8,7 @@ import type {
   SyncConfigEntryKind,
   SyncMode,
 } from "#app/config/sync.ts";
+import { createSymlink } from "#app/lib/filesystem.ts";
 import { buildDirectoryKey } from "#app/lib/path.ts";
 import {
   collectChangedLocalPaths,
@@ -223,7 +224,7 @@ describe("local materialization", () => {
     await mkdir(appDirectory, { recursive: true });
     await writeFile(configFile, '{"version":1}\n', "utf8");
     await writeFile(join(appDirectory, "v1"), "", "utf8");
-    await symlink("./v1", linkPath, "file");
+    await createSymlink("./v1", linkPath, "file");
 
     const entry = createEntry(
       "directory",

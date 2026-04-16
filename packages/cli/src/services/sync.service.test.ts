@@ -5,12 +5,13 @@ import {
   readFile,
   readlink,
   rm,
-  symlink,
   writeFile,
 } from "node:fs/promises";
 import { join } from "node:path";
 
 import { afterEach, describe, expect, it, vi } from "vitest";
+
+import { createSymlink } from "#app/lib/filesystem.ts";
 
 const mockEnv = vi.hoisted(() => ({
   HOME: "",
@@ -1522,7 +1523,7 @@ describe("sync service", () => {
     await writeIdentityFile(xdgConfigHome, ageKeys.identity);
     await mkdir(appDirectory, { recursive: true });
     await writeFile(targetFile, "target\n", "utf8");
-    await symlink("./target.txt", currentPath);
+    await createSymlink("./target.txt", currentPath);
 
     setEnvironment(homeDirectory, xdgConfigHome);
 
@@ -1673,7 +1674,7 @@ describe("sync service", () => {
     await writeIdentityFile(xdgConfigHome, ageKeys.identity);
     await mkdir(homeDirectory, { recursive: true });
     await writeFile(zshrc, "export PATH=~/.local/bin:$PATH\n", "utf8");
-    await symlink(".zshrc", zshenv);
+    await createSymlink(".zshrc", zshenv);
 
     setEnvironment(homeDirectory, xdgConfigHome);
 
