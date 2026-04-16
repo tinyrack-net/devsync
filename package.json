@@ -5,6 +5,7 @@
   "packageManager": "pnpm@10.33.0",
   "scripts": {
     "dev": "pnpm run -r --filter @tinyrack/* dev",
+    "build": "pnpm run -r --filter @tinyrack/* build",
     "format": "biome format --write .",
     "format:check": "biome check ."
   },
