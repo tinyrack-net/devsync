@@ -1,13 +1,13 @@
-import { describe, expect, it, vi, beforeEach } from "vitest";
-import {
-  collectArtifactProfiles,
-  buildArtifactKey,
-  isSecretArtifactPath,
-  stripSecretArtifactSuffix,
-  resolveArtifactRelativePath,
-  parseArtifactRelativePath,
-} from "./repo-artifacts.ts";
+import { describe, expect, it } from "vitest";
 import { CONSTANTS } from "#app/config/constants.ts";
+import {
+  buildArtifactKey,
+  collectArtifactProfiles,
+  isSecretArtifactPath,
+  parseArtifactRelativePath,
+  resolveArtifactRelativePath,
+  stripSecretArtifactSuffix,
+} from "./repo-artifacts.ts";
 
 describe("repo-artifacts service", () => {
   it("collects artifact profiles from entries", () => {
@@ -30,7 +30,7 @@ describe("repo-artifacts service", () => {
         profile: "default",
         repoPath: "config",
         category: "plain",
-      } as any)
+      } as any),
     ).toBe("default/config/");
 
     expect(
@@ -39,12 +39,14 @@ describe("repo-artifacts service", () => {
         profile: "default",
         repoPath: "file.txt",
         category: "plain",
-      } as any)
+      } as any),
     ).toBe("default/file.txt");
   });
 
   it("identifies secret artifact paths", () => {
-    expect(isSecretArtifactPath("file.txt" + CONSTANTS.SYNC.SECRET_ARTIFACT_SUFFIX)).toBe(true);
+    expect(
+      isSecretArtifactPath("file.txt" + CONSTANTS.SYNC.SECRET_ARTIFACT_SUFFIX),
+    ).toBe(true);
     expect(isSecretArtifactPath("file.txt")).toBe(false);
   });
 
@@ -60,7 +62,7 @@ describe("repo-artifacts service", () => {
         category: "plain",
         profile: "work",
         repoPath: "config",
-      })
+      }),
     ).toBe("work/config");
 
     expect(
@@ -68,7 +70,7 @@ describe("repo-artifacts service", () => {
         category: "secret",
         profile: "work",
         repoPath: "secrets.json",
-      })
+      }),
     ).toBe("work/secrets.json" + CONSTANTS.SYNC.SECRET_ARTIFACT_SUFFIX);
   });
 

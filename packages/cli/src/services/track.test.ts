@@ -1,6 +1,6 @@
-import { describe, expect, it, vi, beforeEach } from "vitest";
-import { trackTarget } from "./track.ts";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { DevsyncError } from "#app/lib/error.ts";
+import { trackTarget } from "./track.ts";
 
 const mocked = vi.hoisted(() => ({
   getPathStats: vi.fn(),
@@ -82,7 +82,7 @@ describe("track service", () => {
 
     const result = await trackTarget(
       { target: "/home/user/.bashrc", mode: "normal" },
-      "/home/user"
+      "/home/user",
     );
 
     expect(result.alreadyTracked).toBe(false);
@@ -95,7 +95,10 @@ describe("track service", () => {
     mocked.getPathStats.mockResolvedValue(undefined);
 
     await expect(
-      trackTarget({ target: "/home/user/missing", mode: "normal" }, "/home/user")
+      trackTarget(
+        { target: "/home/user/missing", mode: "normal" },
+        "/home/user",
+      ),
     ).rejects.toThrow(DevsyncError);
   });
 
@@ -121,7 +124,7 @@ describe("track service", () => {
 
     const result = await trackTarget(
       { target: localPath, mode: "normal" },
-      "/home/user"
+      "/home/user",
     );
 
     expect(result.alreadyTracked).toBe(true);
@@ -150,7 +153,7 @@ describe("track service", () => {
 
     const result = await trackTarget(
       { target: localPath, mode: "secret" },
-      "/home/user"
+      "/home/user",
     );
 
     expect(result.alreadyTracked).toBe(true);

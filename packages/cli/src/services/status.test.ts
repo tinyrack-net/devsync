@@ -1,4 +1,4 @@
-import { describe, expect, it, vi, beforeEach } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { getStatus } from "./status.ts";
 
 const mocked = vi.hoisted(() => ({
@@ -76,9 +76,7 @@ describe("status service", () => {
 
     mocked.loadSyncConfig.mockResolvedValue(mockConfig);
     mocked.buildPushPlan.mockResolvedValue({
-      artifacts: [
-        { profile: "default", repoPath: ".bashrc", kind: "file" }
-      ],
+      artifacts: [{ profile: "default", repoPath: ".bashrc", kind: "file" }],
       existingArtifactKeys: new Set(),
       desiredArtifactKeys: new Set(["default/.bashrc"]),
     });

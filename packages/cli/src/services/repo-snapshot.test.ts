@@ -1,4 +1,4 @@
-import { describe, expect, it, vi, beforeEach } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { buildRepositorySnapshot } from "./repo-snapshot.ts";
 
 const mocked = vi.hoisted(() => ({
@@ -61,7 +61,12 @@ describe("repo-snapshot service", () => {
 
     mocked.getPathStats.mockResolvedValue({ isDirectory: () => true });
     mocked.listDirectoryEntries.mockResolvedValue([{ name: "config.json" }]);
-    mocked.lstat.mockResolvedValue({ isDirectory: () => false, isSymbolicLink: () => false, isFile: () => true, mode: 0o644 });
+    mocked.lstat.mockResolvedValue({
+      isDirectory: () => false,
+      isSymbolicLink: () => false,
+      isFile: () => true,
+      mode: 0o644,
+    });
     mocked.readFile.mockResolvedValue(Buffer.from("data"));
     mocked.resolveSyncRule.mockReturnValue({ profile: "work", mode: "normal" });
 
@@ -75,9 +80,7 @@ describe("repo-snapshot service", () => {
   it("handles directory entries", async () => {
     const config = {
       activeProfile: "work",
-      entries: [
-        { kind: "directory", repoPath: "dotconfig" }
-      ],
+      entries: [{ kind: "directory", repoPath: "dotconfig" }],
       age: { identityFile: "id.txt" },
     };
 

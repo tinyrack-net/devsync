@@ -61,3 +61,58 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: gh release create ${{ github.ref_name }} --generate-notes
+
+  build-sea:
+    needs: publish
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            artifact_name: devsync-linux-x64
+            executable_path: packages/cli/dist/sea/devsync
+          - os: ubuntu-24.04-arm
+            artifact_name: devsync-linux-arm64
+            executable_path: packages/cli/dist/sea/devsync
+          - os: macos-14
+            artifact_name: devsync-darwin-arm64
+            executable_path: packages/cli/dist/sea/devsync
+          - os: macos-13
+            artifact_name: devsync-darwin-x64
+            executable_path: packages/cli/dist/sea/devsync
+          - os: windows-latest
+            artifact_name: devsync-win32-x64.exe
+            executable_path: packages/cli/dist/sea/devsync.exe
+          - os: windows-latest
+            artifact_name: devsync-win32-arm64.exe
+            executable_path: packages/cli/dist/sea/devsync.exe
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 25
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build SEA
+        run: pnpm --filter @tinyrack/devsync run sea:build
+
+      - name: Rename executable
+        shell: bash
+        run: mv ${{ matrix.executable_path }} packages/cli/dist/sea/${{ matrix.artifact_name }}
+
+      - name: Upload to GitHub Release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release upload ${{ github.ref_name }} packages/cli/dist/sea/${{ matrix.artifact_name }} --clobber

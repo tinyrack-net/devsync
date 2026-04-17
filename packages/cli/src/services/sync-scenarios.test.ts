@@ -1,4 +1,4 @@
-import { describe, expect, it, vi, beforeEach } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { buildPullPlan } from "./pull.ts";
 import { buildPushPlan } from "./push.ts";
 
@@ -40,19 +40,26 @@ describe("sync scenarios (unit)", () => {
           repoPath: ".ssh/config",
           profiles: ["work", "personal"],
           mode: "normal",
-        }
+        },
       ],
       age: { identityFile: "id.txt" },
     };
 
-    mocked.buildRepositorySnapshot.mockResolvedValue(new Map([
-      [".ssh/config", { type: "file", contents: Buffer.from("work-ssh"), secret: false }]
-    ]));
+    mocked.buildRepositorySnapshot.mockResolvedValue(
+      new Map([
+        [
+          ".ssh/config",
+          { type: "file", contents: Buffer.from("work-ssh"), secret: false },
+        ],
+      ]),
+    );
     mocked.buildEntryMaterialization.mockReturnValue({
       type: "file",
       desiredKeys: new Set([".ssh/config"]),
     });
-    mocked.collectChangedLocalPaths.mockResolvedValue(["/home/user/.ssh/config"]);
+    mocked.collectChangedLocalPaths.mockResolvedValue([
+      "/home/user/.ssh/config",
+    ]);
 
     const plan = await buildPullPlan(config as any, "/tmp/sync");
 
@@ -77,19 +84,24 @@ describe("sync scenarios (unit)", () => {
           repoPath: "app/node_modules",
           profiles: [],
           mode: "ignore",
-        }
+        },
       ],
     };
 
-    mocked.buildLocalSnapshot.mockResolvedValue(new Map([
-      ["app", { type: "directory" }],
-      ["app/main.js", { type: "file", contents: Buffer.from("js"), secret: false }],
-    ]));
-    
+    mocked.buildLocalSnapshot.mockResolvedValue(
+      new Map([
+        ["app", { type: "directory" }],
+        [
+          "app/main.js",
+          { type: "file", contents: Buffer.from("js"), secret: false },
+        ],
+      ]),
+    );
+
     // In actual implementation, buildLocalSnapshot filters out ignored entries.
     const plan = await buildPushPlan(config as any, "/tmp/sync");
 
-    const artifactRepoPaths = plan.artifacts.map(a => a.repoPath);
+    const artifactRepoPaths = plan.artifacts.map((a) => a.repoPath);
     expect(artifactRepoPaths).toContain("app");
     expect(artifactRepoPaths).toContain("app/main.js");
     expect(artifactRepoPaths).not.toContain("app/node_modules");

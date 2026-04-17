@@ -181,7 +181,9 @@ export const pushChanges = async (
         removedArtifactCount += 1;
 
         if ((reporter?.level ?? 0) >= 4) {
-          reporter?.verbose(`removing stale repository artifact ${relativePath}`);
+          reporter?.verbose(
+            `removing stale repository artifact ${relativePath}`,
+          );
         } else if (removedArtifactCount % 100 === 0) {
           reporter?.start(
             `Removed ${removedArtifactCount} stale repository artifacts...`,

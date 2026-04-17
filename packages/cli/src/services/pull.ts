@@ -2,8 +2,8 @@ import type { ConsolaInstance } from "consola";
 import { CONSTANTS } from "#app/config/constants.ts";
 import { resolveSyncConfigFilePath } from "#app/config/sync.ts";
 import { ensureGitRepository } from "#app/lib/git.ts";
-import { limitConcurrency } from "#app/lib/promise.ts";
 import { isPathEqualOrNested } from "#app/lib/path.ts";
+import { limitConcurrency } from "#app/lib/promise.ts";
 import {
   applyEntryMaterialization,
   buildEntryMaterialization,

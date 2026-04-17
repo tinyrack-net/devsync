@@ -1042,7 +1042,7 @@ describe("sync CLI e2e", () => {
     await writeFile(backupFile, '{"version": "backup"}\n');
 
     // Run pull -y, it should still work and ideally clean up stray backup files
-    // (replacePathAtomically cleans up backup files in its finally block, 
+    // (replacePathAtomically cleans up backup files in its finally block,
     // but here we are simulating one that stayed because the process was killed)
     const result = await ctx.runCli(["pull", "-y"]);
 

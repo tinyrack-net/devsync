@@ -28,7 +28,10 @@ describe("concurrency e2e", () => {
     });
 
     for (const fileName of fileNames) {
-      await writeFile(join(appDirectory, fileName), `content for ${fileName}\n`);
+      await writeFile(
+        join(appDirectory, fileName),
+        `content for ${fileName}\n`,
+      );
     }
 
     const ageKeys = await ctx.createAgeKeyPair();
@@ -46,7 +49,10 @@ describe("concurrency e2e", () => {
 
     // Modify some files locally to trigger updates during pull later
     for (let i = 0; i < 20; i += 1) {
-      await writeFile(join(appDirectory, fileNames[i]!), `modified content ${i}\n`);
+      await writeFile(
+        join(appDirectory, fileNames[i]!),
+        `modified content ${i}\n`,
+      );
     }
 
     // Push again (updates)
