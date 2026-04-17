@@ -74,12 +74,12 @@ jobs:
           - os: ubuntu-24.04-arm
             artifact_name: devsync-linux-arm64
             executable_path: packages/cli/dist/sea/devsync
-          - os: macos-14
-            artifact_name: devsync-darwin-arm64
-            executable_path: packages/cli/dist/sea/devsync
-          - os: macos-13
-            artifact_name: devsync-darwin-x64
-            executable_path: packages/cli/dist/sea/devsync
+          # - os: macos-14
+          #   artifact_name: devsync-darwin-arm64
+          #   executable_path: packages/cli/dist/sea/devsync
+          # - os: macos-13
+          #   artifact_name: devsync-darwin-x64
+          #   executable_path: packages/cli/dist/sea/devsync
           - os: windows-latest
             artifact_name: devsync-win32-x64.exe
             executable_path: packages/cli/dist/sea/devsync.exe
