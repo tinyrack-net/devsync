@@ -1,6 +1,6 @@
 {
   "name": "@tinyrack/devsync",
-  "version": "1.38.0",
+  "version": "1.39.0",
   "description": "A personal CLI tool for git-backed configuration sync.",
   "type": "module",
   "license": "MIT",
