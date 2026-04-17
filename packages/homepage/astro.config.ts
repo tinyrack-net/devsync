@@ -1,6 +1,6 @@
+import { readFileSync } from "node:fs";
 import starlight from "@astrojs/starlight";
 import tailwindcss from "@tailwindcss/vite";
-import { readFileSync } from "node:fs";
 import { defineConfig } from "astro/config";
 import starlightThemeBlack from "starlight-theme-black";
 

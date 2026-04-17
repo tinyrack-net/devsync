@@ -50,7 +50,7 @@ describe("concurrency e2e", () => {
     // Modify some files locally to trigger updates during pull later
     for (let i = 0; i < 20; i += 1) {
       await writeFile(
-        join(appDirectory, fileNames[i]!),
+        join(appDirectory, fileNames[i] as string),
         `modified content ${i}\n`,
       );
     }
@@ -70,7 +70,7 @@ describe("concurrency e2e", () => {
 
     // Verify all files are restored correctly
     for (let i = 0; i < fileCount; i += 1) {
-      const fileName = fileNames[i]!;
+      const fileName = fileNames[i] as string;
       const content = await readFile(join(appDirectory, fileName), "utf8");
       if (i < 20) {
         expect(content).toBe(`modified content ${i}\n`);

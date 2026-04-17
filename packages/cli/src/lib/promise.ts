@@ -18,7 +18,7 @@ export const limitConcurrency = async <T, R>(
     while (currentIndex < items.length) {
       const index = currentIndex;
       currentIndex += 1;
-      results[index] = await mapper(items[index]!, index);
+      results[index] = await mapper(items[index] as T, index);
     }
   };
 
