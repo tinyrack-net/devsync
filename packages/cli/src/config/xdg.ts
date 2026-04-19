@@ -60,7 +60,9 @@ export const resolveDotweaveGlobalConfigFilePath = (
   return resolve(dotweaveConfigDirectory, CONSTANTS.GLOBAL_CONFIG.FILE_NAME);
 };
 
-export const resolveDotweaveSyncDirectory = (dotweaveConfigDirectory: string) => {
+export const resolveDotweaveSyncDirectory = (
+  dotweaveConfigDirectory: string,
+) => {
   return resolve(dotweaveConfigDirectory, CONSTANTS.XDG.SYNC_DIRECTORY_NAME);
 };
 

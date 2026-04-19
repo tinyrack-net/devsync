@@ -179,7 +179,8 @@ describe("sync doctor", () => {
     mocked.buildRepositorySnapshot.mockResolvedValueOnce(new Map());
     mocked.pathExists.mockImplementation(async (path: string) => {
       return (
-        path !== "/tmp/dotweave/keys.txt" && path !== "/tmp/home/.ssh/id_ed25519"
+        path !== "/tmp/dotweave/keys.txt" &&
+        path !== "/tmp/home/.ssh/id_ed25519"
       );
     });
     const reporter = createReporter(true);

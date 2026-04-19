@@ -106,11 +106,14 @@ const buildTrackEntryCandidate = async (
   })();
 
   if (doPathsOverlap(targetPath, syncDirectory)) {
-    throw new DotweaveError("Sync target overlaps the dotweave sync directory.", {
-      code: "TARGET_OVERLAPS_SYNC_DIR",
-      details: [`Target: ${targetPath}`, `Sync directory: ${syncDirectory}`],
-      hint: "Choose a path outside the dotweave sync directory.",
-    });
+    throw new DotweaveError(
+      "Sync target overlaps the dotweave sync directory.",
+      {
+        code: "TARGET_OVERLAPS_SYNC_DIR",
+        details: [`Target: ${targetPath}`, `Sync directory: ${syncDirectory}`],
+        hint: "Choose a path outside the dotweave sync directory.",
+      },
+    );
   }
 
   if (

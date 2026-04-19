@@ -1038,7 +1038,10 @@ describe("sync CLI e2e", () => {
     await ctx.runCli(["push"]);
 
     // Simulate an interrupted sync by manually creating a backup file
-    const backupFile = join(configDir, ".config.json.dotweave-sync-backup-1234");
+    const backupFile = join(
+      configDir,
+      ".config.json.dotweave-sync-backup-1234",
+    );
     await writeFile(backupFile, '{"version": "backup"}\n');
 
     // Run pull -y, it should still work and ideally clean up stray backup files
