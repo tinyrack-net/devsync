@@ -148,7 +148,10 @@ const isMaterializedFileLikeNodeCurrent = async (
 };
 
 const normalizeLinkTargetForComparison = (target: string) => {
-  return process.platform === "win32" ? target.replaceAll("\\", "/") : target;
+  const normalized =
+    process.platform === "win32" ? target.replaceAll("\\", "/") : target;
+
+  return process.platform === "win32" ? normalized.toLowerCase() : normalized;
 };
 
 const stageAndReplaceFilePath = async (
@@ -410,9 +413,17 @@ const collectDeletableLocalKeys = async (
 ) => {
   const deletableKeys: string[] = [];
   const scheduledLocalPaths = new Set<string>();
+
+  const isWindows = process.platform === "win32";
+  const desiredKeysForComparison = isWindows
+    ? new Set([...desiredKeys].map((key) => key.toLowerCase()))
+    : desiredKeys;
+
   const staleKeys = [...existingKeys]
     .filter((key) => {
-      return !desiredKeys.has(key);
+      return isWindows
+        ? !desiredKeysForComparison.has(key.toLowerCase())
+        : !desiredKeysForComparison.has(key);
     })
     .sort((left, right) => {
       const leftPath = keyToLocalPath.get(left) ?? "";

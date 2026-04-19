@@ -410,7 +410,10 @@ const isSecretArtifactUnchanged = async (
 };
 
 const normalizeLinkTargetForComparison = (target: string) => {
-  return process.platform === "win32" ? target.replaceAll("\\", "/") : target;
+  const normalized =
+    process.platform === "win32" ? target.replaceAll("\\", "/") : target;
+
+  return process.platform === "win32" ? normalized.toLowerCase() : normalized;
 };
 
 export const isRepoArtifactCurrent = async (
