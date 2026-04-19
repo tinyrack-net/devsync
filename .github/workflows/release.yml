@@ -142,10 +142,8 @@ jobs:
           fi
 
       - name: Sign Windows binary (SSL.com eSigner)
-        if: startsWith(matrix.os, 'windows') && env.ESIGNER_USERNAME != ''
-        uses: sslcom/esigner-codesign@v1
-        env:
-          ESIGNER_USERNAME: ${{ secrets.ESIGNER_USERNAME }}
+        if: startsWith(matrix.os, 'windows') && secrets.ESIGNER_USERNAME != ''
+        uses: sslcom/esigner-codesign@v1.3.2
         with:
           command: sign
           username: ${{ secrets.ESIGNER_USERNAME }}
