@@ -88,7 +88,7 @@
 
       // cobe v2: drive rotation via requestAnimationFrame + globe.update()
       function animate() {
-        phi += 0.005;
+        phi += 0.002;
         globe?.update({ phi });
         frameId = requestAnimationFrame(animate);
       }
