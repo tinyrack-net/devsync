@@ -92,6 +92,8 @@ jobs:
             artifact_name: dotweave-win32-arm64.exe
             executable_path: packages/cli/dist/sea/dotweave.exe
     runs-on: ${{ matrix.os }}
+    env:
+      ESIGNER_USERNAME: ${{ secrets.ESIGNER_USERNAME }}
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -147,7 +149,7 @@ jobs:
           fi
 
       - name: Sign Windows binary (SSL.com eSigner)
-        if: startsWith(matrix.os, 'windows') && secrets.ESIGNER_USERNAME != ''
+        if: startsWith(matrix.os, 'windows') && env.ESIGNER_USERNAME != ''
         uses: sslcom/esigner-codesign@v1.3.2
         with:
           command: sign
