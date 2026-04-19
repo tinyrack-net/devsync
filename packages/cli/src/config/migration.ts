@@ -1,7 +1,7 @@
 import { writeFile } from "node:fs/promises";
 import { basename, dirname, join } from "node:path";
 
-import { DevsyncError } from "#app/lib/error.ts";
+import { DotweaveError } from "#app/lib/error.ts";
 import { writeTextFileAtomically } from "#app/lib/filesystem.ts";
 import { ensureTrailingNewline } from "#app/lib/string.ts";
 
@@ -43,12 +43,12 @@ export const runConfigMigrations = async (
   }
 
   if (version > targetVersion) {
-    throw new DevsyncError(
+    throw new DotweaveError(
       `Config file version ${version} is newer than this CLI supports (max: ${targetVersion}).`,
       {
         code: "CONFIG_NEWER_VERSION",
         details: [`Config file: ${filePath}`],
-        hint: "Upgrade devsync to the latest version.",
+        hint: "Upgrade dotweave to the latest version.",
       },
     );
   }
@@ -69,12 +69,12 @@ export const runConfigMigrations = async (
     const migrateFn = registry.get(v);
 
     if (migrateFn === undefined) {
-      throw new DevsyncError(
+      throw new DotweaveError(
         `No migration path found for config version ${v} → ${v + 1}.`,
         {
           code: "CONFIG_MIGRATION_NOT_FOUND",
           details: [`Config file: ${filePath}`],
-          hint: "Upgrade devsync to the latest version.",
+          hint: "Upgrade dotweave to the latest version.",
         },
       );
     }
@@ -82,7 +82,7 @@ export const runConfigMigrations = async (
     try {
       current = migrateFn(current);
     } catch (error: unknown) {
-      throw new DevsyncError(
+      throw new DotweaveError(
         `Failed to migrate config from version ${v} to ${v + 1}.`,
         {
           code: "CONFIG_MIGRATION_FAILED",

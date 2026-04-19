@@ -7,7 +7,7 @@ import { Aside } from "@astrojs/starlight/components";
 
 Most config files live at different paths depending on your operating system.
 VS Code settings, for example, are stored in `~/.config/Code/User/` on Linux
-but `~/Library/Application Support/Code/User/` on macOS. devsync handles this
+but `~/Library/Application Support/Code/User/` on macOS. dotweave handles this
 with **platform-specific path objects** in your `manifest.jsonc`.
 
 ## Platform keys
@@ -25,7 +25,7 @@ with one or more platform keys:
 
 ## How resolution works
 
-When devsync reads a path, it picks the best match in this order:
+When dotweave reads a path, it picks the best match in this order:
 
 1. **Exact platform key** — if your OS has a dedicated entry, that wins.
 2. **Fallback** — `wsl` falls back to `linux` if no `wsl` key exists.
@@ -35,7 +35,7 @@ If none of these resolve, the entry is skipped on that platform.
 
 ## `localPath` — always a platform object
 
-`localPath` tells devsync where a file lives on your machine. Because this is
+`localPath` tells dotweave where a file lives on your machine. Because this is
 the field most likely to differ across operating systems, it is always written
 as a platform object:
 
@@ -99,7 +99,7 @@ Windows:
 ```
 
 <Aside type="tip">
-When you run `devsync track`, the file's path is recorded under the `default`
+When you run `dotweave track`, the file's path is recorded under the `default`
 key automatically. If you need platform-specific paths, edit `manifest.jsonc`
 directly and add the extra keys.
 </Aside>
@@ -107,7 +107,7 @@ directly and add the extra keys.
 ## Editing tips
 
 - You can always hand-edit `manifest.jsonc` to add or adjust platform keys.
-- `devsync track` is a quick way to start — it captures the current platform's
+- `dotweave track` is a quick way to start — it captures the current platform's
   path as `default`, and you can add other platforms later.
-- Use `devsync status` to verify that paths resolve correctly on the current
+- Use `dotweave status` to verify that paths resolve correctly on the current
   machine before pushing.

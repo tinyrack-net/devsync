@@ -1,16 +1,16 @@
 ---
-title: "devsync doctor"
+title: "dotweave doctor"
 description: "Check the health of your sync setup."
 ---
 
 Check sync directory, config, age identity, and tracked local paths.
 
-Run health checks for the local sync setup, including repository availability, config validity, age identity configuration, and whether tracked local paths still exist where devsync expects them.
+Run health checks for the local sync setup, including repository availability, config validity, age identity configuration, and whether tracked local paths still exist where dotweave expects them.
 
 ## Usage
 
 ```bash
-devsync doctor [flags]
+dotweave doctor [flags]
 ```
 
 ## Flags
@@ -25,11 +25,11 @@ devsync doctor [flags]
 Run all health checks:
 
 ```bash
-devsync doctor
+dotweave doctor
 ```
 
 Run checks for a specific profile:
 
 ```bash
-devsync doctor --profile work
+dotweave doctor --profile work
 ```

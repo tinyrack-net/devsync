@@ -7,7 +7,7 @@ const profileRoute = buildRouteMap({
   docs: {
     brief: "Manage active and assigned sync profiles",
     fullDescription:
-      "Inspect configured profiles or update which profile devsync should use by default.",
+      "Inspect configured profiles or update which profile dotweave should use by default.",
   },
   routes: {
     list: profileListCommand,

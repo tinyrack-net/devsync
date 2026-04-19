@@ -1,5 +1,5 @@
 ---
-title: "devsync pull"
+title: "dotweave pull"
 description: "Apply the sync directory contents to your local config paths."
 ---
 
@@ -12,7 +12,7 @@ Read tracked artifacts from the sync directory and materialize them back onto lo
 ## Usage
 
 ```bash
-devsync pull [flags]
+dotweave pull [flags]
 ```
 
 ## Flags
@@ -28,21 +28,21 @@ devsync pull [flags]
 Apply all tracked artifacts to local paths:
 
 ```bash
-devsync pull
+dotweave pull
 ```
 
 Preview what would change locally:
 
 ```bash
-devsync pull --dry-run
+dotweave pull --dry-run
 ```
 
 Pull only the work profile layer:
 
 ```bash
-devsync pull --profile work
+dotweave pull --profile work
 ```
 
 <Aside type="tip">
-Run `devsync status` first to see what `pull` would change before applying.
+Run `dotweave status` first to see what `pull` would change before applying.
 </Aside>

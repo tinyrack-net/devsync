@@ -21,7 +21,7 @@ const temporaryDirectories: string[] = [];
 
 const createWorkspace = async () => {
   const directory = await createTemporaryDirectory(
-    "devsync-local-materialization-",
+    "dotweave-local-materialization-",
   );
 
   temporaryDirectories.push(directory);

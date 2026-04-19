@@ -2,7 +2,7 @@ import { buildCommand } from "@stricli/core";
 import pc from "picocolors";
 import { type DoctorCheck, runDoctorChecks } from "#app/services/doctor.ts";
 import {
-  type DevsyncCliContext,
+  type DotweaveCliContext,
   verboseFlag,
 } from "#app/services/terminal/cli-runtime.ts";
 import { createCliLogger } from "#app/services/terminal/logger.ts";
@@ -38,13 +38,13 @@ const doctorCommand = buildCommand<
     verbose?: boolean;
   },
   [],
-  DevsyncCliContext
+  DotweaveCliContext
 >({
   docs: {
     brief:
       "Check sync directory, config, age identity, and tracked local paths",
     fullDescription:
-      "Run health checks for the local sync setup, including repository availability, config validity, age identity configuration, and whether tracked local paths still exist where devsync expects them.",
+      "Run health checks for the local sync setup, including repository availability, config validity, age identity configuration, and whether tracked local paths still exist where dotweave expects them.",
   },
   async func(flags) {
     const verbose = flags.verbose ?? false;

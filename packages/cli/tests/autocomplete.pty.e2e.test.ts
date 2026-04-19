@@ -22,7 +22,7 @@ const createTestShellDirectory = async (
   rcFileName: string,
 ): Promise<{ binDirectory: string; configDirectory: string }> => {
   const configDirectory = await mkdtemp(
-    join(tmpdir(), "devsync-autocomplete-pty-"),
+    join(tmpdir(), "dotweave-autocomplete-pty-"),
   );
   const binDirectory = join(configDirectory, "bin");
 
@@ -33,10 +33,10 @@ const createTestShellDirectory = async (
     .join(" ");
 
   await writeFile(
-    join(binDirectory, "devsync"),
+    join(binDirectory, "dotweave"),
     ["#!/usr/bin/env bash", `exec ${cliCommand} "$@"`].join("\n"),
   );
-  await chmod(join(binDirectory, "devsync"), 0o755);
+  await chmod(join(binDirectory, "dotweave"), 0o755);
 
   await writeFile(join(configDirectory, rcFileName), rcLines.join("\n"));
 
@@ -61,7 +61,7 @@ describe.skipIf(!isZshAvailable)("autocomplete zsh pty e2e", () => {
         "zstyle ':completion:*' list-colors ''",
         "zstyle ':completion:*' menu no",
         "PROMPT='PROMPT> '",
-        'eval "$(devsync autocomplete zsh)"',
+        'eval "$(dotweave autocomplete zsh)"',
       ],
       ".zshrc",
     );
@@ -98,13 +98,13 @@ describe.skipIf(!isZshAvailable)("autocomplete zsh pty e2e", () => {
     });
   };
 
-  it("lists root subcommands in interactive zsh after devsync tab tab", async () => {
+  it("lists root subcommands in interactive zsh after dotweave tab tab", async () => {
     const session = createZshSession();
 
     try {
       await session.waitFor("PROMPT> ", 10_000);
 
-      session.write("devsync\t\t");
+      session.write("dotweave\t\t");
 
       const output = await session.waitFor(rootCommandsPattern, 10_000);
 
@@ -118,19 +118,19 @@ describe.skipIf(!isZshAvailable)("autocomplete zsh pty e2e", () => {
     }
   }, 15_000);
 
-  it("still lists root subcommands after running devsync once in the same shell", async () => {
+  it("still lists root subcommands after running dotweave once in the same shell", async () => {
     const session = createZshSession();
 
     try {
       await session.waitFor("PROMPT> ", 10_000);
 
-      session.write("devsync\n");
+      session.write("dotweave\n");
       await session.waitFor("COMMANDS");
       await session.waitFor(/PROMPT> $/mu);
 
       session.clearOutput();
 
-      session.write("devsync\t\t");
+      session.write("dotweave\t\t");
 
       const output = await session.waitFor(rootCommandsPattern, 10_000);
 
@@ -169,7 +169,7 @@ describe.skipIf(!isZshAvailable)(
           "zstyle ':completion:*' menu no",
           "__test_reinit_compinit() { compinit; }",
           "add-zsh-hook precmd __test_reinit_compinit",
-          'eval "$(devsync autocomplete zsh)"',
+          'eval "$(dotweave autocomplete zsh)"',
           "PROMPT='PROMPT> '",
         ],
         ".zshrc",
@@ -202,13 +202,13 @@ describe.skipIf(!isZshAvailable)(
       try {
         await session.waitFor("PROMPT> ", 10_000);
 
-        session.write("devsync\n");
+        session.write("dotweave\n");
         await session.waitFor("COMMANDS");
         await session.waitFor(/PROMPT> $/mu);
 
         session.clearOutput();
 
-        session.write("devsync\t\t");
+        session.write("dotweave\t\t");
 
         const output = await session.waitFor(rootCommandsPattern, 10_000);
 
@@ -235,7 +235,7 @@ describe.skipIf(!isBashAvailable)("autocomplete bash pty e2e", () => {
     systemPath = inheritedPath;
 
     const { binDirectory, configDirectory } = await createTestShellDirectory(
-      ['eval "$(devsync autocomplete bash)"', "PS1='PROMPT> '"],
+      ['eval "$(dotweave autocomplete bash)"', "PS1='PROMPT> '"],
       ".bashrc",
     );
     bashBinDirectory = binDirectory;
@@ -269,7 +269,7 @@ describe.skipIf(!isBashAvailable)("autocomplete bash pty e2e", () => {
     try {
       await session.waitFor("PROMPT> ");
 
-      session.write("devsync \t\t");
+      session.write("dotweave \t\t");
 
       for (const commandName of rootCommandNames) {
         await session.waitFor(commandName, 10_000);
@@ -285,19 +285,19 @@ describe.skipIf(!isBashAvailable)("autocomplete bash pty e2e", () => {
     }
   }, 15_000);
 
-  it("still lists root subcommands after running devsync once in bash", async () => {
+  it("still lists root subcommands after running dotweave once in bash", async () => {
     const session = createBashSession();
 
     try {
       await session.waitFor("PROMPT> ");
 
-      session.write("devsync\n");
+      session.write("dotweave\n");
       await session.waitFor("COMMANDS");
       await session.waitFor(/PROMPT> $/mu);
 
       session.clearOutput();
 
-      session.write("devsync \t\t");
+      session.write("dotweave \t\t");
 
       for (const commandName of rootCommandNames) {
         await session.waitFor(commandName, 10_000);

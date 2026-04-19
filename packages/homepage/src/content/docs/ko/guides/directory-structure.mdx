@@ -1,18 +1,18 @@
 ---
 title: 디렉터리 구조
-description: devsync가 설정과 동기화 파일을 저장하는 위치와 구조를 알아보세요.
+description: dotweave가 설정과 동기화 파일을 저장하는 위치와 구조를 알아보세요.
 ---
 
 import { Aside, FileTree } from "@astrojs/starlight/components";
 
-devsync가 생성하는 모든 파일은 하나의 디렉터리 안에 있어요: `~/.config/devsync/`. `devsync init`을 실행하면 이 구조가 자동으로 만들어져요.
+dotweave가 생성하는 모든 파일은 하나의 디렉터리 안에 있어요: `~/.config/dotweave/`. `dotweave init`을 실행하면 이 구조가 자동으로 만들어져요.
 
 ---
 
 ## 전체 구조
 
 <FileTree>
-- ~/.config/devsync/
+- ~/.config/dotweave/
   - settings.jsonc
   - keys.txt
   - repository/
@@ -28,7 +28,7 @@ devsync가 생성하는 모든 파일은 하나의 디렉터리 안에 있어요
         - work-tool/
           - config.json
       - .ssh/
-        - config.devsync.secret
+        - config.dotweave.secret
 </FileTree>
 
 ---
@@ -37,11 +37,11 @@ devsync가 생성하는 모든 파일은 하나의 디렉터리 안에 있어요
 
 ### `repository/`: sync 디렉터리
 
-동기화된 파일을 보관하는 Git 저장소예요. `devsync push`를 실행하면 파일이 여기에 복사되고, `devsync pull`을 실행하면 여기에서 파일이 복원돼요. 이 저장소를 GitHub 같은 리모트에 push하면 여러 기기에서 동기화할 수 있어요.
+동기화된 파일을 보관하는 Git 저장소예요. `dotweave push`를 실행하면 파일이 여기에 복사되고, `dotweave pull`을 실행하면 여기에서 파일이 복원돼요. 이 저장소를 GitHub 같은 리모트에 push하면 여러 기기에서 동기화할 수 있어요.
 
 ### `repository/manifest.jsonc`: 설정 파일
 
-설정 파일은 원본(source of truth)이에요. 추적 중인 모든 파일과 디렉터리가 동기화 모드, 프로필, 퍼미션 같은 옵션과 함께 나열돼 있어요. `devsync track`과 `devsync untrack` 명령어가 이 파일을 수정해요.
+설정 파일은 원본(source of truth)이에요. 추적 중인 모든 파일과 디렉터리가 동기화 모드, 프로필, 퍼미션 같은 옵션과 함께 나열돼 있어요. `dotweave track`과 `dotweave untrack` 명령어가 이 파일을 수정해요.
 
 ### `repository/default/`: default 프로필의 파일들
 
@@ -53,7 +53,7 @@ devsync가 생성하는 모든 파일은 하나의 디렉터리 안에 있어요
 
 ### `keys.txt`: age identity 파일
 
-[시크릿 파일](/ko/guides/syncing-secrets/)을 암호화하고 복호화하는 데 사용하는 age 비밀 키예요. `devsync init` 중에 생성되며, `AGE-SECRET-KEY-`로 시작해요.
+[시크릿 파일](/ko/guides/syncing-secrets/)을 암호화하고 복호화하는 데 사용하는 age 비밀 키예요. `dotweave init` 중에 생성되며, `AGE-SECRET-KEY-`로 시작해요.
 
 <Aside type="caution">
 `keys.txt`를 안전한 곳에 백업해 두세요. 비밀번호 관리자가 좋은 선택이에요. 이 키를 잃어버리면 시크릿 파일을 복호화할 수 없어요.
@@ -61,7 +61,7 @@ devsync가 생성하는 모든 파일은 하나의 디렉터리 안에 있어요
 
 ### `settings.jsonc`: 사용자 설정
 
-활성 프로필과 기타 로컬 설정을 저장해요. 보통 직접 편집할 필요는 없으며, `devsync profile use work` 같은 명령어가 자동으로 업데이트해 줘요.
+활성 프로필과 기타 로컬 설정을 저장해요. 보통 직접 편집할 필요는 없으며, `dotweave profile use work` 같은 명령어가 자동으로 업데이트해 줘요.
 
 ---
 
@@ -96,7 +96,7 @@ devsync가 생성하는 모든 파일은 하나의 디렉터리 안에 있어요
 
 ### 설정 파일 구조
 
-- **`version`**: 스키마 버전 (현재 `7`). devsync가 자동으로 관리해요.
+- **`version`**: 스키마 버전 (현재 `7`). dotweave가 자동으로 관리해요.
 - **`age`**: 암호화 설정. `recipients` 배열에 시크릿 파일을 암호화하는 데 사용하는 공개 키가 나열돼요.
 - **`entries`**: 추적 중인 파일과 디렉터리 목록이에요. 각 항목에는 다음 옵션이 있어요:
   - **`kind`**: `"file"` 또는 `"directory"`
@@ -107,5 +107,5 @@ devsync가 생성하는 모든 파일은 하나의 디렉터리 안에 있어요
   - **`permission`**: `"0600"` 같은 8진수 파일 퍼미션 (선택 사항)
 
 <Aside type="note">
-`manifest.jsonc`를 직접 편집할 일은 거의 없어요. `devsync track`과 `devsync untrack` 명령어가 대신 처리해 줘요.
+`manifest.jsonc`를 직접 편집할 일은 거의 없어요. `dotweave track`과 `dotweave untrack` 명령어가 대신 처리해 줘요.
 </Aside>

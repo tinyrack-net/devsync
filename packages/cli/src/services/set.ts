@@ -9,7 +9,7 @@ import {
   type SyncMode,
 } from "#app/config/sync.ts";
 import { expandHomePath } from "#app/config/xdg.ts";
-import { DevsyncError } from "#app/lib/error.ts";
+import { DotweaveError } from "#app/lib/error.ts";
 import { getPathStats } from "#app/lib/filesystem.ts";
 import { ensureGitRepository } from "#app/lib/git.ts";
 import { isExplicitLocalPath } from "#app/lib/path.ts";
@@ -129,9 +129,9 @@ export const resolveSetTarget = async (
   const trimmedTarget = target.trim();
 
   if (trimmedTarget.length === 0) {
-    throw new DevsyncError("Target path is required.", {
+    throw new DotweaveError("Target path is required.", {
       code: "TARGET_REQUIRED",
-      hint: "Pass a tracked path, for example 'devsync mode ~/.ssh/id_ed25519 secret'.",
+      hint: "Pass a tracked path, for example 'dotweave mode ~/.ssh/id_ed25519 secret'.",
     });
   }
 
@@ -153,7 +153,7 @@ export const resolveSetTarget = async (
     const localStats = await getPathStats(localTargetPath);
 
     if (explicit && localStats === undefined) {
-      throw new DevsyncError("Sync set target does not exist.", {
+      throw new DotweaveError("Sync set target does not exist.", {
         code: "TARGET_NOT_FOUND",
         details: [`Target: ${localTargetPath}`],
         hint: "Use an existing local path, or pass a repository path inside a tracked directory.",
@@ -235,12 +235,12 @@ export const resolveSetTarget = async (
     }
 
     if (explicit) {
-      throw new DevsyncError(
+      throw new DotweaveError(
         "Local set target is not inside a tracked directory entry.",
         {
           code: "TARGET_NOT_TRACKED",
           details: [`Target: ${trimmedTarget}`],
-          hint: "Track the parent directory first with 'devsync track', then use 'devsync mode' on the child path.",
+          hint: "Track the parent directory first with 'dotweave track', then use 'dotweave mode' on the child path.",
         },
       );
     }
@@ -250,7 +250,7 @@ export const resolveSetTarget = async (
   const repoPath = tryNormalizeRepoPathInput(trimmedTarget);
 
   if (repoPath === undefined) {
-    throw new DevsyncError(
+    throw new DotweaveError(
       "Sync set target is not a valid local or repository path.",
       {
         code: "INVALID_SET_TARGET",
@@ -281,12 +281,12 @@ export const resolveSetTarget = async (
       : undefined;
 
   if (entry === undefined || relativePath === undefined) {
-    throw new DevsyncError(
+    throw new DotweaveError(
       "Repository set target is not inside a tracked directory entry.",
       {
         code: "TARGET_NOT_TRACKED",
         details: [`Target: ${trimmedTarget}`],
-        hint: "Use a repository path under an existing tracked directory, or track it first with 'devsync track'.",
+        hint: "Use a repository path under an existing tracked directory, or track it first with 'dotweave track'.",
       },
     );
   }
@@ -371,7 +371,7 @@ export const setTargetMode = async (
   );
 
   if (childLocalRelativePath === undefined || childLocalRelativePath === "") {
-    throw new DevsyncError(
+    throw new DotweaveError(
       "Sync set target must stay inside the configured home root.",
       {
         code: "TARGET_OUTSIDE_ROOT",

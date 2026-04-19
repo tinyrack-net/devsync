@@ -2,11 +2,11 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { getStatus } from "./status.ts";
 
 const mocked = vi.hoisted(() => ({
-  resolveSyncConfigFilePath: vi.fn(() => "/tmp/devsync/manifest.jsonc"),
+  resolveSyncConfigFilePath: vi.fn(() => "/tmp/dotweave/manifest.jsonc"),
   ensureGitRepository: vi.fn(),
   loadSyncConfig: vi.fn(),
   resolveSyncPaths: vi.fn(() => ({
-    syncDirectory: "/tmp/devsync",
+    syncDirectory: "/tmp/dotweave",
   })),
   buildPushPlan: vi.fn(),
   buildPullPlan: vi.fn(),
@@ -92,7 +92,7 @@ describe("status service", () => {
     expect(result.entryCount).toBe(1);
     expect(result.push.changes.added).toContain(".bashrc");
     expect(result.pull.changes.updated).toContain("/home/user/.bashrc");
-    expect(mocked.ensureGitRepository).toHaveBeenCalledWith("/tmp/devsync");
+    expect(mocked.ensureGitRepository).toHaveBeenCalledWith("/tmp/dotweave");
   });
 
   it("handles empty active profile", async () => {

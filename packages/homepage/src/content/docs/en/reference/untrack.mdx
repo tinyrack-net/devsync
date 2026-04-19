@@ -1,5 +1,5 @@
 ---
-title: "devsync untrack"
+title: "dotweave untrack"
 description: "Remove a path from sync tracking."
 ---
 
@@ -7,12 +7,12 @@ import { Aside } from "@astrojs/starlight/components";
 
 Stop tracking a synced path.
 
-Remove a tracked root entry or a nested override from devsync configuration. This only updates the sync config; actual file changes happen on the next `push` or `pull`. Use a local path to remove the main tracked target, or use a repository-relative child path inside a tracked directory to remove only that override.
+Remove a tracked root entry or a nested override from dotweave configuration. This only updates the sync config; actual file changes happen on the next `push` or `pull`. Use a local path to remove the main tracked target, or use a repository-relative child path inside a tracked directory to remove only that override.
 
 ## Usage
 
 ```bash
-devsync untrack <target> [flags]
+dotweave untrack <target> [flags]
 ```
 
 ## Arguments
@@ -32,13 +32,13 @@ devsync untrack <target> [flags]
 Stop tracking a config file:
 
 ```bash
-devsync untrack ~/.config/starship.toml
+dotweave untrack ~/.config/starship.toml
 ```
 
 Remove a child override inside a tracked directory:
 
 ```bash
-devsync untrack .ssh/config
+dotweave untrack .ssh/config
 ```
 
 <Aside>

@@ -15,14 +15,14 @@ import { Aside, Steps } from "@astrojs/starlight/components";
 
 ```bash
 # default 프로필: 모든 기기에서 동기화
-devsync track ~/.gitconfig
-devsync track ~/.zshrc
+dotweave track ~/.gitconfig
+dotweave track ~/.zshrc
 
 # "work" 프로필이 활성화된 경우에만 동기화
-devsync track ~/.config/work-vpn --profiles work
+dotweave track ~/.config/work-vpn --profiles work
 
 # "personal" 프로필이 활성화된 경우에만 동기화
-devsync track ~/.config/personal-tool --profiles personal
+dotweave track ~/.config/personal-tool --profiles personal
 ```
 
 ---
@@ -35,7 +35,7 @@ devsync track ~/.config/personal-tool --profiles personal
 하나의 항목에 여러 프로필을 지정할 수도 있어요. 그중 하나라도 활성화되면 동기화돼요:
 
 ```bash
-devsync track ~/.config/shared-tool --profiles work,personal
+dotweave track ~/.config/shared-tool --profiles work,personal
 ```
 
 ---
@@ -45,10 +45,10 @@ devsync track ~/.config/shared-tool --profiles work,personal
 현재 기기에서 사용할 프로필을 지정하세요:
 
 ```bash
-devsync profile use work
+dotweave profile use work
 ```
 
-이제부터 이 기기에서 `devsync push`와 `devsync pull`은 default 항목 **외에** `work` 프로필에 할당된 항목도 포함해요.
+이제부터 이 기기에서 `dotweave push`와 `dotweave pull`은 default 항목 **외에** `work` 프로필에 할당된 항목도 포함해요.
 
 ---
 
@@ -57,7 +57,7 @@ devsync profile use work
 동기화 설정에 존재하는 모든 프로필을 확인하세요:
 
 ```bash
-devsync profile list
+dotweave profile list
 ```
 
 `manifest.jsonc`에 등록된 모든 프로필 이름과 현재 활성화된 프로필이 표시돼요.
@@ -68,29 +68,29 @@ devsync profile list
 
 ```bash
 # 공통 설정: 프로필 없이, 모든 기기에서 동기화
-devsync track ~/.gitconfig
-devsync track ~/.zshrc
+dotweave track ~/.gitconfig
+dotweave track ~/.zshrc
 
 # 업무 전용 파일
-devsync track ~/.config/work-vpn --profiles work
-devsync track ~/.ssh/work-key --mode secret --profiles work
+dotweave track ~/.config/work-vpn --profiles work
+dotweave track ~/.ssh/work-key --mode secret --profiles work
 
 # 개인 전용 파일
-devsync track ~/.config/personal-app --profiles personal
+dotweave track ~/.config/personal-app --profiles personal
 ```
 
 **업무용 노트북**에서 work 프로필을 설정하고 push:
 
 ```bash
-devsync profile use work
-devsync push    # default + work 항목을 push
+dotweave profile use work
+dotweave push    # default + work 항목을 push
 ```
 
 **개인 기기**에서 personal 프로필을 설정하고 pull:
 
 ```bash
-devsync profile use personal
-devsync pull    # default + personal 항목만 pull
+dotweave profile use personal
+dotweave pull    # default + personal 항목만 pull
 ```
 
 업무 기기에서는 개인 설정을, 개인 기기에서는 업무 인증 정보를 볼 일이 없어요. 깔끔한 분리, 하나의 저장소.

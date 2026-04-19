@@ -202,7 +202,7 @@ export const initializeRepository = async (
 
 /**
  * @description
- * Ensures the sync directory is a usable git repository for devsync commands.
+ * Ensures the sync directory is a usable git repository for dotweave commands.
  */
 export const ensureGitRepository = async (syncDirectory: string) => {
   try {
@@ -211,7 +211,7 @@ export const ensureGitRepository = async (syncDirectory: string) => {
     throw wrapUnknownError("Sync repository is not initialized.", error, {
       code: "SYNC_REPO_INVALID",
       details: [`Sync directory: ${syncDirectory}`],
-      hint: "Run 'devsync init' to create or clone the sync directory.",
+      hint: "Run 'dotweave init' to create or clone the sync directory.",
     });
   }
 };

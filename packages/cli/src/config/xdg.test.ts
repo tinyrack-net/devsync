@@ -6,7 +6,7 @@ import {
   expandHomePath,
   expandWindowsEnvVars,
   resolveConfiguredAbsolutePath,
-  resolveDevsyncConfigDirectory,
+  resolveDotweaveConfigDirectory,
   resolveHomeDirectory,
   resolveXdgConfigHome,
 } from "#app/config/xdg.ts";
@@ -41,10 +41,10 @@ describe("resolveXdgConfigHome", () => {
   });
 });
 
-describe("resolveDevsyncConfigDirectory", () => {
-  it("appends devsync to config home", () => {
-    expect(resolveDevsyncConfigDirectory("/custom/config")).toBe(
-      resolve("/custom/config", "devsync"),
+describe("resolveDotweaveConfigDirectory", () => {
+  it("appends dotweave to config home", () => {
+    expect(resolveDotweaveConfigDirectory("/custom/config")).toBe(
+      resolve("/custom/config", "dotweave"),
     );
   });
 });
@@ -77,21 +77,21 @@ describe("expandConfiguredPath", () => {
   it("expands $XDG_CONFIG_HOME/ prefix", () => {
     expect(
       expandConfiguredPath(
-        "$XDG_CONFIG_HOME/devsync/keys.txt",
+        "$XDG_CONFIG_HOME/dotweave/keys.txt",
         undefined,
         "/custom/config",
       ),
-    ).toBe(resolve("/custom/config", "devsync", "keys.txt"));
+    ).toBe(resolve("/custom/config", "dotweave", "keys.txt"));
   });
 
   it("expands ${XDG_CONFIG_HOME} braced syntax", () => {
     expect(
       expandConfiguredPath(
-        "${XDG_CONFIG_HOME}/devsync",
+        "${XDG_CONFIG_HOME}/dotweave",
         undefined,
         "/custom/config",
       ),
-    ).toBe(resolve("/custom/config", "devsync"));
+    ).toBe(resolve("/custom/config", "dotweave"));
   });
 });
 

@@ -5,7 +5,7 @@ description: The three sync modes and when to use each one.
 
 import { Aside, Steps } from "@astrojs/starlight/components";
 
-Every tracked entry has a **sync mode** that controls how devsync handles it during push and pull. There are three modes to choose from: `normal`, `secret`, and `ignore`.
+Every tracked entry has a **sync mode** that controls how dotweave handles it during push and pull. There are three modes to choose from: `normal`, `secret`, and `ignore`.
 
 ---
 
@@ -24,9 +24,9 @@ Every tracked entry has a **sync mode** that controls how devsync handles it dur
 Files are copied to the sync directory exactly as-is. No transformation, no encryption — what you see is what you get.
 
 ```bash
-devsync track ~/.gitconfig
-devsync track ~/.config/starship.toml
-devsync track ~/.config/nvim
+dotweave track ~/.gitconfig
+dotweave track ~/.config/starship.toml
+dotweave track ~/.config/nvim
 ```
 
 **Great for:** shell configs (`.zshrc`, `.bashrc`), editor settings, Git config, tool configs like `.tmux.conf` or `starship.toml` — basically anything that doesn't contain secrets.
@@ -38,14 +38,14 @@ devsync track ~/.config/nvim
 Files are encrypted with [age](https://age-encryption.org/) before being stored in the sync directory. The stored file gets an `.age` suffix.
 
 ```bash
-devsync track ~/.ssh/config --mode secret
-devsync track ~/.config/gh/hosts.yml --mode secret
-devsync track ~/.aws/credentials --mode secret
+dotweave track ~/.ssh/config --mode secret
+dotweave track ~/.config/gh/hosts.yml --mode secret
+dotweave track ~/.aws/credentials --mode secret
 ```
 
 **Great for:** SSH keys and config, API tokens, `.env` files with real credentials, GPG keys — anything you wouldn't want exposed if your repository went public.
 
-During `pull`, devsync decrypts the file with your age private key before writing it to disk. See [Syncing Secrets](/en/guides/syncing-secrets) for the full setup guide.
+During `pull`, dotweave decrypts the file with your age private key before writing it to disk. See [Syncing Secrets](/en/guides/syncing-secrets) for the full setup guide.
 
 <Aside type="caution">
 Secret mode encrypts the file **content**, but the filename and path are still visible in the sync directory. Keep that in mind if the path itself is sensitive.
@@ -58,8 +58,8 @@ Secret mode encrypts the file **content**, but the filename and path are still v
 The entry stays in `manifest.jsonc` but is completely skipped during push and pull. Nothing is read, written, or transferred.
 
 ```bash
-devsync track ~/.config/some-tool/cache --mode ignore
-devsync track ~/.local/share/generated-config --mode ignore
+dotweave track ~/.config/some-tool/cache --mode ignore
+dotweave track ~/.local/share/generated-config --mode ignore
 ```
 
 **Great for:**
@@ -71,14 +71,14 @@ devsync track ~/.local/share/generated-config --mode ignore
 
 ## Changing a Mode
 
-Run `devsync track` again with the new `--mode` flag. The existing entry gets updated:
+Run `dotweave track` again with the new `--mode` flag. The existing entry gets updated:
 
 ```bash
 # Originally tracked as normal
-devsync track ~/.ssh/config
+dotweave track ~/.ssh/config
 
 # Upgrade to secret
-devsync track ~/.ssh/config --mode secret
+dotweave track ~/.ssh/config --mode secret
 ```
 
 ---
@@ -88,8 +88,8 @@ devsync track ~/.ssh/config --mode secret
 You can mix modes within a tracked directory. For example, track a directory as `normal` but override a specific child as `secret`:
 
 ```bash
-devsync track ~/.config/my-tool
-devsync track ~/.config/my-tool/credentials.json --mode secret
+dotweave track ~/.config/my-tool
+dotweave track ~/.config/my-tool/credentials.json --mode secret
 ```
 
 The directory is synced normally, but `credentials.json` inside it gets encrypted. Child entries always take priority over their parent.

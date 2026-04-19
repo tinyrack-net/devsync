@@ -10,7 +10,7 @@ const cliPackageJson = JSON.parse(
 const cliVersion = String(cliPackageJson.version);
 
 export default defineConfig({
-  site: "https://devsync.tinyrack.net",
+  site: "https://dotweave.tinyrack.net",
   trailingSlash: "always",
   redirects: {
     "/": "/en/",
@@ -36,10 +36,10 @@ export default defineConfig({
           frame: "none",
         },
       },
-      title: "Devsync",
+      title: "Dotweave",
       logo: {
         src: "./src/assets/logo.svg",
-        alt: "Devsync",
+        alt: "Dotweave",
       },
       favicon: "/favicon.svg",
       description:
@@ -51,7 +51,7 @@ export default defineConfig({
         },
         {
           tag: "meta",
-          attrs: { property: "og:site_name", content: "Devsync" },
+          attrs: { property: "og:site_name", content: "Dotweave" },
         },
       ],
       defaultLocale: "en",
@@ -73,13 +73,13 @@ export default defineConfig({
         {
           icon: "github",
           label: "GitHub",
-          href: "https://github.com/tinyrack-net/devsync",
+          href: "https://github.com/tinyrack-net/dotweave",
         },
       ],
       plugins: [
         starlightThemeBlack({
           footerText:
-            "Devsync · MIT License · [GitHub](https://github.com/tinyrack-net/devsync)",
+            "Dotweave · MIT License · [GitHub](https://github.com/tinyrack-net/dotweave)",
         }),
       ],
       customCss: ["./src/styles/tailwind.css"],

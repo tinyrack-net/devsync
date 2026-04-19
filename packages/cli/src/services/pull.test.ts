@@ -19,7 +19,7 @@ const mocked = vi.hoisted(() => ({
     (syncDirectory: string) => `${syncDirectory}/manifest.jsonc`,
   ),
   resolveSyncPaths: vi.fn(() => ({
-    syncDirectory: "/tmp/devsync",
+    syncDirectory: "/tmp/dotweave",
   })),
 }));
 
@@ -115,18 +115,18 @@ describe("pull helpers", () => {
           materializations: [],
           updatedLocalPaths: [],
         },
-        "/tmp/devsync",
+        "/tmp/dotweave",
         true,
       ),
     ).toEqual({
-      configPath: "/tmp/devsync/manifest.jsonc",
+      configPath: "/tmp/dotweave/manifest.jsonc",
       decryptedFileCount: 3,
       deletedLocalCount: 4,
       directoryCount: 1,
       dryRun: true,
       plainFileCount: 2,
       symlinkCount: 0,
-      syncDirectory: "/tmp/devsync",
+      syncDirectory: "/tmp/dotweave",
     });
   });
 });
@@ -143,7 +143,7 @@ describe("pull planning", () => {
 
     const config = {
       age: {
-        identityFile: "/tmp/devsync/keys.txt",
+        identityFile: "/tmp/dotweave/keys.txt",
         recipients: ["age1recipient"],
       },
       entries: [
@@ -163,7 +163,7 @@ describe("pull planning", () => {
       version: 7,
     };
 
-    const plan = await buildPullPlan(config as never, "/tmp/devsync");
+    const plan = await buildPullPlan(config as never, "/tmp/dotweave");
 
     expect(mocked.buildEntryMaterialization).toHaveBeenCalledTimes(1);
     expect(mocked.buildEntryMaterialization).toHaveBeenCalledWith(
@@ -224,7 +224,7 @@ describe("pull planning", () => {
 
     const config = {
       age: {
-        identityFile: "/tmp/devsync/keys.txt",
+        identityFile: "/tmp/dotweave/keys.txt",
         recipients: ["age1recipient"],
       },
       entries: [
@@ -245,7 +245,7 @@ describe("pull planning", () => {
       version: 7,
     };
 
-    const plan = await buildPullPlan(config as never, "/tmp/devsync");
+    const plan = await buildPullPlan(config as never, "/tmp/dotweave");
 
     expect(plan.updatedLocalPaths).toEqual(["/tmp/home/.config/zsh/.zshenv"]);
   });
@@ -285,7 +285,7 @@ describe("pull planning", () => {
 
     const config = {
       age: {
-        identityFile: "/tmp/devsync/keys.txt",
+        identityFile: "/tmp/dotweave/keys.txt",
         recipients: ["age1recipient"],
       },
       entries: [
@@ -299,7 +299,7 @@ describe("pull planning", () => {
       version: 7,
     };
 
-    const plan = await buildPullPlan(config as never, "/tmp/devsync");
+    const plan = await buildPullPlan(config as never, "/tmp/dotweave");
 
     expect(plan.updatedLocalPaths).toEqual([
       "/tmp/home/.config/app/config.json",
@@ -317,7 +317,7 @@ describe("pull planning", () => {
     } as unknown as ConsolaInstance;
     const config = {
       age: {
-        identityFile: "/tmp/devsync/keys.txt",
+        identityFile: "/tmp/dotweave/keys.txt",
         recipients: ["age1recipient"],
       },
       entries: [

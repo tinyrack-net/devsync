@@ -100,13 +100,13 @@ describe("sync CLI e2e", () => {
     expect(result.stdout).toContain("age: generated a new local identity");
     expect(
       await readFile(
-        join(ctx.homeDir, ".config", "devsync", "keys.txt"),
+        join(ctx.homeDir, ".config", "dotweave", "keys.txt"),
         "utf8",
       ),
     ).toContain("AGE-SECRET-KEY-");
     expect(
       JSON.parse(
-        await readFile(join(ctx.xdgDir, "devsync", "settings.jsonc"), "utf8"),
+        await readFile(join(ctx.xdgDir, "dotweave", "settings.jsonc"), "utf8"),
       ),
     ).toMatchObject({
       activeProfile: "default",
@@ -114,13 +114,13 @@ describe("sync CLI e2e", () => {
     });
     expect(
       JSON.parse(
-        await readFile(join(ctx.xdgDir, "devsync", "settings.jsonc"), "utf8"),
+        await readFile(join(ctx.xdgDir, "dotweave", "settings.jsonc"), "utf8"),
       ),
     ).not.toHaveProperty("age");
     expect(
       JSON.parse(
         await readFile(
-          join(ctx.xdgDir, "devsync", "repository", "manifest.jsonc"),
+          join(ctx.xdgDir, "dotweave", "repository", "manifest.jsonc"),
           "utf8",
         ),
       ),
@@ -133,7 +133,7 @@ describe("sync CLI e2e", () => {
     });
     expect(
       await readFile(
-        join(ctx.xdgDir, "devsync", "repository", ".gitattributes"),
+        join(ctx.xdgDir, "dotweave", "repository", ".gitattributes"),
         "utf8",
       ),
     ).toBe("* -text\n");
@@ -156,7 +156,7 @@ describe("sync CLI e2e", () => {
     expect(stripAnsi(result.stdout)).toContain("age: using existing identity");
     expect(
       await readFile(
-        join(ctx.homeDir, ".config", "devsync", "keys.txt"),
+        join(ctx.homeDir, ".config", "dotweave", "keys.txt"),
         "utf8",
       ),
     ).toBe(`${ageKeys.identity}\n`);
@@ -256,7 +256,7 @@ describe("sync CLI e2e", () => {
     expect(stripAnsi(result.stdout)).toContain("Sync directory initialized");
     expect(
       await readFile(
-        join(ctx.homeDir, ".config", "devsync", "keys.txt"),
+        join(ctx.homeDir, ".config", "dotweave", "keys.txt"),
         "utf8",
       ),
     ).toBe(`${ageKeys.identity}\n`);
@@ -392,7 +392,7 @@ describe("sync CLI e2e", () => {
     const bundleDirectory = join(ctx.homeDir, ".config", "mytool");
     const publicFile = join(bundleDirectory, "public.json");
     const cacheDirectory = join(bundleDirectory, "cache");
-    const syncDirectory = join(ctx.xdgDir, "devsync", "repository");
+    const syncDirectory = join(ctx.xdgDir, "dotweave", "repository");
     const ageKeys = await ctx.createAgeKeyPair();
 
     await ctx.writeIdentityFile(ageKeys.identity);
@@ -494,7 +494,7 @@ describe("sync CLI e2e", () => {
       await readFile(
         join(
           ctx.xdgDir,
-          "devsync",
+          "dotweave",
           "repository",
           "default",
           ".config",
@@ -508,12 +508,12 @@ describe("sync CLI e2e", () => {
       await readFile(
         join(
           ctx.xdgDir,
-          "devsync",
+          "dotweave",
           "repository",
           "default",
           ".config",
           "zsh",
-          "secrets.zsh.devsync.secret",
+          "secrets.zsh.dotweave.secret",
         ),
         "utf8",
       ),
@@ -599,7 +599,7 @@ describe("sync CLI e2e", () => {
     // The artifact should NOT have been written to the repository
     const artifact = join(
       ctx.xdgDir,
-      "devsync",
+      "dotweave",
       "repository",
       "default",
       ".config",
@@ -827,7 +827,7 @@ describe("sync CLI e2e", () => {
     expect(stripAnsi(result.stderr)).toContain(
       "Pull confirmation requires an interactive terminal.",
     );
-    expect(stripAnsi(result.stderr)).toContain("devsync pull -y");
+    expect(stripAnsi(result.stderr)).toContain("dotweave pull -y");
     expect(await readFile(configFile, "utf8")).toContain("version = 2");
   });
 
@@ -947,7 +947,7 @@ describe("sync CLI e2e", () => {
 
     const repoConfigFile = join(
       ctx.xdgDir,
-      "devsync",
+      "dotweave",
       "repository",
       "default",
       ".config",
@@ -956,7 +956,7 @@ describe("sync CLI e2e", () => {
     );
     const repoDataFile = join(
       ctx.xdgDir,
-      "devsync",
+      "dotweave",
       "repository",
       "default",
       ".config",
@@ -996,7 +996,7 @@ describe("sync CLI e2e", () => {
 
     const repoNote2 = join(
       ctx.xdgDir,
-      "devsync",
+      "dotweave",
       "repository",
       "default",
       ".config",
@@ -1005,7 +1005,7 @@ describe("sync CLI e2e", () => {
     );
     const repoNote3 = join(
       ctx.xdgDir,
-      "devsync",
+      "dotweave",
       "repository",
       "default",
       ".config",
@@ -1038,7 +1038,7 @@ describe("sync CLI e2e", () => {
     await ctx.runCli(["push"]);
 
     // Simulate an interrupted sync by manually creating a backup file
-    const backupFile = join(configDir, ".config.json.devsync-sync-backup-1234");
+    const backupFile = join(configDir, ".config.json.dotweave-sync-backup-1234");
     await writeFile(backupFile, '{"version": "backup"}\n');
 
     // Run pull -y, it should still work and ideally clean up stray backup files

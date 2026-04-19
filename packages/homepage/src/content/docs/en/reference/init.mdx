@@ -1,5 +1,5 @@
 ---
-title: "devsync init"
+title: "dotweave init"
 description: "Initialize a new sync directory or connect to an existing one."
 ---
 
@@ -7,12 +7,12 @@ import { Aside } from "@astrojs/starlight/components";
 
 Initialize the git-backed sync directory.
 
-Create or connect the sync directory under your XDG config directory, then store the sync settings used by later `pull` and `push` operations. If you omit the repository argument, devsync initializes a local git repository in the sync directory.
+Create or connect the sync directory under your XDG config directory, then store the sync settings used by later `pull` and `push` operations. If you omit the repository argument, dotweave initializes a local git repository in the sync directory.
 
 ## Usage
 
 ```bash
-devsync init [repository]
+dotweave init [repository]
 ```
 
 ## Arguments
@@ -34,21 +34,21 @@ devsync init [repository]
 Initialize a fresh local sync directory:
 
 ```bash
-devsync init
+dotweave init
 ```
 
 Clone a remote repository as the sync directory:
 
 ```bash
-devsync init https://github.com/user/dotfiles.git --key "AGE-SECRET-KEY-1..."
+dotweave init https://github.com/user/dotfiles.git --key "AGE-SECRET-KEY-1..."
 ```
 
 Initialize with an existing age secret key:
 
 ```bash
-devsync init --key "AGE-SECRET-KEY-1..."
+dotweave init --key "AGE-SECRET-KEY-1..."
 ```
 
 <Aside type="tip">
-If you pass a repository to `devsync init`, you must also provide the existing age private key with `--key` or `--promptKey` so devsync can decrypt your secret files.
+If you pass a repository to `dotweave init`, you must also provide the existing age private key with `--key` or `--promptKey` so dotweave can decrypt your secret files.
 </Aside>

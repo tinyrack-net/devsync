@@ -1,19 +1,19 @@
 ---
 title: Shell Autocomplete
-description: Set up tab completion for devsync in your shell.
+description: Set up tab completion for dotweave in your shell.
 ---
 
 import { Aside } from "@astrojs/starlight/components";
 
 Tab completion lets you discover commands, flags, and arguments without
-reaching for the docs. devsync supports **Bash**, **Zsh**, and **Fish**.
+reaching for the docs. dotweave supports **Bash**, **Zsh**, and **Fish**.
 
 ## Bash
 
 Add this line to your `~/.bashrc`:
 
 ```bash
-eval "$(devsync autocomplete bash)"
+eval "$(dotweave autocomplete bash)"
 ```
 
 Then reload your shell:
@@ -27,7 +27,7 @@ source ~/.bashrc
 Add this line to your `~/.zshrc`:
 
 ```bash
-eval "$(devsync autocomplete zsh)"
+eval "$(dotweave autocomplete zsh)"
 ```
 
 Then reload your shell:
@@ -41,7 +41,7 @@ source ~/.zshrc
 Add this line to your `~/.config/fish/config.fish`:
 
 ```fish
-devsync autocomplete fish | source
+dotweave autocomplete fish | source
 ```
 
 Then reload your shell:
@@ -52,11 +52,11 @@ source ~/.config/fish/config.fish
 
 <Aside type="tip">
 After adding the eval line, open a new terminal (or source the config file) and
-try typing `devsync ` followed by a Tab. You should see a list of available
+try typing `dotweave ` followed by a Tab. You should see a list of available
 commands.
 </Aside>
 
 <Aside>
-If you installed devsync with a version manager like `volta` or `fnm`, make
-sure the `devsync` binary is on your `PATH` before the eval line runs.
+If you installed dotweave with a version manager like `volta` or `fnm`, make
+sure the `dotweave` binary is on your `PATH` before the eval line runs.
 </Aside>

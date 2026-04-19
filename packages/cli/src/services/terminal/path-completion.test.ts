@@ -5,14 +5,14 @@ import * as path from "node:path";
 
 import { afterEach, describe, expect, it } from "vitest";
 
-import type { DevsyncCliContext } from "./cli-runtime.ts";
+import type { DotweaveCliContext } from "./cli-runtime.ts";
 import { proposePathCompletions } from "./path-completion.ts";
 
 const temporaryDirectories: string[] = [];
 
 const createWorkspace = async () => {
   const directory = await mkdtemp(
-    path.join(tmpdir(), "devsync-path-complete-"),
+    path.join(tmpdir(), "dotweave-path-complete-"),
   );
 
   temporaryDirectories.push(directory);
@@ -24,7 +24,7 @@ const createContext = (
   cwd: string,
   homeDirectory: string,
   readdirImpl: typeof fs.readdir = fs.readdir,
-): DevsyncCliContext => {
+): DotweaveCliContext => {
   return {
     fs: {
       promises: {
@@ -77,14 +77,14 @@ describe("path completions", () => {
     const nestedDirectory = path.join(homeDirectory, ".config");
 
     await mkdir(nestedDirectory, { recursive: true });
-    await writeFile(path.join(nestedDirectory, "devsync.toml"), "", "utf8");
+    await writeFile(path.join(nestedDirectory, "dotweave.toml"), "", "utf8");
     await mkdir(path.join(nestedDirectory, "nvim"));
 
     const context = createContext(workspace, homeDirectory);
 
     await expect(
       proposePathCompletions.call(context, "~/.config/d"),
-    ).resolves.toEqual(["~/.config/devsync.toml"]);
+    ).resolves.toEqual(["~/.config/dotweave.toml"]);
     await expect(
       proposePathCompletions.call(context, `${nestedDirectory}/n`),
     ).resolves.toEqual([`${nestedDirectory}/nvim/`]);

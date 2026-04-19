@@ -20,7 +20,7 @@ import {
 const temporaryDirectories: string[] = [];
 
 const createWorkspace = async () => {
-  const directory = await createTemporaryDirectory("devsync-sync-crypto-");
+  const directory = await createTemporaryDirectory("dotweave-sync-crypto-");
 
   temporaryDirectories.push(directory);
 

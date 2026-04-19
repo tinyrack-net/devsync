@@ -1,6 +1,6 @@
 ---
 title: はじめに
-description: devsyncをインストールして、最初の同期を設定しましょう。
+description: dotweaveをインストールして、最初の同期を設定しましょう。
 ---
 
 import { Aside, Steps } from "@astrojs/starlight/components";
@@ -14,14 +14,14 @@ import { Aside, Steps } from "@astrojs/starlight/components";
 ## インストール
 
 ```bash
-npm install -g @tinyrack/devsync
+npm install -g @tinyrack/dotweave
 ```
 
 ---
 
 ## 新規セットアップ
 
-devsyncを初めて使う場合は、以下の手順で新しいsyncディレクトリを作成します。
+dotweaveを初めて使う場合は、以下の手順で新しいsyncディレクトリを作成します。
 
 <Steps>
 
@@ -30,25 +30,25 @@ devsyncを初めて使う場合は、以下の手順で新しいsyncディレク
    シークレット暗号化用のageキーを含む新しいsyncディレクトリを作成します。
 
    ```bash
-   devsync init
+   dotweave init
    ```
 
-   これにより、`~/.config/devsync/`にGitリポジトリとageのidentityが設定されます。
+   これにより、`~/.config/dotweave/`にGitリポジトリとageのidentityが設定されます。
 
 2. **ファイルをトラッキング**
 
-   同期したいファイルをdevsyncに登録します。例えば：
+   同期したいファイルをdotweaveに登録します。例えば：
 
    ```bash
-   devsync track ~/.zshrc
-   devsync track ~/.config/starship.toml
-   devsync track ~/.config/nvim
+   dotweave track ~/.zshrc
+   dotweave track ~/.config/starship.toml
+   dotweave track ~/.config/nvim
    ```
 
    SSHキーなどの機密ファイルにはsecretモードを使います：
 
    ```bash
-   devsync track --mode secret ~/.ssh/config
+   dotweave track --mode secret ~/.ssh/config
    ```
 
 3. **syncディレクトリにpush**
@@ -56,7 +56,7 @@ devsyncを初めて使う場合は、以下の手順で新しいsyncディレク
    トラッキング中のファイルをsyncディレクトリにコピーします：
 
    ```bash
-   devsync push
+   dotweave push
    ```
 
 4. **Gitでcommit & push**
@@ -64,7 +64,7 @@ devsyncを初めて使う場合は、以下の手順で新しいsyncディレク
    syncディレクトリを開いてリモートにpushします：
 
    ```bash
-   devsync cd
+   dotweave cd
    git add -A && git commit -m "Initial sync"
    git remote add origin <your-repo-url>
    git push -u origin main
@@ -73,7 +73,7 @@ devsyncを初めて使う場合は、以下の手順で新しいsyncディレク
 </Steps>
 
 <Aside type="tip">
-  セットアップが完了したら、[ディレクトリ構造](/ja/guides/directory-structure/)ガイドで、devsyncが設定ファイルと同期データをどこに保存するかを確認してみてください。
+  セットアップが完了したら、[ディレクトリ構造](/ja/guides/directory-structure/)ガイドで、dotweaveが設定ファイルと同期データをどこに保存するかを確認してみてください。
 </Aside>
 
 ---
@@ -87,13 +87,13 @@ devsyncを初めて使う場合は、以下の手順で新しいsyncディレク
 1. **cloneして初期化**
 
    ```bash
-   devsync init <your-repo-url>
+   dotweave init <your-repo-url>
    ```
 
-   リポジトリが`~/.config/devsync/repository/`にcloneされ、新しいageのidentityが設定されます。別のマシンのageプライベートキーをすでにお持ちの場合は、`--key`で指定できます：
+   リポジトリが`~/.config/dotweave/repository/`にcloneされ、新しいageのidentityが設定されます。別のマシンのageプライベートキーをすでにお持ちの場合は、`--key`で指定できます：
 
    ```bash
-   devsync init <your-repo-url> --key "AGE-SECRET-KEY-1..."
+   dotweave init <your-repo-url> --key "AGE-SECRET-KEY-1..."
    ```
 
 2. **ファイルをpull**
@@ -101,7 +101,7 @@ devsyncを初めて使う場合は、以下の手順で新しいsyncディレク
    トラッキング中のすべてのファイルをローカルパスに復元します：
 
    ```bash
-   devsync pull
+   dotweave pull
    ```
 
 </Steps>
@@ -116,7 +116,7 @@ devsyncを初めて使う場合は、以下の手順で新しいsyncディレク
 
 セットアップが完了したら、各ガイドを読んでみましょう：
 
-- [ディレクトリ構造](/ja/guides/directory-structure/) — devsyncがファイルを保存する場所を理解する
+- [ディレクトリ構造](/ja/guides/directory-structure/) — dotweaveがファイルを保存する場所を理解する
 - [ファイルのトラッキング](/ja/guides/tracking-files/) — トラッキングオプションの詳細
 - [同期モード](/ja/guides/sync-modes/) — normal、secret、ignoreモード
 - [シークレットファイルの同期](/ja/guides/syncing-secrets/) — ageで機密ファイルを暗号化する

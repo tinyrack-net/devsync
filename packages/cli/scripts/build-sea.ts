@@ -80,7 +80,7 @@ const bundleForSea = async (): Promise<void> => {
       emptyOutDir: false,
       lib: {
         entry: distEntryPath,
-        fileName: () => "devsync.bundle",
+        fileName: () => "dotweave.bundle",
         formats: ["es"],
       },
       minify: false,
@@ -93,7 +93,7 @@ const bundleForSea = async (): Promise<void> => {
           );
         },
         output: {
-          entryFileNames: "devsync.bundle.js",
+          entryFileNames: "dotweave.bundle.js",
           format: "es",
         },
       },

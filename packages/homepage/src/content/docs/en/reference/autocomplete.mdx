@@ -1,5 +1,5 @@
 ---
-title: "devsync autocomplete"
+title: "dotweave autocomplete"
 description: "Set up shell tab completion."
 ---
 
@@ -10,33 +10,33 @@ Emit shell-specific autocomplete scripts for use with eval-based shell setup.
 ## Usage
 
 ```bash
-devsync autocomplete <shell>
+dotweave autocomplete <shell>
 ```
 
 ## Subcommands
 
 | Subcommand                  | Description                    |
 | --------------------------- | ------------------------------ |
-| `devsync autocomplete bash` | Print autocomplete script for Bash. |
-| `devsync autocomplete zsh`  | Print autocomplete script for Zsh.  |
-| `devsync autocomplete fish` | Print autocomplete script for Fish. |
+| `dotweave autocomplete bash` | Print autocomplete script for Bash. |
+| `dotweave autocomplete zsh`  | Print autocomplete script for Zsh.  |
+| `dotweave autocomplete fish` | Print autocomplete script for Fish. |
 
 ## Examples
 
 Set up autocomplete in **Bash** (add to `~/.bashrc`):
 
 ```bash
-eval "$(devsync autocomplete bash)"
+eval "$(dotweave autocomplete bash)"
 ```
 
 Set up autocomplete in **Zsh** (add to `~/.zshrc`):
 
 ```bash
-eval "$(devsync autocomplete zsh)"
+eval "$(dotweave autocomplete zsh)"
 ```
 
 Set up autocomplete in **Fish** (add to `~/.config/fish/config.fish`):
 
 ```fish
-devsync autocomplete fish | source
+dotweave autocomplete fish | source
 ```

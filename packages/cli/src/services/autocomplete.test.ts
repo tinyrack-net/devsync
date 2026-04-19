@@ -12,30 +12,30 @@ afterEach(() => {
 
 describe("autocomplete helpers", () => {
   it("emits stable shell script invariants", () => {
-    expect(BASH_AUTOCOMPLETE_SCRIPT).toContain("__devsync_complete() {");
+    expect(BASH_AUTOCOMPLETE_SCRIPT).toContain("__dotweave_complete() {");
     expect(BASH_AUTOCOMPLETE_SCRIPT).toContain(
-      'env -u COMP_LINE devsync __complete "${inputs[@]}"',
+      'env -u COMP_LINE dotweave __complete "${inputs[@]}"',
     );
     expect(POWERSHELL_AUTOCOMPLETE_SCRIPT).toContain(
-      "Register-ArgumentCompleter -Native -CommandName devsync",
+      "Register-ArgumentCompleter -Native -CommandName dotweave",
     );
     expect(ZSH_AUTOCOMPLETE_SCRIPT).toContain(
-      "add-zsh-hook precmd __devsync_ensure_completion",
+      "add-zsh-hook precmd __dotweave_ensure_completion",
     );
   });
 
   it("strips the cli binary token from raw completion inputs", () => {
-    expect(resolveCompletionInputs(["devsync", "track", "fi"])).toEqual([
+    expect(resolveCompletionInputs(["dotweave", "track", "fi"])).toEqual([
       "track",
       "fi",
     ]);
     expect(
-      resolveCompletionInputs(["C:\\Users\\test\\bin\\devsync.exe", "status"]),
+      resolveCompletionInputs(["C:\\Users\\test\\bin\\dotweave.exe", "status"]),
     ).toEqual(["status"]);
   });
 
   it("prefers COMP_LINE when shells provide a richer completion line", () => {
-    vi.stubEnv("COMP_LINE", "  devsync   profile   use   work  ");
+    vi.stubEnv("COMP_LINE", "  dotweave   profile   use   work  ");
 
     expect(resolveCompletionInputs(["ignored", "tokens"])).toEqual([
       "profile",
@@ -48,6 +48,6 @@ describe("autocomplete helpers", () => {
   it("returns an empty input list for blank completion lines", () => {
     vi.stubEnv("COMP_LINE", "   ");
 
-    expect(resolveCompletionInputs(["devsync", "track"])).toEqual([]);
+    expect(resolveCompletionInputs(["dotweave", "track"])).toEqual([]);
   });
 });

@@ -13,7 +13,7 @@ import {
   shouldNormalizeTextLineEndings,
 } from "#app/lib/content.ts";
 import { decryptSecretFile, encryptSecretFile } from "#app/lib/crypto.ts";
-import { DevsyncError } from "#app/lib/error.ts";
+import { DotweaveError } from "#app/lib/error.ts";
 import {
   buildExecutableMode,
   supportsPosixFileModes,
@@ -111,7 +111,7 @@ export const assertStorageSafeRepoPath = (repoPath: string) => {
     return;
   }
 
-  throw new DevsyncError(
+  throw new DotweaveError(
     `Tracked sync paths must not use the reserved suffix ${CONSTANTS.SYNC.SECRET_ARTIFACT_SUFFIX}.`,
     {
       code: "RESERVED_SECRET_SUFFIX",
@@ -139,7 +139,7 @@ export const parseArtifactRelativePath = (relativePath: string) => {
   const segments = logicalPath.split("/");
 
   if (segments.length < 2 || segments[0] === undefined) {
-    throw new DevsyncError("Repository artifact path is invalid.", {
+    throw new DotweaveError("Repository artifact path is invalid.", {
       code: "INVALID_REPO_ENTRY",
       details: [`Repository path: ${relativePath}`],
     });
@@ -167,7 +167,7 @@ export const buildRepoArtifacts = async (
     const key = buildArtifactKey(artifact);
 
     if (seenArtifactKeys.has(key)) {
-      throw new DevsyncError("Duplicate repository artifact was generated.", {
+      throw new DotweaveError("Duplicate repository artifact was generated.", {
         code: "DUPLICATE_REPO_ARTIFACT",
         details: [`Artifact key: ${key}`],
       });

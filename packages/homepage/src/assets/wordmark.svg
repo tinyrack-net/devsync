@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 160" role="img" aria-labelledby="title desc">
-  <title id="title">devsync</title>
-  <desc id="desc">Stylized devsync wordmark</desc>
+  <title id="title">dotweave</title>
+  <desc id="desc">Stylized dotweave wordmark</desc>
   <defs>
     <linearGradient id="gradient" x1="0%" x2="100%" y1="0%" y2="100%">
       <stop offset="0%" stop-color="#14b8a6" />

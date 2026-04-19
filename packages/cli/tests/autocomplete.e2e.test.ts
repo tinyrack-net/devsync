@@ -11,7 +11,7 @@ import {
   isZshAvailable,
 } from "../src/test/helpers/shell-availability.ts";
 
-const COMPLETE_COMMAND = 'env -u COMP_LINE devsync __complete "${inputs[@]}"';
+const COMPLETE_COMMAND = 'env -u COMP_LINE dotweave __complete "${inputs[@]}"';
 
 const runCli = async (
   args: readonly string[],
@@ -53,7 +53,7 @@ const runBashCompletion = async (
     .map((value) => shellQuote(value))
     .join(" ");
 
-  const homeDir = await mkdtemp(join(tmpdir(), "devsync-test-"));
+  const homeDir = await mkdtemp(join(tmpdir(), "dotweave-test-"));
 
   return execa(
     "bash",
@@ -62,14 +62,14 @@ const runBashCompletion = async (
       [
         "set -euo pipefail",
         'temp_dir="$(mktemp -d)"',
-        `printf '%s\\n' '#!/usr/bin/env bash' "exec ${cliCommand} \\"\\$@\\"" >"$temp_dir/devsync"`,
-        'chmod +x "$temp_dir/devsync"',
+        `printf '%s\\n' '#!/usr/bin/env bash' "exec ${cliCommand} \\"\\$@\\"" >"$temp_dir/dotweave"`,
+        'chmod +x "$temp_dir/dotweave"',
         "trap 'rm -rf \"$temp_dir\"' EXIT",
         'export PATH="$temp_dir:$PATH"',
-        "source <(devsync autocomplete bash)",
+        "source <(dotweave autocomplete bash)",
         `COMP_WORDS=(${words.map(shellQuote).join(" ")})`,
         `COMP_CWORD=${currentWordIndex}`,
-        "__devsync_complete",
+        "__dotweave_complete",
         'printf "%s\\n" "${COMPREPLY[@]}"',
       ].join("; "),
     ],
@@ -103,8 +103,8 @@ const runZshCompletion = async (
       [
         "set -euo pipefail",
         'temp_dir="$(mktemp -d)"',
-        `printf '%s\\n' '#!/usr/bin/env bash' "exec ${cliCommand} \\"\\$@\\"" >"$temp_dir/devsync"`,
-        'chmod +x "$temp_dir/devsync"',
+        `printf '%s\\n' '#!/usr/bin/env bash' "exec ${cliCommand} \\"\\$@\\"" >"$temp_dir/dotweave"`,
+        'chmod +x "$temp_dir/dotweave"',
         "trap 'rm -rf \"$temp_dir\"' EXIT",
         'export PATH="$temp_dir:$PATH"',
         "function compdef() { :; }",
@@ -135,10 +135,10 @@ const runZshCompletion = async (
           "  done",
           "}",
         ].join("; "),
-        'eval "$(devsync autocomplete zsh)"',
+        'eval "$(dotweave autocomplete zsh)"',
         `words=(${words.map(shellQuote).join(" ")})`,
         `CURRENT=${currentWord}`,
-        "__devsync_complete",
+        "__dotweave_complete",
       ].join("; "),
     ],
     {
@@ -157,7 +157,7 @@ describe("autocomplete e2e", () => {
 
   beforeAll(async () => {
     completionFixtureDirectory = await mkdtemp(
-      join(tmpdir(), "devsync-autocomplete-"),
+      join(tmpdir(), "dotweave-autocomplete-"),
     );
     await writeFile(join(completionFixtureDirectory, "file-alpha.txt"), "");
     await mkdir(join(completionFixtureDirectory, "folder-beta"));
@@ -183,10 +183,10 @@ describe("autocomplete e2e", () => {
     const result = await runCli(["autocomplete", "bash"]);
 
     expect(result.exitCode).toBe(0);
-    expect(result.stdout).toContain("__devsync_complete() {");
+    expect(result.stdout).toContain("__dotweave_complete() {");
     expect(result.stdout).toContain(COMPLETE_COMMAND);
     expect(result.stdout).toContain(
-      "complete -o default -o nospace -F __devsync_complete devsync",
+      "complete -o default -o nospace -F __dotweave_complete dotweave",
     );
     expect(result.stdout).not.toContain("Setup Instructions");
     expect(result.stderr).toBe("");
@@ -198,12 +198,12 @@ describe("autocomplete e2e", () => {
     expect(result.exitCode).toBe(0);
     expect(result.stdout).toContain("autoload -Uz compinit");
     expect(result.stdout).toContain(COMPLETE_COMMAND);
-    expect(result.stdout).toContain("compdef __devsync_complete devsync");
+    expect(result.stdout).toContain("compdef __dotweave_complete dotweave");
     expect(result.stderr).toBe("");
   });
 
   it("normalizes __complete input when the command name is included", async () => {
-    const result = await runCli(["__complete", "devsync", "aut"]);
+    const result = await runCli(["__complete", "dotweave", "aut"]);
 
     expect(result.exitCode).toBe(0);
     expect(result.stdout.trim().split("\t")[0]).toBe("autocomplete");
@@ -231,7 +231,7 @@ describe("autocomplete e2e", () => {
   it.skipIf(!isBashAvailable)(
     "populates bash completions from the emitted script",
     async () => {
-      const result = await runBashCompletion(["devsync", "aut"], 1);
+      const result = await runBashCompletion(["dotweave", "aut"], 1);
 
       expect(result.exitCode).toBe(0);
       expect(result.stdout.split("\n")).toContain("autocomplete ");
@@ -242,7 +242,7 @@ describe("autocomplete e2e", () => {
   it.skipIf(!isBashAvailable)(
     "offers root subcommands when bash completes the command token itself",
     async () => {
-      const result = await runBashCompletion(["devsync"], 0);
+      const result = await runBashCompletion(["dotweave"], 0);
 
       expect(result.exitCode).toBe(0);
       expect(result.stdout.split("\n")).toEqual(
@@ -254,7 +254,7 @@ describe("autocomplete e2e", () => {
   it.skipIf(!isBashAvailable)(
     "adds a trailing space for unique bash subcommand completions",
     async () => {
-      const result = await runBashCompletion(["devsync", "pro"], 1);
+      const result = await runBashCompletion(["dotweave", "pro"], 1);
 
       expect(result.exitCode).toBe(0);
       expect(result.stdout.split("\n")).toContain("profile ");
@@ -265,7 +265,7 @@ describe("autocomplete e2e", () => {
   it.skipIf(!isBashAvailable)(
     "populates bash path completions for track targets",
     async () => {
-      const result = await runBashCompletion(["devsync", "track", "fi"], 2, {
+      const result = await runBashCompletion(["dotweave", "track", "fi"], 2, {
         cwd: completionFixtureDirectory,
       });
 
@@ -279,7 +279,7 @@ describe("autocomplete e2e", () => {
     "populates bash flag completions after a track target",
     async () => {
       const result = await runBashCompletion(
-        ["devsync", "track", "file-alpha.txt", "-"],
+        ["dotweave", "track", "file-alpha.txt", "-"],
         3,
         {
           cwd: completionFixtureDirectory,
@@ -301,7 +301,7 @@ describe("autocomplete e2e", () => {
   it.skipIf(!isZshAvailable)(
     "adds a trailing space for unique zsh subcommand completions",
     async () => {
-      const result = await runZshCompletion(["devsync", "pro"], 2);
+      const result = await runZshCompletion(["dotweave", "pro"], 2);
 
       expect(result.exitCode).toBe(0);
       expect(result.stdout.split("\n")).toContain("profile");
@@ -311,7 +311,7 @@ describe("autocomplete e2e", () => {
   it.skipIf(!isZshAvailable)(
     "offers root subcommands when zsh completes the command token itself",
     async () => {
-      const result = await runZshCompletion(["devsync"], 1);
+      const result = await runZshCompletion(["dotweave"], 1);
 
       expect(result.exitCode).toBe(0);
       expect(result.stdout.split("\n")).toEqual(
@@ -321,8 +321,8 @@ describe("autocomplete e2e", () => {
   );
 
   it("proposes root subcommands when COMP_LINE has a trailing space", async () => {
-    const result = await runCli(["__complete", "devsync", ""], {
-      env: { COMP_LINE: "devsync " },
+    const result = await runCli(["__complete", "dotweave", ""], {
+      env: { COMP_LINE: "dotweave " },
     });
 
     expect(result.exitCode).toBe(0);
@@ -333,8 +333,8 @@ describe("autocomplete e2e", () => {
   });
 
   it("proposes subcommand completions when COMP_LINE targets a command", async () => {
-    const result = await runCli(["__complete", "devsync", "track", ""], {
-      env: { COMP_LINE: "devsync track " },
+    const result = await runCli(["__complete", "dotweave", "track", ""], {
+      env: { COMP_LINE: "dotweave track " },
       cwd: completionFixtureDirectory,
     });
 

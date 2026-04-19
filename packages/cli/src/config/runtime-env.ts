@@ -2,9 +2,9 @@ import { platform, release } from "node:os";
 
 import { detectCurrentPlatformKey } from "#app/config/platform.ts";
 import {
-  resolveDevsyncConfigDirectory,
-  resolveDevsyncGlobalConfigFilePath,
-  resolveDevsyncSyncDirectory,
+  resolveDotweaveConfigDirectory,
+  resolveDotweaveGlobalConfigFilePath,
+  resolveDotweaveSyncDirectory,
   resolveHomeDirectory,
   resolveXdgConfigHome,
 } from "#app/config/xdg.ts";
@@ -33,18 +33,18 @@ export const resolveXdgConfigHomeFromEnv = () => {
   );
 };
 
-export const resolveDevsyncGlobalConfigFilePathFromEnv = () => {
-  const configDirectory = resolveDevsyncConfigDirectory(
+export const resolveDotweaveGlobalConfigFilePathFromEnv = () => {
+  const configDirectory = resolveDotweaveConfigDirectory(
     resolveXdgConfigHomeFromEnv(),
   );
-  return resolveDevsyncGlobalConfigFilePath(configDirectory);
+  return resolveDotweaveGlobalConfigFilePath(configDirectory);
 };
 
-export const resolveDevsyncSyncDirectoryFromEnv = () => {
-  const configDirectory = resolveDevsyncConfigDirectory(
+export const resolveDotweaveSyncDirectoryFromEnv = () => {
+  const configDirectory = resolveDotweaveConfigDirectory(
     resolveXdgConfigHomeFromEnv(),
   );
-  return resolveDevsyncSyncDirectory(configDirectory);
+  return resolveDotweaveSyncDirectory(configDirectory);
 };
 
 export const resolveCurrentPlatformKey = () => {

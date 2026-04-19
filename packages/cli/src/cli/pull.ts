@@ -1,14 +1,14 @@
 import { buildCommand } from "@stricli/core";
 import consola from "consola";
 import pc from "picocolors";
-import { DevsyncError } from "#app/lib/error.ts";
+import { DotweaveError } from "#app/lib/error.ts";
 import {
   applyPullPlan,
   buildPullResultFromPlan,
   preparePull,
 } from "#app/services/pull.ts";
 import {
-  type DevsyncCliContext,
+  type DotweaveCliContext,
   verboseFlag,
 } from "#app/services/terminal/cli-runtime.ts";
 import { createCliLogger } from "#app/services/terminal/logger.ts";
@@ -46,7 +46,7 @@ const logPullPlanChanges = (
   }
 };
 
-const pullCommand = buildCommand<PullFlags, [], DevsyncCliContext>({
+const pullCommand = buildCommand<PullFlags, [], DotweaveCliContext>({
   docs: {
     brief: "Apply the git-backed sync directory to local config paths",
     fullDescription:
@@ -90,10 +90,10 @@ const pullCommand = buildCommand<PullFlags, [], DevsyncCliContext>({
       logger.success("Pull complete");
     } else {
       if (!(process.stdin.isTTY ?? false)) {
-        throw new DevsyncError(
+        throw new DotweaveError(
           "Pull confirmation requires an interactive terminal.",
           {
-            hint: "Re-run 'devsync pull -y' to apply changes without a prompt.",
+            hint: "Re-run 'dotweave pull -y' to apply changes without a prompt.",
           },
         );
       }

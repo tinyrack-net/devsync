@@ -20,7 +20,7 @@ import {
   fileContentsEqual,
   shouldNormalizeTextLineEndings,
 } from "#app/lib/content.ts";
-import { DevsyncError } from "#app/lib/error.ts";
+import { DotweaveError } from "#app/lib/error.ts";
 import {
   buildExecutableMode,
   buildSearchableDirectoryMode,
@@ -160,7 +160,7 @@ const stageAndReplaceFilePath = async (
   reporter?.verbose(`staging local file ${targetPath}`);
   await mkdir(dirname(targetPath), { recursive: true });
   const stagingDirectory = await mkdtemp(
-    join(dirname(targetPath), `.${basename(targetPath)}.devsync-sync-`),
+    join(dirname(targetPath), `.${basename(targetPath)}.dotweave-sync-`),
   );
   const stagedPath = join(stagingDirectory, basename(targetPath));
 
@@ -183,7 +183,7 @@ const stageAndReplaceDirectoryPath = async (
 ) => {
   await mkdir(dirname(targetPath), { recursive: true });
   const stagingDirectory = await mkdtemp(
-    join(dirname(targetPath), `.${basename(targetPath)}.devsync-sync-`),
+    join(dirname(targetPath), `.${basename(targetPath)}.dotweave-sync-`),
   );
 
   try {
@@ -266,12 +266,12 @@ export const buildEntryMaterialization = (
     }
 
     if (node.type === "directory") {
-      throw new DevsyncError(
+      throw new DotweaveError(
         "File sync entry resolves to a directory in the repository.",
         {
           code: "FILE_ENTRY_RESOLVES_DIRECTORY",
           details: [`Repository path: ${entry.repoPath}`],
-          hint: "Run 'devsync push' or fix the repository so this path is stored as a file.",
+          hint: "Run 'dotweave push' or fix the repository so this path is stored as a file.",
         },
       );
     }
@@ -287,12 +287,12 @@ export const buildEntryMaterialization = (
   const rootNode = snapshot.get(entry.repoPath);
 
   if (rootNode !== undefined && rootNode.type !== "directory") {
-    throw new DevsyncError(
+    throw new DotweaveError(
       "Directory sync entry resolves to a file in the repository.",
       {
         code: "DIRECTORY_ENTRY_RESOLVES_FILE",
         details: [`Repository path: ${entry.repoPath}`],
-        hint: "Run 'devsync push' or fix the repository so this path is stored as a directory.",
+        hint: "Run 'dotweave push' or fix the repository so this path is stored as a directory.",
       },
     );
   }

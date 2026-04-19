@@ -1,4 +1,4 @@
-const APP_NAME = "devsync";
+const APP_NAME = "dotweave";
 const AUTOCOMPLETE_COMPLETE_SUBCOMMAND = "__complete";
 
 export const CONSTANTS = {
@@ -24,7 +24,7 @@ export const CONSTANTS = {
     DEFAULT_CONCURRENCY: 20,
     DEFAULT_PROFILE: "default",
     MODES: ["normal", "secret", "ignore"],
-    SECRET_ARTIFACT_SUFFIX: ".devsync.secret",
+    SECRET_ARTIFACT_SUFFIX: ".dotweave.secret",
   },
   XDG: {
     APP_DIRECTORY_NAME: APP_NAME,

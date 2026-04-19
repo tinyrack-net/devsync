@@ -36,7 +36,7 @@ const permissionOctalPattern = /^0[0-7]{3}$/;
 
 /**
  * @description
- * Validates permission strings accepted by devsync configuration.
+ * Validates permission strings accepted by dotweave configuration.
  */
 export const isPermissionOctal = (value: string) => {
   return permissionOctalPattern.test(value);

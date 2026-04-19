@@ -1,5 +1,5 @@
 ---
-title: "devsync track"
+title: "dotweave track"
 description: "ローカルファイルやディレクトリを同期対象として登録します。"
 ---
 
@@ -7,12 +7,12 @@ import { Aside } from "@astrojs/starlight/components";
 
 ローカルファイルやディレクトリを同期対象として登録します。
 
-ホームディレクトリ内のファイルやディレクトリを1つ以上登録し、devsyncがsyncディレクトリにミラーリングできるようにします。すでにtrackされているターゲットの場合は、modeが更新されます。trackされたディレクトリ内のリポジトリパスを指定して、特定のmodeを持つ子エントリを作成することもできます。
+ホームディレクトリ内のファイルやディレクトリを1つ以上登録し、dotweaveがsyncディレクトリにミラーリングできるようにします。すでにtrackされているターゲットの場合は、modeが更新されます。trackされたディレクトリ内のリポジトリパスを指定して、特定のmodeを持つ子エントリを作成することもできます。
 
 ## Usage
 
 ```bash
-devsync track <targets...> [flags]
+dotweave track <targets...> [flags]
 ```
 
 ## Arguments
@@ -35,27 +35,27 @@ devsync track <targets...> [flags]
 設定ファイルをtrackする:
 
 ```bash
-devsync track ~/.config/starship.toml
+dotweave track ~/.config/starship.toml
 ```
 
 secretを含むディレクトリをtrackする:
 
 ```bash
-devsync track ~/.ssh --mode secret
+dotweave track ~/.ssh --mode secret
 ```
 
 特定のprofileに限定してファイルをtrackする:
 
 ```bash
-devsync track ~/.config/work-proxy.conf --profiles work
+dotweave track ~/.config/work-proxy.conf --profiles work
 ```
 
 trackされたディレクトリ内の子パスのmodeを上書きする:
 
 ```bash
-devsync track .ssh/config --mode ignore
+dotweave track .ssh/config --mode ignore
 ```
 
 <Aside>
-`track` は `manifest.jsonc` を更新するだけです。ファイルをsyncディレクトリにコピーするには、続けて `devsync push` を実行してください。
+`track` は `manifest.jsonc` を更新するだけです。ファイルをsyncディレクトリにコピーするには、続けて `dotweave push` を実行してください。
 </Aside>

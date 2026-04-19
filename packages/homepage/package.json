@@ -1,9 +1,9 @@
 {
-  "name": "@tinyrack/devsync-homepage",
+  "name": "@tinyrack/dotweave-homepage",
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Documentation homepage for devsync built with Astro and Starlight.",
+  "description": "Documentation homepage for dotweave built with Astro and Starlight.",
   "license": "MIT",
   "engines": {
     "node": ">=24.0.0"

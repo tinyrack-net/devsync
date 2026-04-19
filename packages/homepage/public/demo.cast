@@ -1,4 +1,4 @@
-{"version": 2, "width": 82, "height": 10, "title": "devsync demo"}
+{"version": 2, "width": 82, "height": 10, "title": "dotweave demo"}
 [0.3, "o", "\u001b[32m\u276f\u001b[0m "]
 [0.6, "o", "d"]
 [0.66, "o", "e"]
@@ -14,9 +14,9 @@
 [1.26, "o", "t"]
 [1.72, "o", "\r\n"]
 [2.12, "o", "\u001b[32m\u2713\u001b[0m Initialized sync directory\r\n"]
-[2.17, "o", "  \u001b[90mdirectory\u001b[0m \u001b[36m~/.config/devsync/sync\u001b[0m\r\n"]
-[2.22, "o", "  \u001b[90mconfig   \u001b[0m \u001b[36m~/.config/devsync/config.toml\u001b[0m\r\n"]
-[2.27, "o", "  \u001b[90midentity \u001b[0m \u001b[36m~/.config/devsync/key.txt\u001b[0m\r\n"]
+[2.17, "o", "  \u001b[90mdirectory\u001b[0m \u001b[36m~/.config/dotweave/sync\u001b[0m\r\n"]
+[2.22, "o", "  \u001b[90mconfig   \u001b[0m \u001b[36m~/.config/dotweave/config.toml\u001b[0m\r\n"]
+[2.27, "o", "  \u001b[90midentity \u001b[0m \u001b[36m~/.config/dotweave/key.txt\u001b[0m\r\n"]
 [2.32, "o", "  \u001b[90mgit      \u001b[0m initialized new repository\r\n"]
 [2.37, "o", "  \u001b[90mage      \u001b[0m generated a new local identity\r\n"]
 [3.17, "o", "\u001b[2J\u001b[H"]
@@ -125,7 +125,7 @@
 [14.92, "o", "c"]
 [14.98, "o", "d"]
 [15.44, "o", "\r\n"]
-[15.74, "o", "\u001b[32m\u276f\u001b[0m \u001b[90m(~/.config/devsync/sync)\u001b[0m\r\n"]
+[15.74, "o", "\u001b[32m\u276f\u001b[0m \u001b[90m(~/.config/dotweave/sync)\u001b[0m\r\n"]
 [15.84, "o", "\u001b[32m\u276f\u001b[0m "]
 [16.14, "o", "g"]
 [16.2, "o", "i"]

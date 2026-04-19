@@ -1,5 +1,5 @@
 ---
-title: "devsync track"
+title: "dotweave track"
 description: "로컬 파일이나 디렉터리를 동기화 대상으로 등록해요."
 ---
 
@@ -7,12 +7,12 @@ import { Aside } from "@astrojs/starlight/components";
 
 로컬 파일이나 디렉터리를 동기화 대상으로 등록해요.
 
-홈 디렉터리 안에 있는 파일이나 디렉터리를 하나 이상 등록하면, devsync가 sync 디렉터리에 미러링해요. 이미 추적 중인 대상은 mode만 갱신돼요. 추적 중인 디렉터리 안의 하위 경로를 지정해서 특정 mode를 가진 자식 항목을 만들 수도 있어요.
+홈 디렉터리 안에 있는 파일이나 디렉터리를 하나 이상 등록하면, dotweave가 sync 디렉터리에 미러링해요. 이미 추적 중인 대상은 mode만 갱신돼요. 추적 중인 디렉터리 안의 하위 경로를 지정해서 특정 mode를 가진 자식 항목을 만들 수도 있어요.
 
 ## Usage
 
 ```bash
-devsync track <targets...> [flags]
+dotweave track <targets...> [flags]
 ```
 
 ## Arguments
@@ -35,27 +35,27 @@ devsync track <targets...> [flags]
 설정 파일 하나를 추적해요:
 
 ```bash
-devsync track ~/.config/starship.toml
+dotweave track ~/.config/starship.toml
 ```
 
 secret이 포함된 디렉터리를 추적해요:
 
 ```bash
-devsync track ~/.ssh --mode secret
+dotweave track ~/.ssh --mode secret
 ```
 
 특정 profile에만 파일을 추적해요:
 
 ```bash
-devsync track ~/.config/work-proxy.conf --profiles work
+dotweave track ~/.config/work-proxy.conf --profiles work
 ```
 
 추적 중인 디렉터리 안의 자식 경로에 mode를 재정의해요:
 
 ```bash
-devsync track .ssh/config --mode ignore
+dotweave track .ssh/config --mode ignore
 ```
 
 <Aside>
-`track`은 `manifest.jsonc`만 갱신해요. 파일을 sync 디렉터리에 복사하려면 `devsync push`를 실행하세요.
+`track`은 `manifest.jsonc`만 갱신해요. 파일을 sync 디렉터리에 복사하려면 `dotweave push`를 실행하세요.
 </Aside>

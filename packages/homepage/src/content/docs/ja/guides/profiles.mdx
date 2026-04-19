@@ -15,14 +15,14 @@ import { Aside, Steps } from "@astrojs/starlight/components";
 
 ```bash
 # defaultプロファイル — すべてのマシンで同期
-devsync track ~/.gitconfig
-devsync track ~/.zshrc
+dotweave track ~/.gitconfig
+dotweave track ~/.zshrc
 
 # "work"プロファイルがアクティブなときだけ同期
-devsync track ~/.config/work-vpn --profiles work
+dotweave track ~/.config/work-vpn --profiles work
 
 # "personal"プロファイルがアクティブなときだけ同期
-devsync track ~/.config/personal-tool --profiles personal
+dotweave track ~/.config/personal-tool --profiles personal
 ```
 
 ---
@@ -35,20 +35,20 @@ devsync track ~/.config/personal-tool --profiles personal
 1つのエントリに複数のプロファイルを割り当てることもできます — いずれかがアクティブであれば同期されます：
 
 ```bash
-devsync track ~/.config/shared-tool --profiles work,personal
+dotweave track ~/.config/shared-tool --profiles work,personal
 ```
 
 ---
 
 ## アクティブプロファイルの設定
 
-現在のマシンで使用するプロファイルをdevsyncに指示します：
+現在のマシンで使用するプロファイルをdotweaveに指示します：
 
 ```bash
-devsync profile use work
+dotweave profile use work
 ```
 
-これ以降、このマシンの`devsync push`と`devsync pull`にはdefaultエントリ**に加えて**`work`プロファイルに割り当てられたエントリが含まれます。
+これ以降、このマシンの`dotweave push`と`dotweave pull`にはdefaultエントリ**に加えて**`work`プロファイルに割り当てられたエントリが含まれます。
 
 ---
 
@@ -57,7 +57,7 @@ devsync profile use work
 sync設定に存在するすべてのプロファイルを確認できます：
 
 ```bash
-devsync profile list
+dotweave profile list
 ```
 
 `manifest.jsonc`に登場するすべてのプロファイル名と、現在アクティブなプロファイルが表示されます。
@@ -68,29 +68,29 @@ devsync profile list
 
 ```bash
 # 共通設定 — プロファイルなし、すべてのマシンで同期
-devsync track ~/.gitconfig
-devsync track ~/.zshrc
+dotweave track ~/.gitconfig
+dotweave track ~/.zshrc
 
 # 仕事専用ファイル
-devsync track ~/.config/work-vpn --profiles work
-devsync track ~/.ssh/work-key --mode secret --profiles work
+dotweave track ~/.config/work-vpn --profiles work
+dotweave track ~/.ssh/work-key --mode secret --profiles work
 
 # 個人専用ファイル
-devsync track ~/.config/personal-app --profiles personal
+dotweave track ~/.config/personal-app --profiles personal
 ```
 
 **仕事用ノートPC**でworkプロファイルを設定してpush：
 
 ```bash
-devsync profile use work
-devsync push    # default + workエントリをpush
+dotweave profile use work
+dotweave push    # default + workエントリをpush
 ```
 
 **個人マシン**でpersonalプロファイルを設定してpull：
 
 ```bash
-devsync profile use personal
-devsync pull    # default + personalエントリのみpull
+dotweave profile use personal
+dotweave pull    # default + personalエントリのみpull
 ```
 
 仕事のマシンには個人の設定が入らず、個人のマシンには仕事のクレデンシャルが入りません。きれいに分離しつつ、リポジトリは1つです。

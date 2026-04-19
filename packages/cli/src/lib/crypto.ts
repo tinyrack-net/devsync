@@ -8,18 +8,18 @@ import {
   generateIdentity,
   identityToRecipient,
 } from "age-encryption";
-import { DevsyncError, wrapUnknownError } from "#app/lib/error.ts";
+import { DotweaveError, wrapUnknownError } from "#app/lib/error.ts";
 import { ensureTrailingNewline } from "#app/lib/string.ts";
 
 /**
  * @description
- * Validates and normalizes a single age identity for devsync use.
+ * Validates and normalizes a single age identity for dotweave use.
  */
 export const resolveAgeIdentity = async (identity: string) => {
   const normalizedIdentity = identity.trim();
 
   if (normalizedIdentity === "") {
-    throw new DevsyncError("Age private key cannot be empty.", {
+    throw new DotweaveError("Age private key cannot be empty.", {
       code: "AGE_IDENTITY_INVALID",
       hint: "Provide a valid age private key starting with 'AGE-SECRET-KEY-'.",
     });
@@ -52,12 +52,12 @@ export const readAgeIdentityLines = async (identityFile: string) => {
     });
 
   if (identities.length === 0) {
-    throw new DevsyncError(
+    throw new DotweaveError(
       "No age identities were found in the configured identity file.",
       {
         code: "AGE_IDENTITY_EMPTY",
         details: [`Identity file: ${identityFile}`],
-        hint: "Add at least one age private key to the identity file, or run 'devsync init' to generate one.",
+        hint: "Add at least one age private key to the identity file, or run 'dotweave init' to generate one.",
       },
     );
   }
@@ -98,7 +98,7 @@ export const readAgeRecipientsFromIdentityFile = async (
 
 /**
  * @description
- * Generates and persists a new age identity file for devsync.
+ * Generates and persists a new age identity file for dotweave.
  */
 export const createAgeIdentityFile = async (identityFile: string) => {
   const identity = await generateIdentity();

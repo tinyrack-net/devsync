@@ -33,9 +33,9 @@ const mocked = vi.hoisted(() => ({
         : "/tmp/home/.config",
   })),
   resolveSyncPaths: vi.fn(() => ({
-    configPath: "/tmp/devsync/manifest.jsonc",
+    configPath: "/tmp/dotweave/manifest.jsonc",
     homeDirectory: "/tmp/home",
-    syncDirectory: "/tmp/devsync",
+    syncDirectory: "/tmp/dotweave",
   })),
   tryBuildRepoPathWithinRoot: vi.fn(),
   tryNormalizeRepoPathInput: vi.fn(),
@@ -360,12 +360,12 @@ describe("sync set service", () => {
       ),
     ).resolves.toEqual({
       action: "unchanged",
-      configPath: "/tmp/devsync/manifest.jsonc",
+      configPath: "/tmp/dotweave/manifest.jsonc",
       entryRepoPath: ".gitconfig",
       localPath: nativePath("/tmp/home/.gitconfig"),
       mode: "secret",
       repoPath: ".gitconfig",
-      syncDirectory: "/tmp/devsync",
+      syncDirectory: "/tmp/dotweave",
     });
     expect(mocked.writeValidatedSyncConfig).not.toHaveBeenCalled();
   });
@@ -427,12 +427,12 @@ describe("sync set service", () => {
 
     expect(result).toEqual({
       action: "added",
-      configPath: "/tmp/devsync/manifest.jsonc",
+      configPath: "/tmp/dotweave/manifest.jsonc",
       entryRepoPath: ".config/app",
       localPath: nativePath("/tmp/home/.config/app/private.txt"),
       mode: "secret",
       repoPath: ".config/app/private.txt",
-      syncDirectory: "/tmp/devsync",
+      syncDirectory: "/tmp/dotweave",
     });
     expect(mocked.buildSyncConfigDocument).toHaveBeenCalledWith({
       ...config,
@@ -477,12 +477,12 @@ describe("sync set service", () => {
       ),
     ).resolves.toEqual({
       action: "unchanged",
-      configPath: "/tmp/devsync/manifest.jsonc",
+      configPath: "/tmp/dotweave/manifest.jsonc",
       entryRepoPath: ".config/app",
       localPath: nativePath("/tmp/home/.config/app/notes.txt"),
       mode: "normal",
       repoPath: ".config/app/notes.txt",
-      syncDirectory: "/tmp/devsync",
+      syncDirectory: "/tmp/dotweave",
     });
     expect(mocked.writeValidatedSyncConfig).not.toHaveBeenCalled();
   });

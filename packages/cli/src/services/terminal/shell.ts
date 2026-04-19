@@ -3,7 +3,7 @@ import { spawn } from "node:child_process";
 import type { PlatformKey } from "#app/config/platform.ts";
 import { resolveCurrentPlatformKey } from "#app/config/runtime-env.ts";
 import { ENV } from "#app/lib/env.ts";
-import { DevsyncError } from "#app/lib/error.ts";
+import { DotweaveError } from "#app/lib/error.ts";
 
 type ShellCommand = Readonly<{
   args: readonly string[];
@@ -273,7 +273,7 @@ const createShellExitError = (
   code: number | null,
   signal: NodeJS.Signals | null,
 ) => {
-  const error = new DevsyncError(
+  const error = new DotweaveError(
     signal === null
       ? `Shell exited with code ${code ?? "unknown"}.`
       : `Shell exited due to signal ${signal}.`,
@@ -281,7 +281,7 @@ const createShellExitError = (
       details: [`Shell: ${command}`],
       hint: "Exit the spawned shell normally when you're done.",
     },
-  ) as DevsyncError & { exitCode?: number };
+  ) as DotweaveError & { exitCode?: number };
 
   error.exitCode = code ?? 1;
 
@@ -311,7 +311,7 @@ export const launchShellInDirectory = async (directory: string) => {
     child.on("error", (error) => {
       finish(() => {
         reject(
-          new DevsyncError("Failed to launch shell.", {
+          new DotweaveError("Failed to launch shell.", {
             details: [
               `Shell: ${command}`,
               error instanceof Error ? error.message : String(error),

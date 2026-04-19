@@ -22,7 +22,7 @@ describe("CLI e2e", () => {
     const result = await runCli(["--version"]);
 
     expect(result.exitCode).toBe(0);
-    expect(result.stdout).toContain(`devsync/${packageJson.version}`);
+    expect(result.stdout).toContain(`dotweave/${packageJson.version}`);
     expect(result.stderr).toBe("");
   });
 

@@ -57,7 +57,7 @@ import { untrackTarget } from "./untrack.ts";
 const temporaryDirectories: string[] = [];
 
 const createWorkspace = async () => {
-  const directory = await createTemporaryDirectory("devsync-untrack-");
+  const directory = await createTemporaryDirectory("dotweave-untrack-");
 
   temporaryDirectories.push(directory);
 

@@ -1,14 +1,14 @@
 import { CONSTANTS } from "#app/config/constants.ts";
 import {
-  formatGlobalDevsyncConfig,
-  readGlobalDevsyncConfig,
+  formatGlobalDotweaveConfig,
+  readGlobalDotweaveConfig,
 } from "#app/config/global-config.ts";
 import {
   collectAllProfileNames,
   normalizeSyncProfileName,
   readSyncConfig,
 } from "#app/config/sync.ts";
-import { DevsyncError } from "#app/lib/error.ts";
+import { DotweaveError } from "#app/lib/error.ts";
 import { writeTextFileAtomically } from "#app/lib/filesystem.ts";
 import { ensureGitRepository } from "#app/lib/git.ts";
 import {
@@ -66,7 +66,7 @@ export const listProfiles = async (): Promise<ProfileListResult> => {
   await ensureGitRepository(syncDirectory);
 
   const [globalConfig, syncConfig] = await Promise.all([
-    readGlobalDevsyncConfig(globalConfigPath),
+    readGlobalDotweaveConfig(globalConfigPath),
     readSyncConfig(syncDirectory, context),
   ]);
 
@@ -110,7 +110,7 @@ export const setActiveProfile = async (
 
   await writeTextFileAtomically(
     globalConfigPath,
-    formatGlobalDevsyncConfig({
+    formatGlobalDotweaveConfig({
       activeProfile: normalizedProfile,
       version: CONSTANTS.GLOBAL_CONFIG.CURRENT_VERSION,
     }),
@@ -133,7 +133,7 @@ export const clearActiveProfile = async (): Promise<ProfileUpdateResult> => {
 
   await writeTextFileAtomically(
     globalConfigPath,
-    formatGlobalDevsyncConfig({
+    formatGlobalDotweaveConfig({
       version: CONSTANTS.GLOBAL_CONFIG.CURRENT_VERSION,
     }),
   );
@@ -152,9 +152,9 @@ export const assignProfiles = async (
   const target = request.target.trim();
 
   if (target.length === 0) {
-    throw new DevsyncError("Target path is required.", {
+    throw new DotweaveError("Target path is required.", {
       code: "TARGET_REQUIRED",
-      hint: "Pass a tracked entry path, for example 'devsync track ~/.gitconfig --profile default --profile work'.",
+      hint: "Pass a tracked entry path, for example 'dotweave track ~/.gitconfig --profile default --profile work'.",
     });
   }
 
@@ -172,9 +172,9 @@ export const assignProfiles = async (
   );
 
   if (entry === undefined) {
-    throw new DevsyncError(`No tracked sync entry matches: ${target}`, {
+    throw new DotweaveError(`No tracked sync entry matches: ${target}`, {
       code: "TARGET_NOT_TRACKED",
-      hint: "Track the root first with 'devsync track'.",
+      hint: "Track the root first with 'dotweave track'.",
     });
   }
 

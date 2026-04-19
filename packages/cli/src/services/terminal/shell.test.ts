@@ -39,7 +39,7 @@ import {
 const temporaryDirectories: string[] = [];
 
 const createWorkspace = async () => {
-  const directory = await createTemporaryDirectory("devsync-shell-");
+  const directory = await createTemporaryDirectory("dotweave-shell-");
 
   temporaryDirectories.push(directory);
 
@@ -95,7 +95,7 @@ describe("shell launcher", () => {
       if (processId === 200) {
         return {
           commandLine:
-            '"C:\\Windows\\System32\\cmd.exe" /d /s /c ""C:\\Users\\test\\AppData\\Roaming\\npm\\devsync.cmd" cd"',
+            '"C:\\Windows\\System32\\cmd.exe" /d /s /c ""C:\\Users\\test\\AppData\\Roaming\\npm\\dotweave.cmd" cd"',
           executablePath: "C:\\Windows\\System32\\cmd.exe",
           name: "cmd.exe",
           parentProcessId: 150,

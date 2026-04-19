@@ -36,7 +36,7 @@ describe("CLI application", () => {
     await runCli(["--version"]);
 
     expect(process.exitCode).toBe(0);
-    expect(output.stdout()).toContain(`devsync/${packageJson.version}`);
+    expect(output.stdout()).toContain(`dotweave/${packageJson.version}`);
     expect(output.stderr()).toBe("");
   });
 
@@ -63,7 +63,7 @@ describe("CLI application", () => {
     await runCli(["autocomplete", "bash"]);
 
     expect(process.exitCode).toBe(0);
-    expect(scriptOutput.stdout()).toContain("__devsync_complete() {");
+    expect(scriptOutput.stdout()).toContain("__dotweave_complete() {");
     expect(scriptOutput.stderr()).toBe("");
 
     vi.restoreAllMocks();
@@ -71,7 +71,7 @@ describe("CLI application", () => {
 
     const completionOutput = captureProcessOutput();
 
-    await runCli(["__complete", "devsync", "aut"]);
+    await runCli(["__complete", "dotweave", "aut"]);
 
     expect(process.exitCode).toBe(0);
     expect(completionOutput.stdout()).toContain("autocomplete");

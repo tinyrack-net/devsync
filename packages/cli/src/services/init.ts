@@ -3,9 +3,9 @@ import { dirname, join } from "node:path";
 import type { ConsolaInstance } from "consola";
 import { CONSTANTS } from "#app/config/constants.ts";
 import {
-  formatGlobalDevsyncConfig,
-  type GlobalDevsyncConfig,
-  readGlobalDevsyncConfig,
+  formatGlobalDotweaveConfig,
+  type GlobalDotweaveConfig,
+  readGlobalDotweaveConfig,
 } from "#app/config/global-config.ts";
 import { resolveDefaultIdentityFile } from "#app/config/identity-file.ts";
 import { readEnvValue } from "#app/config/runtime-env.ts";
@@ -22,7 +22,7 @@ import {
   readAgeRecipientsFromIdentityFile,
   writeAgeIdentityFile,
 } from "#app/lib/crypto.ts";
-import { DevsyncError, wrapUnknownError } from "#app/lib/error.ts";
+import { DotweaveError, wrapUnknownError } from "#app/lib/error.ts";
 import { pathExists, writeTextFileAtomically } from "#app/lib/filesystem.ts";
 import {
   ensureGitRepository,
@@ -62,7 +62,7 @@ const managedRepositoryAttributesFileName = ".gitattributes";
 const managedRepositoryAttributesContents = "* -text\n";
 
 export const createMissingRepositoryAgeKeyError = () => {
-  return new DevsyncError(
+  return new DotweaveError(
     "Existing repository setup requires an age private key.",
     {
       code: "INIT_AGE_IDENTITY_REQUIRED",
@@ -164,7 +164,7 @@ const assertInitRequestMatchesConfig = (
     JSON.stringify(recipients) !==
       JSON.stringify(normalizeRecipients([...age.recipients]))
   ) {
-    throw new DevsyncError(
+    throw new DotweaveError(
       "Sync configuration already exists with different age recipients.",
       {
         code: "INIT_RECIPIENT_MISMATCH",
@@ -204,8 +204,8 @@ const buildAlreadyInitializedResult = (
 };
 
 const writeGlobalSettings = async (globalConfigPath: string) => {
-  const existingGlobalConfig = await readGlobalDevsyncConfig(globalConfigPath);
-  const globalConfigToWrite: GlobalDevsyncConfig = {
+  const existingGlobalConfig = await readGlobalDotweaveConfig(globalConfigPath);
+  const globalConfigToWrite: GlobalDotweaveConfig = {
     activeProfile:
       existingGlobalConfig?.activeProfile ?? CONSTANTS.SYNC.DEFAULT_PROFILE,
     version: CONSTANTS.GLOBAL_CONFIG.CURRENT_VERSION,
@@ -213,7 +213,7 @@ const writeGlobalSettings = async (globalConfigPath: string) => {
   await mkdir(dirname(globalConfigPath), { recursive: true });
   await writeTextFileAtomically(
     globalConfigPath,
-    formatGlobalDevsyncConfig(globalConfigToWrite),
+    formatGlobalDotweaveConfig(globalConfigToWrite),
   );
 };
 
@@ -298,7 +298,7 @@ export const initializeSyncDirectory = async (
       const entries = await readdir(syncDirectory);
 
       if (entries.length > 0) {
-        throw new DevsyncError(
+        throw new DotweaveError(
           "Sync directory already exists and is not empty.",
           {
             code: "SYNC_DIR_NOT_EMPTY",
@@ -371,7 +371,7 @@ export const initializeSyncDirectory = async (
       });
     }
 
-    reporter?.start("Writing global devsync settings...");
+    reporter?.start("Writing global dotweave settings...");
     await writeGlobalSettings(globalConfigPath);
 
     const age =
@@ -401,7 +401,7 @@ export const initializeSyncDirectory = async (
   const ageBootstrap = await resolveInitAgeBootstrap(request, reporter);
 
   // Write global settings.jsonc (without age)
-  reporter?.start("Writing global devsync settings...");
+  reporter?.start("Writing global dotweave settings...");
   await writeGlobalSettings(globalConfigPath);
 
   // Write sync config with age

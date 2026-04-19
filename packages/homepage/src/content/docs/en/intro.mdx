@@ -1,17 +1,17 @@
 ---
-title: Devsync
+title: Dotweave
 description: A CLI tool that syncs your dotfiles with Git.
 ---
 
-`Devsync` is a **CLI tool that syncs your development environment config files (dotfiles) with Git**. Keep a consistent setup across multiple machines.
+`Dotweave` is a **CLI tool that syncs your development environment config files (dotfiles) with Git**. Keep a consistent setup across multiple machines.
 
 ---
 
-## Why Devsync?
+## Why Dotweave?
 
 Tools like `stow` and `chezmoi` treat the repository as the **source of truth** — you edit files through the tool, and it manages the repository for you. `stow` creates symlinks from your home directory into a repository, while `chezmoi` requires you to edit through `chezmoi edit` before applying changes locally. These approaches keep the repository state clear, but they add friction to your daily editing workflow.
 
-Devsync takes the opposite approach. **Your local files are always the source of truth.** The sync directory is just a mirror. Edit `~/.zshrc` directly in your favorite editor — no special commands needed. When you're ready to sync, run `devsync push` to copy your local files into the sync directory, then use Git to share them.
+Dotweave takes the opposite approach. **Your local files are always the source of truth.** The sync directory is just a mirror. Edit `~/.zshrc` directly in your favorite editor — no special commands needed. When you're ready to sync, run `dotweave push` to copy your local files into the sync directory, then use Git to share them.
 
 ---
 
@@ -30,17 +30,17 @@ Devsync takes the opposite approach. **Your local files are always the source of
 
 ```bash
 # Track a config file
-devsync track ~/.config/starship.toml
+dotweave track ~/.config/starship.toml
 
 # Push local changes to the sync directory
-devsync push
+dotweave push
 
 # On another machine, pull to restore
-devsync pull
+dotweave pull
 ```
 
 ---
 
 ## Next Steps
 
-Head to [Getting Started](/en/getting-started/) to install devsync and set up your first sync.
+Head to [Getting Started](/en/getting-started/) to install dotweave and set up your first sync.

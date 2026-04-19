@@ -6,7 +6,7 @@ import {
   type PushChanges,
 } from "#app/services/status.ts";
 import {
-  type DevsyncCliContext,
+  type DotweaveCliContext,
   verboseFlag,
 } from "#app/services/terminal/cli-runtime.ts";
 import { createCliLogger } from "#app/services/terminal/logger.ts";
@@ -125,7 +125,7 @@ const logPullChanges = (
   }
 };
 
-const statusCommand = buildCommand<StatusFlags, [], DevsyncCliContext>({
+const statusCommand = buildCommand<StatusFlags, [], DotweaveCliContext>({
   docs: {
     brief: "Show planned push and pull changes for the current sync config",
     fullDescription:

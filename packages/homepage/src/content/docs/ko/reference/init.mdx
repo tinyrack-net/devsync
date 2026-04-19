@@ -1,5 +1,5 @@
 ---
-title: "devsync init"
+title: "dotweave init"
 description: "sync 디렉터리를 새로 만들거나 기존 디렉터리에 연결해요."
 ---
 
@@ -7,12 +7,12 @@ import { Aside } from "@astrojs/starlight/components";
 
 git 기반 sync 디렉터리를 초기화해요.
 
-XDG config 디렉터리 아래에 로컬 devsync 저장소를 만들거나 연결한 뒤, 이후 `pull`과 `push`에서 사용할 sync 설정을 저장해요. repository 인자를 생략하면 sync 디렉터리에 로컬 git 저장소를 새로 만들어요.
+XDG config 디렉터리 아래에 로컬 dotweave 저장소를 만들거나 연결한 뒤, 이후 `pull`과 `push`에서 사용할 sync 설정을 저장해요. repository 인자를 생략하면 sync 디렉터리에 로컬 git 저장소를 새로 만들어요.
 
 ## Usage
 
 ```bash
-devsync init [repository]
+dotweave init [repository]
 ```
 
 ## Arguments
@@ -34,19 +34,19 @@ devsync init [repository]
 새 로컬 sync 디렉터리를 초기화해요:
 
 ```bash
-devsync init
+dotweave init
 ```
 
 원격 저장소를 clone해서 sync 디렉터리로 사용해요:
 
 ```bash
-devsync init https://github.com/user/dotfiles.git
+dotweave init https://github.com/user/dotfiles.git
 ```
 
 기존 age secret key로 초기화해요:
 
 ```bash
-devsync init --key "AGE-SECRET-KEY-1..."
+dotweave init --key "AGE-SECRET-KEY-1..."
 ```
 
 <Aside type="tip">

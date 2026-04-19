@@ -2,7 +2,7 @@ import { buildCommand } from "@stricli/core";
 import pc from "picocolors";
 import { clearActiveProfile, setActiveProfile } from "#app/services/profile.ts";
 import {
-  type DevsyncCliContext,
+  type DotweaveCliContext,
   verboseFlag,
 } from "#app/services/terminal/cli-runtime.ts";
 import { createCliLogger } from "#app/services/terminal/logger.ts";
@@ -14,12 +14,12 @@ type ProfileUseFlags = {
 const profileUseCommand = buildCommand<
   ProfileUseFlags,
   [string?],
-  DevsyncCliContext
+  DotweaveCliContext
 >({
   docs: {
     brief: "Set or clear the active sync profile",
     fullDescription:
-      "Write ~/.config/devsync/settings.jsonc so plain push, pull, status, and doctor commands use the selected profile layer by default. Omit the profile name to clear the active profile.",
+      "Write ~/.config/dotweave/settings.jsonc so plain push, pull, status, and doctor commands use the selected profile layer by default. Omit the profile name to clear the active profile.",
   },
   async func(flags, profile) {
     const verbose = flags.verbose ?? false;

@@ -1,7 +1,7 @@
 import type { Command } from "@stricli/core";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { DevsyncError } from "#app/lib/error.ts";
-import type { DevsyncCliContext } from "#app/services/terminal/cli-runtime.ts";
+import { DotweaveError } from "#app/lib/error.ts";
+import type { DotweaveCliContext } from "#app/services/terminal/cli-runtime.ts";
 
 const mockLogger = vi.hoisted(() => ({
   fail: vi.fn(),
@@ -32,8 +32,8 @@ const mocked = vi.hoisted(() => ({
   readEnvValue: vi.fn(),
   resolveConfiguredAbsolutePath: vi.fn(),
   resolveDefaultIdentityFile: vi.fn(),
-  resolveDevsyncConfigDirectory: vi.fn(),
-  resolveDevsyncSyncDirectory: vi.fn(),
+  resolveDotweaveConfigDirectory: vi.fn(),
+  resolveDotweaveSyncDirectory: vi.fn(),
   runDoctorChecks: vi.fn(),
   setActiveProfile: vi.fn(),
   setTargetMode: vi.fn(),
@@ -47,12 +47,12 @@ vi.mock("node:fs/promises", () => ({
 
 vi.mock("#app/config/xdg.ts", () => ({
   resolveConfiguredAbsolutePath: mocked.resolveConfiguredAbsolutePath,
-  resolveDevsyncConfigDirectory: mocked.resolveDevsyncConfigDirectory,
+  resolveDotweaveConfigDirectory: mocked.resolveDotweaveConfigDirectory,
 }));
 
 vi.mock("#app/config/runtime-env.ts", () => ({
   readEnvValue: mocked.readEnvValue,
-  resolveDevsyncSyncDirectoryFromEnv: mocked.resolveDevsyncSyncDirectory,
+  resolveDotweaveSyncDirectoryFromEnv: mocked.resolveDotweaveSyncDirectory,
 }));
 
 vi.mock("#app/config/identity-file.ts", () => ({
@@ -143,7 +143,7 @@ import trackCommand from "./track.ts";
 import untrackCommand from "./untrack.ts";
 
 const runCommand = async (
-  command: Command<DevsyncCliContext>,
+  command: Command<DotweaveCliContext>,
   flags: Record<string, unknown>,
   ...args: string[]
 ) => {
@@ -171,11 +171,11 @@ beforeEach(() => {
 
   mocked.resolveDefaultIdentityFile.mockReturnValue("/tmp/keys.txt");
   mocked.resolveConfiguredAbsolutePath.mockReturnValue("/tmp/keys.txt");
-  mocked.resolveDevsyncSyncDirectory.mockReturnValue("/tmp/devsync");
+  mocked.resolveDotweaveSyncDirectory.mockReturnValue("/tmp/dotweave");
   mocked.pathExists.mockResolvedValue(true);
   mocked.consolaPrompt.mockResolvedValue(undefined);
   mocked.createMissingRepositoryAgeKeyError.mockImplementation(() => {
-    return new DevsyncError(
+    return new DotweaveError(
       "Existing repository setup requires an age private key.",
     );
   });
@@ -188,7 +188,7 @@ beforeEach(() => {
     gitSource: "git@example.com:dotfiles.git",
     identityFile: "/tmp/keys.txt",
     recipientCount: 1,
-    syncDirectory: "/tmp/devsync",
+    syncDirectory: "/tmp/dotweave",
   });
   mocked.trackTarget.mockResolvedValue({
     alreadyTracked: false,
@@ -199,7 +199,7 @@ beforeEach(() => {
     mode: "secret",
     profiles: ["work"],
     repoPath: "profiles/work/.gitconfig",
-    syncDirectory: "/tmp/devsync",
+    syncDirectory: "/tmp/dotweave",
   });
   mocked.setTargetMode.mockResolvedValue({
     action: "updated",
@@ -208,7 +208,7 @@ beforeEach(() => {
     localPath: "/tmp/home/.config/nvim",
     mode: "ignore",
     repoPath: ".config/nvim",
-    syncDirectory: "/tmp/devsync",
+    syncDirectory: "/tmp/dotweave",
   });
   mocked.assignProfiles.mockResolvedValue(undefined);
   mocked.listProfiles.mockResolvedValue({
@@ -224,19 +224,19 @@ beforeEach(() => {
     availableProfiles: ["personal", "work"],
     globalConfigExists: true,
     globalConfigPath: "/tmp/global-config.json",
-    syncDirectory: "/tmp/devsync",
+    syncDirectory: "/tmp/dotweave",
   });
   mocked.setActiveProfile.mockResolvedValue({
     action: "use",
     activeProfile: "work",
     globalConfigPath: "/tmp/global-config.json",
     profile: "work",
-    syncDirectory: "/tmp/devsync",
+    syncDirectory: "/tmp/dotweave",
   });
   mocked.clearActiveProfile.mockResolvedValue({
     action: "clear",
     globalConfigPath: "/tmp/global-config.json",
-    syncDirectory: "/tmp/devsync",
+    syncDirectory: "/tmp/dotweave",
   });
   mocked.preparePull.mockResolvedValue({
     config: {
@@ -257,7 +257,7 @@ beforeEach(() => {
       materializations: [],
       updatedLocalPaths: ["/tmp/home/.config/app/config.toml"],
     },
-    syncDirectory: "/tmp/devsync",
+    syncDirectory: "/tmp/dotweave",
   });
   mocked.applyPullPlan.mockResolvedValue(undefined);
   mocked.buildPullResultFromPlan.mockReturnValue({
@@ -268,7 +268,7 @@ beforeEach(() => {
     dryRun: true,
     plainFileCount: 3,
     symlinkCount: 0,
-    syncDirectory: "/tmp/devsync",
+    syncDirectory: "/tmp/dotweave",
   });
   mocked.pushChanges.mockResolvedValue({
     configPath: "/tmp/config.json",
@@ -278,7 +278,7 @@ beforeEach(() => {
     encryptedFileCount: 2,
     plainFileCount: 1,
     symlinkCount: 0,
-    syncDirectory: "/tmp/devsync",
+    syncDirectory: "/tmp/dotweave",
   });
   mocked.getStatus.mockResolvedValue({
     activeProfile: "work",
@@ -306,7 +306,7 @@ beforeEach(() => {
       plainFileCount: 3,
       preview: [".gitconfig"],
       symlinkCount: 0,
-      syncDirectory: "/tmp/devsync",
+      syncDirectory: "/tmp/dotweave",
     },
     push: {
       changes: {
@@ -322,10 +322,10 @@ beforeEach(() => {
       plainFileCount: 1,
       preview: [".gitconfig"],
       symlinkCount: 0,
-      syncDirectory: "/tmp/devsync",
+      syncDirectory: "/tmp/dotweave",
     },
     recipientCount: 1,
-    syncDirectory: "/tmp/devsync",
+    syncDirectory: "/tmp/dotweave",
   });
   mocked.untrackTarget.mockResolvedValue({
     configPath: "/tmp/config.json",
@@ -333,7 +333,7 @@ beforeEach(() => {
     plainArtifactCount: 3,
     repoPath: ".ssh/config",
     secretArtifactCount: 0,
-    syncDirectory: "/tmp/devsync",
+    syncDirectory: "/tmp/dotweave",
   });
   mocked.runDoctorChecks.mockResolvedValue({
     checks: [
@@ -346,7 +346,7 @@ beforeEach(() => {
     configPath: "/tmp/config.json",
     hasFailures: false,
     hasWarnings: false,
-    syncDirectory: "/tmp/devsync",
+    syncDirectory: "/tmp/dotweave",
   });
   mocked.mkdir.mockResolvedValue(undefined);
   mocked.launchShellInDirectory.mockResolvedValue(undefined);
@@ -452,7 +452,7 @@ describe("CLI command modules", () => {
 
   it("falls back to mode updates when tracking finds an existing target", async () => {
     mocked.trackTarget.mockRejectedValue(
-      new DevsyncError("existing target", {
+      new DotweaveError("existing target", {
         code: "TARGET_NOT_FOUND",
       }),
     );
@@ -560,7 +560,7 @@ describe("CLI command modules", () => {
         materializations: [],
         updatedLocalPaths: [],
       },
-      syncDirectory: "/tmp/devsync",
+      syncDirectory: "/tmp/dotweave",
     });
 
     await runCommand(pullCommand, { verbose: false });
@@ -639,7 +639,7 @@ describe("CLI command modules", () => {
       configPath: "/tmp/config.json",
       hasFailures: true,
       hasWarnings: false,
-      syncDirectory: "/tmp/devsync",
+      syncDirectory: "/tmp/dotweave",
     });
 
     await runCommand(doctorCommand, { verbose: true });
@@ -654,10 +654,10 @@ describe("CLI command modules", () => {
   it("creates the sync directory before launching cd shells", async () => {
     await runCommand(cdCommand, { verbose: false });
 
-    expect(mocked.resolveDevsyncSyncDirectory).toHaveBeenCalledTimes(1);
-    expect(mocked.mkdir).toHaveBeenCalledWith("/tmp/devsync", {
+    expect(mocked.resolveDotweaveSyncDirectory).toHaveBeenCalledTimes(1);
+    expect(mocked.mkdir).toHaveBeenCalledWith("/tmp/dotweave", {
       recursive: true,
     });
-    expect(mocked.launchShellInDirectory).toHaveBeenCalledWith("/tmp/devsync");
+    expect(mocked.launchShellInDirectory).toHaveBeenCalledWith("/tmp/dotweave");
   });
 });

@@ -2,7 +2,7 @@
 
 ## Workspace
 
-- This is a `pnpm` workspace with two packages under `packages/`: `cli` (`@tinyrack/devsync`) and `homepage` (`@tinyrack/devsync-homepage`).
+- This is a `pnpm` workspace with two packages under `packages/`: `cli` (`@tinyrack/dotweave`) and `homepage` (`@tinyrack/dotweave-homepage`).
 - Root scripts are minimal: `pnpm dev` runs every package's `dev` script recursively, `pnpm format` writes formatting, and `pnpm format:check` runs `biome check .`.
 - CI is package-specific, not workspace-wide: the CLI package is built and validated in `.github/workflows/ci.yml`; the homepage is built and deployed separately in `.github/workflows/deploy-homepage.yml`.
 - Node.js 24+ is required everywhere, and the workspace pins `pnpm@10.33.0`.
@@ -28,14 +28,14 @@
 
 ## Commands
 
-- CLI dev/build/run: `pnpm --filter @tinyrack/devsync dev`, `pnpm --filter @tinyrack/devsync build`, `pnpm --filter @tinyrack/devsync start`
-- CLI validation: `pnpm --filter @tinyrack/devsync check`
-- CLI targeted checks: `pnpm --filter @tinyrack/devsync typecheck`, `biome check .`, `pnpm --filter @tinyrack/devsync test`
-- Homepage dev/build/typecheck: `pnpm --filter @tinyrack/devsync-homepage dev`, `pnpm --filter @tinyrack/devsync-homepage build`, `pnpm --filter @tinyrack/devsync-homepage typecheck`
+- CLI dev/build/run: `pnpm --filter @tinyrack/dotweave dev`, `pnpm --filter @tinyrack/dotweave build`, `pnpm --filter @tinyrack/dotweave start`
+- CLI validation: `pnpm --filter @tinyrack/dotweave check`
+- CLI targeted checks: `pnpm --filter @tinyrack/dotweave typecheck`, `biome check .`, `pnpm --filter @tinyrack/dotweave test`
+- Homepage dev/build/typecheck: `pnpm --filter @tinyrack/dotweave-homepage dev`, `pnpm --filter @tinyrack/dotweave-homepage build`, `pnpm --filter @tinyrack/dotweave-homepage typecheck`
 - Release workflow expectations for the CLI package are encoded in scripts and CI: build first, then `check`, and release tags must match `packages/cli/package.json` version.
 
 ## Validation
 
-- For CLI changes, match CI locally with `pnpm --filter @tinyrack/devsync build` followed by `pnpm --filter @tinyrack/devsync check`.
-- For homepage changes, at minimum run `pnpm --filter @tinyrack/devsync-homepage typecheck` and `pnpm --filter @tinyrack/devsync-homepage build`.
+- For CLI changes, match CI locally with `pnpm --filter @tinyrack/dotweave build` followed by `pnpm --filter @tinyrack/dotweave check`.
+- For homepage changes, at minimum run `pnpm --filter @tinyrack/dotweave-homepage typecheck` and `pnpm --filter @tinyrack/dotweave-homepage build`.
 - `biome check .` runs at the repo root and covers both packages; there is no root script that runs all package-specific validations together.

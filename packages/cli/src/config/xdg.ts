@@ -50,18 +50,18 @@ export const resolveXdgConfigHome = (
   return resolve(resolveHomeDirectory(home), ".config");
 };
 
-export const resolveDevsyncConfigDirectory = (xdgConfigHome: string) => {
+export const resolveDotweaveConfigDirectory = (xdgConfigHome: string) => {
   return resolve(xdgConfigHome, CONSTANTS.XDG.APP_DIRECTORY_NAME);
 };
 
-export const resolveDevsyncGlobalConfigFilePath = (
-  devsyncConfigDirectory: string,
+export const resolveDotweaveGlobalConfigFilePath = (
+  dotweaveConfigDirectory: string,
 ) => {
-  return resolve(devsyncConfigDirectory, CONSTANTS.GLOBAL_CONFIG.FILE_NAME);
+  return resolve(dotweaveConfigDirectory, CONSTANTS.GLOBAL_CONFIG.FILE_NAME);
 };
 
-export const resolveDevsyncSyncDirectory = (devsyncConfigDirectory: string) => {
-  return resolve(devsyncConfigDirectory, CONSTANTS.XDG.SYNC_DIRECTORY_NAME);
+export const resolveDotweaveSyncDirectory = (dotweaveConfigDirectory: string) => {
+  return resolve(dotweaveConfigDirectory, CONSTANTS.XDG.SYNC_DIRECTORY_NAME);
 };
 
 export const expandHomePath = (value: string, home: string | undefined) => {

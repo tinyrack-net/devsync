@@ -8,7 +8,7 @@ import {
   type ResolvedSyncConfig,
   type SyncConfigResolutionContext,
 } from "#app/config/sync-schema.ts";
-import { DevsyncError } from "#app/lib/error.ts";
+import { DotweaveError } from "#app/lib/error.ts";
 import { parseJsonc, resolveJsoncConfigPath } from "#app/lib/jsonc.ts";
 
 const syncConfigMigrationRegistry = new Map<number, never>();
@@ -84,25 +84,25 @@ export const readSyncConfig = async (
 
     return parseSyncConfig(migrated, context);
   } catch (error: unknown) {
-    if (error instanceof DevsyncError) {
+    if (error instanceof DotweaveError) {
       throw error;
     }
 
     if (error instanceof SyntaxError) {
-      throw new DevsyncError("Sync configuration is not valid JSON.", {
+      throw new DotweaveError("Sync configuration is not valid JSON.", {
         code: "CONFIG_INVALID_JSON",
         details: [`Config file: ${filePath}`, error.message],
         hint: `Fix the JSON syntax in ${CONSTANTS.SYNC.CONFIG_FILE_NAME}, then run the command again.`,
       });
     }
 
-    throw new DevsyncError("Failed to read sync configuration.", {
+    throw new DotweaveError("Failed to read sync configuration.", {
       code: "CONFIG_READ_FAILED",
       details: [
         `Config file: ${filePath}`,
         ...(error instanceof Error ? [error.message] : []),
       ],
-      hint: "Run 'devsync init' if the sync directory has not been initialized yet.",
+      hint: "Run 'dotweave init' if the sync directory has not been initialized yet.",
     });
   }
 };

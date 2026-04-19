@@ -59,7 +59,7 @@ describe("push helpers", () => {
   });
 
   it("builds push results from a completed plan", () => {
-    const syncDirectory = "/tmp/devsync";
+    const syncDirectory = "/tmp/dotweave";
 
     expect(
       buildPushResultFromPlan(

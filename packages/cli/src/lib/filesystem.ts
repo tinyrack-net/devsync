@@ -15,7 +15,7 @@ import {
   writeFile,
 } from "node:fs/promises";
 import { basename, dirname, isAbsolute, join } from "node:path";
-import { DevsyncError } from "#app/lib/error.ts";
+import { DotweaveError } from "#app/lib/error.ts";
 import { buildExecutableMode, isExecutableMode } from "#app/lib/file-mode.ts";
 
 /**
@@ -85,7 +85,7 @@ export const listDirectoryEntries = async (path: string) => {
 
 /**
  * @description
- * Writes a regular file node with the permissions devsync should preserve.
+ * Writes a regular file node with the permissions dotweave should preserve.
  */
 export const writeFileNode = async (
   path: string,
@@ -174,7 +174,7 @@ export const copyFilesystemNode = async (
   }
 
   if (!sourceStats.isFile()) {
-    throw new DevsyncError(`Unsupported filesystem entry: ${sourcePath}`);
+    throw new DotweaveError(`Unsupported filesystem entry: ${sourcePath}`);
   }
 
   await writeFileNode(targetPath, {
@@ -193,7 +193,7 @@ export const replacePathAtomically = async (
 ) => {
   const backupPath = join(
     dirname(targetPath),
-    `.${basename(targetPath)}.devsync-sync-backup-${randomUUID()}`,
+    `.${basename(targetPath)}.dotweave-sync-backup-${randomUUID()}`,
   );
   const existingStats = await getPathStats(targetPath);
   let targetMoved = false;
@@ -233,7 +233,7 @@ export const removePathAtomically = async (targetPath: string) => {
 
   const backupPath = join(
     dirname(targetPath),
-    `.${basename(targetPath)}.devsync-sync-remove-${randomUUID()}`,
+    `.${basename(targetPath)}.dotweave-sync-remove-${randomUUID()}`,
   );
 
   await rename(targetPath, backupPath);
@@ -250,7 +250,7 @@ export const writeTextFileAtomically = async (
 ) => {
   await mkdir(dirname(targetPath), { recursive: true });
   const stagingDirectory = await mkdtemp(
-    join(dirname(targetPath), `.${basename(targetPath)}.devsync-sync-`),
+    join(dirname(targetPath), `.${basename(targetPath)}.dotweave-sync-`),
   );
   const stagedPath = join(stagingDirectory, basename(targetPath));
 

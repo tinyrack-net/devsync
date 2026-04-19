@@ -1,5 +1,5 @@
 ---
-title: "devsync track"
+title: "dotweave track"
 description: "Register local files or directories for syncing."
 ---
 
@@ -7,12 +7,12 @@ import { Aside } from "@astrojs/starlight/components";
 
 Track local files or directories for syncing.
 
-Register one or more files or directories inside your home directory so devsync can mirror them into the sync directory. If a target is already tracked, its mode is updated. Targets may also be repository paths inside a tracked directory to create child entries with a specific mode.
+Register one or more files or directories inside your home directory so dotweave can mirror them into the sync directory. If a target is already tracked, its mode is updated. Targets may also be repository paths inside a tracked directory to create child entries with a specific mode.
 
 ## Usage
 
 ```bash
-devsync track <targets...> [flags]
+dotweave track <targets...> [flags]
 ```
 
 ## Arguments
@@ -35,27 +35,27 @@ devsync track <targets...> [flags]
 Track a single config file:
 
 ```bash
-devsync track ~/.config/starship.toml
+dotweave track ~/.config/starship.toml
 ```
 
 Track a directory containing secrets:
 
 ```bash
-devsync track ~/.ssh --mode secret
+dotweave track ~/.ssh --mode secret
 ```
 
 Track a file restricted to a specific profile:
 
 ```bash
-devsync track ~/.config/work-proxy.conf --profiles work
+dotweave track ~/.config/work-proxy.conf --profiles work
 ```
 
 Override the mode for a child path inside a tracked directory:
 
 ```bash
-devsync track .ssh/config --mode ignore
+dotweave track .ssh/config --mode ignore
 ```
 
 <Aside>
-`track` only updates `manifest.jsonc`. Run `devsync push` afterward to copy files into the sync directory.
+`track` only updates `manifest.jsonc`. Run `dotweave push` afterward to copy files into the sync directory.
 </Aside>

@@ -14,7 +14,7 @@ vi.mock("#app/lib/env.ts", () => ({
 
 import type { ConsolaInstance } from "consola";
 import { createInitialSyncConfig, formatSyncConfig } from "#app/config/sync.ts";
-import { DevsyncError } from "#app/lib/error.ts";
+import { DotweaveError } from "#app/lib/error.ts";
 import { initializeSyncDirectory } from "#app/services/init.ts";
 import {
   createAgeKeyPair,
@@ -26,7 +26,7 @@ import {
 const temporaryDirectories: string[] = [];
 
 const createWorkspace = async () => {
-  const directory = await createTemporaryDirectory("devsync-init-");
+  const directory = await createTemporaryDirectory("dotweave-init-");
 
   temporaryDirectories.push(directory);
 
@@ -89,7 +89,7 @@ describe("init service", () => {
     expect(result.generatedIdentity).toBe(false);
     expect(
       await readFile(
-        join(homeDirectory, ".config", "devsync", "keys.txt"),
+        join(homeDirectory, ".config", "dotweave", "keys.txt"),
         "utf8",
       ),
     ).toBe(`${ageKeys.identity}\n`);
@@ -195,7 +195,7 @@ describe("init service", () => {
     const workspace = await createWorkspace();
     const homeDirectory = join(workspace, "home");
     const xdgConfigHome = join(workspace, "xdg");
-    const syncDirectory = join(xdgConfigHome, "devsync", "repository");
+    const syncDirectory = join(xdgConfigHome, "dotweave", "repository");
     const ageKeys = await createAgeKeyPair();
 
     await writeIdentityFile(xdgConfigHome, ageKeys.identity);
@@ -207,7 +207,7 @@ describe("init service", () => {
       initializeSyncDirectory({
         recipients: [ageKeys.recipient],
       }),
-    ).rejects.toThrowError(DevsyncError);
+    ).rejects.toThrowError(DotweaveError);
     await expect(
       initializeSyncDirectory({
         recipients: [ageKeys.recipient],
@@ -215,7 +215,7 @@ describe("init service", () => {
     ).rejects.toThrowError(/Sync directory already exists and is not empty/u);
     await expect(
       initializeSyncDirectory({
-        identityFile: "$XDG_CONFIG_HOME/devsync/keys.txt",
+        identityFile: "$XDG_CONFIG_HOME/dotweave/keys.txt",
         recipients: [ageKeys.recipient],
       }),
     ).rejects.toMatchObject({
@@ -279,14 +279,14 @@ describe("init service", () => {
     expect(result.generatedIdentity).toBe(false);
     expect(
       await readFile(
-        join(homeDirectory, ".config", "devsync", "keys.txt"),
+        join(homeDirectory, ".config", "dotweave", "keys.txt"),
         "utf8",
       ),
     ).toBe(`${ageKeys.identity}\n`);
     expect(
       JSON.parse(
         await readFile(
-          join(xdgConfigHome, "devsync", "settings.jsonc"),
+          join(xdgConfigHome, "dotweave", "settings.jsonc"),
           "utf8",
         ),
       ),
@@ -368,7 +368,7 @@ describe("init service", () => {
       details: expect.arrayContaining([
         expect.stringMatching(/Unsupported config file: .*manifest\.json/u),
       ]),
-      message: "Unsupported devsync config file.",
+      message: "Unsupported dotweave config file.",
     });
   });
 });

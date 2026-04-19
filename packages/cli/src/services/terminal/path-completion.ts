@@ -1,4 +1,4 @@
-import type { DevsyncCliContext } from "#app/services/terminal/cli-runtime.ts";
+import type { DotweaveCliContext } from "#app/services/terminal/cli-runtime.ts";
 
 const HOME_PREFIX = "~";
 const HIDDEN_ENTRY_PREFIX = ".";
@@ -26,7 +26,7 @@ const isRecoverableCompletionError = (error: unknown) => {
 
 const buildRelativeCompletionBase = (
   partial: string,
-  context: DevsyncCliContext,
+  context: DotweaveCliContext,
 ): CompletionBase => {
   const lastSeparatorIndex = partial.lastIndexOf(SHELL_PATH_SEPARATOR);
   const displayPrefix =
@@ -46,7 +46,7 @@ const buildRelativeCompletionBase = (
 
 const buildAbsoluteCompletionBase = (
   partial: string,
-  context: DevsyncCliContext,
+  context: DotweaveCliContext,
 ): CompletionBase => {
   const lastSeparatorIndex = partial.lastIndexOf(SHELL_PATH_SEPARATOR);
   const displayPrefix =
@@ -65,7 +65,7 @@ const buildAbsoluteCompletionBase = (
 
 const buildHomeCompletionBase = (
   partial: string,
-  context: DevsyncCliContext,
+  context: DotweaveCliContext,
 ): CompletionBase | undefined => {
   if (partial === HOME_PREFIX) {
     return {
@@ -102,7 +102,7 @@ const buildHomeCompletionBase = (
 
 const resolveCompletionBase = (
   partial: string,
-  context: DevsyncCliContext,
+  context: DotweaveCliContext,
 ): CompletionBase | undefined => {
   if (partial.startsWith(HOME_PREFIX)) {
     return buildHomeCompletionBase(partial, context);
@@ -141,7 +141,7 @@ const buildCompletionValue = (
 };
 
 export const proposePathCompletions = async function (
-  this: DevsyncCliContext,
+  this: DotweaveCliContext,
   partial: string,
 ) {
   const base = resolveCompletionBase(partial, this);

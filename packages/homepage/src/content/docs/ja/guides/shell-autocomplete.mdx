@@ -1,18 +1,18 @@
 ---
 title: シェル補完
-description: シェルでdevsyncのタブ補完を設定する方法。
+description: シェルでdotweaveのタブ補完を設定する方法。
 ---
 
 import { Aside } from "@astrojs/starlight/components";
 
-タブ補完を使えば、ドキュメントを開かなくてもコマンド、フラグ、引数を素早く確認できます。devsyncは**Bash**、**Zsh**、**Fish**に対応しています。
+タブ補完を使えば、ドキュメントを開かなくてもコマンド、フラグ、引数を素早く確認できます。dotweaveは**Bash**、**Zsh**、**Fish**に対応しています。
 
 ## Bash
 
 `~/.bashrc`に以下の行を追加します：
 
 ```bash
-eval "$(devsync autocomplete bash)"
+eval "$(dotweave autocomplete bash)"
 ```
 
 シェルを再読み込みします：
@@ -26,7 +26,7 @@ source ~/.bashrc
 `~/.zshrc`に以下の行を追加します：
 
 ```bash
-eval "$(devsync autocomplete zsh)"
+eval "$(dotweave autocomplete zsh)"
 ```
 
 シェルを再読み込みします：
@@ -40,7 +40,7 @@ source ~/.zshrc
 `~/.config/fish/config.fish`に以下の行を追加します：
 
 ```fish
-devsync autocomplete fish | source
+dotweave autocomplete fish | source
 ```
 
 シェルを再読み込みします：
@@ -51,10 +51,10 @@ source ~/.config/fish/config.fish
 
 <Aside type="tip">
 evalの行を追加したら、新しいターミナルを開く（またはconfigファイルをsourceする）して、
-`devsync `の後にTabキーを押してみてください。利用可能なコマンドの一覧が表示されるはずです。
+`dotweave `の後にTabキーを押してみてください。利用可能なコマンドの一覧が表示されるはずです。
 </Aside>
 
 <Aside>
-`volta`や`fnm`などのバージョンマネージャーでdevsyncをインストールした場合は、
-evalの行が実行される前に`devsync`バイナリが`PATH`に含まれていることを確認してください。
+`volta`や`fnm`などのバージョンマネージャーでdotweaveをインストールした場合は、
+evalの行が実行される前に`dotweave`バイナリが`PATH`に含まれていることを確認してください。
 </Aside>

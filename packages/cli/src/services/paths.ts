@@ -6,7 +6,7 @@ import {
   type ResolvedSyncConfigEntry,
 } from "#app/config/sync.ts";
 import { expandHomePath } from "#app/config/xdg.ts";
-import { DevsyncError } from "#app/lib/error.ts";
+import { DotweaveError } from "#app/lib/error.ts";
 import { isExplicitLocalPath } from "#app/lib/path.ts";
 
 const homePrefix = "~";
@@ -20,7 +20,7 @@ export const buildRepoPathWithinRoot = (
   const relativePath = relative(rootPath, absolutePath);
 
   if (relativePath === "") {
-    throw new DevsyncError(
+    throw new DotweaveError(
       `${description} resolves to the root directory, which cannot be tracked directly.`,
       {
         code: "TARGET_ROOT_DISALLOWED",
@@ -35,7 +35,7 @@ export const buildRepoPathWithinRoot = (
     relativePath.startsWith("..") ||
     relativePath === ".."
   ) {
-    throw new DevsyncError(
+    throw new DotweaveError(
       `${description} must stay inside the configured home root.`,
       {
         code: "TARGET_OUTSIDE_ROOT",
@@ -103,7 +103,7 @@ export const resolveTrackedEntry = (
   }
 
   if (matches.length > 1) {
-    throw new DevsyncError(`Multiple tracked sync entries match: ${target}`, {
+    throw new DotweaveError(`Multiple tracked sync entries match: ${target}`, {
       code: "TARGET_CONFLICT",
       hint: "Use an explicit local path to choose the tracked entry.",
     });

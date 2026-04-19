@@ -4,7 +4,7 @@ import {
   type ResolvedSyncConfigEntry,
   readSyncConfig,
 } from "#app/config/sync.ts";
-import { DevsyncError } from "#app/lib/error.ts";
+import { DotweaveError } from "#app/lib/error.ts";
 import {
   getPathStats,
   listDirectoryEntries,
@@ -197,7 +197,7 @@ export const untrackTarget = async (
   const target = request.target.trim();
 
   if (target.length === 0) {
-    throw new DevsyncError("Target path is required.");
+    throw new DotweaveError("Target path is required.");
   }
 
   const { syncDirectory, configPath } = resolveSyncPaths();
@@ -214,7 +214,7 @@ export const untrackTarget = async (
   );
 
   if (entry === undefined) {
-    throw new DevsyncError(`No tracked sync entry matches: ${target}`);
+    throw new DotweaveError(`No tracked sync entry matches: ${target}`);
   }
 
   const { plainArtifactCount, secretArtifactCount } =

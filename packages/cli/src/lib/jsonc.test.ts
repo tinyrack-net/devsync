@@ -88,7 +88,7 @@ describe("resolveJsoncConfigPath", () => {
     const jsonPath = join(dir, "config.json");
     await writeFile(jsonPath, "{}");
     await expect(resolveJsoncConfigPath(jsoncPath)).rejects.toThrow(
-      /Unsupported devsync config file/u,
+      /Unsupported dotweave config file/u,
     );
   });
 
@@ -98,7 +98,7 @@ describe("resolveJsoncConfigPath", () => {
     await writeFile(jsoncPath, "{}");
     await writeFile(jsonPath, "{}");
     await expect(resolveJsoncConfigPath(jsoncPath)).rejects.toThrow(
-      /Unsupported devsync config file/u,
+      /Unsupported dotweave config file/u,
     );
   });
 

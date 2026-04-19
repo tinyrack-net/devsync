@@ -1,6 +1,6 @@
 import { CONSTANTS } from "#app/config/constants.ts";
 import { resolveConfiguredAbsolutePath } from "#app/config/xdg.ts";
-import { DevsyncError } from "#app/lib/error.ts";
+import { DotweaveError } from "#app/lib/error.ts";
 
 export type ResolveConfiguredIdentityFileOptions = Readonly<{
   configPath?: string;
@@ -50,7 +50,7 @@ export const resolveConfiguredIdentityFile = (
       xdgConfigHome,
     );
   } catch (error: unknown) {
-    throw new DevsyncError(
+    throw new DotweaveError(
       error instanceof Error
         ? error.message
         : `Invalid age identity file path: ${value}`,
@@ -67,7 +67,7 @@ export const resolveConfiguredIdentityFile = (
   }
 
   if (resolvedIdentityFile === resolveLegacyIdentityFile(home, xdgConfigHome)) {
-    throw new DevsyncError(
+    throw new DotweaveError(
       "Configured age identity file uses the removed legacy path.",
       {
         code: "AGE_IDENTITY_LEGACY_PATH",

@@ -1,18 +1,18 @@
 ---
 title: Directory Structure
-description: Where devsync stores your config and how files are organized.
+description: Where dotweave stores your config and how files are organized.
 ---
 
 import { Aside, FileTree } from "@astrojs/starlight/components";
 
-Everything devsync creates lives under a single directory: `~/.config/devsync/`. When you run `devsync init`, this structure is set up for you automatically.
+Everything dotweave creates lives under a single directory: `~/.config/dotweave/`. When you run `dotweave init`, this structure is set up for you automatically.
 
 ---
 
 ## The Full Picture
 
 <FileTree>
-- ~/.config/devsync/
+- ~/.config/dotweave/
   - settings.jsonc
   - keys.txt
   - repository/
@@ -28,7 +28,7 @@ Everything devsync creates lives under a single directory: `~/.config/devsync/`.
         - work-tool/
           - config.json
       - .ssh/
-        - config.devsync.secret
+        - config.dotweave.secret
 </FileTree>
 
 ---
@@ -37,11 +37,11 @@ Everything devsync creates lives under a single directory: `~/.config/devsync/`.
 
 ### `repository/` — the sync directory
 
-This is a Git repository that holds all your synced files. When you run `devsync push`, files are copied here. When you run `devsync pull`, files are restored from here. You can push this repository to a remote like GitHub to sync across machines.
+This is a Git repository that holds all your synced files. When you run `dotweave push`, files are copied here. When you run `dotweave pull`, files are restored from here. You can push this repository to a remote like GitHub to sync across machines.
 
 ### `repository/manifest.jsonc` — the config file
 
-The manifest is the source of truth. It lists every file and directory you're tracking, along with options like sync mode, profiles, and permissions. All `devsync track` and `devsync untrack` commands modify this file.
+The manifest is the source of truth. It lists every file and directory you're tracking, along with options like sync mode, profiles, and permissions. All `dotweave track` and `dotweave untrack` commands modify this file.
 
 ### `repository/default/` — artifacts for the default profile
 
@@ -53,7 +53,7 @@ If you use [profiles](/en/guides/profiles), each profile gets its own subdirecto
 
 ### `keys.txt` — age identity file
 
-Your age private key for encrypting and decrypting [secret files](/en/guides/syncing-secrets). This is created during `devsync init`. It starts with `AGE-SECRET-KEY-`.
+Your age private key for encrypting and decrypting [secret files](/en/guides/syncing-secrets). This is created during `dotweave init`. It starts with `AGE-SECRET-KEY-`.
 
 <Aside type="caution">
 Back up your `keys.txt` somewhere safe — a password manager works great. If you lose it, you won't be able to decrypt your secret files.
@@ -61,7 +61,7 @@ Back up your `keys.txt` somewhere safe — a password manager works great. If yo
 
 ### `settings.jsonc` — user preferences
 
-Stores your active profile and other local settings. You usually don't edit this directly — commands like `devsync profile use work` update it for you.
+Stores your active profile and other local settings. You usually don't edit this directly — commands like `dotweave profile use work` update it for you.
 
 ---
 
@@ -96,7 +96,7 @@ Here's a simple example with a few tracked entries:
 
 ### Manifest structure
 
-- **`version`** — schema version (currently `7`). Devsync manages this automatically.
+- **`version`** — schema version (currently `7`). Dotweave manages this automatically.
 - **`age`** — encryption config. The `recipients` array lists public keys used to encrypt secret files.
 - **`entries`** — the list of tracked files and directories. Each entry can have:
   - **`kind`** — `"file"` or `"directory"`
@@ -107,5 +107,5 @@ Here's a simple example with a few tracked entries:
   - **`permission`** — file permission in octal like `"0600"` (optional)
 
 <Aside type="note">
-You rarely need to edit `manifest.jsonc` by hand. The `devsync track` and `devsync untrack` commands handle it for you.
+You rarely need to edit `manifest.jsonc` by hand. The `dotweave track` and `dotweave untrack` commands handle it for you.
 </Aside>

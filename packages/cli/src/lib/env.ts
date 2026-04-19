@@ -21,7 +21,7 @@ const EnvSchema = z
     /**
      * @description
      * Unix/macOS/WSL. Absolute path to the user's preferred login shell (e.g.
-     * `/bin/zsh` or `/usr/bin/fish`). Read by the `devsync cd` command to select
+     * `/bin/zsh` or `/usr/bin/fish`). Read by the `dotweave cd` command to select
      * the shell to launch when no explicit override is configured.
      */
     SHELL: z.string().optional(),
@@ -45,7 +45,7 @@ const EnvSchema = z
     /**
      * @description
      * XDG Base Directory spec override for the user's config home. When set,
-     * replaces the default `~/.config` location for all devsync configuration
+     * replaces the default `~/.config` location for all dotweave configuration
      * files (global config, identity keys, the sync directory). Expanded via
      * Windows-style `%VARIABLE%` expansion when running under WSL or Windows.
      */

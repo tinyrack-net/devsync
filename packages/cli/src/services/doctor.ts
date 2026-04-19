@@ -1,6 +1,6 @@
 import type { ConsolaInstance } from "consola";
 import { resolveSyncConfigFilePath } from "#app/config/sync.ts";
-import { formatDevsyncError } from "#app/lib/error.ts";
+import { formatDotweaveError } from "#app/lib/error.ts";
 import { pathExists } from "#app/lib/filesystem.ts";
 import { ensureRepository } from "#app/lib/git.ts";
 import { buildEntryMaterialization } from "./local-materialization.ts";
@@ -100,7 +100,7 @@ export const runDoctorChecks = async (
       fail(
         "config",
         error instanceof Error
-          ? formatDevsyncError(error)
+          ? formatDotweaveError(error)
           : "Sync configuration could not be read.",
       ),
     );
@@ -171,7 +171,7 @@ export const runDoctorChecks = async (
       fail(
         "local-paths",
         error instanceof Error
-          ? formatDevsyncError(error)
+          ? formatDotweaveError(error)
           : "Tracked local paths could not be checked.",
       ),
     );

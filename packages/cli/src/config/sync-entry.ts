@@ -4,7 +4,7 @@ import type {
   ResolvedSyncConfigEntry,
   SyncMode,
 } from "#app/config/sync-schema.ts";
-import { DevsyncError } from "#app/lib/error.ts";
+import { DotweaveError } from "#app/lib/error.ts";
 
 // ---------------------------------------------------------------------------
 // Entry lookup
@@ -143,7 +143,7 @@ export const resolveManagedSyncMode = (
   const mode = resolveSyncMode(config, repoPath, activeProfile);
 
   if (mode === undefined) {
-    throw new DevsyncError(
+    throw new DotweaveError(
       "Repository path is not managed by the current sync configuration.",
       {
         code: "UNMANAGED_SYNC_PATH",
@@ -151,7 +151,7 @@ export const resolveManagedSyncMode = (
           `Repository path: ${repoPath}`,
           ...(context === undefined ? [] : [`Context: ${context}`]),
         ],
-        hint: "Add the parent path to devsync, or remove stray artifacts from the sync directory.",
+        hint: "Add the parent path to dotweave, or remove stray artifacts from the sync directory.",
       },
     );
   }

@@ -1,17 +1,17 @@
 {
-  "name": "@tinyrack/devsync",
-  "version": "1.39.1",
+  "name": "@tinyrack/dotweave",
+  "version": "0.39.1",
   "description": "A personal CLI tool for git-backed configuration sync.",
   "type": "module",
   "license": "MIT",
   "author": "winetree94",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/tinyrack-net/devsync.git"
+    "url": "git+https://github.com/tinyrack-net/dotweave.git"
   },
-  "homepage": "https://github.com/tinyrack-net/devsync#readme",
+  "homepage": "https://github.com/tinyrack-net/dotweave#readme",
   "bugs": {
-    "url": "https://github.com/tinyrack-net/devsync/issues"
+    "url": "https://github.com/tinyrack-net/dotweave/issues"
   },
   "publishConfig": {
     "access": "public"
@@ -21,17 +21,17 @@
     "sync",
     "dotfiles",
     "config-sync",
-    "devsync"
+    "dotweave"
   ],
   "imports": {
     "#app/*.ts": {
-      "@devsync/source": "./src/*.ts",
+      "@dotweave/source": "./src/*.ts",
       "types": "./dist/*.d.ts",
       "default": "./dist/*.js"
     }
   },
   "bin": {
-    "devsync": "./bin/index.js"
+    "dotweave": "./bin/index.js"
   },
   "files": [
     "bin",
@@ -47,9 +47,9 @@
     "build": "tsc -p tsconfig.build.json",
     "clean": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\"",
     "prebuild": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\"",
-    "sea:bundle": "node --conditions=@devsync/source scripts/build-sea.ts --bundle-only",
-    "sea:build": "node --conditions=@devsync/source scripts/build-sea.ts",
-    "sea:smoke": "node --conditions=@devsync/source scripts/smoke-sea.ts",
+    "sea:bundle": "node --conditions=@dotweave/source scripts/build-sea.ts --bundle-only",
+    "sea:build": "node --conditions=@dotweave/source scripts/build-sea.ts",
+    "sea:smoke": "node --conditions=@dotweave/source scripts/smoke-sea.ts",
     "start": "node dist/index.js",
     "prepack": "pnpm run build",
     "typecheck": "tsc -p tsconfig.json",

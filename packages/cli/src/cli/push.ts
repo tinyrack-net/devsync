@@ -2,7 +2,7 @@ import { buildCommand } from "@stricli/core";
 import pc from "picocolors";
 import { pushChanges } from "#app/services/push.ts";
 import {
-  type DevsyncCliContext,
+  type DotweaveCliContext,
   verboseFlag,
 } from "#app/services/terminal/cli-runtime.ts";
 import { createCliLogger } from "#app/services/terminal/logger.ts";
@@ -13,7 +13,7 @@ type PushFlags = {
   verbose?: boolean;
 };
 
-const pushCommand = buildCommand<PushFlags, [], DevsyncCliContext>({
+const pushCommand = buildCommand<PushFlags, [], DotweaveCliContext>({
   docs: {
     brief: "Mirror local config into the git-backed sync directory",
     fullDescription:

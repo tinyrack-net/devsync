@@ -15,14 +15,14 @@ When you track a file, you can assign it to one or more profiles using `--profil
 
 ```bash
 # Default profile — syncs on every machine
-devsync track ~/.gitconfig
-devsync track ~/.zshrc
+dotweave track ~/.gitconfig
+dotweave track ~/.zshrc
 
 # Only syncs when "work" profile is active
-devsync track ~/.config/work-vpn --profiles work
+dotweave track ~/.config/work-vpn --profiles work
 
 # Only syncs when "personal" profile is active
-devsync track ~/.config/personal-tool --profiles personal
+dotweave track ~/.config/personal-tool --profiles personal
 ```
 
 ---
@@ -35,20 +35,20 @@ devsync track ~/.config/personal-tool --profiles personal
 You can assign multiple profiles to a single entry — it syncs whenever any of them is active:
 
 ```bash
-devsync track ~/.config/shared-tool --profiles work,personal
+dotweave track ~/.config/shared-tool --profiles work,personal
 ```
 
 ---
 
 ## Setting the Active Profile
 
-Tell devsync which profile to use on the current machine:
+Tell dotweave which profile to use on the current machine:
 
 ```bash
-devsync profile use work
+dotweave profile use work
 ```
 
-From now on, `devsync push` and `devsync pull` on this machine will include default entries **plus** entries assigned to the `work` profile.
+From now on, `dotweave push` and `dotweave pull` on this machine will include default entries **plus** entries assigned to the `work` profile.
 
 ---
 
@@ -57,7 +57,7 @@ From now on, `devsync push` and `devsync pull` on this machine will include defa
 See all profiles that exist in your sync config:
 
 ```bash
-devsync profile list
+dotweave profile list
 ```
 
 This shows every profile name that appears in `manifest.jsonc`, along with which one is currently active.
@@ -68,29 +68,29 @@ This shows every profile name that appears in `manifest.jsonc`, along with which
 
 ```bash
 # Shared configs — no profile, synced everywhere
-devsync track ~/.gitconfig
-devsync track ~/.zshrc
+dotweave track ~/.gitconfig
+dotweave track ~/.zshrc
 
 # Work-only files
-devsync track ~/.config/work-vpn --profiles work
-devsync track ~/.ssh/work-key --mode secret --profiles work
+dotweave track ~/.config/work-vpn --profiles work
+dotweave track ~/.ssh/work-key --mode secret --profiles work
 
 # Personal-only files
-devsync track ~/.config/personal-app --profiles personal
+dotweave track ~/.config/personal-app --profiles personal
 ```
 
 On your **work laptop**, set the work profile and push:
 
 ```bash
-devsync profile use work
-devsync push    # pushes default + work entries
+dotweave profile use work
+dotweave push    # pushes default + work entries
 ```
 
 On your **personal machine**, set the personal profile and pull:
 
 ```bash
-devsync profile use personal
-devsync pull    # pulls default + personal entries only
+dotweave profile use personal
+dotweave pull    # pulls default + personal entries only
 ```
 
 Work machine never sees personal configs, personal machine never sees work credentials. Clean separation, one repository.

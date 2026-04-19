@@ -1,25 +1,25 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  DevsyncError,
-  formatDevsyncError,
+  DotweaveError,
+  formatDotweaveError,
   wrapUnknownError,
 } from "#app/lib/error.ts";
 
-describe("devsync error helpers", () => {
+describe("dotweave error helpers", () => {
   it("formats strings and plain errors without extra decoration", () => {
-    expect(formatDevsyncError("plain message")).toBe("plain message");
-    expect(formatDevsyncError(new Error("broken"))).toBe("broken");
+    expect(formatDotweaveError("plain message")).toBe("plain message");
+    expect(formatDotweaveError(new Error("broken"))).toBe("broken");
   });
 
-  it("formats DevsyncError details and hints while removing empty lines", () => {
-    const error = new DevsyncError("Unable to sync", {
+  it("formats DotweaveError details and hints while removing empty lines", () => {
+    const error = new DotweaveError("Unable to sync", {
       details: ["first detail", "", "   ", "second detail"],
-      hint: "Run devsync doctor.",
+      hint: "Run dotweave doctor.",
     });
 
-    expect(formatDevsyncError(error)).toBe(
-      "Unable to sync\nfirst detail\nsecond detail\nHint: Run devsync doctor.",
+    expect(formatDotweaveError(error)).toBe(
+      "Unable to sync\nfirst detail\nsecond detail\nHint: Run dotweave doctor.",
     );
   });
 
@@ -30,7 +30,7 @@ describe("devsync error helpers", () => {
       hint: "Try again.",
     });
 
-    expect(wrapped).toBeInstanceOf(DevsyncError);
+    expect(wrapped).toBeInstanceOf(DotweaveError);
     expect(wrapped).toMatchObject({
       code: "PULL_FAILED",
       hint: "Try again.",

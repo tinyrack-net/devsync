@@ -7,7 +7,7 @@ import {
   resolvePlatformValue,
 } from "#app/config/platform.ts";
 import { resolveConfiguredAbsolutePath } from "#app/config/xdg.ts";
-import { DevsyncError } from "#app/lib/error.ts";
+import { DotweaveError } from "#app/lib/error.ts";
 import { parsePermissionOctal } from "#app/lib/file-mode.ts";
 import { doPathsOverlap } from "#app/lib/path.ts";
 import { ensureTrailingNewline } from "#app/lib/string.ts";
@@ -151,7 +151,7 @@ export const normalizeSyncRepoPath = (value: string) => {
     normalizedValue.includes("/../") ||
     normalizedValue.startsWith("/")
   ) {
-    throw new DevsyncError(
+    throw new DotweaveError(
       "Repository path must be a relative POSIX path inside the repository root.",
       {
         code: "INVALID_REPO_PATH",
@@ -162,7 +162,7 @@ export const normalizeSyncRepoPath = (value: string) => {
   }
 
   if (hasReservedSyncArtifactSuffixSegment(normalizedValue)) {
-    throw new DevsyncError(
+    throw new DotweaveError(
       `Repository path must not use the reserved suffix ${CONSTANTS.SYNC.SECRET_ARTIFACT_SUFFIX}.`,
       {
         code: "RESERVED_SECRET_SUFFIX",
@@ -182,7 +182,7 @@ export const normalizeSyncProfileName = (
   const normalizedValue = value.trim();
 
   if (normalizedValue.length === 0) {
-    throw new DevsyncError(`${description} must not be empty.`, {
+    throw new DotweaveError(`${description} must not be empty.`, {
       code: "INVALID_PROFILE_NAME",
       details: [`${description}: ${value}`],
       hint: "Use a short profile name like 'work' or 'personal'.",
@@ -190,7 +190,7 @@ export const normalizeSyncProfileName = (
   }
 
   if (!/^[A-Za-z0-9][A-Za-z0-9._-]*$/u.test(normalizedValue)) {
-    throw new DevsyncError(`${description} contains unsupported characters.`, {
+    throw new DotweaveError(`${description} contains unsupported characters.`, {
       code: "INVALID_PROFILE_NAME",
       details: [`${description}: ${value}`],
       hint: "Use letters, numbers, dots, underscores, or hyphens, and start with a letter or number.",
@@ -198,7 +198,7 @@ export const normalizeSyncProfileName = (
   }
 
   if (normalizedValue.startsWith(".")) {
-    throw new DevsyncError(`${description} must not start with '.'.`, {
+    throw new DotweaveError(`${description} must not start with '.'.`, {
       code: "INVALID_PROFILE_NAME",
       details: [`${description}: ${value}`],
       hint: "Use a plain name like 'work' instead of hidden-path style names.",
@@ -206,7 +206,7 @@ export const normalizeSyncProfileName = (
   }
 
   if (normalizedValue === "." || normalizedValue === "..") {
-    throw new DevsyncError(`${description} is invalid.`, {
+    throw new DotweaveError(`${description} is invalid.`, {
       code: "INVALID_PROFILE_NAME",
       details: [`${description}: ${value}`],
     });
@@ -269,7 +269,7 @@ const validatePathOverlaps = (
       if (currentValue === otherValue) {
         const isRepoPath = property === "repoPath";
 
-        throw new DevsyncError(
+        throw new DotweaveError(
           isRepoPath
             ? `Multiple entries target the same repository path in ${CONSTANTS.SYNC.CONFIG_FILE_NAME}.`
             : `Duplicate ${description.toLowerCase()} paths in ${CONSTANTS.SYNC.CONFIG_FILE_NAME}.`,
@@ -307,7 +307,7 @@ const validatePathOverlaps = (
           : doPathsOverlap(currentValue, otherValue);
 
       if (overlaps) {
-        throw new DevsyncError(
+        throw new DotweaveError(
           `${description} paths must not overlap in ${CONSTANTS.SYNC.CONFIG_FILE_NAME}.`,
           {
             code: "OVERLAPPING_PATHS",
@@ -395,7 +395,7 @@ const resolveSyncEntryLocalPath = (
       readEnv,
     );
   } catch (error: unknown) {
-    throw new DevsyncError(
+    throw new DotweaveError(
       error instanceof Error
         ? error.message
         : `Invalid sync entry local path: ${platformPath}`,
@@ -405,7 +405,7 @@ const resolveSyncEntryLocalPath = (
   const relativePath = relative(homeDirectory, resolvedLocalPath);
 
   if (relativePath === "") {
-    throw new DevsyncError(
+    throw new DotweaveError(
       "Sync entry local path cannot be the home directory itself.",
       {
         code: "ENTRY_ROOT_DISALLOWED",
@@ -423,7 +423,7 @@ const resolveSyncEntryLocalPath = (
     relativePath.startsWith("..") ||
     relativePath === ".."
   ) {
-    throw new DevsyncError("Sync entry local path must stay inside HOME.", {
+    throw new DotweaveError("Sync entry local path must stay inside HOME.", {
       code: "ENTRY_OUTSIDE_HOME",
       details: [
         `Configured path: ${platformPath}`,
@@ -520,7 +520,7 @@ export const parseSyncConfig = (
   const result = syncConfigSchema.safeParse(input);
 
   if (!result.success) {
-    throw new DevsyncError("Sync configuration is invalid.", {
+    throw new DotweaveError("Sync configuration is invalid.", {
       code: "CONFIG_VALIDATION_FAILED",
       details: formatInputIssues(result.error.issues).split("\n"),
       hint: `Fix the invalid fields in ${CONSTANTS.SYNC.CONFIG_FILE_NAME}, then run the command again.`,

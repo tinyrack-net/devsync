@@ -1,32 +1,32 @@
 ---
 title: How It Works
-description: The mental model, data flow, and design decisions behind devsync.
+description: The mental model, data flow, and design decisions behind dotweave.
 ---
 
 import { Aside, Steps } from "@astrojs/starlight/components";
 
-Understanding what happens under the hood makes devsync feel predictable.
+Understanding what happens under the hood makes dotweave feel predictable.
 This guide covers the mental model, the data flow for push and pull, and
 the design decisions that shape the tool.
 
 ## Mental model
 
-Think of devsync as a **two-way mirror** between your local config files and
+Think of dotweave as a **two-way mirror** between your local config files and
 a Git-tracked sync directory:
 
 - **Local files** are the source of truth while you work.
 - The **sync directory** is a mirror that can be pushed to a Git remote and
   pulled down on another machine.
 
-devsync never modifies files behind your back — you explicitly run `push` to
+dotweave never modifies files behind your back — you explicitly run `push` to
 update the mirror or `pull` to apply changes from it.
 
 ## Data flow
 
 ```
-editor → local files → devsync push → sync directory → git push → remote
+editor → local files → dotweave push → sync directory → git push → remote
                                                                      ↓
-other machine ← devsync pull ← sync directory ← git pull ← remote
+other machine ← dotweave pull ← sync directory ← git pull ← remote
 ```
 
 There are two distinct operations. Git transport sits between them but is
@@ -36,7 +36,7 @@ entirely in your hands.
 
 <Steps>
 
-1. **Load `manifest.jsonc`** — devsync reads the sync config to discover every
+1. **Load `manifest.jsonc`** — dotweave reads the sync config to discover every
    tracked file and its settings.
 
 2. **Walk local files** — for each entry it reads the file at the resolved
@@ -59,7 +59,7 @@ entirely in your hands.
 
 1. **Load `manifest.jsonc`** — same config, same resolution logic.
 
-2. **Read artifacts** — devsync reads each file from the sync directory.
+2. **Read artifacts** — dotweave reads each file from the sync directory.
 
 3. **Decrypt secrets** — encrypted files are decrypted using your local age
    key.
@@ -80,14 +80,14 @@ and `git push` yourself. This keeps you in full control of your commit history.
 
 ### Local-first
 
-Your editor writes to real files on disk, and devsync reads from those same
+Your editor writes to real files on disk, and dotweave reads from those same
 files. There's no database, no daemon, and no background watcher. You decide
 when to sync.
 
 ### No symlinks
 
 Some dotfile managers replace your config files with symlinks pointing into
-the repository. devsync deliberately copies files instead. This avoids
+the repository. dotweave deliberately copies files instead. This avoids
 permission headaches, cross-filesystem issues, and surprises when a tool
 doesn't follow symlinks.
 
@@ -100,7 +100,7 @@ never leaves the machine.
 
 ### Git as transport
 
-devsync piggybacks on Git instead of inventing its own sync protocol. You get
+dotweave piggybacks on Git instead of inventing its own sync protocol. You get
 branching, history, merge conflict tooling, and hosting (GitHub, GitLab, etc.)
 for free.
 
@@ -117,10 +117,10 @@ At a glance:
 ├── manifest.jsonc   ← sync config listing every tracked file
 ├── .age-key         ← your age private key (git-ignored)
 ├── .age-recipients  ← age public key(s) for encryption
-└── ...              ← artifacts written by devsync push
+└── ...              ← artifacts written by dotweave push
 ```
 
 <Aside type="tip">
-Run `devsync cd` to jump into the sync directory whenever you need to inspect
+Run `dotweave cd` to jump into the sync directory whenever you need to inspect
 or manage it directly.
 </Aside>

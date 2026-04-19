@@ -1,6 +1,6 @@
 import type { ConsolaInstance } from "consola";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { DevsyncError } from "#app/lib/error.ts";
+import { DotweaveError } from "#app/lib/error.ts";
 
 const mocked = vi.hoisted(() => ({
   buildRepositorySnapshot: vi.fn(),
@@ -11,7 +11,7 @@ const mocked = vi.hoisted(() => ({
     (syncDirectory: string) => `${syncDirectory}/manifest.jsonc`,
   ),
   resolveSyncPaths: vi.fn(() => ({
-    syncDirectory: "/tmp/devsync",
+    syncDirectory: "/tmp/dotweave",
   })),
 }));
 
@@ -58,7 +58,7 @@ const createLoadedConfig = (options: {
   identityFile?: string;
   recipientCount?: number;
 }) => {
-  const identityFile = options.identityFile ?? "/tmp/devsync/keys.txt";
+  const identityFile = options.identityFile ?? "/tmp/dotweave/keys.txt";
   const entries = options.entryLocalPaths.map((localPath, index) => ({
     kind: options.entryKinds?.[index] ?? "file",
     mode: options.entryModes?.[index] ?? "normal",
@@ -107,10 +107,10 @@ describe("sync doctor", () => {
           level: "fail",
         },
       ],
-      configPath: "/tmp/devsync/manifest.jsonc",
+      configPath: "/tmp/dotweave/manifest.jsonc",
       hasFailures: true,
       hasWarnings: false,
-      syncDirectory: "/tmp/devsync",
+      syncDirectory: "/tmp/dotweave",
     });
     expect(reporter.start.mock.calls).toEqual([
       ["Running doctor checks..."],
@@ -139,10 +139,10 @@ describe("sync doctor", () => {
           level: "fail",
         },
       ],
-      configPath: "/tmp/devsync/manifest.jsonc",
+      configPath: "/tmp/dotweave/manifest.jsonc",
       hasFailures: true,
       hasWarnings: false,
-      syncDirectory: "/tmp/devsync",
+      syncDirectory: "/tmp/dotweave",
     });
     expect(reporter.start.mock.calls).toEqual([
       ["Running doctor checks..."],
@@ -154,7 +154,7 @@ describe("sync doctor", () => {
   it("preserves config failure details and hint text in doctor output", async () => {
     mocked.ensureRepository.mockResolvedValueOnce(undefined);
     mocked.loadSyncConfig.mockRejectedValueOnce(
-      new DevsyncError("Sync configuration is invalid.", {
+      new DotweaveError("Sync configuration is invalid.", {
         details: ['age: Unrecognized key(s) in object: "identityFile"'],
       }),
     );
@@ -179,7 +179,7 @@ describe("sync doctor", () => {
     mocked.buildRepositorySnapshot.mockResolvedValueOnce(new Map());
     mocked.pathExists.mockImplementation(async (path: string) => {
       return (
-        path !== "/tmp/devsync/keys.txt" && path !== "/tmp/home/.ssh/id_ed25519"
+        path !== "/tmp/dotweave/keys.txt" && path !== "/tmp/home/.ssh/id_ed25519"
       );
     });
     const reporter = createReporter(true);
@@ -206,7 +206,7 @@ describe("sync doctor", () => {
       },
       {
         checkId: "age",
-        detail: "Age identity file is missing: /tmp/devsync/keys.txt",
+        detail: "Age identity file is missing: /tmp/dotweave/keys.txt",
         level: "fail",
       },
       {
@@ -232,7 +232,7 @@ describe("sync doctor", () => {
       ["Scanning repository artifacts..."],
       ["Checking tracked local paths..."],
     ]);
-    expect(mocked.pathExists).toHaveBeenCalledWith("/tmp/devsync/keys.txt");
+    expect(mocked.pathExists).toHaveBeenCalledWith("/tmp/dotweave/keys.txt");
     expect(mocked.pathExists).toHaveBeenCalledWith("/tmp/home/.ssh/id_ed25519");
   });
 
@@ -266,7 +266,7 @@ describe("sync doctor", () => {
     });
     expect(result.checks).toContainEqual({
       checkId: "age",
-      detail: "Age identity file exists at /tmp/devsync/keys.txt.",
+      detail: "Age identity file exists at /tmp/dotweave/keys.txt.",
       level: "ok",
     });
     expect(result.checks).toContainEqual({
@@ -324,7 +324,7 @@ describe("sync doctor", () => {
       new Map([[".config/item-0", { type: "file" }]]),
     );
     mocked.pathExists.mockImplementation(async (path: string) => {
-      return path === "/tmp/devsync/keys.txt";
+      return path === "/tmp/dotweave/keys.txt";
     });
 
     const result = await runDoctorChecks(createReporter());
@@ -348,7 +348,7 @@ describe("sync doctor", () => {
     );
     mocked.buildRepositorySnapshot.mockResolvedValueOnce(new Map());
     mocked.pathExists.mockImplementation(async (path: string) => {
-      return path === "/tmp/devsync/keys.txt";
+      return path === "/tmp/dotweave/keys.txt";
     });
 
     const result = await runDoctorChecks(createReporter());
@@ -373,7 +373,7 @@ describe("sync doctor", () => {
     );
     mocked.buildRepositorySnapshot.mockResolvedValueOnce(new Map());
     mocked.pathExists.mockImplementation(async (path: string) => {
-      return path === "/tmp/devsync/keys.txt";
+      return path === "/tmp/dotweave/keys.txt";
     });
 
     const result = await runDoctorChecks(createReporter());
@@ -398,7 +398,7 @@ describe("sync doctor", () => {
       new Map([[".config/item-0", { type: "directory" }]]),
     );
     mocked.pathExists.mockImplementation(async (path: string) => {
-      return path === "/tmp/devsync/keys.txt";
+      return path === "/tmp/dotweave/keys.txt";
     });
 
     const result = await runDoctorChecks(createReporter());
@@ -407,7 +407,7 @@ describe("sync doctor", () => {
     expect(result.checks).toContainEqual({
       checkId: "local-paths",
       detail:
-        "File sync entry resolves to a directory in the repository.\nRepository path: .config/item-0\nHint: Run 'devsync push' or fix the repository so this path is stored as a file.",
+        "File sync entry resolves to a directory in the repository.\nRepository path: .config/item-0\nHint: Run 'dotweave push' or fix the repository so this path is stored as a file.",
       level: "fail",
     });
   });

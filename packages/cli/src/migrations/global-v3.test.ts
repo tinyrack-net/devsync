@@ -8,7 +8,7 @@ describe("migrateGlobalConfigV2ToV3", () => {
       version: 2,
       activeProfile: "work",
       age: {
-        identityFile: "~/.config/devsync/keys.txt",
+        identityFile: "~/.config/dotweave/keys.txt",
         recipients: ["age1abc"],
       },
     });

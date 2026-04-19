@@ -1,16 +1,16 @@
 import { CONSTANTS } from "#app/config/constants.ts";
 import {
   type ActiveProfileSelection,
-  type GlobalDevsyncConfig,
-  readGlobalDevsyncConfig,
+  type GlobalDotweaveConfig,
+  readGlobalDotweaveConfig,
   resolveActiveProfileSelection,
 } from "#app/config/global-config.ts";
 import { resolveDefaultIdentityFile } from "#app/config/identity-file.ts";
 import {
   readEnvValue,
   resolveCurrentPlatformKey,
-  resolveDevsyncGlobalConfigFilePathFromEnv,
-  resolveDevsyncSyncDirectoryFromEnv,
+  resolveDotweaveGlobalConfigFilePathFromEnv,
+  resolveDotweaveSyncDirectoryFromEnv,
   resolveHomeDirectoryFromEnv,
   resolveXdgConfigHomeFromEnv,
 } from "#app/config/runtime-env.ts";
@@ -21,7 +21,7 @@ import {
   resolveSyncConfigFilePath,
   type SyncConfigResolutionContext,
 } from "#app/config/sync.ts";
-import { DevsyncError } from "#app/lib/error.ts";
+import { DotweaveError } from "#app/lib/error.ts";
 
 export type RuntimeAgeConfig = Readonly<{
   identityFile: string;
@@ -45,7 +45,7 @@ export type EffectiveSyncConfig = ResolvedSyncConfig &
 export type LoadedSyncConfig = Readonly<{
   effectiveConfig: EffectiveSyncConfig;
   fullConfig: ResolvedSyncConfig;
-  globalConfig?: GlobalDevsyncConfig;
+  globalConfig?: GlobalDotweaveConfig;
 }>;
 
 export const resolveSyncConfigResolutionContext =
@@ -59,12 +59,12 @@ export const resolveSyncConfigResolutionContext =
   };
 
 export const resolveSyncPaths = (): SyncPaths => {
-  const syncDirectory = resolveDevsyncSyncDirectoryFromEnv();
+  const syncDirectory = resolveDotweaveSyncDirectoryFromEnv();
 
   return {
     artifactsDirectory: syncDirectory,
     configPath: resolveSyncConfigFilePath(syncDirectory),
-    globalConfigPath: resolveDevsyncGlobalConfigFilePathFromEnv(),
+    globalConfigPath: resolveDotweaveGlobalConfigFilePathFromEnv(),
     homeDirectory: resolveHomeDirectoryFromEnv(),
     syncDirectory,
   };
@@ -115,8 +115,8 @@ export const loadSyncConfig = async (
 ): Promise<LoadedSyncConfig> => {
   const context = resolveSyncConfigResolutionContext();
   const fullConfig = await readSyncConfig(syncDirectory, context);
-  const globalConfig = await readGlobalDevsyncConfig(
-    resolveDevsyncGlobalConfigFilePathFromEnv(),
+  const globalConfig = await readGlobalDotweaveConfig(
+    resolveDotweaveGlobalConfigFilePathFromEnv(),
   );
   const selection =
     options.profile === undefined
@@ -130,12 +130,12 @@ export const loadSyncConfig = async (
 
   if (rawAge === undefined) {
     const configPath = resolveSyncConfigFilePath(syncDirectory);
-    throw new DevsyncError(
+    throw new DotweaveError(
       `Age configuration is missing from ${CONSTANTS.SYNC.CONFIG_FILE_NAME}.`,
       {
         code: "AGE_CONFIG_MISSING",
         details: [`Config file: ${configPath}`],
-        hint: "Run 'devsync init' to set up encryption.",
+        hint: "Run 'dotweave init' to set up encryption.",
       },
     );
   }

@@ -19,7 +19,7 @@ export interface RunCliOptions {
 }
 
 export const createSyncE2EContext = async () => {
-  const workspace = await mkdtemp(join(tmpdir(), "devsync-e2e-"));
+  const workspace = await mkdtemp(join(tmpdir(), "dotweave-e2e-"));
   const homeDir = join(workspace, "home");
   const xdgDir = join(workspace, "xdg");
 

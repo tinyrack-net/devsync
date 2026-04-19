@@ -45,7 +45,7 @@ import { trackTarget } from "./track.ts";
 const temporaryDirectories: string[] = [];
 
 const createWorkspace = async () => {
-  const directory = await createTemporaryDirectory("devsync-sync-test-");
+  const directory = await createTemporaryDirectory("dotweave-sync-test-");
 
   temporaryDirectories.push(directory);
 
@@ -93,7 +93,7 @@ describe("sync service", () => {
     const cwd = homeDirectory;
 
     await initializeSyncDirectory({
-      identityFile: "$XDG_CONFIG_HOME/devsync/keys.txt",
+      identityFile: "$XDG_CONFIG_HOME/dotweave/keys.txt",
       recipients: [ageKeys.recipient],
     });
 
@@ -114,7 +114,7 @@ describe("sync service", () => {
 
     const config = JSON.parse(
       await readFile(
-        join(xdgConfigHome, "devsync", "repository", "manifest.jsonc"),
+        join(xdgConfigHome, "dotweave", "repository", "manifest.jsonc"),
         "utf8",
       ),
     ) as {
@@ -152,7 +152,7 @@ describe("sync service", () => {
     setEnvironment(homeDirectory, xdgConfigHome);
 
     await initializeSyncDirectory({
-      identityFile: "$XDG_CONFIG_HOME/devsync/keys.txt",
+      identityFile: "$XDG_CONFIG_HOME/dotweave/keys.txt",
       recipients: [ageKeys.recipient],
     });
 
@@ -167,7 +167,7 @@ describe("sync service", () => {
 
     const manifestPath = join(
       xdgConfigHome,
-      "devsync",
+      "dotweave",
       "repository",
       "manifest.jsonc",
     );
@@ -188,7 +188,7 @@ describe("sync service", () => {
 
     const artifactPath = join(
       xdgConfigHome,
-      "devsync",
+      "dotweave",
       "repository",
       "default",
       "profiles",
@@ -219,7 +219,7 @@ describe("sync service", () => {
     setEnvironment(homeDirectory, xdgConfigHome);
 
     const { syncDirectory } = await initializeSyncDirectory({
-      identityFile: "$XDG_CONFIG_HOME/devsync/keys.txt",
+      identityFile: "$XDG_CONFIG_HOME/dotweave/keys.txt",
       recipients: [ageKeys.recipient],
     });
 
@@ -269,7 +269,7 @@ describe("sync service", () => {
     setEnvironment(homeDirectory, xdgConfigHome);
 
     await initializeSyncDirectory({
-      identityFile: "$XDG_CONFIG_HOME/devsync/keys.txt",
+      identityFile: "$XDG_CONFIG_HOME/dotweave/keys.txt",
       recipients: [ageKeys.recipient],
     });
     await trackTarget(
@@ -297,7 +297,7 @@ describe("sync service", () => {
 
     const updatedArtifactPath = join(
       xdgConfigHome,
-      "devsync",
+      "dotweave",
       "repository",
       "default",
       "profiles",
@@ -307,7 +307,7 @@ describe("sync service", () => {
     );
     const originalArtifactPath = join(
       xdgConfigHome,
-      "devsync",
+      "dotweave",
       "repository",
       "default",
       ".gitconfig",
@@ -333,11 +333,11 @@ describe("sync service", () => {
     await mkdir(bundleDirectory, { recursive: true });
 
     await initializeSyncDirectory({
-      identityFile: "$XDG_CONFIG_HOME/devsync/keys.txt",
+      identityFile: "$XDG_CONFIG_HOME/dotweave/keys.txt",
       recipients: [ageKeys.recipient],
     });
     await writeFile(
-      join(xdgConfigHome, "devsync", "repository", "manifest.jsonc"),
+      join(xdgConfigHome, "dotweave", "repository", "manifest.jsonc"),
       JSON.stringify(
         {
           version: 7,
@@ -368,7 +368,7 @@ describe("sync service", () => {
 
     const config = JSON.parse(
       await readFile(
-        join(xdgConfigHome, "devsync", "repository", "manifest.jsonc"),
+        join(xdgConfigHome, "dotweave", "repository", "manifest.jsonc"),
         "utf8",
       ),
     ) as {
@@ -398,7 +398,7 @@ describe("sync service", () => {
     const cwd = homeDirectory;
 
     await initializeSyncDirectory({
-      identityFile: "$XDG_CONFIG_HOME/devsync/keys.txt",
+      identityFile: "$XDG_CONFIG_HOME/dotweave/keys.txt",
       recipients: [ageKeys.recipient],
     });
     await trackTarget(
@@ -443,7 +443,7 @@ describe("sync service", () => {
     setEnvironment(homeDirectory, xdgConfigHome);
 
     await initializeSyncDirectory({
-      identityFile: "$XDG_CONFIG_HOME/devsync/keys.txt",
+      identityFile: "$XDG_CONFIG_HOME/dotweave/keys.txt",
       recipients: [ageKeys.recipient],
     });
     await trackTarget(
@@ -464,7 +464,7 @@ describe("sync service", () => {
 
     const manifestPath = join(
       xdgConfigHome,
-      "devsync",
+      "dotweave",
       "repository",
       "manifest.jsonc",
     );
@@ -496,7 +496,7 @@ describe("sync service", () => {
 
     const publicArtifactPath = join(
       xdgConfigHome,
-      "devsync",
+      "dotweave",
       "repository",
       "default",
       "profiles",
@@ -506,13 +506,13 @@ describe("sync service", () => {
     );
     const secretArtifactPath = join(
       xdgConfigHome,
-      "devsync",
+      "dotweave",
       "repository",
       "default",
       "profiles",
       "shared",
       "app",
-      "secret.txt.devsync.secret",
+      "secret.txt.dotweave.secret",
     );
 
     expect(await readFile(publicArtifactPath, "utf8")).toBe("public\n");
@@ -536,11 +536,11 @@ describe("sync service", () => {
     await writeFile(gitconfig, "[user]\nname=test\n");
 
     await initializeSyncDirectory({
-      identityFile: "$XDG_CONFIG_HOME/devsync/keys.txt",
+      identityFile: "$XDG_CONFIG_HOME/dotweave/keys.txt",
       recipients: [ageKeys.recipient],
     });
     await writeFile(
-      join(xdgConfigHome, "devsync", "repository", "manifest.jsonc"),
+      join(xdgConfigHome, "dotweave", "repository", "manifest.jsonc"),
       JSON.stringify(
         {
           version: 7,
@@ -571,7 +571,7 @@ describe("sync service", () => {
 
     const config = JSON.parse(
       await readFile(
-        join(xdgConfigHome, "devsync", "repository", "manifest.jsonc"),
+        join(xdgConfigHome, "dotweave", "repository", "manifest.jsonc"),
         "utf8",
       ),
     ) as {
@@ -600,7 +600,7 @@ describe("sync service", () => {
     const cwd = homeDirectory;
 
     await initializeSyncDirectory({
-      identityFile: "$XDG_CONFIG_HOME/devsync/keys.txt",
+      identityFile: "$XDG_CONFIG_HOME/dotweave/keys.txt",
       recipients: [ageKeys.recipient],
     });
     await trackTarget(
@@ -624,7 +624,7 @@ describe("sync service", () => {
 
     const sharedArtifact = join(
       xdgConfigHome,
-      "devsync",
+      "dotweave",
       "repository",
       "default",
       ".config",
@@ -633,12 +633,12 @@ describe("sync service", () => {
     );
     const secretArtifact = join(
       xdgConfigHome,
-      "devsync",
+      "dotweave",
       "repository",
       "default",
       ".config",
       "zsh",
-      "secrets.zsh.devsync.secret",
+      "secrets.zsh.dotweave.secret",
     );
 
     expect(await readFile(sharedArtifact, "utf8")).toContain("PATH");
@@ -663,7 +663,7 @@ describe("sync service", () => {
 
     const configAfterModeChange = JSON.parse(
       await readFile(
-        join(xdgConfigHome, "devsync", "repository", "manifest.jsonc"),
+        join(xdgConfigHome, "dotweave", "repository", "manifest.jsonc"),
         "utf8",
       ),
     ) as {
@@ -694,11 +694,11 @@ describe("sync service", () => {
     await writeFile(secretsFile, "export TOKEN=linux\n");
 
     await initializeSyncDirectory({
-      identityFile: "$XDG_CONFIG_HOME/devsync/keys.txt",
+      identityFile: "$XDG_CONFIG_HOME/dotweave/keys.txt",
       recipients: [ageKeys.recipient],
     });
     await writeFile(
-      join(xdgConfigHome, "devsync", "repository", "manifest.jsonc"),
+      join(xdgConfigHome, "dotweave", "repository", "manifest.jsonc"),
       JSON.stringify(
         {
           version: 7,
@@ -731,12 +731,12 @@ describe("sync service", () => {
 
     const secretArtifact = join(
       xdgConfigHome,
-      "devsync",
+      "dotweave",
       "repository",
       "default",
       ".config",
       "zsh",
-      "secrets.zsh.devsync.secret",
+      "secrets.zsh.dotweave.secret",
     );
     expect(await readFile(secretArtifact, "utf8")).toContain(
       "BEGIN AGE ENCRYPTED FILE",
@@ -771,11 +771,11 @@ describe("sync service", () => {
     await writeFile(secretsFile, "export TOKEN=linux\n");
 
     await initializeSyncDirectory({
-      identityFile: "$XDG_CONFIG_HOME/devsync/keys.txt",
+      identityFile: "$XDG_CONFIG_HOME/dotweave/keys.txt",
       recipients: [ageKeys.recipient],
     });
     await writeFile(
-      join(xdgConfigHome, "devsync", "repository", "manifest.jsonc"),
+      join(xdgConfigHome, "dotweave", "repository", "manifest.jsonc"),
       JSON.stringify(
         {
           version: 7,
@@ -808,12 +808,12 @@ describe("sync service", () => {
 
     const secretArtifact = join(
       xdgConfigHome,
-      "devsync",
+      "dotweave",
       "repository",
       "default",
       ".config",
       "zsh",
-      "secrets.zsh.devsync.secret",
+      "secrets.zsh.dotweave.secret",
     );
     expect(await readFile(secretArtifact, "utf8")).toContain(
       "BEGIN AGE ENCRYPTED FILE",
@@ -848,12 +848,12 @@ describe("sync service", () => {
     await writeFile(keyFile, "fake-private-key\n");
 
     await initializeSyncDirectory({
-      identityFile: "$XDG_CONFIG_HOME/devsync/keys.txt",
+      identityFile: "$XDG_CONFIG_HOME/dotweave/keys.txt",
       recipients: [ageKeys.recipient],
     });
 
     await writeFile(
-      join(xdgConfigHome, "devsync", "repository", "manifest.jsonc"),
+      join(xdgConfigHome, "dotweave", "repository", "manifest.jsonc"),
       JSON.stringify(
         {
           version: 7,
@@ -904,12 +904,12 @@ describe("sync service", () => {
     await writeFile(configFile, "Host *\n  AddKeysToAgent yes\n");
 
     await initializeSyncDirectory({
-      identityFile: "$XDG_CONFIG_HOME/devsync/keys.txt",
+      identityFile: "$XDG_CONFIG_HOME/dotweave/keys.txt",
       recipients: [ageKeys.recipient],
     });
 
     await writeFile(
-      join(xdgConfigHome, "devsync", "repository", "manifest.jsonc"),
+      join(xdgConfigHome, "dotweave", "repository", "manifest.jsonc"),
       JSON.stringify(
         {
           version: 7,
@@ -970,12 +970,12 @@ describe("sync service", () => {
     await writeFile(ignoredFile, "initial-local-state\n");
 
     await initializeSyncDirectory({
-      identityFile: "$XDG_CONFIG_HOME/devsync/keys.txt",
+      identityFile: "$XDG_CONFIG_HOME/dotweave/keys.txt",
       recipients: [ageKeys.recipient],
     });
 
     await writeFile(
-      join(xdgConfigHome, "devsync", "repository", "manifest.jsonc"),
+      join(xdgConfigHome, "dotweave", "repository", "manifest.jsonc"),
       JSON.stringify(
         {
           version: 7,
@@ -1034,7 +1034,7 @@ describe("sync service", () => {
     setEnvironment(homeDirectory, xdgConfigHome);
 
     await initializeSyncDirectory({
-      identityFile: "$XDG_CONFIG_HOME/devsync/keys.txt",
+      identityFile: "$XDG_CONFIG_HOME/dotweave/keys.txt",
       recipients: [ageKeys.recipient],
     });
     await trackTarget(
@@ -1051,7 +1051,7 @@ describe("sync service", () => {
     const localConfigBefore = await lstat(configFile);
     const repoSettingsFile = join(
       xdgConfigHome,
-      "devsync",
+      "dotweave",
       "repository",
       "default",
       ".config",
@@ -1089,7 +1089,7 @@ describe("sync service", () => {
     setEnvironment(homeDirectory, xdgConfigHome);
 
     await initializeSyncDirectory({
-      identityFile: "$XDG_CONFIG_HOME/devsync/keys.txt",
+      identityFile: "$XDG_CONFIG_HOME/dotweave/keys.txt",
       recipients: [ageKeys.recipient],
     });
     await trackTarget({ mode: "normal", target: appDirectory }, homeDirectory);
@@ -1101,7 +1101,7 @@ describe("sync service", () => {
     const siblingFileBefore = await lstat(siblingFile);
     const repoNestedThemeFile = join(
       xdgConfigHome,
-      "devsync",
+      "dotweave",
       "repository",
       "default",
       ".config",
@@ -1143,7 +1143,7 @@ describe("sync service", () => {
     await writeFile(gitconfig, "[user]\nname=test\n");
 
     await initializeSyncDirectory({
-      identityFile: "$XDG_CONFIG_HOME/devsync/keys.txt",
+      identityFile: "$XDG_CONFIG_HOME/dotweave/keys.txt",
       recipients: [ageKeys.recipient],
     });
 
@@ -1170,13 +1170,13 @@ describe("sync service", () => {
     await writeFile(keyFile, "key-content\n");
 
     await initializeSyncDirectory({
-      identityFile: "$XDG_CONFIG_HOME/devsync/keys.txt",
+      identityFile: "$XDG_CONFIG_HOME/dotweave/keys.txt",
       recipients: [ageKeys.recipient],
     });
 
     const manifestPath = join(
       xdgConfigHome,
-      "devsync",
+      "dotweave",
       "repository",
       "manifest.jsonc",
     );
@@ -1229,7 +1229,7 @@ describe("sync service", () => {
     const cwd = homeDirectory;
 
     await initializeSyncDirectory({
-      identityFile: "$XDG_CONFIG_HOME/devsync/keys.txt",
+      identityFile: "$XDG_CONFIG_HOME/dotweave/keys.txt",
       recipients: [ageKeys.recipient],
     });
     await trackTarget({ mode: "normal", target: gitconfig }, cwd);
@@ -1247,7 +1247,7 @@ describe("sync service", () => {
 
     const config = JSON.parse(
       await readFile(
-        join(xdgConfigHome, "devsync", "repository", "manifest.jsonc"),
+        join(xdgConfigHome, "dotweave", "repository", "manifest.jsonc"),
         "utf8",
       ),
     ) as { entries: Array<{ profiles?: string[] }> };
@@ -1283,7 +1283,7 @@ describe("sync service", () => {
 
     const configAfter = JSON.parse(
       await readFile(
-        join(xdgConfigHome, "devsync", "repository", "manifest.jsonc"),
+        join(xdgConfigHome, "dotweave", "repository", "manifest.jsonc"),
         "utf8",
       ),
     ) as { entries: Array<{ profiles?: string[] }> };
@@ -1308,7 +1308,7 @@ describe("sync service", () => {
     setEnvironment(homeDirectory, xdgConfigHome);
 
     await initializeSyncDirectory({
-      identityFile: "$XDG_CONFIG_HOME/devsync/keys.txt",
+      identityFile: "$XDG_CONFIG_HOME/dotweave/keys.txt",
       recipients: [ageKeys.recipient],
     });
 
@@ -1324,7 +1324,7 @@ describe("sync service", () => {
 
     const repoPathA = join(
       xdgConfigHome,
-      "devsync",
+      "dotweave",
       "repository",
       "default",
       ".config",
@@ -1333,7 +1333,7 @@ describe("sync service", () => {
     );
     const repoPathB = join(
       xdgConfigHome,
-      "devsync",
+      "dotweave",
       "repository",
       "default",
       ".config",
@@ -1371,7 +1371,7 @@ describe("sync service", () => {
     setEnvironment(homeDirectory, xdgConfigHome);
 
     await initializeSyncDirectory({
-      identityFile: "$XDG_CONFIG_HOME/devsync/keys.txt",
+      identityFile: "$XDG_CONFIG_HOME/dotweave/keys.txt",
       recipients: [ageKeys.recipient],
     });
 
@@ -1387,7 +1387,7 @@ describe("sync service", () => {
 
     const repoSshDir = join(
       xdgConfigHome,
-      "devsync",
+      "dotweave",
       "repository",
       "default",
       ".ssh",
@@ -1428,7 +1428,7 @@ describe("sync service", () => {
     setEnvironment(homeDirectory, xdgConfigHome);
 
     await initializeSyncDirectory({
-      identityFile: "$XDG_CONFIG_HOME/devsync/keys.txt",
+      identityFile: "$XDG_CONFIG_HOME/dotweave/keys.txt",
       recipients: [ageKeys.recipient],
     });
     await trackTarget({ mode: "normal", target: appDirectory }, homeDirectory);
@@ -1437,7 +1437,7 @@ describe("sync service", () => {
 
     const repoCacheFile = join(
       xdgConfigHome,
-      "devsync",
+      "dotweave",
       "repository",
       "default",
       ".config",
@@ -1447,7 +1447,7 @@ describe("sync service", () => {
     );
     const repoCacheDirectory = join(
       xdgConfigHome,
-      "devsync",
+      "dotweave",
       "repository",
       "default",
       ".config",
@@ -1483,7 +1483,7 @@ describe("sync service", () => {
     setEnvironment(homeDirectory, xdgConfigHome);
 
     await initializeSyncDirectory({
-      identityFile: "$XDG_CONFIG_HOME/devsync/keys.txt",
+      identityFile: "$XDG_CONFIG_HOME/dotweave/keys.txt",
       recipients: [ageKeys.recipient],
     });
     await trackTarget({ mode: "normal", target: appDirectory }, homeDirectory);
@@ -1492,7 +1492,7 @@ describe("sync service", () => {
 
     const repoCurrentPath = join(
       xdgConfigHome,
-      "devsync",
+      "dotweave",
       "repository",
       "default",
       ".config",
@@ -1528,7 +1528,7 @@ describe("sync service", () => {
     setEnvironment(homeDirectory, xdgConfigHome);
 
     await initializeSyncDirectory({
-      identityFile: "$XDG_CONFIG_HOME/devsync/keys.txt",
+      identityFile: "$XDG_CONFIG_HOME/dotweave/keys.txt",
       recipients: [ageKeys.recipient],
     });
     await trackTarget({ mode: "normal", target: appDirectory }, homeDirectory);
@@ -1537,7 +1537,7 @@ describe("sync service", () => {
 
     const repoCurrentPath = join(
       xdgConfigHome,
-      "devsync",
+      "dotweave",
       "repository",
       "default",
       ".config",
@@ -1574,7 +1574,7 @@ describe("sync service", () => {
     setEnvironment(homeDirectory, xdgConfigHome);
 
     await initializeSyncDirectory({
-      identityFile: "$XDG_CONFIG_HOME/devsync/keys.txt",
+      identityFile: "$XDG_CONFIG_HOME/dotweave/keys.txt",
       recipients: [ageKeys.recipient],
     });
 
@@ -1590,7 +1590,7 @@ describe("sync service", () => {
 
     const repoFile2 = join(
       xdgConfigHome,
-      "devsync",
+      "dotweave",
       "repository",
       "default",
       ".config",
@@ -1599,7 +1599,7 @@ describe("sync service", () => {
     );
     const repoFile3 = join(
       xdgConfigHome,
-      "devsync",
+      "dotweave",
       "repository",
       "default",
       ".config",
@@ -1636,7 +1636,7 @@ describe("sync service", () => {
     setEnvironment(homeDirectory, xdgConfigHome);
 
     await initializeSyncDirectory({
-      identityFile: "$XDG_CONFIG_HOME/devsync/keys.txt",
+      identityFile: "$XDG_CONFIG_HOME/dotweave/keys.txt",
       recipients: [ageKeys.recipient],
     });
     await trackTarget({ mode: "normal", target: gitconfig }, homeDirectory);
@@ -1645,7 +1645,7 @@ describe("sync service", () => {
 
     const artifactPath = join(
       xdgConfigHome,
-      "devsync",
+      "dotweave",
       "repository",
       "default",
       ".gitconfig",
@@ -1679,7 +1679,7 @@ describe("sync service", () => {
     setEnvironment(homeDirectory, xdgConfigHome);
 
     await initializeSyncDirectory({
-      identityFile: "$XDG_CONFIG_HOME/devsync/keys.txt",
+      identityFile: "$XDG_CONFIG_HOME/dotweave/keys.txt",
       recipients: [ageKeys.recipient],
     });
     await trackTarget({ mode: "normal", target: zshenv }, homeDirectory);
@@ -1688,7 +1688,7 @@ describe("sync service", () => {
 
     const artifactPath = join(
       xdgConfigHome,
-      "devsync",
+      "dotweave",
       "repository",
       "default",
       ".zshenv",
@@ -1725,7 +1725,7 @@ describe("sync service", () => {
     setEnvironment(homeDirectory, xdgConfigHome);
 
     await initializeSyncDirectory({
-      identityFile: "$XDG_CONFIG_HOME/devsync/keys.txt",
+      identityFile: "$XDG_CONFIG_HOME/dotweave/keys.txt",
       recipients: [ageKeys.recipient],
     });
     await trackTarget({ mode: "normal", target: scriptPath }, homeDirectory);
@@ -1734,7 +1734,7 @@ describe("sync service", () => {
 
     const artifactPath = join(
       xdgConfigHome,
-      "devsync",
+      "dotweave",
       "repository",
       "default",
       "bin",

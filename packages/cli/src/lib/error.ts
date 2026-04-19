@@ -1,4 +1,4 @@
-export type DevsyncErrorOptions = Readonly<{
+export type DotweaveErrorOptions = Readonly<{
   code?: string;
   details?: readonly string[];
   hint?: string;
@@ -14,14 +14,14 @@ const compactLines = (lines: readonly (string | undefined)[]) => {
   });
 };
 
-export class DevsyncError extends Error {
+export class DotweaveError extends Error {
   public readonly code?: string;
   public readonly details: readonly string[];
   public readonly hint?: string;
 
-  public constructor(message: string, options: DevsyncErrorOptions = {}) {
+  public constructor(message: string, options: DotweaveErrorOptions = {}) {
     super(message);
-    this.name = "DevsyncError";
+    this.name = "DotweaveError";
     this.code = options.code;
     this.details = options.details ?? [];
     this.hint = options.hint;
@@ -30,14 +30,14 @@ export class DevsyncError extends Error {
 
 /**
  * @description
- * Renders supported error values into the user-facing devsync error format.
+ * Renders supported error values into the user-facing dotweave error format.
  */
-export const formatDevsyncError = (error: DevsyncError | Error | string) => {
+export const formatDotweaveError = (error: DotweaveError | Error | string) => {
   if (typeof error === "string") {
     return error;
   }
 
-  if (!(error instanceof DevsyncError)) {
+  if (!(error instanceof DotweaveError)) {
     return error.message;
   }
 
@@ -50,16 +50,16 @@ export const formatDevsyncError = (error: DevsyncError | Error | string) => {
 
 /**
  * @description
- * Wraps unknown failures in a DevsyncError with normalized detail lines.
+ * Wraps unknown failures in a DotweaveError with normalized detail lines.
  */
 export const wrapUnknownError = (
   message: string,
   error: unknown,
-  options: DevsyncErrorOptions = {},
+  options: DotweaveErrorOptions = {},
 ) => {
   const detail = error instanceof Error ? error.message.trim() : String(error);
 
-  return new DevsyncError(message, {
+  return new DotweaveError(message, {
     ...options,
     details: compactLines([...(options.details ?? []), detail]),
   });

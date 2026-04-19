@@ -29,7 +29,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Build
-        run: pnpm --filter @tinyrack/devsync build
+        run: pnpm --filter @tinyrack/dotweave build
 
       - name: Run validation
-        run: pnpm --filter @tinyrack/devsync check
+        run: pnpm --filter @tinyrack/dotweave check

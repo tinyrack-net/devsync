@@ -3,7 +3,7 @@ import { readFile } from "node:fs/promises";
 import { z } from "zod";
 import { CONSTANTS } from "#app/config/constants.ts";
 import { runConfigMigrations } from "#app/config/migration.ts";
-import { DevsyncError } from "#app/lib/error.ts";
+import { DotweaveError } from "#app/lib/error.ts";
 import { parseJsonc, resolveJsoncConfigPath } from "#app/lib/jsonc.ts";
 import { ensureTrailingNewline } from "#app/lib/string.ts";
 import { formatInputIssues } from "#app/lib/validation.ts";
@@ -19,7 +19,7 @@ const globalConfigSchema = z.object({
   version: z.literal(CONSTANTS.GLOBAL_CONFIG.CURRENT_VERSION),
 });
 
-export type GlobalDevsyncConfig = Readonly<{
+export type GlobalDotweaveConfig = Readonly<{
   activeProfile?: string;
   version: typeof CONSTANTS.GLOBAL_CONFIG.CURRENT_VERSION;
 }>;
@@ -35,16 +35,16 @@ export type ActiveProfileSelection = Readonly<
     }
 >;
 
-export const parseGlobalDevsyncConfig = (
+export const parseGlobalDotweaveConfig = (
   input: unknown,
-): GlobalDevsyncConfig => {
+): GlobalDotweaveConfig => {
   const result = globalConfigSchema.safeParse(input);
 
   if (!result.success) {
-    throw new DevsyncError("Global devsync configuration is invalid.", {
+    throw new DotweaveError("Global dotweave configuration is invalid.", {
       code: "GLOBAL_CONFIG_VALIDATION_FAILED",
       details: formatInputIssues(result.error.issues).split("\n"),
-      hint: "Fix ~/.config/devsync/settings.jsonc, then run the command again.",
+      hint: "Fix ~/.config/dotweave/settings.jsonc, then run the command again.",
     });
   }
 
@@ -58,11 +58,11 @@ export const parseGlobalDevsyncConfig = (
   };
 };
 
-export const formatGlobalDevsyncConfig = (config: GlobalDevsyncConfig) => {
+export const formatGlobalDotweaveConfig = (config: GlobalDotweaveConfig) => {
   return ensureTrailingNewline(JSON.stringify(config, null, 2));
 };
 
-export const readGlobalDevsyncConfig = async (filePath: string) => {
+export const readGlobalDotweaveConfig = async (filePath: string) => {
   const resolvedPath = await resolveJsoncConfigPath(filePath);
   try {
     const contents = await readFile(resolvedPath, "utf8");
@@ -74,19 +74,19 @@ export const readGlobalDevsyncConfig = async (filePath: string) => {
       resolvedPath,
     );
 
-    return parseGlobalDevsyncConfig(migrated);
+    return parseGlobalDotweaveConfig(migrated);
   } catch (error: unknown) {
-    if (error instanceof DevsyncError) {
+    if (error instanceof DotweaveError) {
       throw error;
     }
 
     if (error instanceof SyntaxError) {
-      throw new DevsyncError(
-        "Global devsync configuration is not valid JSON.",
+      throw new DotweaveError(
+        "Global dotweave configuration is not valid JSON.",
         {
           code: "GLOBAL_CONFIG_INVALID_JSON",
           details: [`Config file: ${resolvedPath}`, error.message],
-          hint: "Fix the JSON syntax in ~/.config/devsync/settings.jsonc, then run the command again.",
+          hint: "Fix the JSON syntax in ~/.config/dotweave/settings.jsonc, then run the command again.",
         },
       );
     }
@@ -95,7 +95,7 @@ export const readGlobalDevsyncConfig = async (filePath: string) => {
       return undefined;
     }
 
-    throw new DevsyncError("Failed to read global devsync configuration.", {
+    throw new DotweaveError("Failed to read global dotweave configuration.", {
       code: "GLOBAL_CONFIG_READ_FAILED",
       details: [
         `Config file: ${resolvedPath}`,
@@ -106,7 +106,7 @@ export const readGlobalDevsyncConfig = async (filePath: string) => {
 };
 
 export const resolveActiveProfileSelection = (
-  config: GlobalDevsyncConfig | undefined,
+  config: GlobalDotweaveConfig | undefined,
 ): ActiveProfileSelection => {
   if (config?.activeProfile === undefined) {
     return {

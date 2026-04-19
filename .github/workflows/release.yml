@@ -46,16 +46,16 @@ jobs:
           ${expectedTag}`); process.exit(1); }'
 
       - name: Build
-        run: pnpm --filter @tinyrack/devsync build
+        run: pnpm --filter @tinyrack/dotweave build
 
       - name: Run validation
-        run: pnpm --filter @tinyrack/devsync check
+        run: pnpm --filter @tinyrack/dotweave check
 
       - name: Verify published package contents
-        run: pnpm --filter @tinyrack/devsync pack --dry-run
+        run: pnpm --filter @tinyrack/dotweave pack --dry-run
 
       - name: Publish package to npm
-        run: pnpm --filter @tinyrack/devsync publish --provenance --access public --no-git-checks
+        run: pnpm --filter @tinyrack/dotweave publish --provenance --access public --no-git-checks
 
       - name: Create GitHub Release
         env:
@@ -69,23 +69,23 @@ jobs:
       matrix:
         include:
           - os: ubuntu-latest
-            artifact_name: devsync-linux-x64
-            executable_path: packages/cli/dist/sea/devsync
+            artifact_name: dotweave-linux-x64
+            executable_path: packages/cli/dist/sea/dotweave
           - os: ubuntu-24.04-arm
-            artifact_name: devsync-linux-arm64
-            executable_path: packages/cli/dist/sea/devsync
+            artifact_name: dotweave-linux-arm64
+            executable_path: packages/cli/dist/sea/dotweave
           - os: macos-26
-            artifact_name: devsync-darwin-arm64
-            executable_path: packages/cli/dist/sea/devsync
+            artifact_name: dotweave-darwin-arm64
+            executable_path: packages/cli/dist/sea/dotweave
           - os: macos-26-intel
-            artifact_name: devsync-darwin-x64
-            executable_path: packages/cli/dist/sea/devsync
+            artifact_name: dotweave-darwin-x64
+            executable_path: packages/cli/dist/sea/dotweave
           - os: windows-latest
-            artifact_name: devsync-win32-x64.exe
-            executable_path: packages/cli/dist/sea/devsync.exe
+            artifact_name: dotweave-win32-x64.exe
+            executable_path: packages/cli/dist/sea/dotweave.exe
           - os: windows-latest
-            artifact_name: devsync-win32-arm64.exe
-            executable_path: packages/cli/dist/sea/devsync.exe
+            artifact_name: dotweave-win32-arm64.exe
+            executable_path: packages/cli/dist/sea/dotweave.exe
     runs-on: ${{ matrix.os }}
     steps:
       - name: Check out repository
@@ -106,7 +106,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Build SEA
-        run: pnpm --filter @tinyrack/devsync run sea:build
+        run: pnpm --filter @tinyrack/dotweave run sea:build
 
       - name: Sign and Notarize macOS binary
         if: startsWith(matrix.os, 'macos')

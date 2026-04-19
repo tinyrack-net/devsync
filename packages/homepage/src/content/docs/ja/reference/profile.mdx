@@ -1,28 +1,28 @@
 ---
-title: "devsync profile"
+title: "dotweave profile"
 description: "syncプロファイルを管理します。"
 ---
 
 syncプロファイルの管理と切り替えを行います。
 
-設定済みのprofileを確認したり、devsyncがデフォルトで使用するprofileを変更したりできます。
+設定済みのprofileを確認したり、dotweaveがデフォルトで使用するprofileを変更したりできます。
 
 ## Subcommands
 
-### `devsync profile list`
+### `dotweave profile list`
 
 設定済みのprofileとアクティブなprofileを表示します。
 
 ```bash
-devsync profile list
+dotweave profile list
 ```
 
-### `devsync profile use [name]`
+### `dotweave profile use [name]`
 
 アクティブなprofileを設定またはクリアします。名前を省略すると、アクティブなprofileがクリアされます。
 
 ```bash
-devsync profile use [name]
+dotweave profile use [name]
 ```
 
 ## Examples
@@ -30,17 +30,17 @@ devsync profile use [name]
 設定済みのすべてのprofileを一覧表示する:
 
 ```bash
-devsync profile list
+dotweave profile list
 ```
 
 workプロファイルをアクティブにする:
 
 ```bash
-devsync profile use work
+dotweave profile use work
 ```
 
 アクティブなprofileをクリアする:
 
 ```bash
-devsync profile use
+dotweave profile use
 ```

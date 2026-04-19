@@ -1,6 +1,6 @@
 ---
 title: Getting Started
-description: Install devsync and set up your first sync in a few minutes.
+description: Install dotweave and set up your first sync in a few minutes.
 ---
 
 import { Aside, Steps } from "@astrojs/starlight/components";
@@ -14,14 +14,14 @@ import { Aside, Steps } from "@astrojs/starlight/components";
 ## Installation
 
 ```bash
-npm install -g @tinyrack/devsync
+npm install -g @tinyrack/dotweave
 ```
 
 ---
 
 ## Starting Fresh
 
-If this is your first time using devsync, follow these steps to create a new sync directory.
+If this is your first time using dotweave, follow these steps to create a new sync directory.
 
 <Steps>
 
@@ -30,25 +30,25 @@ If this is your first time using devsync, follow these steps to create a new syn
    Create a new sync directory with a fresh age key for encrypting secrets.
 
    ```bash
-   devsync init
+   dotweave init
    ```
 
-   This sets up `~/.config/devsync/` with a Git repository and an age identity.
+   This sets up `~/.config/dotweave/` with a Git repository and an age identity.
 
 2. **Track your files**
 
-   Tell devsync which files to sync. For example:
+   Tell dotweave which files to sync. For example:
 
    ```bash
-   devsync track ~/.zshrc
-   devsync track ~/.config/starship.toml
-   devsync track ~/.config/nvim
+   dotweave track ~/.zshrc
+   dotweave track ~/.config/starship.toml
+   dotweave track ~/.config/nvim
    ```
 
    For sensitive files like SSH keys, use secret mode:
 
    ```bash
-   devsync track --mode secret ~/.ssh/config
+   dotweave track --mode secret ~/.ssh/config
    ```
 
 3. **Push to the sync directory**
@@ -56,7 +56,7 @@ If this is your first time using devsync, follow these steps to create a new syn
    Copy your tracked files into the sync directory:
 
    ```bash
-   devsync push
+   dotweave push
    ```
 
 4. **Commit and push with Git**
@@ -64,7 +64,7 @@ If this is your first time using devsync, follow these steps to create a new syn
    Open the sync directory and push to a remote:
 
    ```bash
-   devsync cd
+   dotweave cd
    git add -A && git commit -m "Initial sync"
    git remote add origin <your-repo-url>
    git push -u origin main
@@ -73,7 +73,7 @@ If this is your first time using devsync, follow these steps to create a new syn
 </Steps>
 
 <Aside type="tip">
-  After setting up, check out the [Directory Structure](/en/guides/directory-structure/) guide to see where devsync stores your config and synced files.
+  After setting up, check out the [Directory Structure](/en/guides/directory-structure/) guide to see where dotweave stores your config and synced files.
 </Aside>
 
 ---
@@ -87,13 +87,13 @@ On a new machine, clone your existing sync directory:
 1. **Clone and initialize**
 
    ```bash
-   devsync init <your-repo-url> --key "AGE-SECRET-KEY-1..."
+   dotweave init <your-repo-url> --key "AGE-SECRET-KEY-1..."
    ```
 
-   This clones the repository into `~/.config/devsync/repository/`. When connecting an existing sync repository, you must provide the same age private key used to decrypt its secret files:
+   This clones the repository into `~/.config/dotweave/repository/`. When connecting an existing sync repository, you must provide the same age private key used to decrypt its secret files:
 
    ```bash
-   devsync init <your-repo-url> --promptKey
+   dotweave init <your-repo-url> --promptKey
    ```
 
 2. **Pull your files**
@@ -101,7 +101,7 @@ On a new machine, clone your existing sync directory:
    Restore all tracked files to their local paths:
 
    ```bash
-   devsync pull
+   dotweave pull
    ```
 
 </Steps>
@@ -116,7 +116,7 @@ On a new machine, clone your existing sync directory:
 
 Now that you're set up, explore the guides:
 
-- [Directory Structure](/en/guides/directory-structure/) — understand where devsync stores files
+- [Directory Structure](/en/guides/directory-structure/) — understand where dotweave stores files
 - [Tracking Files](/en/guides/tracking-files/) — learn more about tracking options
 - [Sync Modes](/en/guides/sync-modes/) — normal, secret, and ignore modes
 - [Syncing Secrets](/en/guides/syncing-secrets/) — encrypt sensitive files with age

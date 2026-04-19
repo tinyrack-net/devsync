@@ -1,4 +1,4 @@
-import { DevsyncError } from "#app/lib/error.ts";
+import { DotweaveError } from "#app/lib/error.ts";
 import { pathExists } from "#app/lib/filesystem.ts";
 
 /**
@@ -74,7 +74,7 @@ export const resolveJsoncConfigPath = async (
   if (preferredPath.endsWith(".jsonc")) {
     const jsonPath = preferredPath.slice(0, -1); // .jsonc → .json
     if (await pathExists(jsonPath)) {
-      throw new DevsyncError("Unsupported devsync config file.", {
+      throw new DotweaveError("Unsupported dotweave config file.", {
         code: "CONFIG_JSON_UNSUPPORTED",
         details: [
           `Unsupported config file: ${jsonPath}`,

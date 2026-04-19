@@ -2,7 +2,7 @@ import { mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { DevsyncError } from "#app/lib/error.ts";
+import { DotweaveError } from "#app/lib/error.ts";
 import {
   type ConfigMigrationFn,
   type ConfigMigrationRegistry,
@@ -17,7 +17,7 @@ afterEach(async () => {
 
 const createTempFile = async (content: unknown): Promise<string> => {
   if (tempDir === undefined) {
-    tempDir = await mkdtemp(join(tmpdir(), "devsync-migration-test-"));
+    tempDir = await mkdtemp(join(tmpdir(), "dotweave-migration-test-"));
   }
   const filePath = join(tempDir, "config.json");
   await writeFile(filePath, JSON.stringify(content, null, 2), "utf8");
@@ -200,7 +200,7 @@ describe("runConfigMigrations", () => {
     });
   });
 
-  it("throws a DevsyncError instance for all error cases", async () => {
+  it("throws a DotweaveError instance for all error cases", async () => {
     const config = { version: 9 };
     const filePath = await createTempFile(config);
 
@@ -211,6 +211,6 @@ describe("runConfigMigrations", () => {
       filePath,
     ).catch((e: unknown) => e);
 
-    expect(error).toBeInstanceOf(DevsyncError);
+    expect(error).toBeInstanceOf(DotweaveError);
   });
 });

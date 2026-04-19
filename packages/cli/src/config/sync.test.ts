@@ -46,7 +46,7 @@ describe("sync config", () => {
   });
 
   it("parses v7 entries with flat profiles", async () => {
-    const workspace = await createTemporaryDirectory("devsync-sync-config-");
+    const workspace = await createTemporaryDirectory("dotweave-sync-config-");
     const homeDirectory = join(workspace, "home");
 
     const config = parseSyncConfig(
@@ -91,7 +91,7 @@ describe("sync config", () => {
   });
 
   it("parses v7 file entries with mode and profiles", async () => {
-    const workspace = await createTemporaryDirectory("devsync-sync-config-");
+    const workspace = await createTemporaryDirectory("dotweave-sync-config-");
     const homeDirectory = join(workspace, "home");
 
     const config = parseSyncConfig(
@@ -124,7 +124,7 @@ describe("sync config", () => {
   });
 
   it("finds the most specific entry for nested paths", async () => {
-    const workspace = await createTemporaryDirectory("devsync-sync-config-");
+    const workspace = await createTemporaryDirectory("dotweave-sync-config-");
     const homeDirectory = join(workspace, "home");
 
     const config = parseSyncConfig(
@@ -164,7 +164,7 @@ describe("sync config", () => {
   });
 
   it("rejects v6 config format", async () => {
-    const workspace = await createTemporaryDirectory("devsync-sync-config-");
+    const workspace = await createTemporaryDirectory("dotweave-sync-config-");
     const homeDirectory = join(workspace, "home");
 
     expect(() =>
@@ -181,14 +181,14 @@ describe("sync config", () => {
   });
 
   it("ignores age.identityFile in the config (unknown field)", async () => {
-    const workspace = await createTemporaryDirectory("devsync-sync-config-");
+    const workspace = await createTemporaryDirectory("dotweave-sync-config-");
     const homeDirectory = join(workspace, "home");
 
     expect(() =>
       parseSyncConfig(
         {
           age: {
-            identityFile: "$XDG_CONFIG_HOME/devsync/keys.txt",
+            identityFile: "$XDG_CONFIG_HOME/dotweave/keys.txt",
             recipients: ["age1example"],
           },
           entries: [],
@@ -202,7 +202,7 @@ describe("sync config", () => {
   });
 
   it("rejects string repoPath in the config", async () => {
-    const workspace = await createTemporaryDirectory("devsync-sync-config-");
+    const workspace = await createTemporaryDirectory("dotweave-sync-config-");
     const homeDirectory = join(workspace, "home");
 
     expect(() =>
@@ -225,7 +225,7 @@ describe("sync config", () => {
   });
 
   it("rejects duplicate repo paths", async () => {
-    const workspace = await createTemporaryDirectory("devsync-sync-config-");
+    const workspace = await createTemporaryDirectory("dotweave-sync-config-");
     const homeDirectory = join(workspace, "home");
 
     expect(() =>
@@ -245,7 +245,7 @@ describe("sync config", () => {
   });
 
   it("uses explicit repoPath when configured", async () => {
-    const workspace = await createTemporaryDirectory("devsync-sync-config-");
+    const workspace = await createTemporaryDirectory("dotweave-sync-config-");
     const homeDirectory = join(workspace, "home");
 
     const config = parseSyncConfig(
@@ -272,7 +272,7 @@ describe("sync config", () => {
 
   it("uses explicit platform-aware repoPath when configured", async () => {
     forcePlatform("linux");
-    const workspace = await createTemporaryDirectory("devsync-sync-config-");
+    const workspace = await createTemporaryDirectory("dotweave-sync-config-");
     const homeDirectory = join(workspace, "home");
 
     const config = parseSyncConfig(
@@ -302,7 +302,7 @@ describe("sync config", () => {
   });
 
   it("rejects invalid explicit repoPath values", async () => {
-    const workspace = await createTemporaryDirectory("devsync-sync-config-");
+    const workspace = await createTemporaryDirectory("dotweave-sync-config-");
     const homeDirectory = join(workspace, "home");
 
     expect(() =>
@@ -339,7 +339,7 @@ describe("sync config", () => {
   });
 
   it("rejects duplicate resolved repo paths from implicit and explicit entries", async () => {
-    const workspace = await createTemporaryDirectory("devsync-sync-config-");
+    const workspace = await createTemporaryDirectory("dotweave-sync-config-");
     const homeDirectory = join(workspace, "home");
 
     expect(() =>
@@ -365,7 +365,7 @@ describe("sync config", () => {
 
   it("rejects duplicate resolved repo paths from platform-specific entries on the active platform", async () => {
     forcePlatform("linux");
-    const workspace = await createTemporaryDirectory("devsync-sync-config-");
+    const workspace = await createTemporaryDirectory("dotweave-sync-config-");
     const homeDirectory = join(workspace, "home");
 
     expect(() =>
@@ -394,7 +394,7 @@ describe("sync config", () => {
   });
 
   it("allows parent-child path overlaps", async () => {
-    const workspace = await createTemporaryDirectory("devsync-sync-config-");
+    const workspace = await createTemporaryDirectory("dotweave-sync-config-");
     const homeDirectory = join(workspace, "home");
 
     const config = parseSyncConfig(
@@ -418,7 +418,7 @@ describe("sync config", () => {
   });
 
   it("child inherits mode from parent directory", async () => {
-    const workspace = await createTemporaryDirectory("devsync-sync-config-");
+    const workspace = await createTemporaryDirectory("dotweave-sync-config-");
     const homeDirectory = join(workspace, "home");
 
     const config = parseSyncConfig(
@@ -447,7 +447,7 @@ describe("sync config", () => {
   });
 
   it("child inherits profiles from parent directory", async () => {
-    const workspace = await createTemporaryDirectory("devsync-sync-config-");
+    const workspace = await createTemporaryDirectory("dotweave-sync-config-");
     const homeDirectory = join(workspace, "home");
 
     const config = parseSyncConfig(
@@ -476,7 +476,7 @@ describe("sync config", () => {
   });
 
   it("explicit child mode overrides parent", async () => {
-    const workspace = await createTemporaryDirectory("devsync-sync-config-");
+    const workspace = await createTemporaryDirectory("dotweave-sync-config-");
     const homeDirectory = join(workspace, "home");
 
     const config = parseSyncConfig(
@@ -508,7 +508,7 @@ describe("sync config", () => {
 
   it("inherits the full parent mode policy when child mode is omitted", async () => {
     forcePlatform("win");
-    const workspace = await createTemporaryDirectory("devsync-sync-config-");
+    const workspace = await createTemporaryDirectory("dotweave-sync-config-");
     const homeDirectory = join(workspace, "home");
 
     const config = parseSyncConfig(
@@ -543,7 +543,7 @@ describe("sync config", () => {
 
   it("does not merge parent platform overrides into explicit child mode", async () => {
     forcePlatform("win");
-    const workspace = await createTemporaryDirectory("devsync-sync-config-");
+    const workspace = await createTemporaryDirectory("dotweave-sync-config-");
     const homeDirectory = join(workspace, "home");
 
     const config = parseSyncConfig(
@@ -574,7 +574,7 @@ describe("sync config", () => {
   });
 
   it("transitive inheritance through multiple levels", async () => {
-    const workspace = await createTemporaryDirectory("devsync-sync-config-");
+    const workspace = await createTemporaryDirectory("dotweave-sync-config-");
     const homeDirectory = join(workspace, "home");
 
     const config = parseSyncConfig(
@@ -612,7 +612,7 @@ describe("sync config", () => {
   });
 
   it("entry order in config does not affect inheritance", async () => {
-    const workspace = await createTemporaryDirectory("devsync-sync-config-");
+    const workspace = await createTemporaryDirectory("dotweave-sync-config-");
     const homeDirectory = join(workspace, "home");
 
     const config = parseSyncConfig(
@@ -642,7 +642,7 @@ describe("sync config", () => {
   });
 
   it("root entry with no parent uses defaults", async () => {
-    const workspace = await createTemporaryDirectory("devsync-sync-config-");
+    const workspace = await createTemporaryDirectory("dotweave-sync-config-");
     const homeDirectory = join(workspace, "home");
 
     const config = parseSyncConfig(
@@ -663,7 +663,7 @@ describe("sync config", () => {
   });
 
   it("parses entries with object localPath format", async () => {
-    const workspace = await createTemporaryDirectory("devsync-sync-config-");
+    const workspace = await createTemporaryDirectory("dotweave-sync-config-");
     const homeDirectory = join(workspace, "home");
 
     const config = parseSyncConfig(
@@ -694,7 +694,7 @@ describe("sync config", () => {
   });
 
   it("derives repoPath from default path regardless of platform overrides", async () => {
-    const workspace = await createTemporaryDirectory("devsync-sync-config-");
+    const workspace = await createTemporaryDirectory("dotweave-sync-config-");
     const homeDirectory = join(workspace, "home");
 
     const config = parseSyncConfig(
@@ -719,7 +719,7 @@ describe("sync config", () => {
   });
 
   it("parses entries with default-only object localPath", async () => {
-    const workspace = await createTemporaryDirectory("devsync-sync-config-");
+    const workspace = await createTemporaryDirectory("dotweave-sync-config-");
     const homeDirectory = join(workspace, "home");
 
     const config = parseSyncConfig(
@@ -743,7 +743,7 @@ describe("sync config", () => {
 
   it("resolves localPath using linux platform override", async () => {
     forcePlatform("linux");
-    const workspace = await createTemporaryDirectory("devsync-sync-config-");
+    const workspace = await createTemporaryDirectory("dotweave-sync-config-");
     const homeDirectory = join(workspace, "home");
     const xdgConfigHome = join(homeDirectory, ".config");
 
@@ -771,7 +771,7 @@ describe("sync config", () => {
 
   it("resolves repoPath using linux platform override", async () => {
     forcePlatform("linux");
-    const workspace = await createTemporaryDirectory("devsync-sync-config-");
+    const workspace = await createTemporaryDirectory("dotweave-sync-config-");
     const homeDirectory = join(workspace, "home");
 
     const config = parseSyncConfig(
@@ -798,7 +798,7 @@ describe("sync config", () => {
 
   it("resolves localPath using WSL override before linux", async () => {
     forcePlatform("wsl");
-    const workspace = await createTemporaryDirectory("devsync-sync-config-");
+    const workspace = await createTemporaryDirectory("dotweave-sync-config-");
     const homeDirectory = join(workspace, "home");
     const xdgConfigHome = join(homeDirectory, ".config");
 
@@ -832,7 +832,7 @@ describe("sync config", () => {
 
   it("falls back to linux localPath on WSL when wsl is omitted", async () => {
     forcePlatform("wsl");
-    const workspace = await createTemporaryDirectory("devsync-sync-config-");
+    const workspace = await createTemporaryDirectory("dotweave-sync-config-");
     const homeDirectory = join(workspace, "home");
     const xdgConfigHome = join(homeDirectory, ".config");
 
@@ -860,7 +860,7 @@ describe("sync config", () => {
 
   it("resolves repoPath using WSL override before linux", async () => {
     forcePlatform("wsl");
-    const workspace = await createTemporaryDirectory("devsync-sync-config-");
+    const workspace = await createTemporaryDirectory("dotweave-sync-config-");
     const homeDirectory = join(workspace, "home");
 
     const config = parseSyncConfig(
@@ -888,7 +888,7 @@ describe("sync config", () => {
 
   it("falls back to linux repoPath on WSL when wsl is omitted", async () => {
     forcePlatform("wsl");
-    const workspace = await createTemporaryDirectory("devsync-sync-config-");
+    const workspace = await createTemporaryDirectory("dotweave-sync-config-");
     const homeDirectory = join(workspace, "home");
 
     const config = parseSyncConfig(
@@ -915,7 +915,7 @@ describe("sync config", () => {
 
   it("resolves platform-specific modes for the current OS", async () => {
     forcePlatform("mac");
-    const workspace = await createTemporaryDirectory("devsync-sync-config-");
+    const workspace = await createTemporaryDirectory("dotweave-sync-config-");
     const homeDirectory = join(workspace, "home");
 
     const config = parseSyncConfig(
@@ -944,7 +944,7 @@ describe("sync config", () => {
 
   it("resolves WSL-specific mode before linux", async () => {
     forcePlatform("wsl");
-    const workspace = await createTemporaryDirectory("devsync-sync-config-");
+    const workspace = await createTemporaryDirectory("dotweave-sync-config-");
     const homeDirectory = join(workspace, "home");
 
     const config = parseSyncConfig(
@@ -977,7 +977,7 @@ describe("sync config", () => {
 
   it("falls back to linux mode on WSL when wsl is omitted", async () => {
     forcePlatform("wsl");
-    const workspace = await createTemporaryDirectory("devsync-sync-config-");
+    const workspace = await createTemporaryDirectory("dotweave-sync-config-");
     const homeDirectory = join(workspace, "home");
 
     const config = parseSyncConfig(
@@ -1004,7 +1004,7 @@ describe("sync config", () => {
 
   it("inherits WSL mode policy from parent when child mode is omitted", async () => {
     forcePlatform("wsl");
-    const workspace = await createTemporaryDirectory("devsync-sync-config-");
+    const workspace = await createTemporaryDirectory("dotweave-sync-config-");
     const homeDirectory = join(workspace, "home");
 
     const config = parseSyncConfig(
@@ -1043,7 +1043,7 @@ describe("sync config", () => {
 
   it("does not merge parent WSL overrides into explicit child mode", async () => {
     forcePlatform("wsl");
-    const workspace = await createTemporaryDirectory("devsync-sync-config-");
+    const workspace = await createTemporaryDirectory("dotweave-sync-config-");
     const homeDirectory = join(workspace, "home");
 
     const config = parseSyncConfig(
@@ -1078,7 +1078,7 @@ describe("sync config", () => {
   });
 
   it("rejects string mode format", async () => {
-    const workspace = await createTemporaryDirectory("devsync-sync-config-");
+    const workspace = await createTemporaryDirectory("dotweave-sync-config-");
     const homeDirectory = join(workspace, "home");
 
     expect(() =>
@@ -1101,7 +1101,7 @@ describe("sync config", () => {
   });
 
   it("rejects localPath object missing default field", async () => {
-    const workspace = await createTemporaryDirectory("devsync-sync-config-");
+    const workspace = await createTemporaryDirectory("dotweave-sync-config-");
     const homeDirectory = join(workspace, "home");
 
     expect(() =>
@@ -1123,7 +1123,7 @@ describe("sync config", () => {
   });
 
   it("rejects repoPath object missing default field", async () => {
-    const workspace = await createTemporaryDirectory("devsync-sync-config-");
+    const workspace = await createTemporaryDirectory("dotweave-sync-config-");
     const homeDirectory = join(workspace, "home");
 
     expect(() =>
@@ -1146,7 +1146,7 @@ describe("sync config", () => {
   });
 
   it("rejects string localPath format", async () => {
-    const workspace = await createTemporaryDirectory("devsync-sync-config-");
+    const workspace = await createTemporaryDirectory("dotweave-sync-config-");
     const homeDirectory = join(workspace, "home");
 
     expect(() =>
@@ -1163,7 +1163,7 @@ describe("sync config", () => {
   });
 
   it("parses entries with permission field", async () => {
-    const workspace = await createTemporaryDirectory("devsync-sync-config-");
+    const workspace = await createTemporaryDirectory("dotweave-sync-config-");
     const homeDirectory = join(workspace, "home");
 
     const config = parseSyncConfig(
@@ -1190,7 +1190,7 @@ describe("sync config", () => {
 
   it("resolves platform-specific permission", async () => {
     forcePlatform("mac");
-    const workspace = await createTemporaryDirectory("devsync-sync-config-");
+    const workspace = await createTemporaryDirectory("dotweave-sync-config-");
     const homeDirectory = join(workspace, "home");
 
     const config = parseSyncConfig(
@@ -1215,7 +1215,7 @@ describe("sync config", () => {
   });
 
   it("inherits permission from parent directory entry", async () => {
-    const workspace = await createTemporaryDirectory("devsync-sync-config-");
+    const workspace = await createTemporaryDirectory("dotweave-sync-config-");
     const homeDirectory = join(workspace, "home");
 
     const config = parseSyncConfig(
@@ -1243,7 +1243,7 @@ describe("sync config", () => {
   });
 
   it("child explicit permission overrides parent permission", async () => {
-    const workspace = await createTemporaryDirectory("devsync-sync-config-");
+    const workspace = await createTemporaryDirectory("dotweave-sync-config-");
     const homeDirectory = join(workspace, "home");
 
     const config = parseSyncConfig(
@@ -1271,7 +1271,7 @@ describe("sync config", () => {
   });
 
   it("entries without permission have undefined permission", async () => {
-    const workspace = await createTemporaryDirectory("devsync-sync-config-");
+    const workspace = await createTemporaryDirectory("dotweave-sync-config-");
     const homeDirectory = join(workspace, "home");
 
     const config = parseSyncConfig(
@@ -1293,7 +1293,7 @@ describe("sync config", () => {
   });
 
   it("rejects invalid permission octal strings", async () => {
-    const workspace = await createTemporaryDirectory("devsync-sync-config-");
+    const workspace = await createTemporaryDirectory("dotweave-sync-config-");
     const homeDirectory = join(workspace, "home");
 
     expect(() =>
@@ -1315,7 +1315,7 @@ describe("sync config", () => {
 
   it("resolves WSL permission with fallback to linux", async () => {
     forcePlatform("wsl");
-    const workspace = await createTemporaryDirectory("devsync-sync-config-");
+    const workspace = await createTemporaryDirectory("dotweave-sync-config-");
     const homeDirectory = join(workspace, "home");
 
     const config = parseSyncConfig(
@@ -1337,7 +1337,7 @@ describe("sync config", () => {
 
   it("inherits WSL permission fallback from parent directories", async () => {
     forcePlatform("wsl");
-    const workspace = await createTemporaryDirectory("devsync-sync-config-");
+    const workspace = await createTemporaryDirectory("dotweave-sync-config-");
     const homeDirectory = join(workspace, "home");
 
     const config = parseSyncConfig(
@@ -1370,7 +1370,7 @@ describe("sync config", () => {
   });
 
   it("ignores unsupported platform keys in permission objects (unknown field)", async () => {
-    const workspace = await createTemporaryDirectory("devsync-sync-config-");
+    const workspace = await createTemporaryDirectory("dotweave-sync-config-");
     const homeDirectory = join(workspace, "home");
 
     expect(() =>
@@ -1391,7 +1391,7 @@ describe("sync config", () => {
   });
 
   it("treats profiles as an allowlist", async () => {
-    const workspace = await createTemporaryDirectory("devsync-sync-config-");
+    const workspace = await createTemporaryDirectory("dotweave-sync-config-");
     const homeDirectory = join(workspace, "home");
 
     const config = parseSyncConfig(

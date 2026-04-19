@@ -1,5 +1,5 @@
 ---
-title: "devsync status"
+title: "dotweave status"
 description: "push와 pull이 변경할 내용을 미리 확인해요."
 ---
 
@@ -12,7 +12,7 @@ import { Aside } from "@astrojs/starlight/components";
 ## Usage
 
 ```bash
-devsync status [flags]
+dotweave status [flags]
 ```
 
 ## Flags
@@ -27,15 +27,15 @@ devsync status [flags]
 전체 sync 상태를 확인해요:
 
 ```bash
-devsync status
+dotweave status
 ```
 
 특정 profile의 상태를 확인해요:
 
 ```bash
-devsync status --profile work
+dotweave status --profile work
 ```
 
 <Aside>
-`status`는 `manifest.jsonc`를 읽고 파일 내용을 비교해요. `git status`를 실행하는 것이 **아니라**, devsync 수준의 차이만 보여줘요.
+`status`는 `manifest.jsonc`를 읽고 파일 내용을 비교해요. `git status`를 실행하는 것이 **아니라**, dotweave 수준의 차이만 보여줘요.
 </Aside>

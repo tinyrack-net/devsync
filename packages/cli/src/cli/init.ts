@@ -10,7 +10,7 @@ import {
   initializeSyncDirectory,
 } from "#app/services/init.ts";
 import {
-  type DevsyncCliContext,
+  type DotweaveCliContext,
   verboseFlag,
 } from "#app/services/terminal/cli-runtime.ts";
 import { createCliLogger } from "#app/services/terminal/logger.ts";
@@ -38,11 +38,11 @@ const formatAgeSummary = (result: InitResult) => {
     : "using existing identity";
 };
 
-const initCommand = buildCommand<InitFlags, [string?], DevsyncCliContext>({
+const initCommand = buildCommand<InitFlags, [string?], DotweaveCliContext>({
   docs: {
     brief: "Initialize the git-backed sync directory",
     fullDescription:
-      "Create or connect the local devsync repository under your XDG config directory, then store the sync settings used by later pull and push operations. If you omit the repository argument, devsync initializes a local git repository in the sync directory.",
+      "Create or connect the local dotweave repository under your XDG config directory, then store the sync settings used by later pull and push operations. If you omit the repository argument, dotweave initializes a local git repository in the sync directory.",
   },
   async func(flags, repository) {
     const verbose = flags.verbose ?? false;

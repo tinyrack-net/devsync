@@ -44,7 +44,7 @@ describe("profile CLI e2e", () => {
     expect(stripAnsi(setResult.stdout)).toContain("Active profile set to work");
 
     const settings = JSON.parse(
-      await readFile(join(ctx.xdgDir, "devsync", "settings.jsonc"), "utf8"),
+      await readFile(join(ctx.xdgDir, "dotweave", "settings.jsonc"), "utf8"),
     ) as { activeProfile: string };
 
     expect(settings.activeProfile).toBe("work");
@@ -62,7 +62,7 @@ describe("profile CLI e2e", () => {
     expect(stripAnsi(clearResult.stdout)).toContain("Active profile cleared");
 
     const settings = JSON.parse(
-      await readFile(join(ctx.xdgDir, "devsync", "settings.jsonc"), "utf8"),
+      await readFile(join(ctx.xdgDir, "dotweave", "settings.jsonc"), "utf8"),
     ) as { activeProfile?: string };
 
     expect(settings.activeProfile).toBeUndefined();
@@ -115,7 +115,7 @@ describe("profile CLI e2e", () => {
     // Work artifact should exist in the repository
     const workArtifact = join(
       ctx.xdgDir,
-      "devsync",
+      "dotweave",
       "repository",
       "work",
       ".config",
@@ -127,7 +127,7 @@ describe("profile CLI e2e", () => {
     // Personal artifact should NOT have been pushed
     const personalArtifact = join(
       ctx.xdgDir,
-      "devsync",
+      "dotweave",
       "repository",
       "home",
       ".config",

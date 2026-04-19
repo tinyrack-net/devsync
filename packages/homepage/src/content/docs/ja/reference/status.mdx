@@ -1,5 +1,5 @@
 ---
-title: "devsync status"
+title: "dotweave status"
 description: "pushとpullで変更される内容をプレビューします。"
 ---
 
@@ -12,7 +12,7 @@ trackされたローカルファイルとsyncディレクトリを比較し、`p
 ## Usage
 
 ```bash
-devsync status [flags]
+dotweave status [flags]
 ```
 
 ## Flags
@@ -27,15 +27,15 @@ devsync status [flags]
 syncステータスの全体を表示する:
 
 ```bash
-devsync status
+dotweave status
 ```
 
 特定のprofileのステータスを表示する:
 
 ```bash
-devsync status --profile work
+dotweave status --profile work
 ```
 
 <Aside>
-`status` は `manifest.jsonc` を読み込み、ファイルの内容を比較します。`git status` は実行**しません** — devsyncレベルの差分のみ表示します。
+`status` は `manifest.jsonc` を読み込み、ファイルの内容を比較します。`git status` は実行**しません** — dotweaveレベルの差分のみ表示します。
 </Aside>

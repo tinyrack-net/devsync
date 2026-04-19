@@ -23,11 +23,11 @@ export const repositoryRoot = fileURLToPath(new URL("../", import.meta.url));
 export const tscCliPath = require.resolve("typescript/bin/tsc");
 export const distDirectory = join(repositoryRoot, "dist");
 export const seaDirectory = join(distDirectory, "sea");
-export const seaBundlePath = join(seaDirectory, "devsync.bundle.js");
+export const seaBundlePath = join(seaDirectory, "dotweave.bundle.js");
 export const seaConfigPath = join(seaDirectory, "sea-config.json");
 export const seaExecutablePath = join(
   seaDirectory,
-  process.platform === "win32" ? "devsync.exe" : "devsync",
+  process.platform === "win32" ? "dotweave.exe" : "dotweave",
 );
 
 const builtinSpecifiers = new Set(

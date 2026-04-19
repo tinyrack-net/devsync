@@ -14,7 +14,7 @@ import { createTemporaryDirectory } from "../test/helpers/sync-fixture.ts";
 const temporaryDirectories: string[] = [];
 
 const createWorkspace = async () => {
-  const directory = await createTemporaryDirectory("devsync-local-snapshot-");
+  const directory = await createTemporaryDirectory("dotweave-local-snapshot-");
 
   temporaryDirectories.push(directory);
 

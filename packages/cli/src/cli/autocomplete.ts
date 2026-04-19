@@ -11,7 +11,7 @@ import {
   resolveCompletionInputs,
   ZSH_AUTOCOMPLETE_SCRIPT,
 } from "#app/services/autocomplete.ts";
-import type { DevsyncCliContext } from "#app/services/terminal/cli-runtime.ts";
+import type { DotweaveCliContext } from "#app/services/terminal/cli-runtime.ts";
 
 type EmptyFlags = Record<never, never>;
 
@@ -19,10 +19,10 @@ const buildAutocompleteScriptCommand = (
   shell: "bash" | "zsh" | "powershell",
   script: string,
 ) => {
-  return buildCommand<EmptyFlags, [], DevsyncCliContext>({
+  return buildCommand<EmptyFlags, [], DotweaveCliContext>({
     docs: {
       brief: `Print ${shell} autocomplete script`,
-      fullDescription: `Emit a ${shell} autocomplete script for use with \`eval "$(devsync autocomplete ${shell})"\`.`,
+      fullDescription: `Emit a ${shell} autocomplete script for use with \`eval "$(dotweave autocomplete ${shell})"\`.`,
     },
     func: () => {
       process.stdout.write(script);
@@ -45,9 +45,9 @@ const powershellAutocompleteCommand = buildAutocompleteScriptCommand(
 );
 
 const buildCompleteCommand = (
-  getApplication: () => Application<DevsyncCliContext>,
+  getApplication: () => Application<DotweaveCliContext>,
 ) => {
-  return buildCommand<EmptyFlags, string[], DevsyncCliContext>({
+  return buildCommand<EmptyFlags, string[], DotweaveCliContext>({
     docs: {
       brief: "Internal completion command",
     },
@@ -83,7 +83,7 @@ const buildCompleteCommand = (
 };
 
 export const buildAutocompleteRoute = (
-  getApplication: () => Application<DevsyncCliContext>,
+  getApplication: () => Application<DotweaveCliContext>,
 ) => {
   return {
     autocompleteRoute: buildRouteMap({

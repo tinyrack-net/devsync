@@ -8,11 +8,11 @@ import {
 import { createConsola } from "consola";
 import { buildRootRoute } from "#app/cli/index.ts";
 import { CONSTANTS } from "#app/config/constants.ts";
-import { formatDevsyncError } from "#app/lib/error.ts";
+import { formatDotweaveError } from "#app/lib/error.ts";
 import { currentVersion } from "#app/lib/version.ts";
 import {
   createCliContext,
-  type DevsyncCliContext,
+  type DotweaveCliContext,
 } from "#app/services/terminal/cli-runtime.ts";
 
 type CommandError = Error & {
@@ -31,14 +31,14 @@ const errorLogger = createConsola({
 });
 
 const formatErrorForConsola = (error: unknown) => {
-  const message = formatDevsyncError(
+  const message = formatDotweaveError(
     error instanceof Error ? error : new Error(String(error)),
   );
   errorLogger.error(message);
   return "";
 };
 
-const devsyncText: ApplicationText = {
+const dotweaveText: ApplicationText = {
   ...text_en,
   commandErrorResult: (error) => {
     return formatErrorForConsola(error);
@@ -76,7 +76,7 @@ const resolveExitCode = (error: unknown) => {
   return 1;
 };
 
-let application: Application<DevsyncCliContext> | undefined;
+let application: Application<DotweaveCliContext> | undefined;
 
 const getApplication = () => {
   if (application === undefined) {
@@ -98,7 +98,7 @@ application = buildApplication(rootRoute, {
   },
   localization: {
     defaultLocale: "en",
-    loadText: () => devsyncText,
+    loadText: () => dotweaveText,
   },
   name: CONSTANTS.APP.NAME,
   scanner: {

@@ -1,7 +1,7 @@
 import { CONSTANTS } from "#app/config/constants.ts";
 
-const COMPLETION_FUNCTION_NAME = "__devsync_complete";
-const ENSURE_FUNCTION_NAME = "__devsync_ensure_completion";
+const COMPLETION_FUNCTION_NAME = "__dotweave_complete";
+const ENSURE_FUNCTION_NAME = "__dotweave_ensure_completion";
 
 export const BASH_AUTOCOMPLETE_SCRIPT = `\
 ${COMPLETION_FUNCTION_NAME}() {

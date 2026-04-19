@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { DevsyncError } from "#app/lib/error.ts";
+import { DotweaveError } from "#app/lib/error.ts";
 import { trackTarget } from "./track.ts";
 
 const mocked = vi.hoisted(() => ({
@@ -8,8 +8,8 @@ const mocked = vi.hoisted(() => ({
   readSyncConfig: vi.fn(),
   writeValidatedSyncConfig: vi.fn(),
   resolveSyncPaths: vi.fn(() => ({
-    syncDirectory: "/tmp/devsync",
-    configPath: "/tmp/devsync/manifest.jsonc",
+    syncDirectory: "/tmp/dotweave",
+    configPath: "/tmp/dotweave/manifest.jsonc",
   })),
   resolveSyncConfigResolutionContext: vi.fn(() => ({
     homeDirectory: "/home/user",
@@ -99,7 +99,7 @@ describe("track service", () => {
         { target: "/home/user/missing", mode: "normal" },
         "/home/user",
       ),
-    ).rejects.toThrow(DevsyncError);
+    ).rejects.toThrow(DotweaveError);
   });
 
   it("detects when a target is already tracked", async () => {

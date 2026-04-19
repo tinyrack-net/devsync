@@ -78,7 +78,7 @@ assertCommandSucceeded("SEA --version", versionResult);
 assertIncludes(
   "SEA --version stdout",
   versionResult.stdout,
-  `devsync/${packageJson.version}`,
+  `dotweave/${packageJson.version}`,
 );
 assertEmpty("SEA --version stderr", versionResult.stderr);
 

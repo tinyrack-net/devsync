@@ -2,7 +2,7 @@ import { rm } from "node:fs/promises";
 import { join } from "node:path";
 
 import { afterEach, describe, expect, it } from "vitest";
-import { DevsyncError } from "#app/lib/error.ts";
+import { DotweaveError } from "#app/lib/error.ts";
 import {
   ensureGitRepository,
   ensureRepository,
@@ -16,7 +16,7 @@ import {
 const temporaryDirectories: string[] = [];
 
 const createWorkspace = async () => {
-  const directory = await createTemporaryDirectory("devsync-git-");
+  const directory = await createTemporaryDirectory("dotweave-git-");
 
   temporaryDirectories.push(directory);
 
@@ -65,7 +65,7 @@ describe("git helpers", () => {
     await expect(ensureRepository(targetPath)).resolves.toBeUndefined();
   });
 
-  it("wraps missing git repositories in a DevsyncError", async () => {
+  it("wraps missing git repositories in a DotweaveError", async () => {
     const workspace = await createWorkspace();
     const missingRepositoryPath = join(workspace, "not-a-repo");
 
@@ -74,7 +74,7 @@ describe("git helpers", () => {
     ).rejects.toThrowError();
     await expect(
       ensureGitRepository(missingRepositoryPath),
-    ).rejects.toThrowError(DevsyncError);
+    ).rejects.toThrowError(DotweaveError);
     await expect(
       ensureGitRepository(missingRepositoryPath),
     ).rejects.toThrowError(/Sync repository is not initialized/u);

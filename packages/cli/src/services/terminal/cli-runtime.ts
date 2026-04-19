@@ -4,7 +4,7 @@ import * as path from "node:path";
 
 import type { TypedFlagParameter } from "@stricli/core";
 
-export type DevsyncCliContext = {
+export type DotweaveCliContext = {
   fs: {
     promises: typeof fs.promises;
   };
@@ -17,9 +17,9 @@ export const verboseFlag = {
   brief: "Show detailed output including file paths and progress details",
   kind: "boolean",
   optional: true,
-} satisfies TypedFlagParameter<boolean | undefined, DevsyncCliContext>;
+} satisfies TypedFlagParameter<boolean | undefined, DotweaveCliContext>;
 
-export const createCliContext = (): DevsyncCliContext => {
+export const createCliContext = (): DotweaveCliContext => {
   return {
     fs: {
       promises: fs.promises,

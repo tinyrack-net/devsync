@@ -1,28 +1,28 @@
 ---
-title: "devsync profile"
+title: "dotweave profile"
 description: "Manage sync profiles."
 ---
 
 Manage active and assigned sync profiles.
 
-Inspect configured profiles or update which profile devsync should use by default.
+Inspect configured profiles or update which profile dotweave should use by default.
 
 ## Subcommands
 
-### `devsync profile list`
+### `dotweave profile list`
 
 Show configured and active profiles.
 
 ```bash
-devsync profile list
+dotweave profile list
 ```
 
-### `devsync profile use [name]`
+### `dotweave profile use [name]`
 
 Set or clear the active profile. When called without a name, the active profile is cleared.
 
 ```bash
-devsync profile use [name]
+dotweave profile use [name]
 ```
 
 ## Examples
@@ -30,17 +30,17 @@ devsync profile use [name]
 List all configured profiles:
 
 ```bash
-devsync profile list
+dotweave profile list
 ```
 
 Activate the work profile:
 
 ```bash
-devsync profile use work
+dotweave profile use work
 ```
 
 Clear the active profile:
 
 ```bash
-devsync profile use
+dotweave profile use
 ```

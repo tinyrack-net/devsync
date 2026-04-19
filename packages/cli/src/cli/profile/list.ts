@@ -2,7 +2,7 @@ import { buildCommand } from "@stricli/core";
 import pc from "picocolors";
 import { listProfiles } from "#app/services/profile.ts";
 import {
-  type DevsyncCliContext,
+  type DotweaveCliContext,
   verboseFlag,
 } from "#app/services/terminal/cli-runtime.ts";
 import { createCliLogger } from "#app/services/terminal/logger.ts";
@@ -14,12 +14,12 @@ type ProfileListFlags = {
 const profileListCommand = buildCommand<
   ProfileListFlags,
   [],
-  DevsyncCliContext
+  DotweaveCliContext
 >({
   docs: {
     brief: "Show configured and active sync profiles",
     fullDescription:
-      "List the profile names referenced by the current sync configuration and show which profile is active through ~/.config/devsync/settings.jsonc.",
+      "List the profile names referenced by the current sync configuration and show which profile is active through ~/.config/dotweave/settings.jsonc.",
   },
   async func(flags) {
     const verbose = flags.verbose ?? false;

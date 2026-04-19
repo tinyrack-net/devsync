@@ -5,17 +5,17 @@ description: The complete flow from initial setup to daily syncing across machin
 
 import { Aside, Steps } from "@astrojs/starlight/components";
 
-This guide walks through the entire lifecycle of using devsync — from setting up
+This guide walks through the entire lifecycle of using dotweave — from setting up
 your first machine to keeping multiple devices in sync every day.
 
 ## Initial setup on Machine A
 
 <Steps>
 
-1. **Initialize devsync**
+1. **Initialize dotweave**
 
    ```bash
-   devsync init ~/dotfiles
+   dotweave init ~/dotfiles
    ```
 
    This creates a Git-backed sync directory at `~/dotfiles`.
@@ -23,9 +23,9 @@ your first machine to keeping multiple devices in sync every day.
 2. **Track your files**
 
    ```bash
-   devsync track ~/.gitconfig
-   devsync track ~/.config/starship.toml
-   devsync track ~/.ssh/config --secret
+   dotweave track ~/.gitconfig
+   dotweave track ~/.config/starship.toml
+   dotweave track ~/.ssh/config --secret
    ```
 
    Each command adds an entry to `manifest.jsonc` inside the sync directory.
@@ -33,15 +33,15 @@ your first machine to keeping multiple devices in sync every day.
 3. **Push local files into the sync directory**
 
    ```bash
-   devsync push
+   dotweave push
    ```
 
 4. **Commit and push to a remote**
 
-   devsync never creates Git commits for you — you stay in full control:
+   dotweave never creates Git commits for you — you stay in full control:
 
    ```bash
-   devsync cd   # opens a shell inside the sync directory
+   dotweave cd   # opens a shell inside the sync directory
    git add -A && git commit -m "initial sync"
    git remote add origin git@github.com:you/dotfiles.git
    git push -u origin main
@@ -51,7 +51,7 @@ your first machine to keeping multiple devices in sync every day.
 </Steps>
 
 <Aside type="tip">
-Run `devsync status` at any point to preview what would change before you
+Run `dotweave status` at any point to preview what would change before you
 actually push or pull.
 </Aside>
 
@@ -62,16 +62,16 @@ actually push or pull.
 1. **Initialize from the remote URL**
 
    ```bash
-   devsync init ~/dotfiles --url git@github.com:you/dotfiles.git
+   dotweave init ~/dotfiles --url git@github.com:you/dotfiles.git
    ```
 
 2. **Pull files to their local paths**
 
    ```bash
-   devsync pull
+   dotweave pull
    ```
 
-   devsync reads `manifest.jsonc`, resolves platform-specific paths, decrypts
+   dotweave reads `manifest.jsonc`, resolves platform-specific paths, decrypts
    any secrets, and writes every file to the correct location.
 
 </Steps>
@@ -83,8 +83,8 @@ Once both machines are set up, the day-to-day flow is short and predictable.
 **On the machine where you made changes:**
 
 ```bash
-devsync push
-devsync cd
+dotweave push
+dotweave cd
 git add -A && git commit -m "update shell aliases"
 git push
 exit
@@ -93,15 +93,15 @@ exit
 **On the other machine:**
 
 ```bash
-devsync cd
+dotweave cd
 git pull
 exit
-devsync pull
+dotweave pull
 ```
 
 <Aside>
-The pattern is always **devsync push → git push** on one side and
-**git pull → devsync pull** on the other.
+The pattern is always **dotweave push → git push** on one side and
+**git pull → dotweave pull** on the other.
 </Aside>
 
 ## Handling conflicts
@@ -110,25 +110,25 @@ The sync directory is a regular Git repository, so conflicts are resolved the
 usual way:
 
 ```bash
-devsync cd
+dotweave cd
 git pull            # may report merge conflicts
 # resolve conflicts in the affected files
 git add -A && git commit -m "resolve merge conflict"
 git push
 exit
-devsync pull        # apply the resolved state locally
+dotweave pull        # apply the resolved state locally
 ```
 
 <Aside type="caution">
 If two machines push different edits to the same file before either does a
 `git pull`, you'll get a normal Git merge conflict. Resolve it inside the sync
-directory — devsync itself doesn't auto-merge.
+directory — dotweave itself doesn't auto-merge.
 </Aside>
 
 ## Checking health
 
 ```bash
-devsync doctor
+dotweave doctor
 ```
 
 This verifies the sync directory exists, Git is configured, encryption keys are
@@ -137,11 +137,11 @@ in place, and tracked paths are accessible.
 ## Adding more machines
 
 Adding a third (or fourth, or fifth) machine follows the same steps as
-Machine B — `devsync init` with the remote URL, then `devsync pull`. From
+Machine B — `dotweave init` with the remote URL, then `dotweave pull`. From
 there the daily push/pull cycle is identical on every device.
 
 <Aside type="tip">
-If the new machine runs a different OS, devsync automatically resolves
+If the new machine runs a different OS, dotweave automatically resolves
 platform-specific paths. See the
 [Platform-Specific Paths](/en/guides/platform-specific-paths/) guide.
 </Aside>
@@ -150,8 +150,8 @@ platform-specific paths. See the
 
 | Task                        | Commands                                                  |
 | --------------------------- | --------------------------------------------------------- |
-| Preview changes             | `devsync status`                                          |
-| Send local edits upstream   | `devsync push` → `git add -A && git commit` → `git push` |
-| Receive upstream edits      | `git pull` → `devsync pull`                               |
-| Resolve conflicts           | `devsync cd` → fix files → `git commit` → `git push`     |
-| Check setup health          | `devsync doctor`                                          |
+| Preview changes             | `dotweave status`                                          |
+| Send local edits upstream   | `dotweave push` → `git add -A && git commit` → `git push` |
+| Receive upstream edits      | `git pull` → `dotweave pull`                               |
+| Resolve conflicts           | `dotweave cd` → fix files → `git commit` → `git push`     |
+| Check setup health          | `dotweave doctor`                                          |

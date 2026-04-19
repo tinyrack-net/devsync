@@ -13,7 +13,7 @@ import {
   type SyncMode,
 } from "#app/config/sync.ts";
 import { expandHomePath } from "#app/config/xdg.ts";
-import { DevsyncError } from "#app/lib/error.ts";
+import { DotweaveError } from "#app/lib/error.ts";
 import { getPathStats } from "#app/lib/filesystem.ts";
 import { ensureGitRepository } from "#app/lib/git.ts";
 import { doPathsOverlap } from "#app/lib/path.ts";
@@ -82,7 +82,7 @@ const buildTrackEntryCandidate = async (
   const targetStats = await getPathStats(targetPath);
 
   if (targetStats === undefined) {
-    throw new DevsyncError("Sync target does not exist.", {
+    throw new DotweaveError("Sync target does not exist.", {
       code: "TARGET_NOT_FOUND",
       details: [`Target: ${targetPath}`],
       hint: "Create the file or directory first, then run the command again.",
@@ -98,7 +98,7 @@ const buildTrackEntryCandidate = async (
       return "file" as const;
     }
 
-    throw new DevsyncError("Sync target type is not supported.", {
+    throw new DotweaveError("Sync target type is not supported.", {
       code: "TARGET_UNSUPPORTED_TYPE",
       details: [`Target: ${targetPath}`],
       hint: "Track a regular file, symlink, or directory.",
@@ -106,10 +106,10 @@ const buildTrackEntryCandidate = async (
   })();
 
   if (doPathsOverlap(targetPath, syncDirectory)) {
-    throw new DevsyncError("Sync target overlaps the devsync sync directory.", {
+    throw new DotweaveError("Sync target overlaps the dotweave sync directory.", {
       code: "TARGET_OVERLAPS_SYNC_DIR",
       details: [`Target: ${targetPath}`, `Sync directory: ${syncDirectory}`],
-      hint: "Choose a path outside the devsync sync directory.",
+      hint: "Choose a path outside the dotweave sync directory.",
     });
   }
 
@@ -117,7 +117,7 @@ const buildTrackEntryCandidate = async (
     input.identityFile !== undefined &&
     doPathsOverlap(targetPath, input.identityFile)
   ) {
-    throw new DevsyncError(
+    throw new DotweaveError(
       "Sync target contains the configured age identity file.",
       {
         code: "TARGET_OVERLAPS_IDENTITY",
@@ -164,9 +164,9 @@ export const trackTarget = async (
   const target = request.target.trim();
 
   if (target.length === 0) {
-    throw new DevsyncError("Target path is required.", {
+    throw new DotweaveError("Target path is required.", {
       code: "TARGET_REQUIRED",
-      hint: "Pass a file or directory path, for example 'devsync track ~/.gitconfig'.",
+      hint: "Pass a file or directory path, for example 'dotweave track ~/.gitconfig'.",
     });
   }
 
@@ -207,7 +207,7 @@ export const trackTarget = async (
     existingEntry !== undefined && existingEntry.kind === candidate.kind;
 
   if (existingEntry !== undefined && existingEntry.kind !== candidate.kind) {
-    throw new DevsyncError(
+    throw new DotweaveError(
       "Sync target conflicts with an existing tracked entry.",
       {
         code: "TARGET_CONFLICT",
@@ -238,7 +238,7 @@ export const trackTarget = async (
   });
 
   if (repoPathConflict !== undefined) {
-    throw new DevsyncError(
+    throw new DotweaveError(
       "Sync target conflicts with an existing tracked entry.",
       {
         code: "TARGET_CONFLICT",

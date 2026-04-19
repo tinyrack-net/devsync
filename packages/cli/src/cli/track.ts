@@ -1,11 +1,11 @@
 import { buildCommand } from "@stricli/core";
 import pc from "picocolors";
 import { CONSTANTS } from "#app/config/constants.ts";
-import { DevsyncError } from "#app/lib/error.ts";
+import { DotweaveError } from "#app/lib/error.ts";
 import { assignProfiles } from "#app/services/profile.ts";
 import { setTargetMode } from "#app/services/set.ts";
 import {
-  type DevsyncCliContext,
+  type DotweaveCliContext,
   verboseFlag,
 } from "#app/services/terminal/cli-runtime.ts";
 import { createCliLogger } from "#app/services/terminal/logger.ts";
@@ -19,11 +19,11 @@ type TrackFlags = {
   verbose?: boolean;
 };
 
-const trackCommand = buildCommand<TrackFlags, string[], DevsyncCliContext>({
+const trackCommand = buildCommand<TrackFlags, string[], DotweaveCliContext>({
   docs: {
     brief: "Track local files or directories for syncing",
     fullDescription:
-      "Register one or more files or directories inside your home directory so devsync can mirror them into the sync directory. If a target is already tracked, its mode is updated. Targets may also be repository paths inside a tracked directory to create child entries with a specific mode.",
+      "Register one or more files or directories inside your home directory so dotweave can mirror them into the sync directory. If a target is already tracked, its mode is updated. Targets may also be repository paths inside a tracked directory to create child entries with a specific mode.",
   },
   async func(flags, ...targets) {
     const verbose = flags.verbose ?? false;
@@ -32,7 +32,7 @@ const trackCommand = buildCommand<TrackFlags, string[], DevsyncCliContext>({
     const cwd = process.cwd();
 
     if (flags.repoPath !== undefined && targets.length !== 1) {
-      throw new DevsyncError(
+      throw new DotweaveError(
         "The --repo-path flag can only be used with a single sync target.",
         {
           code: "REPO_PATH_TARGET_COUNT",
@@ -89,7 +89,7 @@ const trackCommand = buildCommand<TrackFlags, string[], DevsyncCliContext>({
       } catch (error: unknown) {
         if (
           flags.repoPath === undefined &&
-          error instanceof DevsyncError &&
+          error instanceof DotweaveError &&
           error.code === "TARGET_NOT_FOUND"
         ) {
           if (verbose) {

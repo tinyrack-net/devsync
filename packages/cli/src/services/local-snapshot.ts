@@ -6,7 +6,7 @@ import {
   type ResolvedSyncConfig,
   resolveManagedSyncMode,
 } from "#app/config/sync.ts";
-import { DevsyncError } from "#app/lib/error.ts";
+import { DotweaveError } from "#app/lib/error.ts";
 import { isExecutableMode } from "#app/lib/file-mode.ts";
 import { getPathStats, listDirectoryEntries } from "#app/lib/filesystem.ts";
 import { assertStorageSafeRepoPath } from "./repo-artifacts.ts";
@@ -47,7 +47,7 @@ export const addSnapshotNode = (
   node: SnapshotNode,
 ) => {
   if (snapshot.has(repoPath)) {
-    throw new DevsyncError(`Duplicate sync path generated for ${repoPath}`);
+    throw new DotweaveError(`Duplicate sync path generated for ${repoPath}`);
   }
 
   snapshot.set(repoPath, node);
@@ -88,14 +88,14 @@ const addLocalNode = async (
   }
 
   if (stats.isDirectory()) {
-    throw new DevsyncError(
+    throw new DotweaveError(
       `Expected a file-like path but found a directory: ${path}`,
     );
   }
 
   if (stats.isSymbolicLink()) {
     if (mode === "secret") {
-      throw new DevsyncError(
+      throw new DotweaveError(
         `Secret sync paths must be regular files, not symlinks: ${repoPath}`,
       );
     }
@@ -109,7 +109,7 @@ const addLocalNode = async (
   }
 
   if (!stats.isFile()) {
-    throw new DevsyncError(`Unsupported filesystem entry: ${path}`);
+    throw new DotweaveError(`Unsupported filesystem entry: ${path}`);
   }
 
   addSnapshotNode(snapshot, repoPath, {
@@ -212,7 +212,7 @@ export const buildLocalSnapshot = async (
       );
 
       if (stats.isDirectory()) {
-        throw new DevsyncError(
+        throw new DotweaveError(
           `Sync entry ${entry.repoPath} expects a file, but found a directory: ${entry.localPath}`,
         );
       }
@@ -228,7 +228,7 @@ export const buildLocalSnapshot = async (
     }
 
     if (!stats.isDirectory()) {
-      throw new DevsyncError(
+      throw new DotweaveError(
         `Sync entry ${entry.repoPath} expects a directory: ${entry.localPath}`,
       );
     }

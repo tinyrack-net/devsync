@@ -1,5 +1,5 @@
 ---
-title: "devsync push"
+title: "dotweave push"
 description: "Mirror local files into the sync directory."
 ---
 
@@ -12,7 +12,7 @@ Collect the current state of tracked local files and directories, then update th
 ## Usage
 
 ```bash
-devsync push [flags]
+dotweave push [flags]
 ```
 
 ## Flags
@@ -28,19 +28,19 @@ devsync push [flags]
 Push all tracked files to the sync directory:
 
 ```bash
-devsync push
+dotweave push
 ```
 
 Preview what would be written without making changes:
 
 ```bash
-devsync push --dry-run
+dotweave push --dry-run
 ```
 
 Push only the work profile layer:
 
 ```bash
-devsync push --profile work
+dotweave push --profile work
 ```
 
 <Aside>

@@ -3,7 +3,7 @@ import { join } from "node:path";
 import type { ConsolaInstance } from "consola";
 import { resolveManagedSyncMode, resolveSyncRule } from "#app/config/sync.ts";
 import { decryptSecretFile } from "#app/lib/crypto.ts";
-import { DevsyncError, wrapUnknownError } from "#app/lib/error.ts";
+import { DotweaveError, wrapUnknownError } from "#app/lib/error.ts";
 import { isExecutableMode } from "#app/lib/file-mode.ts";
 import { getPathStats, listDirectoryEntries } from "#app/lib/filesystem.ts";
 import { addSnapshotNode, type SnapshotNode } from "./local-snapshot.ts";
@@ -66,7 +66,7 @@ const readArtifactLeaf = async (
   const rule = resolveSyncRule(config, artifact.repoPath, config.activeProfile);
 
   if (rule === undefined) {
-    throw new DevsyncError(
+    throw new DotweaveError(
       "Repository path is not managed by the current sync configuration.",
       {
         code: "UNMANAGED_SYNC_PATH",
@@ -74,13 +74,13 @@ const readArtifactLeaf = async (
           `Repository path: ${artifact.repoPath}`,
           `Context: ${storagePath}`,
         ],
-        hint: "Add the parent path to devsync, or remove stray artifacts from the sync directory.",
+        hint: "Add the parent path to dotweave, or remove stray artifacts from the sync directory.",
       },
     );
   }
 
   if (rule.profile !== artifact.profile) {
-    throw new DevsyncError(
+    throw new DotweaveError(
       "Repository artifact is stored under the wrong profile directory.",
       {
         code: "REPO_PROFILE_MISMATCH",
@@ -99,7 +99,7 @@ const readArtifactLeaf = async (
 
   if (artifact.secret) {
     if (rule.mode !== "secret") {
-      throw new DevsyncError(
+      throw new DotweaveError(
         "Plain sync path is stored as a secret artifact in the repository.",
         {
           code: "PLAIN_STORED_SECRET",
@@ -111,7 +111,7 @@ const readArtifactLeaf = async (
     const stats = await lstat(absolutePath);
 
     if (!stats.isFile()) {
-      throw new DevsyncError(
+      throw new DotweaveError(
         "Secret repository artifacts must be regular files, not symlinks.",
         {
           code: "SECRET_ARTIFACT_SYMLINK",
@@ -161,7 +161,7 @@ const readArtifactLeaf = async (
 
   if (stats.isSymbolicLink()) {
     if (mode === "secret") {
-      throw new DevsyncError(
+      throw new DotweaveError(
         "Secret sync path is stored as a plain artifact in the repository.",
         {
           code: "SECRET_STORED_PLAIN",
@@ -179,7 +179,7 @@ const readArtifactLeaf = async (
   }
 
   if (!stats.isFile()) {
-    throw new DevsyncError(
+    throw new DotweaveError(
       "Repository contains an unsupported plain artifact type.",
       {
         code: "UNSUPPORTED_REPO_ENTRY",
@@ -189,7 +189,7 @@ const readArtifactLeaf = async (
   }
 
   if (mode === "secret") {
-    throw new DevsyncError(
+    throw new DotweaveError(
       "Secret sync path is stored as a plain artifact in the repository.",
       {
         code: "SECRET_STORED_PLAIN",
@@ -296,7 +296,7 @@ export const buildRepositorySnapshot = async (
     const expectedStats = await getPathStats(expectedPath);
 
     if (expectedStats !== undefined && !expectedStats.isDirectory()) {
-      throw new DevsyncError(
+      throw new DotweaveError(
         "Directory sync entry is not stored as a directory in the repository.",
         {
           code: "DIRECTORY_ENTRY_NOT_DIRECTORY",

@@ -1,5 +1,5 @@
 ---
-title: "devsync autocomplete"
+title: "dotweave autocomplete"
 description: "シェルのタブ補完を設定します。"
 ---
 
@@ -10,33 +10,33 @@ evalベースのシェル設定で使用できる、シェル固有のautocomple
 ## Usage
 
 ```bash
-devsync autocomplete <shell>
+dotweave autocomplete <shell>
 ```
 
 ## Subcommands
 
 | Subcommand                  | Description                    |
 | --------------------------- | ------------------------------ |
-| `devsync autocomplete bash` | Bash用のautocompleteスクリプトを出力します。 |
-| `devsync autocomplete zsh`  | Zsh用のautocompleteスクリプトを出力します。  |
-| `devsync autocomplete fish` | Fish用のautocompleteスクリプトを出力します。 |
+| `dotweave autocomplete bash` | Bash用のautocompleteスクリプトを出力します。 |
+| `dotweave autocomplete zsh`  | Zsh用のautocompleteスクリプトを出力します。  |
+| `dotweave autocomplete fish` | Fish用のautocompleteスクリプトを出力します。 |
 
 ## Examples
 
 **Bash** でautocompleteを設定する（`~/.bashrc` に追加）:
 
 ```bash
-eval "$(devsync autocomplete bash)"
+eval "$(dotweave autocomplete bash)"
 ```
 
 **Zsh** でautocompleteを設定する（`~/.zshrc` に追加）:
 
 ```bash
-eval "$(devsync autocomplete zsh)"
+eval "$(dotweave autocomplete zsh)"
 ```
 
 **Fish** でautocompleteを設定する（`~/.config/fish/config.fish` に追加）:
 
 ```fish
-devsync autocomplete fish | source
+dotweave autocomplete fish | source
 ```

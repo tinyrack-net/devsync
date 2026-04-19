@@ -29,7 +29,7 @@ import {
 const temporaryDirectories: string[] = [];
 
 const createWorkspace = async () => {
-  const directory = await createTemporaryDirectory("devsync-dry-run-");
+  const directory = await createTemporaryDirectory("dotweave-dry-run-");
 
   temporaryDirectories.push(directory);
 
@@ -130,7 +130,7 @@ describe("sync dry runs", () => {
       readFile(
         join(
           xdgConfigHome,
-          "devsync",
+          "dotweave",
           "sync",
           "default",
           "bundle",
@@ -145,7 +145,7 @@ describe("sync dry runs", () => {
       readFile(
         join(
           xdgConfigHome,
-          "devsync",
+          "dotweave",
           "sync",
           "default",
           "bundle",

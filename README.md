@@ -1,23 +1,23 @@
 <div align="center">
 
-# Devsync
+# Dotweave
 
 **Git-backed configuration sync for your development environment.**
 
-[![CI](https://github.com/tinyrack-net/devsync/actions/workflows/ci.yml/badge.svg)](https://github.com/tinyrack-net/devsync/actions/workflows/ci.yml)
-[![npm](https://img.shields.io/npm/v/@tinyrack/devsync)](https://www.npmjs.com/package/@tinyrack/devsync)
+[![CI](https://github.com/tinyrack-net/dotweave/actions/workflows/ci.yml/badge.svg)](https://github.com/tinyrack-net/dotweave/actions/workflows/ci.yml)
+[![npm](https://img.shields.io/npm/v/@tinyrack/dotweave)](https://www.npmjs.com/package/@tinyrack/dotweave)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Node.js](https://img.shields.io/badge/node-%3E%3D24-brightgreen)](https://nodejs.org/)
 
-[Documentation](https://devsync.tinyrack.net/en/) · [Getting Started](https://devsync.tinyrack.net/en/getting-started/) · [한국어](https://devsync.tinyrack.net/ko/)
+[Documentation](https://dotweave.tinyrack.net/en/) · [Getting Started](https://dotweave.tinyrack.net/en/getting-started/) · [한국어](https://dotweave.tinyrack.net/ko/)
 
 </div>
 
 ---
 
-Devsync is a cross-platform CLI that syncs the configuration files in your home directory across multiple devices using git.
+Dotweave is a cross-platform CLI that syncs the configuration files in your home directory across multiple devices using git.
 
-Most dotfiles tools start from the repository and ask you to shape your local system around it. Devsync takes the opposite approach — your real config under `HOME` is the source of truth, and the git repository is just the sync artifact.
+Most dotfiles tools start from the repository and ask you to shape your local system around it. Dotweave takes the opposite approach — your real config under `HOME` is the source of truth, and the git repository is just the sync artifact.
 
 ## Features
 
@@ -31,23 +31,23 @@ Most dotfiles tools start from the repository and ask you to shape your local sy
 
 ```bash
 # Install
-npm install -g @tinyrack/devsync
+npm install -g @tinyrack/dotweave
 
 # Initialize
-devsync init
+dotweave init
 
 # Track some configs
-devsync track ~/.gitconfig
-devsync track ~/.zshrc
-devsync track ~/.ssh/config --mode secret
+dotweave track ~/.gitconfig
+dotweave track ~/.zshrc
+dotweave track ~/.ssh/config --mode secret
 
 # Push local state to sync repo
-devsync push
+dotweave push
 ```
 
 ## Documentation
 
-For detailed guides, command reference, and troubleshooting, visit the **[Devsync documentation site](https://devsync.tinyrack.net/en/)**.
+For detailed guides, command reference, and troubleshooting, visit the **[Dotweave documentation site](https://dotweave.tinyrack.net/en/)**.
 
 ## License
 

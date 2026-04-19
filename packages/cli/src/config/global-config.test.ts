@@ -5,8 +5,8 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import {
   isProfileActive,
-  parseGlobalDevsyncConfig,
-  readGlobalDevsyncConfig,
+  parseGlobalDotweaveConfig,
+  readGlobalDotweaveConfig,
   resolveActiveProfileSelection,
 } from "./global-config.ts";
 
@@ -24,7 +24,7 @@ describe("global config", () => {
 
   it("normalizes the active profile name", () => {
     expect(
-      parseGlobalDevsyncConfig({
+      parseGlobalDotweaveConfig({
         activeProfile: " work ",
         version: 3,
       }),
@@ -36,9 +36,9 @@ describe("global config", () => {
 
   it("rejects v2 config (migration happens before parsing)", () => {
     expect(() =>
-      parseGlobalDevsyncConfig({
+      parseGlobalDotweaveConfig({
         age: {
-          identityFile: "$XDG_CONFIG_HOME/devsync/keys.txt",
+          identityFile: "$XDG_CONFIG_HOME/dotweave/keys.txt",
           recipients: ["age1example"],
         },
         version: 2,
@@ -48,7 +48,7 @@ describe("global config", () => {
 
   it("parses v3 config without age", () => {
     expect(
-      parseGlobalDevsyncConfig({
+      parseGlobalDotweaveConfig({
         activeProfile: "work",
         version: 3,
       }),
@@ -92,8 +92,8 @@ describe("global config", () => {
       "utf8",
     );
 
-    await expect(readGlobalDevsyncConfig(filePath)).rejects.toThrow(
-      /Unsupported devsync config file/u,
+    await expect(readGlobalDotweaveConfig(filePath)).rejects.toThrow(
+      /Unsupported dotweave config file/u,
     );
   });
 });
