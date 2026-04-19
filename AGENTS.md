@@ -1,41 +1,85 @@
-# AGENTS.md
+# Dotweave
 
-## Workspace
+## Project Overview
+**Dotweave** is a git-backed configuration synchronization tool for dotfiles. Unlike traditional tools that force you to shape your local environment around a repository, Dotweave treats your home directory (`HOME`) as the source of truth and uses a git repository purely as a synchronization artifact.
 
-- This is a `pnpm` workspace with two packages under `packages/`: `cli` (`@tinyrack/dotweave`) and `homepage` (`@tinyrack/dotweave-homepage`).
-- Root scripts are minimal: `pnpm dev` runs every package's `dev` script recursively, `pnpm format` writes formatting, and `pnpm format:check` runs `biome check .`.
-- CI is package-specific, not workspace-wide: the CLI package is built and validated in `.github/workflows/ci.yml`; the homepage is built and deployed separately in `.github/workflows/deploy-homepage.yml`.
-- Node.js 24+ is required everywhere, and the workspace pins `pnpm@10.33.0`.
+- **Main Technologies:** Node.js (>=24), TypeScript, pnpm (Monorepo), `@stricli/core` (CLI), `zod` (Validation), `age-encryption` (Secrets), `vitest` (Testing), `Astro`/`Starlight` (Homepage/Docs).
+- **Architecture:** A monorepo containing a CLI package (`@tinyrack/dotweave`) and a documentation homepage (`@tinyrack/dotweave-homepage`).
 
-## CLI Package
+---
 
-- The published CLI lives in `packages/cli`.
-- Main source entrypoint: `packages/cli/src/index.ts`. CLI wiring lives in `src/application.ts` and `src/cli/index.ts`.
-- Use the `#app/*` import alias for CLI source modules; it maps to `packages/cli/src/*` in both TypeScript and Vitest config.
-- `packages/cli/tsconfig.json` is strict, `noEmit`, `module`/`moduleResolution` are `NodeNext`, and `erasableSyntaxOnly` is intentionally enabled.
-- Production artifacts come from `packages/cli/tsconfig.build.json`, which emits `dist/` and rewrites relative import extensions. Do not treat this package as source-only at runtime.
-- Keep `packages/cli/bin/index.js` as the executable wrapper to `dist/index.js`; the comment there explains why the wrapper exists.
-- Tests are split by location: unit/integration tests sit next to source as `src/**/*.test.ts`, and CLI end-to-end coverage lives in `packages/cli/tests/**/*.e2e.test.ts`.
-- E2E helpers create isolated temp `HOME` and `XDG_CONFIG_HOME` directories and invoke the CLI with `process.execPath`; avoid rewriting tests to depend on the real user environment.
-- PTY autocomplete coverage depends on shell availability. `autocomplete.pty.e2e.test.ts` skips when `bash`/`zsh` are unavailable.
+## Mandatory Validation Loop
+You MUST execute a validation loop for every change to ensure system integrity.
+- **Build**: `pnpm run build`
+- **Test**: `pnpm run test`
+- **Lint/Format (biome)**: `pnpm run format` and `pnpm run format:check`
 
-## Homepage Package
+If any step fails, you MUST fix the issues before proceeding or reporting completion. Specifically for the CLI package, you can use `pnpm --filter @tinyrack/dotweave check` for a comprehensive check.
 
-- The docs site lives in `packages/homepage` and is an Astro/Starlight app deployed with Wrangler.
-- Site config is in `packages/homepage/astro.config.ts`; Cloudflare deployment settings are in `packages/homepage/wrangler.jsonc`.
-- Docs content is loaded from `packages/homepage/src/content/docs/` via `src/content.config.ts`.
-- The site is localized with `en`, `ko`, and `ja` locales configured in `astro.config.ts`; doc changes often need matching content under those locale directories.
+---
 
-## Commands
+## Workspace Structure
+Managed via `pnpm` workspaces:
+- `packages/cli`: The core CLI tool.
+- `packages/homepage`: Documentation and landing page built with Astro.
 
-- CLI dev/build/run: `pnpm --filter @tinyrack/dotweave dev`, `pnpm --filter @tinyrack/dotweave build`, `pnpm --filter @tinyrack/dotweave start`
-- CLI validation: `pnpm --filter @tinyrack/dotweave check`
-- CLI targeted checks: `pnpm --filter @tinyrack/dotweave typecheck`, `biome check .`, `pnpm --filter @tinyrack/dotweave test`
-- Homepage dev/build/typecheck: `pnpm --filter @tinyrack/dotweave-homepage dev`, `pnpm --filter @tinyrack/dotweave-homepage build`, `pnpm --filter @tinyrack/dotweave-homepage typecheck`
-- Release workflow expectations for the CLI package are encoded in scripts and CI: build first, then `check`, and release tags must match `packages/cli/package.json` version.
+---
 
-## Validation
+## Building and Running
 
-- For CLI changes, match CI locally with `pnpm --filter @tinyrack/dotweave build` followed by `pnpm --filter @tinyrack/dotweave check`.
-- For homepage changes, at minimum run `pnpm --filter @tinyrack/dotweave-homepage typecheck` and `pnpm --filter @tinyrack/dotweave-homepage build`.
-- `biome check .` runs at the repo root and covers both packages; there is no root script that runs all package-specific validations together.
+### Root Commands
+- **Install Dependencies:** `pnpm install`
+- **Build All:** `pnpm run build`
+- **Run All Dev:** `pnpm run dev`
+- **Format Code:** `pnpm run format`
+
+### CLI Package (`packages/cli`)
+- **Development (Watch):** `pnpm --filter @tinyrack/dotweave dev`
+- **Build:** `pnpm --filter @tinyrack/dotweave build`
+- **Typecheck:** `pnpm --filter @tinyrack/dotweave typecheck`
+- **Run Tests:** `pnpm --filter @tinyrack/dotweave test`
+- **Full Check (Typecheck + Lint + Test):** `pnpm --filter @tinyrack/dotweave check`
+- **Run Local CLI:** `node packages/cli/bin/index.js` or `pnpm --filter @tinyrack/dotweave start`
+- **SEA Build (Single Executable):** `pnpm --filter @tinyrack/dotweave sea:build`
+
+### Homepage Package (`packages/homepage`)
+- **Dev Server:** `pnpm --filter @tinyrack/dotweave-homepage dev`
+- **Build Site:** `pnpm --filter @tinyrack/dotweave-homepage build`
+- **Typecheck:** `pnpm --filter @tinyrack/dotweave-homepage typecheck`
+- **Preview:** `pnpm --filter @tinyrack/dotweave-homepage preview`
+
+---
+
+## Development Conventions
+
+### General
+- **Tooling:** Use `biome` for linting and formatting. Always run `pnpm run format` before committing.
+- **Node.js:** Requires Node.js 24 or higher.
+- **Strict TypeScript:** `tsconfig.json` is configured with strict settings.
+
+### CLI Development
+- **Source Structure:**
+  - `src/cli/`: Command definitions and routing.
+  - `src/services/`: Core business logic (git operations, file system, sync logic).
+  - `src/config/`: Configuration schemas (Zod) and migrations.
+  - `src/lib/`: Low-level utilities.
+- **Import Aliases:** Use `#app/*` for all internal CLI imports (mapped to `src/*`).
+- **Commands:** Commands are built using `@stricli/core`. Root commands are defined in `src/cli/root-commands.ts`.
+- **Testing:**
+  - Unit/Integration tests: `src/**/*.test.ts`.
+  - E2E tests: `tests/**/*.e2e.test.ts`.
+  - E2E tests use isolated temporary environments for `HOME` and `XDG_CONFIG_HOME`.
+- **Error Handling:** Use the custom error types in `src/lib/error.ts`.
+
+### Documentation / Homepage
+- **Localization:** Supports `en`, `ko`, and `ja`. Content is in `src/content/docs/`.
+- **Theming:** Uses `starlight-theme-black` and Tailwind CSS.
+
+---
+
+## Key Files
+- `pnpm-workspace.yaml`: Monorepo configuration.
+- `biome.json`: Linting and formatting rules.
+- `packages/cli/src/application.ts`: CLI entry point and application building.
+- `packages/cli/src/config/sync-schema.ts`: Zod schema for the sync configuration.
+- `packages/homepage/astro.config.ts`: Astro/Starlight configuration.

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { CONSTANTS } from "#app/config/constants.ts";
+import type { ResolvedSyncConfigEntry } from "#app/config/sync-schema.ts";
 import {
   buildArtifactKey,
   collectArtifactProfiles,
@@ -11,11 +12,11 @@ import {
 
 describe("repo-artifacts service", () => {
   it("collects artifact profiles from entries", () => {
-    const entries = [
+    const entries: Pick<ResolvedSyncConfigEntry, "profiles">[] = [
       { profiles: ["profile-a", "profile-b"] },
       { profiles: ["profile-b", "profile-c"] },
     ];
-    const profiles = collectArtifactProfiles(entries as any);
+    const profiles = collectArtifactProfiles(entries);
     expect(profiles.has(CONSTANTS.SYNC.DEFAULT_PROFILE)).toBe(true);
     expect(profiles.has("profile-a")).toBe(true);
     expect(profiles.has("profile-b")).toBe(true);
@@ -30,7 +31,7 @@ describe("repo-artifacts service", () => {
         profile: "default",
         repoPath: "config",
         category: "plain",
-      } as any),
+      }),
     ).toBe("default/config/");
 
     expect(
@@ -39,7 +40,9 @@ describe("repo-artifacts service", () => {
         profile: "default",
         repoPath: "file.txt",
         category: "plain",
-      } as any),
+        contents: new Uint8Array(),
+        executable: false,
+      }),
     ).toBe("default/file.txt");
   });
 

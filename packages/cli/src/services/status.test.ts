@@ -1,4 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { CONSTANTS } from "#app/config/constants.ts";
+import type { LoadedSyncConfig } from "./runtime.ts";
 import { getStatus } from "./status.ts";
 
 const mocked = vi.hoisted(() => ({
@@ -11,7 +13,9 @@ const mocked = vi.hoisted(() => ({
   buildPushPlan: vi.fn(),
   buildPullPlan: vi.fn(),
   isRepoArtifactCurrent: vi.fn(),
-  buildArtifactKey: vi.fn((a: any) => `${a.profile}/${a.repoPath}`),
+  buildArtifactKey: vi.fn(
+    (a: { profile: string; repoPath: string }) => `${a.profile}/${a.repoPath}`,
+  ),
   buildPushResultFromPlan: vi.fn(() => ({ result: "push" })),
   buildPullResultFromPlan: vi.fn(() => ({ result: "pull" })),
   buildPushPlanPreview: vi.fn(() => ["push-preview"]),
@@ -55,13 +59,15 @@ describe("status service", () => {
   });
 
   it("successfully returns status result", async () => {
-    const mockConfig = {
+    const mockConfig: LoadedSyncConfig = {
       effectiveConfig: {
+        version: CONSTANTS.SYNC.CONFIG_VERSION,
         activeProfile: "default",
         age: { identityFile: "key.txt", recipients: ["recip"] },
         entries: [],
       },
       fullConfig: {
+        version: CONSTANTS.SYNC.CONFIG_VERSION,
         entries: [
           {
             kind: "file",
@@ -69,6 +75,11 @@ describe("status service", () => {
             profiles: ["default"],
             mode: "normal",
             repoPath: ".bashrc",
+            profilesExplicit: true,
+            modeExplicit: true,
+            permissionExplicit: false,
+            configuredMode: { default: "normal" },
+            configuredLocalPath: { default: "~/.bashrc" },
           },
         ],
       },
@@ -96,12 +107,14 @@ describe("status service", () => {
   });
 
   it("handles empty active profile", async () => {
-    const mockConfig = {
+    const mockConfig: LoadedSyncConfig = {
       effectiveConfig: {
+        version: CONSTANTS.SYNC.CONFIG_VERSION,
         age: { identityFile: "key.txt", recipients: [] },
         entries: [],
       },
       fullConfig: {
+        version: CONSTANTS.SYNC.CONFIG_VERSION,
         entries: [],
       },
     };

@@ -1,5 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { CONSTANTS } from "#app/config/constants.ts";
 import { buildRepositorySnapshot } from "./repo-snapshot.ts";
+import type { EffectiveSyncConfig } from "./runtime.ts";
 
 const mocked = vi.hoisted(() => ({
   getPathStats: vi.fn(),
@@ -52,11 +54,25 @@ describe("repo-snapshot service", () => {
     vi.clearAllMocks();
   });
 
-  it("builds repository snapshot correctly", async () => {
-    const config = {
+  it("scans repository and builds snapshot", async () => {
+    const config: EffectiveSyncConfig = {
+      version: CONSTANTS.SYNC.CONFIG_VERSION,
       activeProfile: "work",
-      entries: [],
-      age: { identityFile: "id.txt" },
+      entries: [
+        {
+          kind: "file",
+          repoPath: "config.json",
+          localPath: "/home/user/config.json",
+          profiles: ["work"],
+          mode: "normal",
+          profilesExplicit: true,
+          modeExplicit: true,
+          permissionExplicit: false,
+          configuredMode: { default: "normal" },
+          configuredLocalPath: { default: "~/config.json" },
+        },
+      ],
+      age: { identityFile: "id.txt", recipients: ["key1"] },
     };
 
     mocked.getPathStats.mockResolvedValue({ isDirectory: () => true });
@@ -70,7 +86,7 @@ describe("repo-snapshot service", () => {
     mocked.readFile.mockResolvedValue(Buffer.from("data"));
     mocked.resolveSyncRule.mockReturnValue({ profile: "work", mode: "normal" });
 
-    const snapshot = await buildRepositorySnapshot("/tmp/repo", config as any);
+    const snapshot = await buildRepositorySnapshot("/tmp/repo", config);
 
     expect(snapshot.size).toBe(1);
     expect(snapshot.get("config.json")).toBeDefined();
@@ -78,17 +94,31 @@ describe("repo-snapshot service", () => {
   });
 
   it("handles directory entries", async () => {
-    const config = {
+    const config: EffectiveSyncConfig = {
+      version: CONSTANTS.SYNC.CONFIG_VERSION,
       activeProfile: "work",
-      entries: [{ kind: "directory", repoPath: "dotconfig" }],
-      age: { identityFile: "id.txt" },
+      entries: [
+        {
+          kind: "directory",
+          repoPath: "dotconfig",
+          localPath: "/home/user/.config",
+          profiles: ["work"],
+          mode: "normal",
+          profilesExplicit: true,
+          modeExplicit: true,
+          permissionExplicit: false,
+          configuredMode: { default: "normal" },
+          configuredLocalPath: { default: "~/.config" },
+        },
+      ],
+      age: { identityFile: "id.txt", recipients: ["key1"] },
     };
 
     mocked.getPathStats.mockResolvedValue({ isDirectory: () => true });
     mocked.listDirectoryEntries.mockResolvedValueOnce([]); // No files found in work/ profile
     mocked.resolveSyncRule.mockReturnValue({ profile: "work", mode: "normal" });
 
-    const snapshot = await buildRepositorySnapshot("/tmp/repo", config as any);
+    const snapshot = await buildRepositorySnapshot("/tmp/repo", config);
 
     expect(snapshot.get("dotconfig")?.type).toBe("directory");
   });

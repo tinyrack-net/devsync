@@ -1,6 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { CONSTANTS } from "#app/config/constants.ts";
 import { buildPullPlan } from "./pull.ts";
 import { buildPushPlan } from "./push.ts";
+import type { EffectiveSyncConfig } from "./runtime.ts";
 
 const mocked = vi.hoisted(() => ({
   buildRepositorySnapshot: vi.fn(),
@@ -31,7 +33,8 @@ describe("sync scenarios (unit)", () => {
   });
 
   it("handles multi-profile configuration in pull plan", async () => {
-    const config = {
+    const config: EffectiveSyncConfig = {
+      version: CONSTANTS.SYNC.CONFIG_VERSION,
       activeProfile: "work",
       entries: [
         {
@@ -40,9 +43,14 @@ describe("sync scenarios (unit)", () => {
           repoPath: ".ssh/config",
           profiles: ["work", "personal"],
           mode: "normal",
+          profilesExplicit: true,
+          modeExplicit: true,
+          permissionExplicit: false,
+          configuredMode: { default: "normal" },
+          configuredLocalPath: { default: "~/.ssh/config" },
         },
       ],
-      age: { identityFile: "id.txt" },
+      age: { identityFile: "id.txt", recipients: ["key1"] },
     };
 
     mocked.buildRepositorySnapshot.mockResolvedValue(
@@ -61,14 +69,15 @@ describe("sync scenarios (unit)", () => {
       "/home/user/.ssh/config",
     ]);
 
-    const plan = await buildPullPlan(config as any, "/tmp/sync");
+    const plan = await buildPullPlan(config, "/tmp/sync");
 
     expect(plan.updatedLocalPaths).toContain("/home/user/.ssh/config");
     expect(mocked.buildRepositorySnapshot).toHaveBeenCalled();
   });
 
   it("handles directory with ignored sub-entry in push plan", async () => {
-    const config = {
+    const config: EffectiveSyncConfig = {
+      version: CONSTANTS.SYNC.CONFIG_VERSION,
       activeProfile: "default",
       entries: [
         {
@@ -77,6 +86,11 @@ describe("sync scenarios (unit)", () => {
           repoPath: "app",
           profiles: [],
           mode: "normal",
+          profilesExplicit: false,
+          modeExplicit: true,
+          permissionExplicit: false,
+          configuredMode: { default: "normal" },
+          configuredLocalPath: { default: "~/app" },
         },
         {
           kind: "directory",
@@ -84,8 +98,14 @@ describe("sync scenarios (unit)", () => {
           repoPath: "app/node_modules",
           profiles: [],
           mode: "ignore",
+          profilesExplicit: false,
+          modeExplicit: true,
+          permissionExplicit: false,
+          configuredMode: { default: "ignore" },
+          configuredLocalPath: { default: "~/app/node_modules" },
         },
       ],
+      age: { identityFile: "id.txt", recipients: ["key1"] },
     };
 
     mocked.buildLocalSnapshot.mockResolvedValue(
@@ -99,7 +119,7 @@ describe("sync scenarios (unit)", () => {
     );
 
     // In actual implementation, buildLocalSnapshot filters out ignored entries.
-    const plan = await buildPushPlan(config as any, "/tmp/sync");
+    const plan = await buildPushPlan(config, "/tmp/sync");
 
     const artifactRepoPaths = plan.artifacts.map((a) => a.repoPath);
     expect(artifactRepoPaths).toContain("app");
