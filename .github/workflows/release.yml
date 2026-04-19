@@ -48,6 +48,11 @@ jobs:
       - name: Build
         run: pnpm --filter @tinyrack/dotweave build
 
+      - name: Copy README and LICENSE
+        run: |
+          cp README.md packages/cli/
+          cp LICENSE packages/cli/
+
       - name: Run validation
         run: pnpm --filter @tinyrack/dotweave check
 
