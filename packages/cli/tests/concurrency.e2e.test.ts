@@ -49,10 +49,11 @@ describe("concurrency e2e", () => {
 
     // Modify some files locally to trigger updates during pull later
     for (let i = 0; i < 20; i += 1) {
-      await writeFile(
-        join(appDirectory, fileNames[i]),
-        `modified content ${i}\n`,
-      );
+      const fileName = fileNames[i];
+      if (fileName === undefined) {
+        throw new Error(`fileName at index ${i} is undefined`);
+      }
+      await writeFile(join(appDirectory, fileName), `modified content ${i}\n`);
     }
 
     // Push again (updates)
@@ -71,6 +72,9 @@ describe("concurrency e2e", () => {
     // Verify all files are restored correctly
     for (let i = 0; i < fileCount; i += 1) {
       const fileName = fileNames[i];
+      if (fileName === undefined) {
+        throw new Error(`fileName at index ${i} is undefined`);
+      }
       const content = await readFile(join(appDirectory, fileName), "utf8");
       if (i < 20) {
         expect(content).toBe(`modified content ${i}\n`);
