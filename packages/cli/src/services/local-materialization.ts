@@ -7,7 +7,7 @@ import {
   readlink,
   rm,
 } from "node:fs/promises";
-import { basename, dirname, join, posix } from "node:path";
+import { basename, dirname, isAbsolute, join, posix, resolve } from "node:path";
 import type { ConsolaInstance } from "consola";
 import { CONSTANTS } from "#app/config/constants.ts";
 import {
@@ -28,6 +28,7 @@ import {
 } from "#app/lib/file-mode.ts";
 import {
   createSymlink,
+  getFollowedPathStats,
   getPathStats,
   listDirectoryEntries,
   removePathAtomically,
@@ -110,6 +111,32 @@ const materializedFileModeMatches = (
   );
 };
 
+const normalizeLinkTargetForComparison = (target: string, baseDir: string) => {
+  const absoluteTarget = isAbsolute(target) ? target : resolve(baseDir, target);
+
+  if (process.platform !== "win32") {
+    return absoluteTarget;
+  }
+
+  const normalizeSlashes = (p: string) => p.replaceAll("\\", "/").toLowerCase();
+
+  try {
+    return normalizeSlashes(
+      require("node:fs").realpathSync.native(absoluteTarget),
+    );
+  } catch {
+    try {
+      const dir = dirname(absoluteTarget);
+      const base = basename(absoluteTarget);
+      return normalizeSlashes(
+        join(require("node:fs").realpathSync.native(dir), base),
+      );
+    } catch {
+      return normalizeSlashes(absoluteTarget);
+    }
+  }
+};
+
 const isMaterializedFileLikeNodeCurrent = async (
   targetPath: string,
   node: FileLikeSnapshotNode,
@@ -129,8 +156,11 @@ const isMaterializedFileLikeNodeCurrent = async (
     const currentLinkTarget = await readlink(targetPath);
 
     return (
-      normalizeLinkTargetForComparison(currentLinkTarget) ===
-      normalizeLinkTargetForComparison(node.linkTarget)
+      normalizeLinkTargetForComparison(
+        currentLinkTarget,
+        dirname(targetPath),
+      ) ===
+      normalizeLinkTargetForComparison(node.linkTarget, dirname(targetPath))
     );
   }
 
@@ -145,13 +175,6 @@ const isMaterializedFileLikeNodeCurrent = async (
       normalizeTextLineEndings: shouldNormalizeTextLineEndings(),
     }) && materializedFileModeMatches(stats.mode, node.executable, fileMode)
   );
-};
-
-const normalizeLinkTargetForComparison = (target: string) => {
-  const normalized =
-    process.platform === "win32" ? target.replaceAll("\\", "/") : target;
-
-  return process.platform === "win32" ? normalized.toLowerCase() : normalized;
 };
 
 const stageAndReplaceFilePath = async (
@@ -204,7 +227,7 @@ const ensureMaterializedDirectoryPath = async (
   targetPath: string,
   fileMode?: number,
 ) => {
-  const stats = await getPathStats(targetPath);
+  const stats = await getFollowedPathStats(targetPath);
 
   if (stats === undefined) {
     await mkdir(targetPath, { recursive: true });
@@ -347,8 +370,9 @@ const collectLocalLeafKeys = async (
   progressState: { scannedLocalNodeCount: number } = {
     scannedLocalNodeCount: 0,
   },
+  providedStats?: Awaited<ReturnType<typeof lstat>>,
 ) => {
-  const stats = await getPathStats(targetPath);
+  const stats = providedStats ?? (await getPathStats(targetPath));
 
   if (stats === undefined) {
     return;
@@ -597,6 +621,11 @@ export const countDeletedLocalNodes = async (
       ? collectChildEntryPaths(config, entry.repoPath)
       : new Set<string>();
 
+  const rootStats =
+    entry.kind === "directory"
+      ? await getFollowedPathStats(entry.localPath)
+      : await getPathStats(entry.localPath);
+
   await collectLocalLeafKeys(
     entry.localPath,
     entry.repoPath,
@@ -606,6 +635,7 @@ export const countDeletedLocalNodes = async (
     undefined,
     reporter,
     progressState,
+    rootStats,
   );
 
   const deletableKeys = await collectDeletableLocalKeys(
@@ -667,7 +697,7 @@ export const collectChangedLocalPaths = async (
   }
 
   const changedLocalPaths: string[] = [];
-  const rootStats = await getPathStats(entry.localPath);
+  const rootStats = await getFollowedPathStats(entry.localPath);
 
   if (rootStats === undefined || !rootStats.isDirectory()) {
     changedLocalPaths.push(entry.localPath);
