@@ -1,5 +1,5 @@
-import { mkdir, symlink, writeFile, rm, readlink } from "node:fs/promises";
-import { join, dirname, relative } from "node:path";
+import { mkdir, rm, symlink, writeFile } from "node:fs/promises";
+import { dirname, join, relative } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
   createSyncE2EContext,
@@ -43,9 +43,11 @@ describe("Windows junction and symlink target normalization", () => {
     // 3. Pull - should follow the junction and update internal files, but NOT replace the junction itself
     const firstPull = await ctx.runCli(["pull", "-y"]);
     expect(stripAnsi(firstPull.stdout)).toContain("Update from repository");
-    
+
     // Verify it's still a junction (symlink on Node)
-    const stats = await import("node:fs/promises").then(m => m.lstat(syncTarget));
+    const stats = await import("node:fs/promises").then((m) =>
+      m.lstat(syncTarget),
+    );
     expect(stats.isSymbolicLink()).toBe(true);
 
     // 4. Second pull - should be already up to date
@@ -63,16 +65,22 @@ describe("Windows junction and symlink target normalization", () => {
     await writeFile(join(targetDir, "file.txt"), "content");
 
     await ctx.runCli(["init"]);
-    
+
     // 1. Create a local junction (absolute) and push it
     await symlink(targetDir, linkPath, "junction");
     await ctx.runCli(["track", linkPath]);
     await ctx.runCli(["push"]);
 
     // 2. Manually modify the repo to have a RELATIVE path (simulating a push from Linux/Mac)
-    const repoLinkPath = join(ctx.xdgDir, "dotweave", "repository", "default", "link_entry");
+    const repoLinkPath = join(
+      ctx.xdgDir,
+      "dotweave",
+      "repository",
+      "default",
+      "link_entry",
+    );
     const relativeTarget = relative(dirname(linkPath), targetDir);
-    
+
     await rm(repoLinkPath, { force: true });
     await symlink(relativeTarget, repoLinkPath, "file");
 
