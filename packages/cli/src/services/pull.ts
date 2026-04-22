@@ -134,7 +134,7 @@ export const buildPullPlan = async (
       return undefined;
     }
 
-    return buildEntryMaterialization(entry, snapshot, reporter);
+    return buildEntryMaterialization(entry, snapshot, config, reporter);
   });
 
   let deletedLocalCount = 0;

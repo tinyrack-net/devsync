@@ -12,6 +12,7 @@ import type { ConsolaInstance } from "consola";
 import { CONSTANTS } from "#app/config/constants.ts";
 import {
   collectChildEntryPaths,
+  findOwningSyncEntry,
   type ResolvedSyncConfig,
   type ResolvedSyncConfigEntry,
   resolveSyncRule,
@@ -278,6 +279,7 @@ const buildDesiredDirectoryKeys = (
 export const buildEntryMaterialization = (
   entry: ResolvedSyncConfigEntry,
   snapshot: ReadonlyMap<string, SnapshotNode>,
+  config: Pick<ResolvedSyncConfig, "entries">,
   reporter?: ConsolaInstance,
 ): EntryMaterialization => {
   if (entry.kind === "file") {
@@ -332,6 +334,10 @@ export const buildEntryMaterialization = (
     }
 
     if (node.type === "directory") {
+      continue;
+    }
+
+    if (findOwningSyncEntry(config, repoPath) !== entry) {
       continue;
     }
 

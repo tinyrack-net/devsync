@@ -162,6 +162,7 @@ export const runDoctorChecks = async (
       buildEntryMaterialization(
         entry,
         repositorySnapshot,
+        config,
         (reporter?.level ?? 0) >= 4 ? reporter : undefined,
       );
       healthyMissingEntries.add(entry.repoPath);

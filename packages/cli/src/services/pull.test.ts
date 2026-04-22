@@ -169,6 +169,7 @@ describe("pull planning", () => {
     expect(mocked.buildEntryMaterialization).toHaveBeenCalledWith(
       config.entries[0],
       expect.any(Map),
+      config,
       undefined,
     );
     expect(mocked.countDeletedLocalNodes).toHaveBeenCalledTimes(1);
