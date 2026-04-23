@@ -1,5 +1,6 @@
 import type { ConsolaInstance } from "consola";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { doPathsOverlap } from "#app/lib/path.ts";
 
 const mocked = vi.hoisted(() => ({
   applyEntryMaterialization: vi.fn(),
@@ -49,6 +50,7 @@ vi.mock("./runtime.ts", () => ({
 }));
 
 import {
+  applyPullPlan,
   buildPullPlan,
   buildPullPlanPreview,
   buildPullResultFromPlan,
@@ -366,5 +368,102 @@ describe("pull planning", () => {
     expect(reporter.start).not.toHaveBeenCalledWith(
       "Applying .config/app/node_modules...",
     );
+  });
+
+  it("does not apply overlapping local paths concurrently", async () => {
+    const config = {
+      age: {
+        identityFile: "/tmp/dotweave/keys.txt",
+        recipients: ["age1recipient"],
+      },
+      entries: [
+        {
+          kind: "directory",
+          localPath: "/tmp/home/.config/zsh",
+          mode: "normal",
+          repoPath: ".config/zsh",
+        },
+        {
+          kind: "file",
+          localPath: "/tmp/home/.config/zsh/secrets.zsh",
+          mode: "secret",
+          permission: 0o600,
+          repoPath: ".config/zsh/secrets.zsh",
+        },
+        {
+          kind: "file",
+          localPath: "/tmp/home/.gitconfig",
+          mode: "normal",
+          permission: 0o644,
+          repoPath: ".gitconfig",
+        },
+      ],
+      version: 7,
+    };
+    const plan = {
+      counts: {
+        decryptedFileCount: 1,
+        directoryCount: 1,
+        plainFileCount: 1,
+        symlinkCount: 0,
+      },
+      deletedLocalCount: 0,
+      deletedLocalPaths: [],
+      desiredKeys: new Set<string>(),
+      existingKeys: new Set<string>(),
+      materializations: [
+        {
+          desiredKeys: new Set([".config/zsh/", ".config/zsh/.zshrc"]),
+          nodes: new Map(),
+          type: "directory",
+        },
+        {
+          desiredKeys: new Set([".config/zsh/secrets.zsh"]),
+          node: {
+            contents: new Uint8Array(),
+            executable: false,
+            secret: true,
+            type: "file",
+          },
+          type: "file",
+        },
+        {
+          desiredKeys: new Set([".gitconfig"]),
+          node: {
+            contents: new Uint8Array(),
+            executable: false,
+            secret: false,
+            type: "file",
+          },
+          type: "file",
+        },
+      ],
+      updatedLocalPaths: [],
+    };
+    const activeLocalPaths: string[] = [];
+    let overlapped = false;
+
+    mocked.applyEntryMaterialization.mockImplementation(
+      async (entry: { localPath: string }) => {
+        if (
+          activeLocalPaths.some((activeLocalPath) => {
+            return doPathsOverlap(entry.localPath, activeLocalPath);
+          })
+        ) {
+          overlapped = true;
+        }
+
+        activeLocalPaths.push(entry.localPath);
+        await new Promise((resolve) => {
+          setTimeout(resolve, 10);
+        });
+        activeLocalPaths.splice(activeLocalPaths.indexOf(entry.localPath), 1);
+      },
+    );
+
+    await applyPullPlan(config as never, plan as never);
+
+    expect(overlapped).toBe(false);
+    expect(mocked.applyEntryMaterialization).toHaveBeenCalledTimes(3);
   });
 });

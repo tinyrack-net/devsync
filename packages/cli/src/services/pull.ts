@@ -2,7 +2,7 @@ import type { ConsolaInstance } from "consola";
 import { CONSTANTS } from "#app/config/constants.ts";
 import { resolveSyncConfigFilePath } from "#app/config/sync.ts";
 import { ensureGitRepository } from "#app/lib/git.ts";
-import { isPathEqualOrNested } from "#app/lib/path.ts";
+import { doPathsOverlap, isPathEqualOrNested } from "#app/lib/path.ts";
 import { limitConcurrency } from "#app/lib/promise.ts";
 import {
   applyEntryMaterialization,
@@ -259,23 +259,74 @@ export const preparePull = async (
   };
 };
 
+const buildApplyPullPlanBatches = (
+  config: EffectiveSyncConfig,
+  plan: PullPlan,
+) => {
+  const batches: number[][] = [];
+
+  for (let index = 0; index < config.entries.length; index += 1) {
+    const entry = config.entries[index];
+    const materialization = plan.materializations[index];
+
+    if (entry === undefined || materialization === undefined) {
+      continue;
+    }
+
+    let assignedBatch: number[] | undefined;
+
+    for (const batch of batches) {
+      const overlapsBatch = batch.some((batchIndex) => {
+        const batchEntry = config.entries[batchIndex];
+
+        return (
+          batchEntry !== undefined &&
+          doPathsOverlap(entry.localPath, batchEntry.localPath)
+        );
+      });
+
+      if (!overlapsBatch) {
+        assignedBatch = batch;
+        break;
+      }
+    }
+
+    if (assignedBatch === undefined) {
+      assignedBatch = [];
+      batches.push(assignedBatch);
+    }
+
+    assignedBatch.push(index);
+  }
+
+  return batches;
+};
+
 export const applyPullPlan = async (
   config: EffectiveSyncConfig,
   plan: PullPlan,
   reporter?: ConsolaInstance,
 ) => {
-  await limitConcurrency(
-    CONSTANTS.SYNC.DEFAULT_CONCURRENCY,
-    config.entries,
-    async (entry, index) => {
-      const materialization = plan.materializations[index];
+  for (const batch of buildApplyPullPlanBatches(config, plan)) {
+    await limitConcurrency(
+      CONSTANTS.SYNC.DEFAULT_CONCURRENCY,
+      batch,
+      async (index) => {
+        const entry = config.entries[index];
+        const materialization = plan.materializations[index];
 
-      if (entry === undefined || materialization === undefined) {
-        return;
-      }
+        if (entry === undefined || materialization === undefined) {
+          return;
+        }
 
-      reporter?.start(`Applying ${entry.repoPath}...`);
-      await applyEntryMaterialization(entry, materialization, config, reporter);
-    },
-  );
+        reporter?.start(`Applying ${entry.repoPath}...`);
+        await applyEntryMaterialization(
+          entry,
+          materialization,
+          config,
+          reporter,
+        );
+      },
+    );
+  }
 };
