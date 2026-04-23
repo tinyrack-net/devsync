@@ -1,6 +1,5 @@
 import {
   chmod,
-  lstat,
   mkdir,
   mkdtemp,
   readFile,
@@ -376,7 +375,7 @@ const collectLocalLeafKeys = async (
   progressState: { scannedLocalNodeCount: number } = {
     scannedLocalNodeCount: 0,
   },
-  providedStats?: Awaited<ReturnType<typeof lstat>>,
+  providedStats?: Awaited<ReturnType<typeof getPathStats>>,
 ) => {
   const stats = providedStats ?? (await getPathStats(targetPath));
 
@@ -404,8 +403,12 @@ const collectLocalLeafKeys = async (
     const absolutePath = join(targetPath, entry.name);
     const relativePath =
       prefix === undefined ? entry.name : `${prefix}/${entry.name}`;
-    const childStats = await lstat(absolutePath);
+    const childStats = await getPathStats(absolutePath);
     const repoPath = posix.join(repoPathPrefix, relativePath);
+
+    if (childStats === undefined) {
+      continue;
+    }
 
     if (childEntryPaths.has(repoPath)) {
       continue;
