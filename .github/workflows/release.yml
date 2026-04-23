@@ -6,16 +6,23 @@ on:
       - "v*.*.*"
 
 permissions:
-  contents: write
-  id-token: write
+  contents: read
 
 concurrency:
   group: release-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
-  publish:
-    runs-on: ubuntu-latest
+  validate:
+    name: Validate (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - ubuntu-latest
+          - macos-26
+          - windows-latest
+    runs-on: ${{ matrix.os }}
 
     steps:
       - name: Check out repository
@@ -31,44 +38,15 @@ jobs:
         with:
           node-version: 24
           cache: pnpm
-          registry-url: https://registry.npmjs.org
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Verify tag matches package version
-        run: >-
-          node --input-type=module -e 'import pkg from
-          "./packages/cli/package.json" with { type: "json" }; const tag =
-          process.env.GITHUB_REF_NAME; const
-          expectedTag = `v${pkg.version}`; if (tag !== expectedTag) {
-          console.error(`Tag ${tag} does not match package.json version
-          ${expectedTag}`); process.exit(1); }'
-
-      - name: Build
-        run: pnpm --filter @tinyrack/dotweave build
-
-      - name: Copy README and LICENSE
-        run: |
-          cp README.md packages/cli/
-          cp LICENSE packages/cli/
-
       - name: Run validation
-        run: pnpm --filter @tinyrack/dotweave check
-
-      - name: Verify published package contents
-        run: pnpm --filter @tinyrack/dotweave pack --dry-run
-
-      - name: Publish package to npm
-        run: pnpm --filter @tinyrack/dotweave publish --provenance --access public --no-git-checks
-
-      - name: Create GitHub Release
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: gh release create ${{ github.ref_name }} --generate-notes
+        run: pnpm run ci:validate
 
   build-sea:
-    needs: publish
+    needs: validate
     strategy:
       fail-fast: false
       matrix:
@@ -160,11 +138,89 @@ jobs:
           file_path: ${{ matrix.executable_path }}
           environment_name: PROD
 
+      - name: Smoke test SEA executable
+        run: pnpm --filter @tinyrack/dotweave run sea:smoke -- --skip-build
+
       - name: Rename executable
         shell: bash
         run: mv ${{ matrix.executable_path }} packages/cli/dist/sea/${{ matrix.artifact_name }}
 
-      - name: Upload to GitHub Release
+      - name: Upload SEA artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact_name }}
+          path: packages/cli/dist/sea/${{ matrix.artifact_name }}
+          if-no-files-found: error
+
+  publish-release:
+    needs:
+      - validate
+      - build-sea
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      id-token: write
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+          registry-url: https://registry.npmjs.org
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Verify tag matches package version
+        run: >-
+          node --input-type=module -e 'import pkg from
+          "./packages/cli/package.json" with { type: "json" }; const tag =
+          process.env.GITHUB_REF_NAME; const
+          expectedTag = `v${pkg.version}`; if (tag !== expectedTag) {
+          console.error(`Tag ${tag} does not match package.json version
+          ${expectedTag}`); process.exit(1); }'
+
+      - name: Copy README and LICENSE
+        run: |
+          cp README.md packages/cli/
+          cp LICENSE packages/cli/
+
+      - name: Verify published package contents
+        run: pnpm --filter @tinyrack/dotweave pack --dry-run
+
+      - name: Publish package to npm
+        run: pnpm --filter @tinyrack/dotweave publish --provenance --access public --no-git-checks
+
+      - name: Create GitHub Release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: gh release upload ${{ github.ref_name }} packages/cli/dist/sea/${{ matrix.artifact_name }} --clobber
+        run: |
+          if gh release view "${GITHUB_REF_NAME}" >/dev/null 2>&1; then
+            echo "GitHub Release ${GITHUB_REF_NAME} already exists"
+          else
+            gh release create "${GITHUB_REF_NAME}" --generate-notes
+          fi
+
+      - name: Download SEA artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: dotweave-*
+          path: release-assets
+          merge-multiple: true
+
+      - name: Upload SEA artifacts to GitHub Release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          while IFS= read -r artifact_path; do
+            gh release upload "${GITHUB_REF_NAME}" "${artifact_path}" --clobber
+          done < <(find release-assets -type f | sort)

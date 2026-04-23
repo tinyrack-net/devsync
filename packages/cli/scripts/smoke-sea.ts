@@ -12,6 +12,7 @@ import {
 const buildSeaScriptPath = fileURLToPath(
   new URL("./build-sea.ts", import.meta.url),
 );
+const shouldBuildExecutable = !process.argv.includes("--skip-build");
 const smokeEnvironment = {
   FORCE_COLOR: "0",
   NODE_NO_WARNINGS: "1",
@@ -66,12 +67,16 @@ const runSeaExecutable = (args: string[]) => {
   });
 };
 
-ensureSeaBuilderNode();
+if (shouldBuildExecutable) {
+  ensureSeaBuilderNode();
 
-console.log("Building SEA executable for smoke test...");
-await runNodeScript(buildSeaScriptPath, [], {
-  cwd: repositoryRoot,
-});
+  console.log("Building SEA executable for smoke test...");
+  await runNodeScript(buildSeaScriptPath, [], {
+    cwd: repositoryRoot,
+  });
+} else {
+  console.log(`Using existing SEA executable at ${seaExecutablePath}`);
+}
 
 const versionResult = runSeaExecutable(["--version"]);
 assertCommandSucceeded("SEA --version", versionResult);
