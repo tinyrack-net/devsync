@@ -47,6 +47,13 @@ export default defineConfig({
       head: [
         {
           tag: "meta",
+          attrs: {
+            name: "google-site-verification",
+            content: "-4detF9HYfr_TzkI1CzY4aZS7DuiYM6wR7U9YY2-jKw",
+          },
+        },
+        {
+          tag: "meta",
           attrs: { name: "twitter:card", content: "summary" },
         },
         {
