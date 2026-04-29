@@ -39,12 +39,23 @@ export const createPtySession = (options: {
   file: string;
 }): PtySession => {
   const pty = require("node-pty") as typeof import("node-pty");
+
+  const cleanEnv: Record<string, string> = {};
+
+  for (const [key, value] of Object.entries({
+    ...process.env,
+    ...options.env,
+  })) {
+    if (value !== undefined) {
+      cleanEnv[key] = value;
+    }
+  }
+
   const terminal = pty.spawn(options.file, [...(options.args ?? [])], {
     cols: 120,
     cwd: options.cwd,
     env: {
-      ...process.env,
-      ...options.env,
+      ...cleanEnv,
       TERM: "xterm-256color",
     },
     name: "xterm-256color",

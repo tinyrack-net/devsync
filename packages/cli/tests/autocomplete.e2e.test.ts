@@ -66,7 +66,7 @@ const runBashCompletion = async (
         'chmod +x "$temp_dir/dotweave"',
         "trap 'rm -rf \"$temp_dir\"' EXIT",
         'export PATH="$temp_dir:$PATH"',
-        "source <(dotweave autocomplete bash)",
+        'eval "$(dotweave autocomplete bash)"',
         `COMP_WORDS=(${words.map(shellQuote).join(" ")})`,
         `COMP_CWORD=${currentWordIndex}`,
         "__dotweave_complete",

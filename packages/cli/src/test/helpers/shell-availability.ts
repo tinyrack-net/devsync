@@ -1,16 +1,18 @@
 import { execFileSync } from "node:child_process";
 
-const isShellAvailable = (shell: string): boolean => {
+const getShellPath = (shell: string): string | undefined => {
   if (process.platform === "win32") {
-    return false;
+    return undefined;
   }
   try {
-    execFileSync("which", [shell], { stdio: "ignore" });
-    return true;
+    return execFileSync("which", [shell], { encoding: "utf8" }).trim();
   } catch {
-    return false;
+    return undefined;
   }
 };
 
-export const isBashAvailable = isShellAvailable("bash");
-export const isZshAvailable = isShellAvailable("zsh");
+export const bashPath = getShellPath("bash");
+export const zshPath = getShellPath("zsh");
+
+export const isBashAvailable = bashPath !== undefined;
+export const isZshAvailable = zshPath !== undefined;
