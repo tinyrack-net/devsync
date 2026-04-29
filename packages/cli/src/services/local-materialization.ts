@@ -1,3 +1,4 @@
+import { realpathSync } from "node:fs";
 import {
   chmod,
   mkdir,
@@ -177,6 +178,20 @@ const isMaterializedFileLikeNodeCurrent = async (
   );
 };
 
+const resolveStagingParentDirectory = (targetPath: string) => {
+  const parentDirectory = dirname(targetPath);
+
+  if (process.platform !== "win32") {
+    return parentDirectory;
+  }
+
+  try {
+    return realpathSync.native(parentDirectory);
+  } catch {
+    return parentDirectory;
+  }
+};
+
 const stageAndReplaceFilePath = async (
   targetPath: string,
   node: FileLikeSnapshotNode,
@@ -186,7 +201,10 @@ const stageAndReplaceFilePath = async (
   reporter?.verbose(`staging local file ${targetPath}`);
   await mkdir(dirname(targetPath), { recursive: true });
   const stagingDirectory = await mkdtemp(
-    join(dirname(targetPath), `.${basename(targetPath)}.dotweave-sync-`),
+    join(
+      resolveStagingParentDirectory(targetPath),
+      `.${basename(targetPath)}.dotweave-sync-`,
+    ),
   );
   const stagedPath = join(stagingDirectory, basename(targetPath));
 
@@ -209,7 +227,10 @@ const stageAndReplaceDirectoryPath = async (
 ) => {
   await mkdir(dirname(targetPath), { recursive: true });
   const stagingDirectory = await mkdtemp(
-    join(dirname(targetPath), `.${basename(targetPath)}.dotweave-sync-`),
+    join(
+      resolveStagingParentDirectory(targetPath),
+      `.${basename(targetPath)}.dotweave-sync-`,
+    ),
   );
 
   try {
@@ -593,20 +614,16 @@ const reconcileMaterializedDirectoryPath = async (
     keyToLocalPath,
   );
 
-  await limitConcurrency(
-    CONSTANTS.SYNC.DEFAULT_CONCURRENCY,
-    deletableKeys,
-    async (key) => {
-      const localPath = keyToLocalPath.get(key);
+  for (const key of deletableKeys) {
+    const localPath = keyToLocalPath.get(key);
 
-      if (localPath === undefined) {
-        return;
-      }
+    if (localPath === undefined) {
+      continue;
+    }
 
-      await removePathAtomically(localPath);
-      reporter?.verbose(`removed stale local path ${key}`);
-    },
-  );
+    await removePathAtomically(localPath);
+    reporter?.verbose(`removed stale local path ${key}`);
+  }
 };
 
 export const countDeletedLocalNodes = async (

@@ -1,4 +1,4 @@
-import { rm } from "node:fs/promises";
+import { rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
 import { afterEach, describe, expect, it } from "vitest";
@@ -81,7 +81,13 @@ describe("git helpers", () => {
   });
 
   it("fails to initialize a repository in a non-writable location", async () => {
-    const readonlyPath = "/proc/invalid-repo";
-    await expect(initializeRepository(readonlyPath)).rejects.toThrow();
+    const workspace = await createWorkspace();
+    const fileParentPath = join(workspace, "not-a-directory");
+
+    await writeFile(fileParentPath, "not a directory");
+
+    await expect(
+      initializeRepository(join(fileParentPath, "repo")),
+    ).rejects.toThrow();
   });
 });

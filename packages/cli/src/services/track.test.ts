@@ -3,6 +3,11 @@ import { DotweaveError } from "#app/lib/error.ts";
 import { trackTarget } from "./track.ts";
 
 const mocked = vi.hoisted(() => ({
+  bashrcPath:
+    process.platform === "win32"
+      ? "C:\\home\\user\\.bashrc"
+      : "/home/user/.bashrc",
+  homeDirectory: process.platform === "win32" ? "C:\\home\\user" : "/home/user",
   getPathStats: vi.fn(),
   ensureGitRepository: vi.fn(),
   readSyncConfig: vi.fn(),
@@ -12,13 +17,24 @@ const mocked = vi.hoisted(() => ({
     configPath: "/tmp/dotweave/manifest.jsonc",
   })),
   resolveSyncConfigResolutionContext: vi.fn(() => ({
-    homeDirectory: "/home/user",
+    homeDirectory:
+      process.platform === "win32" ? "C:\\home\\user" : "/home/user",
   })),
   buildSyncConfigDocument: vi.fn((config) => config),
-  resolveDefaultIdentityFile: vi.fn(() => "/home/user/.ssh/id_rsa"),
+  resolveDefaultIdentityFile: vi.fn(() =>
+    process.platform === "win32"
+      ? "C:\\home\\user\\.ssh\\id_rsa"
+      : "/home/user/.ssh/id_rsa",
+  ),
   readEnvValue: vi.fn((key) => {
-    if (key === "HOME") return "/home/user";
-    if (key === "XDG_CONFIG_HOME") return "/home/user/.config";
+    if (key === "HOME") {
+      return process.platform === "win32" ? "C:\\home\\user" : "/home/user";
+    }
+    if (key === "XDG_CONFIG_HOME") {
+      return process.platform === "win32"
+        ? "C:\\home\\user\\.config"
+        : "/home/user/.config";
+    }
     return undefined;
   }),
 }));
@@ -60,7 +76,9 @@ vi.mock("#app/lib/path.ts", () => ({
 }));
 
 vi.mock("./paths.ts", () => ({
-  buildRepoPathWithinRoot: vi.fn((target) => target.replace("/home/user/", "")),
+  buildRepoPathWithinRoot: vi.fn((target, homeDirectory) =>
+    target.slice(homeDirectory.length + 1).replaceAll("\\", "/"),
+  ),
   buildConfiguredHomeLocalPath: vi.fn((p) => `~/${p}`),
 }));
 
@@ -81,13 +99,13 @@ describe("track service", () => {
     });
 
     const result = await trackTarget(
-      { target: "/home/user/.bashrc", mode: "normal" },
-      "/home/user",
+      { target: mocked.bashrcPath, mode: "normal" },
+      mocked.homeDirectory,
     );
 
     expect(result.alreadyTracked).toBe(false);
     expect(result.changed).toBe(true);
-    expect(result.localPath).toBe("/home/user/.bashrc");
+    expect(result.localPath).toBe(mocked.bashrcPath);
     expect(mocked.writeValidatedSyncConfig).toHaveBeenCalled();
   });
 
@@ -96,14 +114,20 @@ describe("track service", () => {
 
     await expect(
       trackTarget(
-        { target: "/home/user/missing", mode: "normal" },
-        "/home/user",
+        {
+          target:
+            process.platform === "win32"
+              ? "C:\\home\\user\\missing"
+              : "/home/user/missing",
+          mode: "normal",
+        },
+        mocked.homeDirectory,
       ),
     ).rejects.toThrow(DotweaveError);
   });
 
   it("detects when a target is already tracked", async () => {
-    const localPath = "/home/user/.bashrc";
+    const localPath = mocked.bashrcPath;
     mocked.getPathStats.mockResolvedValue({
       isDirectory: () => false,
       isFile: () => true,
@@ -124,7 +148,7 @@ describe("track service", () => {
 
     const result = await trackTarget(
       { target: localPath, mode: "normal" },
-      "/home/user",
+      mocked.homeDirectory,
     );
 
     expect(result.alreadyTracked).toBe(true);
@@ -132,7 +156,7 @@ describe("track service", () => {
   });
 
   it("updates existing entry if mode changes", async () => {
-    const localPath = "/home/user/.bashrc";
+    const localPath = mocked.bashrcPath;
     mocked.getPathStats.mockResolvedValue({
       isDirectory: () => false,
       isFile: () => true,
@@ -153,7 +177,7 @@ describe("track service", () => {
 
     const result = await trackTarget(
       { target: localPath, mode: "secret" },
-      "/home/user",
+      mocked.homeDirectory,
     );
 
     expect(result.alreadyTracked).toBe(true);
