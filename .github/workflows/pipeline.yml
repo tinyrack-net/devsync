@@ -1,16 +1,20 @@
-name: Release
+name: CI/CD Pipeline
 
 on:
   push:
+    branches:
+      - "**"
     tags:
       - "v*.*.*"
+  pull_request:
 
 permissions:
   contents: read
 
 concurrency:
-  group: release-${{ github.ref }}
-  cancel-in-progress: false
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' &&
+    !startsWith(github.ref, 'refs/tags/v') }}
 
 jobs:
   validate:
@@ -47,6 +51,7 @@ jobs:
 
   build-sea:
     needs: validate
+    if: startsWith(github.ref, 'refs/tags/v')
     strategy:
       fail-fast: false
       matrix:
@@ -112,7 +117,7 @@ jobs:
             security import certificate.p12 -k build.keychain -P $APPLE_CERTIFICATE_PASSWORD -T /usr/bin/codesign
             security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k actions build.keychain
             codesign --deep --force --options runtime --sign "$APPLE_DEVELOPER_ID" ${{ matrix.executable_path }}
-            
+
             if [ -n "$APPLE_NOTARY_KEY_P8_BASE64" ]; then
               echo "Notarizing macOS binary..."
               echo $APPLE_NOTARY_KEY_P8_BASE64 | base64 --decode > AuthKey.p8
@@ -143,7 +148,8 @@ jobs:
 
       - name: Rename executable
         shell: bash
-        run: mv ${{ matrix.executable_path }} packages/cli/dist/sea/${{ matrix.artifact_name }}
+        run: mv ${{ matrix.executable_path }} packages/cli/dist/sea/${{
+          matrix.artifact_name }}
 
       - name: Upload SEA artifact
         uses: actions/upload-artifact@v4
@@ -156,6 +162,7 @@ jobs:
     needs:
       - validate
       - build-sea
+    if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -184,10 +191,9 @@ jobs:
         run: >-
           node --input-type=module -e 'import pkg from
           "./packages/cli/package.json" with { type: "json" }; const tag =
-          process.env.GITHUB_REF_NAME; const
-          expectedTag = `v${pkg.version}`; if (tag !== expectedTag) {
-          console.error(`Tag ${tag} does not match package.json version
-          ${expectedTag}`); process.exit(1); }'
+          process.env.GITHUB_REF_NAME; const expectedTag = `v${pkg.version}`; if
+          (tag !== expectedTag) { console.error(`Tag ${tag} does not match
+          package.json version ${expectedTag}`); process.exit(1); }'
 
       - name: Copy README and LICENSE
         run: |
@@ -198,7 +204,8 @@ jobs:
         run: pnpm --filter @tinyrack/dotweave pack --dry-run
 
       - name: Publish package to npm
-        run: pnpm --filter @tinyrack/dotweave publish --provenance --access public --no-git-checks
+        run: pnpm --filter @tinyrack/dotweave publish --provenance --access public
+          --no-git-checks
 
       - name: Create GitHub Release
         env:
