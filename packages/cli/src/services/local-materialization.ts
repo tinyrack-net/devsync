@@ -88,13 +88,16 @@ const materializedDirectoryModeMatches = (
     return true;
   }
 
+  const maskedActualMode = actualMode & 0o777;
+
   if (fileMode === undefined) {
-    return true;
+    // If no explicit mode, we check if owner has full access and others have at least read/search.
+    // We allow group-write (0775 vs 0755) common in some umasks.
+    const ownerAndSearchMask = 0o711;
+    return (maskedActualMode & ownerAndSearchMask) === ownerAndSearchMask;
   }
 
-  return (
-    (actualMode & 0o777) === (buildSearchableDirectoryMode(fileMode) & 0o777)
-  );
+  return maskedActualMode === (buildSearchableDirectoryMode(fileMode) & 0o777);
 };
 
 const materializedFileModeMatches = (
@@ -106,10 +109,24 @@ const materializedFileModeMatches = (
     return true;
   }
 
-  return (
-    (actualMode & 0o777) ===
-    ((fileMode ?? buildExecutableMode(executable)) & 0o777)
-  );
+  const expectedMode = (fileMode ?? buildExecutableMode(executable)) & 0o777;
+  const maskedActualMode = actualMode & 0o777;
+
+  if (maskedActualMode === expectedMode) {
+    return true;
+  }
+
+  // If no explicit fileMode is provided, we allow common umask variations (like 0664 vs 0644)
+  // as long as the owner permissions and executable bits match.
+  if (fileMode === undefined) {
+    const ownerAndExecMask = 0o711; // Owner read/write/exec + Group/Other exec
+    return (
+      (maskedActualMode & ownerAndExecMask) ===
+      (expectedMode & ownerAndExecMask)
+    );
+  }
+
+  return false;
 };
 
 const normalizeLinkTargetForComparison = (target: string, baseDir: string) => {
