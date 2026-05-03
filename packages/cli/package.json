@@ -1,6 +1,6 @@
 {
   "name": "@tinyrack/dotweave",
-  "version": "0.39.13",
+  "version": "0.39.14",
   "description": "A personal CLI tool for git-backed configuration sync.",
   "type": "module",
   "license": "MIT",
