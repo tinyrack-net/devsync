@@ -1,0 +1,21 @@
+name: dotweave
+base: core24
+version: git
+summary: Git-backed configuration synchronization tool for dotfiles.
+description: |
+  Dotweave treats your home directory (HOME) as the source of truth and uses a git repository purely as a synchronization artifact.
+confinement: classic
+grade: stable
+
+parts:
+  dotweave:
+    plugin: dump
+    source: .
+    override-build: |
+      mkdir -p $CRAFT_PART_INSTALL/bin
+      cp dotweave $CRAFT_PART_INSTALL/bin/
+      chmod +x $CRAFT_PART_INSTALL/bin/dotweave
+
+apps:
+  dotweave:
+    command: bin/dotweave

@@ -233,3 +233,45 @@ jobs:
           while IFS= read -r artifact_path; do
             gh release upload "${GITHUB_REF_NAME}" "${artifact_path}" --clobber
           done < <(find release-assets -type f | sort)
+
+  publish-snap:
+    needs:
+      - validate
+      - build-sea
+    if: startsWith(github.ref, 'refs/tags/v')
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            artifact: dotweave-linux-x64
+          - os: ubuntu-24.04-arm
+            artifact: dotweave-linux-arm64
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Download SEA artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: bin-temp
+
+      - name: Prepare binary
+        run: |
+          mv bin-temp/${{ matrix.artifact }} ./dotweave
+          chmod +x ./dotweave
+
+      - name: Build Snap
+        id: build
+        uses: snapcore/action-build@v1
+
+      - name: Publish Snap
+        uses: snapcore/action-publish@v1
+        env:
+          SNAPCRAFT_STORE_CREDENTIALS: ${{ secrets.SNAPCRAFT_STORE_CREDENTIALS }}
+        with:
+          store_login: ${{ secrets.SNAPCRAFT_STORE_CREDENTIALS }}
+          snap: ${{ steps.build.outputs.snap }}
+          release: stable
