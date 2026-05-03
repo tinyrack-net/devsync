@@ -62,12 +62,14 @@ jobs:
           - os: ubuntu-24.04-arm
             artifact_name: dotweave-linux-arm64
             executable_path: packages/cli/dist/sea/dotweave
+          # macos-26 is arm64. Keep the artifact name explicit while darwin-x64
+          # SEA builds are disabled due to Node 25 SIGSEGV on launch.
           - os: macos-26
             artifact_name: dotweave-darwin-arm64
             executable_path: packages/cli/dist/sea/dotweave
-          - os: macos-26-intel
-            artifact_name: dotweave-darwin-x64
-            executable_path: packages/cli/dist/sea/dotweave
+          # - os: macos-26-intel
+          #   artifact_name: dotweave-darwin-x64
+          #   executable_path: packages/cli/dist/sea/dotweave
           - os: windows-latest
             artifact_name: dotweave-win32-x64.exe
             executable_path: packages/cli/dist/sea/dotweave.exe
