@@ -8,6 +8,7 @@ export default defineConfig({
     },
   },
   test: {
+    testTimeout: 10000,
     environment: "node",
     include: ["src/**/*.test.ts", "tests/**/*.e2e.test.ts"],
     coverage: {

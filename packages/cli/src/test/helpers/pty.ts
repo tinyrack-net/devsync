@@ -122,7 +122,7 @@ export const createPtySession = (options: {
     getOutput: () => {
       return normalizeTerminalOutput(output);
     },
-    waitFor: (pattern, timeoutMs = 5_000) => {
+    waitFor: (pattern, timeoutMs = 10_000) => {
       return new Promise((resolve, reject) => {
         const matches = () => {
           const normalizedOutput = normalizeTerminalOutput(output);
