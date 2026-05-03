@@ -118,7 +118,7 @@ jobs:
             security unlock-keychain -p actions build.keychain
             security import certificate.p12 -k build.keychain -P $APPLE_CERTIFICATE_PASSWORD -T /usr/bin/codesign
             security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k actions build.keychain
-            codesign --deep --force --options runtime --sign "$APPLE_DEVELOPER_ID" ${{ matrix.executable_path }}
+            codesign --deep --force --options runtime --entitlements packages/cli/entitlements.plist --sign "$APPLE_DEVELOPER_ID" ${{ matrix.executable_path }}
 
             if [ -n "$APPLE_NOTARY_KEY_P8_BASE64" ]; then
               echo "Notarizing macOS binary..."
