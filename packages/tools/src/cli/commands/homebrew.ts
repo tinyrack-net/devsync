@@ -61,10 +61,15 @@ export const generateFormulaCommand = buildCommand<GenerateFormulaFlags, []>({
       }
     }
 
-    const formula = `class Dotweave < Formula
+    const generateFormulaContent = (
+      className: string,
+      isVersioned: boolean,
+    ) => {
+      const kegOnly = isVersioned ? "\n  keg_only :versioned_formula\n" : "";
+      return `class ${className} < Formula
   desc "Git-backed configuration synchronization tool for dotfiles"
   homepage "https://dotweave.tinyrack.net"
-  version "${cleanVersion}"
+  version "${cleanVersion}"${kegOnly}
 
   on_macos do
     on_arm do
@@ -99,10 +104,27 @@ export const generateFormulaCommand = buildCommand<GenerateFormulaFlags, []>({
   end
 end
 `;
+    };
 
-    const outPath = path.join(artifactsDir, "dotweave.rb");
-    await fs.writeFile(outPath, formula);
-    console.log(`Generated Homebrew formula: ${outPath}`);
+    const defaultFormula = generateFormulaContent("Dotweave", false);
+    const versionClassNameSuffix = cleanVersion.replace(/\./g, "");
+    const versionedFormula = generateFormulaContent(
+      `DotweaveAT${versionClassNameSuffix}`,
+      true,
+    );
+
+    const outPathDefault = path.join(artifactsDir, "dotweave.rb");
+    const outPathVersioned = path.join(
+      artifactsDir,
+      `dotweave@${cleanVersion}.rb`,
+    );
+
+    await fs.writeFile(outPathDefault, defaultFormula);
+    await fs.writeFile(outPathVersioned, versionedFormula);
+
+    console.log(
+      `Generated Homebrew formulas: ${outPathDefault}, ${outPathVersioned}`,
+    );
   },
   docs: {
     brief: "Generate Homebrew formula",

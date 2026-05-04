@@ -270,11 +270,11 @@ jobs:
       - name: Update Homebrew Tap
         run: |
           mkdir -p homebrew-tap/Formula
-          cp release-assets/dotweave.rb homebrew-tap/Formula/
+          cp release-assets/dotweave*.rb homebrew-tap/Formula/
           cd homebrew-tap
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add Formula/dotweave.rb
+          git add Formula/dotweave*.rb
           git commit -m "Update dotweave to ${GITHUB_REF_NAME}" || echo "No changes to commit"
           git push
 
