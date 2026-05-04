@@ -106,6 +106,7 @@ jobs:
           install-only: true
 
       - name: Compress SEA executable
+        continue-on-error: true
         run: upx --best ${{ matrix.executable_path }}
 
       - name: Sign and Notarize macOS binary
