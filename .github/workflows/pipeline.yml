@@ -258,7 +258,7 @@ jobs:
           done < <(find release-assets -type f | sort)
 
       - name: Generate Homebrew Formula
-        run: pnpm --filter @tinyrack/dotweave-tools run cli homebrew generate --version "${GITHUB_REF_NAME}" --artifacts-dir release-assets
+        run: pnpm --filter @tinyrack/dotweave-tools run cli homebrew generate --version "${GITHUB_REF_NAME}" --artifacts-dir "${{ github.workspace }}/release-assets"
 
       - name: Checkout Homebrew Tap
         uses: actions/checkout@v4

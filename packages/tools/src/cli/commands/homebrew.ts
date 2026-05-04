@@ -2,6 +2,7 @@ import crypto from "node:crypto";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { buildCommand, buildRouteMap } from "@stricli/core";
+import { getRepoRoot } from "../../lib/git.ts";
 
 async function calculateSha256(filePath: string): Promise<string> {
   const content = await fs.readFile(filePath);
@@ -33,8 +34,13 @@ export const generateFormulaCommand = buildCommand<GenerateFormulaFlags, []>({
     },
   },
   async func(flags) {
-    const { version, artifactsDir } = flags;
+    const { version, artifactsDir: rawArtifactsDir } = flags;
     const cleanVersion = version.startsWith("v") ? version.slice(1) : version;
+
+    const repoRoot = await getRepoRoot(process.cwd());
+    const artifactsDir = path.isAbsolute(rawArtifactsDir)
+      ? rawArtifactsDir
+      : path.resolve(repoRoot, rawArtifactsDir);
 
     const artifacts = [
       { name: "dotweave-darwin-arm64", os: "mac", arch: "arm" },
@@ -49,9 +55,8 @@ export const generateFormulaCommand = buildCommand<GenerateFormulaFlags, []>({
       try {
         hashes[artifact.name] = await calculateSha256(filePath);
       } catch (error) {
-        console.error(
-          `Warning: Could not calculate hash for ${artifact.name}:`,
-          error,
+        throw new Error(
+          `Failed to calculate hash for ${artifact.name} at ${filePath}: ${error}`,
         );
       }
     }
@@ -64,18 +69,18 @@ export const generateFormulaCommand = buildCommand<GenerateFormulaFlags, []>({
   on_macos do
     on_arm do
       url "https://github.com/tinyrack-net/dotweave/releases/download/v${cleanVersion}/dotweave-darwin-arm64"
-      sha256 "${hashes["dotweave-darwin-arm64"] || ""}"
+      sha256 "${hashes["dotweave-darwin-arm64"]}"
     end
   end
 
   on_linux do
     on_intel do
       url "https://github.com/tinyrack-net/dotweave/releases/download/v${cleanVersion}/dotweave-linux-x64"
-      sha256 "${hashes["dotweave-linux-x64"] || ""}"
+      sha256 "${hashes["dotweave-linux-x64"]}"
     end
     on_arm do
       url "https://github.com/tinyrack-net/dotweave/releases/download/v${cleanVersion}/dotweave-linux-arm64"
-      sha256 "${hashes["dotweave-linux-arm64"] || ""}"
+      sha256 "${hashes["dotweave-linux-arm64"]}"
     end
   end
 
