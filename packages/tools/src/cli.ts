@@ -1,4 +1,4 @@
-#!/usr/bin/env -S node --conditions=@dotweave/source
+#!/usr/bin/env node
 import { run } from "@stricli/core";
 import { app } from "./cli/app.ts";
 

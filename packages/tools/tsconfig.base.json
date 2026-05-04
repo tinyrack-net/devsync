@@ -9,7 +9,6 @@
     "module": "NodeNext",
     "moduleResolution": "nodenext",
     "resolvePackageJsonImports": true,
-    "customConditions": ["@dotweave/source"],
     "target": "esnext",
     "types": ["node"],
     "noUncheckedIndexedAccess": true,

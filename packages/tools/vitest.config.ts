@@ -1,9 +1,6 @@
 import { defineConfig } from "vitest/config";
 
 export default defineConfig({
-  resolve: {
-    conditions: ["@dotweave/source"],
-  },
   test: {
     maxWorkers: "90%",
     testTimeout: 20_000,

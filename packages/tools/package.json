@@ -18,16 +18,12 @@
     }
   },
   "scripts": {
-    "dev": "node --conditions=@dotweave/source src/cli.ts",
-    "sea": "node --conditions=@dotweave/source src/cli.ts sea",
-    "release": "node --conditions=@dotweave/source src/cli.ts release",
-    "sign": "node --conditions=@dotweave/source src/cli.ts sign",
-    "appimage": "node --conditions=@dotweave/source src/cli.ts appimage",
-    "verify": "node --conditions=@dotweave/source src/cli.ts verify",
-    "test": "NODE_OPTIONS='--conditions=@dotweave/source' vitest",
-    "test:coverage": "NODE_OPTIONS='--conditions=@dotweave/source' vitest run --coverage",
-    "build": "tsc -p tsconfig.build.json",
-    "build:watch": "tsc -p tsconfig.build.json --watch"
+    "cli": "node src/cli.ts",
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "build": "pnpm run typecheck",
+    "typecheck": "tsc -p tsconfig.json",
+    "typecheck:watch": "tsc -p tsconfig.json --watch"
   },
   "dependencies": {
     "@stricli/core": "^1.2.6",
