@@ -160,10 +160,80 @@ jobs:
           path: packages/cli/dist/sea/${{ matrix.artifact_name }}
           if-no-files-found: error
 
+  build-appimage:
+    needs:
+      - validate
+      - build-sea
+    if: startsWith(github.ref, 'refs/tags/v')
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            artifact: dotweave-linux-x64
+            arch: x86_64
+          - os: ubuntu-24.04-arm
+            artifact: dotweave-linux-arm64
+            arch: aarch64
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Download SEA artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: bin-temp
+
+      - name: Setup AppDir
+        run: |
+          mkdir -p AppDir/usr/bin
+          cp bin-temp/${{ matrix.artifact }} AppDir/usr/bin/dotweave
+          chmod +x AppDir/usr/bin/dotweave
+
+          cat << 'EOF' > AppDir/dotweave.desktop
+          [Desktop Entry]
+          Name=Dotweave
+          Exec=dotweave %F
+          Icon=dotweave
+          Type=Application
+          Categories=Utility;
+          Terminal=true
+          EOF
+
+          cp packages/homepage/src/assets/logo.svg AppDir/dotweave.svg
+
+          cat << 'EOF' > AppDir/AppRun
+          #!/bin/sh
+          HERE="$(dirname "$(readlink -f "${0}")")"
+          export PATH="${HERE}/usr/bin:${PATH}"
+          exec dotweave "$@"
+          EOF
+          chmod +x AppDir/AppRun
+
+      - name: Download appimagetool
+        run: |
+          wget https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-${{ matrix.arch }}.AppImage -O appimagetool
+          chmod +x appimagetool
+
+      - name: Build AppImage
+        env:
+          ARCH: ${{ matrix.arch }}
+        run: |
+          ./appimagetool --appimage-extract-and-run AppDir ${{ matrix.artifact }}.AppImage
+
+      - name: Upload AppImage artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}-appimage
+          path: ${{ matrix.artifact }}.AppImage
+
   publish-release:
     needs:
       - validate
       - build-sea
+      - build-appimage
       - publish-snap
     if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
