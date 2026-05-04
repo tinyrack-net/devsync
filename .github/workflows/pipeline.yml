@@ -243,6 +243,27 @@ jobs:
             gh release upload "${GITHUB_REF_NAME}" "${artifact_path}" --clobber
           done < <(find release-assets -type f | sort)
 
+      - name: Generate Homebrew Formula
+        run: pnpm --filter @tinyrack/dotweave-tools run cli homebrew generate --version "${GITHUB_REF_NAME}" --artifacts-dir release-assets
+
+      - name: Checkout Homebrew Tap
+        uses: actions/checkout@v4
+        with:
+          repository: tinyrack-net/homebrew-tap
+          path: homebrew-tap
+          token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+
+      - name: Update Homebrew Tap
+        run: |
+          mkdir -p homebrew-tap/Formula
+          cp release-assets/dotweave.rb homebrew-tap/Formula/
+          cd homebrew-tap
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add Formula/dotweave.rb
+          git commit -m "Update dotweave to ${GITHUB_REF_NAME}" || echo "No changes to commit"
+          git push
+
   publish-snap:
     needs:
       - validate
