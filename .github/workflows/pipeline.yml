@@ -124,7 +124,7 @@ jobs:
           environment_name: PROD
 
       - name: Smoke test SEA executable
-        run: pnpm --filter @tinyrack/dotweave run sea:smoke -- --skip-build
+        run: pnpm --filter @tinyrack/dotweave run sea:smoke
 
       - name: Rename executable
         shell: bash
