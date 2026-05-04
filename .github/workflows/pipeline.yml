@@ -179,7 +179,7 @@ jobs:
           path: packages/cli/dist/sea
 
       - name: Build AppImage
-        run: pnpm --filter @tinyrack/dotweave-tools run cli appimage build --artifactName ${{ matrix.artifact }} --arch ${{ matrix.arch }}
+        run: pnpm --filter @tinyrack/dotweave-tools run cli appimage build --executablePath packages/cli/dist/sea/${{ matrix.artifact }} --outputPath ${{ matrix.artifact }}.AppImage --arch ${{ matrix.arch }}
 
       - name: Upload AppImage artifact
         uses: actions/upload-artifact@v4

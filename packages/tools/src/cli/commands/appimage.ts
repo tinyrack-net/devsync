@@ -5,14 +5,19 @@ import { execa } from "execa";
 import { getRepoRoot } from "../../lib/git.ts";
 
 const buildAppImageCommand = buildCommand<
-  { artifactName: string; arch: string },
+  { executablePath: string; outputPath: string; arch: string },
   []
 >({
   parameters: {
     flags: {
-      artifactName: {
+      executablePath: {
         kind: "parsed",
-        brief: "Name of the SEA artifact",
+        brief: "Path to the executable to wrap in AppImage",
+        parse: String,
+      },
+      outputPath: {
+        kind: "parsed",
+        brief: "Path where the AppImage should be written",
         parse: String,
       },
       arch: {
@@ -28,7 +33,9 @@ const buildAppImageCommand = buildCommand<
   async func(flags) {
     const repoRoot = await getRepoRoot(process.cwd());
     const appDir = join(repoRoot, "AppDir");
-    const binPath = join(repoRoot, "packages/cli/dist/sea", flags.artifactName);
+    const binPath = join(repoRoot, flags.executablePath);
+    const appImageToolPath = join(repoRoot, "appimagetool");
+    const artifactPath = join(repoRoot, flags.outputPath);
 
     await rm(appDir, { force: true, recursive: true });
     await mkdir(join(appDir, "usr/bin"), { recursive: true });
@@ -66,19 +73,16 @@ exec dotweave "$@"
     const appImageToolUrl = `https://github.com/AppImage/AppImageKit/releases/download/continuous/${appImageToolName}`;
 
     console.log(`Downloading ${appImageToolName}...`);
-    await execa("wget", [appImageToolUrl, "-O", "appimagetool"]);
-    await chmod("appimagetool", 0o755);
+    await execa("wget", [appImageToolUrl, "-O", appImageToolPath]);
+    await chmod(appImageToolPath, 0o755);
 
     console.log("Building AppImage...");
     await execa(
-      "./appimagetool",
-      [
-        "--appimage-extract-and-run",
-        "AppDir",
-        `${flags.artifactName}.AppImage`,
-      ],
+      appImageToolPath,
+      ["--appimage-extract-and-run", appDir, artifactPath],
       {
         env: { ARCH: flags.arch },
+        cwd: repoRoot,
       },
     );
   },
