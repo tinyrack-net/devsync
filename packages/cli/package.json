@@ -47,9 +47,9 @@
     "build": "tsc -p tsconfig.build.json",
     "clean": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\"",
     "prebuild": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\"",
-    "sea:bundle": "node --conditions=@dotweave/source scripts/build-sea.ts --bundle-only",
-    "sea:build": "node --conditions=@dotweave/source scripts/build-sea.ts",
-    "sea:smoke": "node --conditions=@dotweave/source scripts/smoke-sea.ts",
+    "sea:bundle": "dotweave-tools sea build --bundle-only",
+    "sea:build": "dotweave-tools sea build",
+    "sea:smoke": "dotweave-tools sea smoke --skip-build",
     "start": "node dist/index.js",
     "prepack": "pnpm run build",
     "typecheck": "tsc -p tsconfig.json",
@@ -59,9 +59,9 @@
     "check": "pnpm run typecheck && biome check . && pnpm run test",
     "check:fix": "biome check --write .",
     "format": "biome format --write .",
-    "release:patch": "node scripts/release.ts patch",
-    "release:minor": "node scripts/release.ts minor",
-    "release:major": "node scripts/release.ts major"
+    "release:patch": "dotweave-tools release patch",
+    "release:minor": "dotweave-tools release minor",
+    "release:major": "dotweave-tools release major"
   },
   "dependencies": {
     "@stricli/core": "^1.2.6",
@@ -72,6 +72,7 @@
   },
   "devDependencies": {
     "@biomejs/biome": "^2.3.10",
+    "@tinyrack/dotweave-tools": "workspace:*",
     "@types/node": "^24.12.0",
     "@vitest/coverage-v8": "^4.1.1",
     "execa": "^9.6.1",
