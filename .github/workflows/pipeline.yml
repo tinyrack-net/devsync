@@ -176,7 +176,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: ${{ matrix.artifact }}
-          path: bin-temp
+          path: packages/cli/dist/sea
 
       - name: Build AppImage
         run: pnpm --filter @tinyrack/dotweave-tools run cli appimage build --artifactName ${{ matrix.artifact }} --arch ${{ matrix.arch }}
