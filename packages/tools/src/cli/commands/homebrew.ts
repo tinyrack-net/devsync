@@ -1,7 +1,7 @@
-import { buildCommand, buildRouteMap } from "@stricli/core";
+import crypto from "node:crypto";
 import fs from "node:fs/promises";
 import path from "node:path";
-import crypto from "node:crypto";
+import { buildCommand, buildRouteMap } from "@stricli/core";
 
 async function calculateSha256(filePath: string): Promise<string> {
   const content = await fs.readFile(filePath);
@@ -49,7 +49,10 @@ export const generateFormulaCommand = buildCommand<GenerateFormulaFlags, []>({
       try {
         hashes[artifact.name] = await calculateSha256(filePath);
       } catch (error) {
-        console.error(`Warning: Could not calculate hash for ${artifact.name}:`, error);
+        console.error(
+          `Warning: Could not calculate hash for ${artifact.name}:`,
+          error,
+        );
       }
     }
 
