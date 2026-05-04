@@ -100,6 +100,14 @@ jobs:
       - name: Build SEA
         run: pnpm --filter @tinyrack/dotweave run sea:build
 
+      - name: Set up UPX
+        uses: crazy-max/ghaction-upx@v4
+        with:
+          install-only: true
+
+      - name: Compress SEA executable
+        run: upx --best ${{ matrix.executable_path }}
+
       - name: Sign and Notarize macOS binary
         if: startsWith(matrix.os, 'macos')
         env:
