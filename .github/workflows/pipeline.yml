@@ -109,29 +109,7 @@ jobs:
           APPLE_NOTARY_KEY_ID: ${{ secrets.APPLE_NOTARY_KEY_ID }}
           APPLE_NOTARY_ISSUER_ID: ${{ secrets.APPLE_NOTARY_ISSUER_ID }}
           APPLE_NOTARY_KEY_P8_BASE64: ${{ secrets.APPLE_NOTARY_KEY_P8_BASE64 }}
-        run: |
-          if [ -n "$APPLE_CERTIFICATE" ]; then
-            echo "Importing Apple Certificate..."
-            echo $APPLE_CERTIFICATE | base64 --decode > certificate.p12
-            security create-keychain -p actions build.keychain
-            security default-keychain -s build.keychain
-            security unlock-keychain -p actions build.keychain
-            security import certificate.p12 -k build.keychain -P $APPLE_CERTIFICATE_PASSWORD -T /usr/bin/codesign
-            security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k actions build.keychain
-            codesign --deep --force --options runtime --entitlements packages/cli/entitlements.plist --sign "$APPLE_DEVELOPER_ID" ${{ matrix.executable_path }}
-
-            if [ -n "$APPLE_NOTARY_KEY_P8_BASE64" ]; then
-              echo "Notarizing macOS binary..."
-              echo $APPLE_NOTARY_KEY_P8_BASE64 | base64 --decode > AuthKey.p8
-              zip -j ${{ matrix.executable_path }}.zip ${{ matrix.executable_path }}
-              xcrun notarytool submit ${{ matrix.executable_path }}.zip --key AuthKey.p8 --key-id "$APPLE_NOTARY_KEY_ID" --issuer "$APPLE_NOTARY_ISSUER_ID" --wait
-            else
-              echo "No Notary API Key found. Skipping notarization."
-            fi
-          else
-            echo "No Apple Certificate found. Performing ad-hoc signing..."
-            codesign --sign - ${{ matrix.executable_path }}
-          fi
+        run: pnpm --filter @tinyrack/dotweave-tools run sign macos --executablePath ${{ matrix.executable_path }}
 
       - name: Sign Windows binary (SSL.com eSigner)
         if: startsWith(matrix.os, 'windows') && env.ESIGNER_USERNAME != ''
@@ -186,42 +164,8 @@ jobs:
           name: ${{ matrix.artifact }}
           path: bin-temp
 
-      - name: Setup AppDir
-        run: |
-          mkdir -p AppDir/usr/bin
-          cp bin-temp/${{ matrix.artifact }} AppDir/usr/bin/dotweave
-          chmod +x AppDir/usr/bin/dotweave
-
-          cat << 'EOF' > AppDir/dotweave.desktop
-          [Desktop Entry]
-          Name=Dotweave
-          Exec=dotweave %F
-          Icon=dotweave
-          Type=Application
-          Categories=Utility;
-          Terminal=true
-          EOF
-
-          cp packages/homepage/src/assets/logo.svg AppDir/dotweave.svg
-
-          cat << 'EOF' > AppDir/AppRun
-          #!/bin/sh
-          HERE="$(dirname "$(readlink -f "${0}")")"
-          export PATH="${HERE}/usr/bin:${PATH}"
-          exec dotweave "$@"
-          EOF
-          chmod +x AppDir/AppRun
-
-      - name: Download appimagetool
-        run: |
-          wget https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-${{ matrix.arch }}.AppImage -O appimagetool
-          chmod +x appimagetool
-
       - name: Build AppImage
-        env:
-          ARCH: ${{ matrix.arch }}
-        run: |
-          ./appimagetool --appimage-extract-and-run AppDir ${{ matrix.artifact }}.AppImage
+        run: pnpm --filter @tinyrack/dotweave-tools run appimage build --artifactName ${{ matrix.artifact }} --arch ${{ matrix.arch }}
 
       - name: Upload AppImage artifact
         uses: actions/upload-artifact@v4
@@ -260,12 +204,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Verify tag matches package version
-        run: >-
-          node --input-type=module -e 'import pkg from
-          "./packages/cli/package.json" with { type: "json" }; const tag =
-          process.env.GITHUB_REF_NAME; const expectedTag = `v${pkg.version}`; if
-          (tag !== expectedTag) { console.error(`Tag ${tag} does not match
-          package.json version ${expectedTag}`); process.exit(1); }'
+        run: pnpm --filter @tinyrack/dotweave-tools run verify release-tag
 
       - name: Copy README and LICENSE
         run: |
