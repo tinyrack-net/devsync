@@ -82,7 +82,6 @@ const signMacosCommand = buildCommand<{ executablePath: string }, []>({
 
         console.log("Signing macOS binary...");
         await execa("codesign", [
-          "--deep",
           "--force",
           "--options",
           "runtime",
