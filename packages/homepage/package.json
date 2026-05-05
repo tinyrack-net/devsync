@@ -6,7 +6,7 @@
   "description": "Documentation homepage for dotweave built with Astro and Starlight.",
   "license": "MIT",
   "engines": {
-    "node": ">=25.0.0"
+    "node": ">=24.0.0"
   },
   "scripts": {
     "dev": "astro dev",
@@ -27,7 +27,8 @@
     "astro": "6.2.2",
     "cobe": "^2.0.1",
     "starlight-theme-black": "^0.6.0",
-    "tailwindcss": "^4.2.4"
+    "tailwindcss": "^4.2.4",
+    "vite": "^7.3.2"
   },
   "devDependencies": {
     "@astrojs/check": "^0.9.9",
