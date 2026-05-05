@@ -112,44 +112,147 @@ jobs:
           path: packages/cli/dist/pkg/dotweave-win-arm64.exe
           if-no-files-found: error
 
-  sign-and-test:
+  sign-and-test-linux:
     needs: build-pkg
     if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - os: ubuntu-latest
-            runs_on: ubuntu-latest
-            artifact_name: dotweave-linux-x64
-            downloaded_name: dotweave-linux-x64
-            executable_path: packages/cli/dist/pkg/dotweave
-          - os: ubuntu-24.04-arm
-            runs_on: ubuntu-24.04-arm
-            artifact_name: dotweave-linux-arm64
-            downloaded_name: dotweave-linux-arm64
-            executable_path: packages/cli/dist/pkg/dotweave
-          - os: macos-26
-            runs_on: macos-26
-            artifact_name: dotweave-darwin-arm64
-            downloaded_name: dotweave-macos-arm64
-            executable_path: packages/cli/dist/pkg/dotweave
-          - os: macos-26-intel
-            runs_on: macos-13
-            artifact_name: dotweave-darwin-x64
-            downloaded_name: dotweave-macos-x64
-            executable_path: packages/cli/dist/pkg/dotweave
-          - os: windows-latest-x64
-            runs_on: [self-hosted, Windows, X64]
-            artifact_name: dotweave-win32-x64.exe
-            downloaded_name: dotweave-win-x64.exe
-            executable_path: packages/cli/dist/pkg/dotweave.exe
-          - os: windows-latest-arm64
-            runs_on: [self-hosted, Windows, X64]
-            artifact_name: dotweave-win32-arm64.exe
-            downloaded_name: dotweave-win-arm64.exe
-            executable_path: packages/cli/dist/pkg/dotweave.exe
-    runs-on: ${{ matrix.runs_on }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Download x64 artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: dotweave-linux-x64
+          path: packages/cli/dist/pkg
+
+      - name: Download arm64 artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: dotweave-linux-arm64
+          path: packages/cli/dist/pkg
+
+      - name: Restore executable permissions
+        shell: bash
+        run: |
+          chmod +x packages/cli/dist/pkg/dotweave-linux-x64
+          chmod +x packages/cli/dist/pkg/dotweave-linux-arm64
+
+      - name: Smoke test x64 binary
+        run: pnpm --filter @tinyrack/dotweave-tools run cli pkg smoke --skip-build --executablePath packages/cli/dist/pkg/dotweave-linux-x64
+
+      - name: Upload x64 artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: dotweave-linux-x64
+          path: packages/cli/dist/pkg/dotweave-linux-x64
+          overwrite: true
+          if-no-files-found: error
+
+      - name: Upload arm64 artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: dotweave-linux-arm64
+          path: packages/cli/dist/pkg/dotweave-linux-arm64
+          overwrite: true
+          if-no-files-found: error
+
+  sign-and-test-macos:
+    needs: build-pkg
+    if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')
+    runs-on: macos-26
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Download arm64 artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: dotweave-darwin-arm64
+          path: packages/cli/dist/pkg
+
+      - name: Download x64 artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: dotweave-darwin-x64
+          path: packages/cli/dist/pkg
+
+      - name: Restore executable permissions
+        shell: bash
+        run: |
+          chmod +x packages/cli/dist/pkg/dotweave-macos-arm64
+          chmod +x packages/cli/dist/pkg/dotweave-macos-x64
+
+      - name: Sign and Notarize arm64 binary
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_DEVELOPER_ID: ${{ secrets.APPLE_DEVELOPER_ID }}
+          APPLE_NOTARY_KEY_ID: ${{ secrets.APPLE_NOTARY_KEY_ID }}
+          APPLE_NOTARY_ISSUER_ID: ${{ secrets.APPLE_NOTARY_ISSUER_ID }}
+          APPLE_NOTARY_KEY_P8_BASE64: ${{ secrets.APPLE_NOTARY_KEY_P8_BASE64 }}
+        run: pnpm --filter @tinyrack/dotweave-tools run cli sign macos --executablePath packages/cli/dist/pkg/dotweave-macos-arm64
+
+      - name: Sign and Notarize x64 binary
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_DEVELOPER_ID: ${{ secrets.APPLE_DEVELOPER_ID }}
+          APPLE_NOTARY_KEY_ID: ${{ secrets.APPLE_NOTARY_KEY_ID }}
+          APPLE_NOTARY_ISSUER_ID: ${{ secrets.APPLE_NOTARY_ISSUER_ID }}
+          APPLE_NOTARY_KEY_P8_BASE64: ${{ secrets.APPLE_NOTARY_KEY_P8_BASE64 }}
+        run: pnpm --filter @tinyrack/dotweave-tools run cli sign macos --executablePath packages/cli/dist/pkg/dotweave-macos-x64
+
+      - name: Smoke test arm64 binary (native)
+        run: pnpm --filter @tinyrack/dotweave-tools run cli pkg smoke --skip-build --executablePath packages/cli/dist/pkg/dotweave-macos-arm64
+
+      - name: Smoke test x64 binary (Rosetta 2)
+        run: pnpm --filter @tinyrack/dotweave-tools run cli pkg smoke --skip-build --executablePath packages/cli/dist/pkg/dotweave-macos-x64
+
+      - name: Upload arm64 artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: dotweave-darwin-arm64
+          path: packages/cli/dist/pkg/dotweave-macos-arm64
+          overwrite: true
+          if-no-files-found: error
+
+      - name: Upload x64 artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: dotweave-darwin-x64
+          path: packages/cli/dist/pkg/dotweave-macos-x64
+          overwrite: true
+          if-no-files-found: error
+
+  sign-and-test-windows:
+    needs: build-pkg
+    if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')
+    runs-on: [self-hosted, Windows, X64]
     env:
       ESIGNER_USERNAME: ${{ secrets.ESIGNER_USERNAME }}
     steps:
@@ -168,37 +271,20 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Download pkg artifact
+      - name: Download x64 artifact
         uses: actions/download-artifact@v4
         with:
-          name: ${{ matrix.artifact_name }}
+          name: dotweave-win32-x64.exe
           path: packages/cli/dist/pkg
 
-      - name: Restore executable name (Unix)
-        if: runner.os != 'Windows'
-        shell: bash
-        run: |
-          mv packages/cli/dist/pkg/${{ matrix.downloaded_name }} ${{ matrix.executable_path }}
-          chmod +x ${{ matrix.executable_path }}
+      - name: Download arm64 artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: dotweave-win32-arm64.exe
+          path: packages/cli/dist/pkg
 
-      - name: Restore executable name (Windows)
-        if: runner.os == 'Windows'
-        shell: powershell
-        run: Move-Item -Path 'packages/cli/dist/pkg/${{ matrix.downloaded_name }}' -Destination '${{ matrix.executable_path }}'
-
-      - name: Sign and Notarize macOS binary
-        if: startsWith(matrix.os, 'macos')
-        env:
-          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
-          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
-          APPLE_DEVELOPER_ID: ${{ secrets.APPLE_DEVELOPER_ID }}
-          APPLE_NOTARY_KEY_ID: ${{ secrets.APPLE_NOTARY_KEY_ID }}
-          APPLE_NOTARY_ISSUER_ID: ${{ secrets.APPLE_NOTARY_ISSUER_ID }}
-          APPLE_NOTARY_KEY_P8_BASE64: ${{ secrets.APPLE_NOTARY_KEY_P8_BASE64 }}
-        run: pnpm --filter @tinyrack/dotweave-tools run cli sign macos --executablePath ${{ matrix.executable_path }}
-
-      - name: Sign Windows binary (SSL.com eSigner)
-        if: startsWith(matrix.os, 'windows') && env.ESIGNER_USERNAME != ''
+      - name: Sign x64 binary (SSL.com eSigner)
+        if: env.ESIGNER_USERNAME != ''
         uses: sslcom/esigner-codesign@v1.3.2
         with:
           command: sign
@@ -206,17 +292,37 @@ jobs:
           password: ${{ secrets.ESIGNER_PASSWORD }}
           credential_id: ${{ secrets.ESIGNER_CREDENTIAL_ID }}
           totp_secret: ${{ secrets.ESIGNER_TOTP_SECRET }}
-          file_path: ${{ matrix.executable_path }}
+          file_path: packages/cli/dist/pkg/dotweave-win-x64.exe
           environment_name: PROD
 
-      - name: Smoke test pkg executable
-        run: pnpm --filter @tinyrack/dotweave run pkg:smoke --skip-build
+      - name: Sign arm64 binary (SSL.com eSigner)
+        if: env.ESIGNER_USERNAME != ''
+        uses: sslcom/esigner-codesign@v1.3.2
+        with:
+          command: sign
+          username: ${{ secrets.ESIGNER_USERNAME }}
+          password: ${{ secrets.ESIGNER_PASSWORD }}
+          credential_id: ${{ secrets.ESIGNER_CREDENTIAL_ID }}
+          totp_secret: ${{ secrets.ESIGNER_TOTP_SECRET }}
+          file_path: packages/cli/dist/pkg/dotweave-win-arm64.exe
+          environment_name: PROD
 
-      - name: Replace Artifact with Signed Version
+      - name: Smoke test x64 binary
+        run: pnpm --filter @tinyrack/dotweave-tools run cli pkg smoke --skip-build --executablePath packages/cli/dist/pkg/dotweave-win-x64.exe
+
+      - name: Upload x64 artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.artifact_name }}
-          path: ${{ matrix.executable_path }}
+          name: dotweave-win32-x64.exe
+          path: packages/cli/dist/pkg/dotweave-win-x64.exe
+          overwrite: true
+          if-no-files-found: error
+
+      - name: Upload arm64 artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: dotweave-win32-arm64.exe
+          path: packages/cli/dist/pkg/dotweave-win-arm64.exe
           overwrite: true
           if-no-files-found: error
 
@@ -271,6 +377,9 @@ jobs:
     needs:
       - validate
       - build-pkg
+      - sign-and-test-linux
+      - sign-and-test-macos
+      - sign-and-test-windows
       - build-appimage
     if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
@@ -360,7 +469,7 @@ jobs:
     needs:
       - validate
       - build-pkg
-      - sign-and-test
+      - sign-and-test-linux
     if: false # Temporarily disabled
     strategy:
       fail-fast: false
