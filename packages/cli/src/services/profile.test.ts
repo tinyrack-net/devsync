@@ -1,68 +1,60 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, mock } from "bun:test";
 
-const mocked = vi.hoisted(() => ({
-  collectAllProfileNames: vi.fn(),
-  buildSyncConfigDocument: vi.fn((config: unknown) => ({
-    document: config,
-  })),
-  ensureGitRepository: vi.fn(),
-  formatGlobalDotweaveConfig: vi.fn((config: unknown) =>
+mock.module("#app/config/global-config.ts", () => ({
+  formatGlobalDotweaveConfig: mock((config: unknown) =>
     JSON.stringify(config, null, 2),
   ),
-  normalizeSyncProfileName: vi.fn((profile: string) =>
+  readGlobalDotweaveConfig: mock(),
+}));
+
+mock.module("#app/config/sync.ts", () => ({
+  collectAllProfileNames: mock(),
+  normalizeSyncProfileName: mock((profile: string) =>
     profile.trim().toLowerCase(),
   ),
-  readGlobalDotweaveConfig: vi.fn(),
-  readSyncConfig: vi.fn(),
-  resolveSyncConfigResolutionContext: vi.fn(() => ({
+  readSyncConfig: mock(),
+}));
+
+mock.module("./config-file.ts", () => ({
+  buildSyncConfigDocument: mock((config: unknown) => ({
+    document: config,
+  })),
+  writeValidatedSyncConfig: mock(),
+}));
+
+mock.module("#app/lib/filesystem.ts", () => ({
+  writeTextFileAtomically: mock(),
+}));
+
+mock.module("./paths.ts", () => ({
+  resolveTrackedEntry: mock(),
+}));
+
+mock.module("#app/lib/git.ts", () => ({
+  ensureGitRepository: mock(),
+}));
+
+mock.module("./runtime.ts", () => ({
+  resolveSyncConfigResolutionContext: mock(() => ({
     homeDirectory: "/tmp/home",
     platformKey: "linux",
     readEnv: (_name: string) => undefined as string | undefined,
     xdgConfigHome: "/tmp/home/.config",
   })),
-  resolveSyncPaths: vi.fn(() => ({
+  resolveSyncPaths: mock(() => ({
     configPath: "/tmp/dotweave/manifest.jsonc",
     homeDirectory: "/tmp/home",
     globalConfigPath: "/tmp/dotweave/global.json",
     syncDirectory: "/tmp/dotweave",
   })),
-  resolveTrackedEntry: vi.fn(),
-  writeTextFileAtomically: vi.fn(),
-  writeValidatedSyncConfig: vi.fn(),
 }));
 
-vi.mock("#app/config/global-config.ts", () => ({
-  formatGlobalDotweaveConfig: mocked.formatGlobalDotweaveConfig,
-  readGlobalDotweaveConfig: mocked.readGlobalDotweaveConfig,
-}));
-
-vi.mock("#app/config/sync.ts", () => ({
-  collectAllProfileNames: mocked.collectAllProfileNames,
-  normalizeSyncProfileName: mocked.normalizeSyncProfileName,
-  readSyncConfig: mocked.readSyncConfig,
-}));
-
-vi.mock("./config-file.ts", () => ({
-  buildSyncConfigDocument: mocked.buildSyncConfigDocument,
-  writeValidatedSyncConfig: mocked.writeValidatedSyncConfig,
-}));
-
-vi.mock("#app/lib/filesystem.ts", () => ({
-  writeTextFileAtomically: mocked.writeTextFileAtomically,
-}));
-
-vi.mock("./paths.ts", () => ({
-  resolveTrackedEntry: mocked.resolveTrackedEntry,
-}));
-
-vi.mock("#app/lib/git.ts", () => ({
-  ensureGitRepository: mocked.ensureGitRepository,
-}));
-
-vi.mock("./runtime.ts", () => ({
-  resolveSyncConfigResolutionContext: mocked.resolveSyncConfigResolutionContext,
-  resolveSyncPaths: mocked.resolveSyncPaths,
-}));
+import * as mockedGlobalConfig from "#app/config/global-config.ts";
+import * as mockedSync from "#app/config/sync.ts";
+import * as mockedFilesystem from "#app/lib/filesystem.ts";
+import * as mockedGit from "#app/lib/git.ts";
+import * as mockedConfigFile from "./config-file.ts";
+import * as mockedPaths from "./paths.ts";
 
 import {
   assignProfiles,
@@ -71,16 +63,20 @@ import {
   setActiveProfile,
 } from "./profile.ts";
 
+type MockFn = ReturnType<typeof mock>;
+
 afterEach(() => {
-  vi.clearAllMocks();
+  mock.clearAllMocks();
 });
 
 describe("sync profiles service", () => {
   it("lists sorted profile assignments and the active profile", async () => {
-    mocked.readGlobalDotweaveConfig.mockResolvedValueOnce({
+    (
+      mockedGlobalConfig.readGlobalDotweaveConfig as MockFn
+    ).mockResolvedValueOnce({
       activeProfile: "work",
     });
-    mocked.readSyncConfig.mockResolvedValueOnce({
+    (mockedSync.readSyncConfig as MockFn).mockResolvedValueOnce({
       entries: [
         {
           localPath: "/tmp/home/.zshrc",
@@ -102,7 +98,10 @@ describe("sync profiles service", () => {
         },
       ],
     });
-    mocked.collectAllProfileNames.mockReturnValueOnce(["default", "work"]);
+    (mockedSync.collectAllProfileNames as MockFn).mockReturnValueOnce([
+      "default",
+      "work",
+    ]);
 
     await expect(listProfiles()).resolves.toEqual({
       activeProfile: "work",
@@ -124,15 +123,17 @@ describe("sync profiles service", () => {
       globalConfigPath: "/tmp/dotweave/global.json",
       syncDirectory: "/tmp/dotweave",
     });
-    expect(mocked.ensureGitRepository).toHaveBeenCalledWith("/tmp/dotweave");
+    expect(mockedGit.ensureGitRepository).toHaveBeenCalledWith("/tmp/dotweave");
   });
 
   it("reports no active profile when the global config is absent", async () => {
-    mocked.readGlobalDotweaveConfig.mockResolvedValueOnce(undefined);
-    mocked.readSyncConfig.mockResolvedValueOnce({
+    (
+      mockedGlobalConfig.readGlobalDotweaveConfig as MockFn
+    ).mockResolvedValueOnce(undefined);
+    (mockedSync.readSyncConfig as MockFn).mockResolvedValueOnce({
       entries: [],
     });
-    mocked.collectAllProfileNames.mockReturnValueOnce([]);
+    (mockedSync.collectAllProfileNames as MockFn).mockReturnValueOnce([]);
 
     const result = await listProfiles();
 
@@ -143,10 +144,12 @@ describe("sync profiles service", () => {
   });
 
   it("writes a normalized active profile and warns when it is not referenced", async () => {
-    mocked.readSyncConfig.mockResolvedValueOnce({
+    (mockedSync.readSyncConfig as MockFn).mockResolvedValueOnce({
       entries: [],
     });
-    mocked.collectAllProfileNames.mockReturnValueOnce(["default"]);
+    (mockedSync.collectAllProfileNames as MockFn).mockReturnValueOnce([
+      "default",
+    ]);
 
     await expect(setActiveProfile(" Work ")).resolves.toEqual({
       action: "use",
@@ -156,21 +159,21 @@ describe("sync profiles service", () => {
       syncDirectory: "/tmp/dotweave",
       warning: "Profile 'work' is not referenced by any tracked entry.",
     });
-    expect(mocked.formatGlobalDotweaveConfig).toHaveBeenCalledWith({
+    expect(mockedGlobalConfig.formatGlobalDotweaveConfig).toHaveBeenCalledWith({
       activeProfile: "work",
       version: 3,
     });
-    expect(mocked.writeTextFileAtomically).toHaveBeenCalledWith(
+    expect(mockedFilesystem.writeTextFileAtomically).toHaveBeenCalledWith(
       "/tmp/dotweave/global.json",
       JSON.stringify({ activeProfile: "work", version: 3 }, null, 2),
     );
   });
 
   it("omits the warning when activating a known profile", async () => {
-    mocked.readSyncConfig.mockResolvedValueOnce({
+    (mockedSync.readSyncConfig as MockFn).mockResolvedValueOnce({
       entries: [],
     });
-    mocked.collectAllProfileNames.mockReturnValueOnce(["work"]);
+    (mockedSync.collectAllProfileNames as MockFn).mockReturnValueOnce(["work"]);
 
     const result = await setActiveProfile("work");
 
@@ -183,7 +186,7 @@ describe("sync profiles service", () => {
       globalConfigPath: "/tmp/dotweave/global.json",
       syncDirectory: "/tmp/dotweave",
     });
-    expect(mocked.formatGlobalDotweaveConfig).toHaveBeenCalledWith({
+    expect(mockedGlobalConfig.formatGlobalDotweaveConfig).toHaveBeenCalledWith({
       version: 3,
     });
   });
@@ -192,14 +195,14 @@ describe("sync profiles service", () => {
     await expect(
       assignProfiles({ profiles: ["work"], target: "   " }, "/tmp/cwd"),
     ).rejects.toThrowError("Target path is required.");
-    expect(mocked.ensureGitRepository).not.toHaveBeenCalled();
+    expect(mockedGit.ensureGitRepository).not.toHaveBeenCalled();
   });
 
   it("rejects assignments for untracked targets", async () => {
-    mocked.readSyncConfig.mockResolvedValueOnce({
+    (mockedSync.readSyncConfig as MockFn).mockResolvedValueOnce({
       entries: [],
     });
-    mocked.resolveTrackedEntry.mockReturnValueOnce(undefined);
+    (mockedPaths.resolveTrackedEntry as MockFn).mockReturnValueOnce(undefined);
 
     await expect(
       assignProfiles(
@@ -215,11 +218,11 @@ describe("sync profiles service", () => {
       repoPath: ".gitconfig",
     };
 
-    mocked.readSyncConfig.mockResolvedValueOnce({
+    (mockedSync.readSyncConfig as MockFn).mockResolvedValueOnce({
       entries: [entry],
       version: 7,
     });
-    mocked.resolveTrackedEntry.mockReturnValueOnce(entry);
+    (mockedPaths.resolveTrackedEntry as MockFn).mockReturnValueOnce(entry);
 
     await expect(
       assignProfiles(
@@ -233,7 +236,7 @@ describe("sync profiles service", () => {
       profiles: ["work", "default"],
       syncDirectory: "/tmp/dotweave",
     });
-    expect(mocked.writeValidatedSyncConfig).not.toHaveBeenCalled();
+    expect(mockedConfigFile.writeValidatedSyncConfig).not.toHaveBeenCalled();
   });
 
   it("updates tracked profiles and marks them explicit when profiles are supplied", async () => {
@@ -247,8 +250,8 @@ describe("sync profiles service", () => {
       version: 7,
     };
 
-    mocked.readSyncConfig.mockResolvedValueOnce(config);
-    mocked.resolveTrackedEntry.mockReturnValueOnce(entry);
+    (mockedSync.readSyncConfig as MockFn).mockResolvedValueOnce(config);
+    (mockedPaths.resolveTrackedEntry as MockFn).mockReturnValueOnce(entry);
 
     const result = await assignProfiles(
       { profiles: ["work"], target: "~/.gitconfig" },
@@ -262,7 +265,7 @@ describe("sync profiles service", () => {
       profiles: ["work"],
       syncDirectory: "/tmp/dotweave",
     });
-    expect(mocked.buildSyncConfigDocument).toHaveBeenCalledWith({
+    expect(mockedConfigFile.buildSyncConfigDocument).toHaveBeenCalledWith({
       ...config,
       entries: [
         {
@@ -272,7 +275,7 @@ describe("sync profiles service", () => {
         },
       ],
     });
-    expect(mocked.writeValidatedSyncConfig).toHaveBeenCalledWith(
+    expect(mockedConfigFile.writeValidatedSyncConfig).toHaveBeenCalledWith(
       "/tmp/dotweave",
       {
         document: {
@@ -305,12 +308,12 @@ describe("sync profiles service", () => {
       version: 7,
     };
 
-    mocked.readSyncConfig.mockResolvedValueOnce(config);
-    mocked.resolveTrackedEntry.mockReturnValueOnce(entry);
+    (mockedSync.readSyncConfig as MockFn).mockResolvedValueOnce(config);
+    (mockedPaths.resolveTrackedEntry as MockFn).mockReturnValueOnce(entry);
 
     await assignProfiles({ profiles: [], target: "~/.gitconfig" }, "/tmp/cwd");
 
-    expect(mocked.buildSyncConfigDocument).toHaveBeenCalledWith({
+    expect(mockedConfigFile.buildSyncConfigDocument).toHaveBeenCalledWith({
       ...config,
       entries: [
         {

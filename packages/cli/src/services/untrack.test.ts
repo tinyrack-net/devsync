@@ -1,58 +1,48 @@
+import { afterEach, describe, expect, it, mock } from "bun:test";
 import { access, mkdir, rm, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 
-import { afterEach, describe, expect, it, vi } from "vitest";
-
-import { createTemporaryDirectory } from "#app/test/helpers/sync-fixture.ts";
+import { createTemporaryDirectory } from "../test/helpers/sync-fixture.ts";
 import { resolveArtifactRelativePath } from "./repo-artifacts.ts";
 
-const mocked = vi.hoisted(() => ({
-  buildSyncConfigDocument: vi.fn((config: unknown) => ({
+mock.module("#app/config/sync.ts", () => ({
+  readSyncConfig: mock(),
+}));
+
+mock.module("./config-file.ts", () => ({
+  buildSyncConfigDocument: mock((config: unknown) => ({
     document: config,
   })),
-  ensureGitRepository: vi.fn(),
-  readSyncConfig: vi.fn(),
-  resolveSyncConfigResolutionContext: vi.fn(() => ({
+  writeValidatedSyncConfig: mock(),
+}));
+
+mock.module("./paths.ts", () => ({
+  resolveTrackedEntry: mock(),
+}));
+
+mock.module("#app/lib/git.ts", () => ({
+  ensureGitRepository: mock(),
+}));
+
+mock.module("./runtime.ts", () => ({
+  resolveSyncConfigResolutionContext: mock(() => ({
     homeDirectory: "/tmp/home",
     platformKey: "linux",
     readEnv: (_name: string) => undefined as string | undefined,
     xdgConfigHome: "/tmp/home/.config",
   })),
-  resolveSyncPaths: vi.fn(),
-  resolveTrackedEntry: vi.fn(),
-  writeValidatedSyncConfig: vi.fn(),
+  resolveSyncPaths: mock(),
 }));
 
-vi.mock("#app/config/sync.ts", async () => {
-  const actual = await vi.importActual<typeof import("#app/config/sync.ts")>(
-    "#app/config/sync.ts",
-  );
-
-  return {
-    ...actual,
-    readSyncConfig: mocked.readSyncConfig,
-  };
-});
-
-vi.mock("./config-file.ts", () => ({
-  buildSyncConfigDocument: mocked.buildSyncConfigDocument,
-  writeValidatedSyncConfig: mocked.writeValidatedSyncConfig,
-}));
-
-vi.mock("./paths.ts", () => ({
-  resolveTrackedEntry: mocked.resolveTrackedEntry,
-}));
-
-vi.mock("#app/lib/git.ts", () => ({
-  ensureGitRepository: mocked.ensureGitRepository,
-}));
-
-vi.mock("./runtime.ts", () => ({
-  resolveSyncConfigResolutionContext: mocked.resolveSyncConfigResolutionContext,
-  resolveSyncPaths: mocked.resolveSyncPaths,
-}));
+import * as mockedSync from "#app/config/sync.ts";
+import * as mockedGit from "#app/lib/git.ts";
+import * as mockedConfigFile from "./config-file.ts";
+import * as mockedPaths from "./paths.ts";
+import * as mockedRuntime from "./runtime.ts";
 
 import { untrackTarget } from "./untrack.ts";
+
+type MockFn = ReturnType<typeof mock>;
 
 const temporaryDirectories: string[] = [];
 
@@ -70,7 +60,7 @@ const writeArtifactFile = async (path: string, contents = "value\n") => {
 };
 
 afterEach(async () => {
-  vi.clearAllMocks();
+  mock.clearAllMocks();
 
   while (temporaryDirectories.length > 0) {
     const directory = temporaryDirectories.pop();
@@ -86,23 +76,23 @@ describe("untrack service", () => {
     await expect(
       untrackTarget({ target: "   " }, "/tmp/cwd"),
     ).rejects.toThrowError("Target path is required.");
-    expect(mocked.ensureGitRepository).not.toHaveBeenCalled();
+    expect(mockedGit.ensureGitRepository).not.toHaveBeenCalled();
   });
 
   it("rejects targets that are not currently tracked", async () => {
     const workspace = await createWorkspace();
 
-    mocked.resolveSyncPaths.mockReturnValueOnce({
+    (mockedRuntime.resolveSyncPaths as MockFn).mockReturnValueOnce({
       configPath: join(workspace, "manifest.jsonc"),
       homeDirectory: "/tmp/home",
       syncDirectory: workspace,
     });
-    mocked.ensureGitRepository.mockResolvedValueOnce(undefined);
-    mocked.readSyncConfig.mockResolvedValueOnce({
+    (mockedGit.ensureGitRepository as MockFn).mockResolvedValueOnce(undefined);
+    (mockedSync.readSyncConfig as MockFn).mockResolvedValueOnce({
       entries: [],
       version: 7,
     });
-    mocked.resolveTrackedEntry.mockReturnValueOnce(undefined);
+    (mockedPaths.resolveTrackedEntry as MockFn).mockReturnValueOnce(undefined);
 
     await expect(
       untrackTarget({ target: "~/.gitconfig" }, "/tmp/cwd"),
@@ -161,17 +151,17 @@ describe("untrack service", () => {
     await writeArtifactFile(defaultSecretPath, "secret-default\n");
     await writeArtifactFile(workSecretPath, "secret-work\n");
 
-    mocked.resolveSyncPaths.mockReturnValueOnce({
+    (mockedRuntime.resolveSyncPaths as MockFn).mockReturnValueOnce({
       configPath: join(workspace, "manifest.jsonc"),
       homeDirectory: "/tmp/home",
       syncDirectory: workspace,
     });
-    mocked.ensureGitRepository.mockResolvedValueOnce(undefined);
-    mocked.readSyncConfig.mockResolvedValueOnce({
+    (mockedGit.ensureGitRepository as MockFn).mockResolvedValueOnce(undefined);
+    (mockedSync.readSyncConfig as MockFn).mockResolvedValueOnce({
       entries: [entry, siblingEntry],
       version: 7,
     });
-    mocked.resolveTrackedEntry.mockReturnValueOnce(entry);
+    (mockedPaths.resolveTrackedEntry as MockFn).mockReturnValueOnce(entry);
 
     const result = await untrackTarget(
       { target: "~/.config/tool/token.txt" },
@@ -186,11 +176,11 @@ describe("untrack service", () => {
       secretArtifactCount: 2,
       syncDirectory: workspace,
     });
-    expect(mocked.buildSyncConfigDocument).toHaveBeenCalledWith({
+    expect(mockedConfigFile.buildSyncConfigDocument).toHaveBeenCalledWith({
       entries: [siblingEntry],
       version: 7,
     });
-    expect(mocked.writeValidatedSyncConfig).toHaveBeenCalledWith(
+    expect(mockedConfigFile.writeValidatedSyncConfig).toHaveBeenCalledWith(
       workspace,
       {
         document: {
@@ -233,17 +223,17 @@ describe("untrack service", () => {
     await writeFile(join(plainRoot, "nested", "value.txt"), "hello\n", "utf8");
     await writeArtifactFile(siblingPath, "keep\n");
 
-    mocked.resolveSyncPaths.mockReturnValueOnce({
+    (mockedRuntime.resolveSyncPaths as MockFn).mockReturnValueOnce({
       configPath: join(workspace, "manifest.jsonc"),
       homeDirectory: "/tmp/home",
       syncDirectory: workspace,
     });
-    mocked.ensureGitRepository.mockResolvedValueOnce(undefined);
-    mocked.readSyncConfig.mockResolvedValueOnce({
+    (mockedGit.ensureGitRepository as MockFn).mockResolvedValueOnce(undefined);
+    (mockedSync.readSyncConfig as MockFn).mockResolvedValueOnce({
       entries: [entry],
       version: 7,
     });
-    mocked.resolveTrackedEntry.mockReturnValueOnce(entry);
+    (mockedPaths.resolveTrackedEntry as MockFn).mockReturnValueOnce(entry);
 
     const result = await untrackTarget({ target: "~/.config/app" }, "/tmp/cwd");
 
@@ -256,6 +246,6 @@ describe("untrack service", () => {
       syncDirectory: workspace,
     });
     await expect(access(plainRoot)).rejects.toThrowError();
-    await expect(access(siblingPath)).resolves.toBeUndefined();
+    await expect(access(siblingPath)).resolves.toBeFalsy();
   });
 });

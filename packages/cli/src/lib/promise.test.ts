@@ -1,10 +1,10 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, mock } from "bun:test";
 import { limitConcurrency } from "./promise.ts";
 
 describe("limitConcurrency", () => {
   it("maps items correctly", async () => {
     const items = [1, 2, 3, 4, 5];
-    const mapper = vi.fn().mockImplementation(async (item: number) => {
+    const mapper = mock().mockImplementation(async (item: number) => {
       return item * 2;
     });
 

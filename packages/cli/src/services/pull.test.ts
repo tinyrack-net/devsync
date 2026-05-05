@@ -1,54 +1,43 @@
+import { afterEach, describe, expect, it, mock } from "bun:test";
 import type { ConsolaInstance } from "consola";
-import { afterEach, describe, expect, it, vi } from "vitest";
 import { doPathsOverlap } from "#app/lib/path.ts";
 
-const mocked = vi.hoisted(() => ({
-  applyEntryMaterialization: vi.fn(),
-  buildEntryMaterialization: vi.fn(),
-  buildPullCounts: vi.fn(() => ({
+mock.module("#app/config/sync.ts", () => ({
+  resolveSyncConfigFilePath: mock(
+    (syncDirectory: string) => `${syncDirectory}/manifest.jsonc`,
+  ),
+}));
+
+mock.module("./local-materialization.ts", () => ({
+  applyEntryMaterialization: mock(),
+  buildEntryMaterialization: mock(),
+  buildPullCounts: mock(() => ({
     decryptedFileCount: 0,
     directoryCount: 0,
     plainFileCount: 0,
     symlinkCount: 0,
   })),
-  buildRepositorySnapshot: vi.fn(),
-  collectChangedLocalPaths: vi.fn(),
-  countDeletedLocalNodes: vi.fn(),
-  ensureGitRepository: vi.fn(),
-  loadSyncConfig: vi.fn(),
-  resolveSyncConfigFilePath: vi.fn(
-    (syncDirectory: string) => `${syncDirectory}/manifest.jsonc`,
-  ),
-  resolveSyncPaths: vi.fn(() => ({
+  collectChangedLocalPaths: mock(),
+  countDeletedLocalNodes: mock(),
+}));
+
+mock.module("./repo-snapshot.ts", () => ({
+  buildRepositorySnapshot: mock(),
+}));
+
+mock.module("#app/lib/git.ts", () => ({
+  ensureGitRepository: mock(),
+}));
+
+mock.module("./runtime.ts", () => ({
+  loadSyncConfig: mock(),
+  resolveSyncPaths: mock(() => ({
     syncDirectory: "/tmp/dotweave",
   })),
 }));
 
-vi.mock("#app/config/sync.ts", () => ({
-  resolveSyncConfigFilePath: mocked.resolveSyncConfigFilePath,
-}));
-
-vi.mock("./local-materialization.ts", () => ({
-  applyEntryMaterialization: mocked.applyEntryMaterialization,
-  buildEntryMaterialization: mocked.buildEntryMaterialization,
-  buildPullCounts: mocked.buildPullCounts,
-  collectChangedLocalPaths: mocked.collectChangedLocalPaths,
-  countDeletedLocalNodes: mocked.countDeletedLocalNodes,
-}));
-
-vi.mock("./repo-snapshot.ts", () => ({
-  buildRepositorySnapshot: mocked.buildRepositorySnapshot,
-}));
-
-vi.mock("#app/lib/git.ts", () => ({
-  ensureGitRepository: mocked.ensureGitRepository,
-}));
-
-vi.mock("./runtime.ts", () => ({
-  loadSyncConfig: mocked.loadSyncConfig,
-  resolveSyncPaths: mocked.resolveSyncPaths,
-}));
-
+import * as mockedGit from "#app/lib/git.ts";
+import * as mockedLocalMaterialization from "./local-materialization.ts";
 import {
   applyPullPlan,
   buildPullPlan,
@@ -56,9 +45,13 @@ import {
   buildPullResultFromPlan,
   pullChanges,
 } from "./pull.ts";
+import * as mockedRepoSnapshot from "./repo-snapshot.ts";
+import * as mockedRuntime from "./runtime.ts";
+
+type MockFn = ReturnType<typeof mock>;
 
 afterEach(() => {
-  vi.clearAllMocks();
+  mock.clearAllMocks();
 });
 
 describe("pull helpers", () => {
@@ -135,13 +128,21 @@ describe("pull helpers", () => {
 
 describe("pull planning", () => {
   it("skips ignore-mode entries while planning materializations", async () => {
-    mocked.buildRepositorySnapshot.mockResolvedValueOnce(new Map());
-    mocked.buildEntryMaterialization.mockReturnValue({
+    (
+      mockedRepoSnapshot.buildRepositorySnapshot as MockFn
+    ).mockResolvedValueOnce(new Map());
+    (
+      mockedLocalMaterialization.buildEntryMaterialization as MockFn
+    ).mockReturnValue({
       desiredKeys: new Set([".config/app"]),
       type: "absent",
     });
-    mocked.countDeletedLocalNodes.mockResolvedValue(0);
-    mocked.collectChangedLocalPaths.mockResolvedValue([]);
+    (
+      mockedLocalMaterialization.countDeletedLocalNodes as MockFn
+    ).mockResolvedValue(0);
+    (
+      mockedLocalMaterialization.collectChangedLocalPaths as MockFn
+    ).mockResolvedValue([]);
 
     const config = {
       age: {
@@ -167,15 +168,23 @@ describe("pull planning", () => {
 
     const plan = await buildPullPlan(config as never, "/tmp/dotweave");
 
-    expect(mocked.buildEntryMaterialization).toHaveBeenCalledTimes(1);
-    expect(mocked.buildEntryMaterialization).toHaveBeenCalledWith(
+    expect(
+      mockedLocalMaterialization.buildEntryMaterialization,
+    ).toHaveBeenCalledTimes(1);
+    expect(
+      mockedLocalMaterialization.buildEntryMaterialization,
+    ).toHaveBeenCalledWith(
       config.entries[0],
       expect.any(Map),
       config,
       undefined,
     );
-    expect(mocked.countDeletedLocalNodes).toHaveBeenCalledTimes(1);
-    expect(mocked.countDeletedLocalNodes).toHaveBeenCalledWith(
+    expect(
+      mockedLocalMaterialization.countDeletedLocalNodes,
+    ).toHaveBeenCalledTimes(1);
+    expect(
+      mockedLocalMaterialization.countDeletedLocalNodes,
+    ).toHaveBeenCalledWith(
       config.entries[0],
       new Set([".config/app"]),
       config,
@@ -197,8 +206,10 @@ describe("pull planning", () => {
   });
 
   it("does not report child entry paths as parent directory updates", async () => {
-    mocked.buildRepositorySnapshot.mockResolvedValueOnce(new Map());
-    mocked.buildEntryMaterialization
+    (
+      mockedRepoSnapshot.buildRepositorySnapshot as MockFn
+    ).mockResolvedValueOnce(new Map());
+    (mockedLocalMaterialization.buildEntryMaterialization as MockFn)
       .mockReturnValueOnce({
         desiredKeys: new Set([
           ".config/zsh/.zshenv",
@@ -217,8 +228,10 @@ describe("pull planning", () => {
         },
         type: "file",
       });
-    mocked.countDeletedLocalNodes.mockResolvedValue(0);
-    mocked.collectChangedLocalPaths
+    (
+      mockedLocalMaterialization.countDeletedLocalNodes as MockFn
+    ).mockResolvedValue(0);
+    (mockedLocalMaterialization.collectChangedLocalPaths as MockFn)
       .mockResolvedValueOnce([
         "/tmp/home/.config/zsh/.zshenv",
         "/tmp/home/.config/zsh/secrets.zsh",
@@ -254,21 +267,27 @@ describe("pull planning", () => {
   });
 
   it("does not report deleted local paths as repository updates", async () => {
-    mocked.buildRepositorySnapshot.mockResolvedValueOnce(new Map());
-    mocked.buildEntryMaterialization.mockReturnValueOnce({
+    (
+      mockedRepoSnapshot.buildRepositorySnapshot as MockFn
+    ).mockResolvedValueOnce(new Map());
+    (
+      mockedLocalMaterialization.buildEntryMaterialization as MockFn
+    ).mockReturnValueOnce({
       desiredKeys: new Set([".config/app/", ".config/app/config.json"]),
       nodes: new Map(),
       type: "directory",
     });
-    mocked.countDeletedLocalNodes.mockImplementationOnce(
+    (
+      mockedLocalMaterialization.countDeletedLocalNodes as MockFn
+    ).mockImplementationOnce(
       async (
-        _entry,
-        _desiredKeys,
-        _config,
-        existingKeys,
-        _reporter,
-        keyToLocalPath,
-        deletedKeys,
+        _entry: unknown,
+        _desiredKeys: unknown,
+        _config: unknown,
+        existingKeys: Set<string>,
+        _reporter: unknown,
+        keyToLocalPath: Map<string, string>,
+        deletedKeys: Set<string>,
       ) => {
         existingKeys.add(".config/app/");
         existingKeys.add(".config/app/config.json");
@@ -281,7 +300,9 @@ describe("pull planning", () => {
         return 1;
       },
     );
-    mocked.collectChangedLocalPaths.mockResolvedValueOnce([
+    (
+      mockedLocalMaterialization.collectChangedLocalPaths as MockFn
+    ).mockResolvedValueOnce([
       "/tmp/home/.config/app/cache.json",
       "/tmp/home/.config/app/config.json",
     ]);
@@ -315,8 +336,8 @@ describe("pull planning", () => {
   it("does not apply ignore-mode entries during pull", async () => {
     const reporter = {
       level: 3,
-      start: vi.fn(),
-      verbose: vi.fn(),
+      start: mock(),
+      verbose: mock(),
     } as unknown as ConsolaInstance;
     const config = {
       age: {
@@ -340,22 +361,34 @@ describe("pull planning", () => {
       version: 7,
     };
 
-    mocked.ensureGitRepository.mockResolvedValueOnce(undefined);
-    mocked.loadSyncConfig.mockResolvedValueOnce({
+    (mockedGit.ensureGitRepository as MockFn).mockResolvedValueOnce(undefined);
+    (mockedRuntime.loadSyncConfig as MockFn).mockResolvedValueOnce({
       effectiveConfig: config,
     });
-    mocked.buildRepositorySnapshot.mockResolvedValueOnce(new Map());
-    mocked.buildEntryMaterialization.mockReturnValue({
+    (
+      mockedRepoSnapshot.buildRepositorySnapshot as MockFn
+    ).mockResolvedValueOnce(new Map());
+    (
+      mockedLocalMaterialization.buildEntryMaterialization as MockFn
+    ).mockReturnValue({
       desiredKeys: new Set([".config/app"]),
       type: "absent",
     });
-    mocked.countDeletedLocalNodes.mockResolvedValue(0);
-    mocked.collectChangedLocalPaths.mockResolvedValue([]);
+    (
+      mockedLocalMaterialization.countDeletedLocalNodes as MockFn
+    ).mockResolvedValue(0);
+    (
+      mockedLocalMaterialization.collectChangedLocalPaths as MockFn
+    ).mockResolvedValue([]);
 
     await pullChanges({ dryRun: false }, reporter);
 
-    expect(mocked.applyEntryMaterialization).toHaveBeenCalledTimes(1);
-    expect(mocked.applyEntryMaterialization).toHaveBeenCalledWith(
+    expect(
+      mockedLocalMaterialization.applyEntryMaterialization,
+    ).toHaveBeenCalledTimes(1);
+    expect(
+      mockedLocalMaterialization.applyEntryMaterialization,
+    ).toHaveBeenCalledWith(
       config.entries[0],
       {
         desiredKeys: new Set([".config/app"]),
@@ -443,27 +476,29 @@ describe("pull planning", () => {
     const activeLocalPaths: string[] = [];
     let overlapped = false;
 
-    mocked.applyEntryMaterialization.mockImplementation(
-      async (entry: { localPath: string }) => {
-        if (
-          activeLocalPaths.some((activeLocalPath) => {
-            return doPathsOverlap(entry.localPath, activeLocalPath);
-          })
-        ) {
-          overlapped = true;
-        }
+    (
+      mockedLocalMaterialization.applyEntryMaterialization as MockFn
+    ).mockImplementation(async (entry: { localPath: string }) => {
+      if (
+        activeLocalPaths.some((activeLocalPath) => {
+          return doPathsOverlap(entry.localPath, activeLocalPath);
+        })
+      ) {
+        overlapped = true;
+      }
 
-        activeLocalPaths.push(entry.localPath);
-        await new Promise((resolve) => {
-          setTimeout(resolve, 10);
-        });
-        activeLocalPaths.splice(activeLocalPaths.indexOf(entry.localPath), 1);
-      },
-    );
+      activeLocalPaths.push(entry.localPath);
+      await new Promise((resolve) => {
+        setTimeout(resolve, 10);
+      });
+      activeLocalPaths.splice(activeLocalPaths.indexOf(entry.localPath), 1);
+    });
 
     await applyPullPlan(config as never, plan as never);
 
     expect(overlapped).toBe(false);
-    expect(mocked.applyEntryMaterialization).toHaveBeenCalledTimes(3);
+    expect(
+      mockedLocalMaterialization.applyEntryMaterialization,
+    ).toHaveBeenCalledTimes(3);
   });
 });

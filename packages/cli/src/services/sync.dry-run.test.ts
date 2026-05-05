@@ -1,19 +1,14 @@
+import { afterEach, describe, expect, it, mock } from "bun:test";
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
-import { afterEach, describe, expect, it, vi } from "vitest";
-
-const mockEnv = vi.hoisted(() => ({
-  HOME: "",
-  XDG_CONFIG_HOME: "",
-}));
-
-vi.mock("#app/lib/env.ts", () => ({
-  ENV: mockEnv,
+mock.module("#app/lib/env.ts", () => ({
+  ENV: { HOME: "", XDG_CONFIG_HOME: "" },
 }));
 
 import type { ConsolaInstance } from "consola";
 import { CONSTANTS } from "#app/config/constants.ts";
+import { ENV } from "#app/lib/env.ts";
 import { initializeSyncDirectory } from "#app/services/init.ts";
 import { pullChanges } from "#app/services/pull.ts";
 import { pushChanges } from "#app/services/push.ts";
@@ -37,8 +32,8 @@ const createWorkspace = async () => {
 };
 
 const setEnvironment = (homeDirectory: string, xdgConfigHome: string) => {
-  mockEnv.HOME = homeDirectory;
-  mockEnv.XDG_CONFIG_HOME = xdgConfigHome;
+  ENV.HOME = homeDirectory;
+  ENV.XDG_CONFIG_HOME = xdgConfigHome;
 };
 
 const createProgressCapture = (verbose = false) => {
@@ -62,6 +57,9 @@ const createProgressCapture = (verbose = false) => {
 };
 
 afterEach(async () => {
+  ENV.HOME = "";
+  ENV.XDG_CONFIG_HOME = "";
+
   while (temporaryDirectories.length > 0) {
     const directory = temporaryDirectories.pop();
 

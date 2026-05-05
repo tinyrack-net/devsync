@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "bun:test";
 
 import { migrateGlobalConfigV2ToV3 } from "./global-v3.ts";
 

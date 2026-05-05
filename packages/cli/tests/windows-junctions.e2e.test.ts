@@ -1,6 +1,6 @@
+import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { mkdir, rm, symlink, writeFile } from "node:fs/promises";
 import { dirname, join, relative } from "node:path";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
   createSyncE2EContext,
   type SyncE2EContext,

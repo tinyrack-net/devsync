@@ -1,48 +1,56 @@
+import { afterEach, describe, expect, it, mock } from "bun:test";
 import type { ConsolaInstance } from "consola";
-import { afterEach, describe, expect, it, vi } from "vitest";
 import { DotweaveError } from "#app/lib/error.ts";
 
-const mocked = vi.hoisted(() => ({
-  buildRepositorySnapshot: vi.fn(),
-  ensureRepository: vi.fn(),
-  loadSyncConfig: vi.fn(),
-  pathExists: vi.fn(),
-  resolveSyncConfigFilePath: vi.fn(
+type MockFn = ReturnType<typeof mock>;
+
+mock.module("#app/config/sync.ts", () => ({
+  resolveSyncConfigFilePath: mock(
     (syncDirectory: string) => `${syncDirectory}/manifest.jsonc`,
   ),
-  resolveSyncPaths: vi.fn(() => ({
+}));
+
+mock.module("#app/lib/filesystem.ts", () => ({
+  pathExists: mock(),
+}));
+
+mock.module("#app/lib/git.ts", () => ({
+  ensureRepository: mock(),
+}));
+
+mock.module("./repo-snapshot.ts", () => ({
+  buildRepositorySnapshot: mock(),
+}));
+
+mock.module("./runtime.ts", () => ({
+  loadSyncConfig: mock(),
+  resolveSyncPaths: mock(() => ({
     syncDirectory: "/tmp/dotweave",
   })),
 }));
 
-vi.mock("#app/config/sync.ts", () => ({
-  resolveSyncConfigFilePath: mocked.resolveSyncConfigFilePath,
-}));
-
-vi.mock("#app/lib/filesystem.ts", () => ({
-  pathExists: mocked.pathExists,
-}));
-
-vi.mock("#app/lib/git.ts", () => ({
-  ensureRepository: mocked.ensureRepository,
-}));
-
-vi.mock("./repo-snapshot.ts", () => ({
-  buildRepositorySnapshot: mocked.buildRepositorySnapshot,
-}));
-
-vi.mock("./runtime.ts", () => ({
-  loadSyncConfig: mocked.loadSyncConfig,
-  resolveSyncPaths: mocked.resolveSyncPaths,
-}));
-
+import * as mockedSyncConfig from "#app/config/sync.ts";
+import * as mockedFilesystem from "#app/lib/filesystem.ts";
+import * as mockedGit from "#app/lib/git.ts";
 import { runDoctorChecks } from "./doctor.ts";
+import * as mockedRepoSnapshot from "./repo-snapshot.ts";
+import * as mockedRuntime from "./runtime.ts";
+
+const mocked = {
+  resolveSyncConfigFilePath:
+    mockedSyncConfig.resolveSyncConfigFilePath as MockFn,
+  pathExists: mockedFilesystem.pathExists as MockFn,
+  ensureRepository: mockedGit.ensureRepository as MockFn,
+  buildRepositorySnapshot: mockedRepoSnapshot.buildRepositorySnapshot as MockFn,
+  loadSyncConfig: mockedRuntime.loadSyncConfig as MockFn,
+  resolveSyncPaths: mockedRuntime.resolveSyncPaths as MockFn,
+};
 
 const createReporter = (verbose = false) => {
   const raw = {
     level: verbose ? 4 : 3,
-    start: vi.fn(),
-    verbose: vi.fn(),
+    start: mock(),
+    verbose: mock(),
   };
   return Object.assign(raw as unknown as ConsolaInstance, {
     start: raw.start,
@@ -89,7 +97,7 @@ const createLoadedConfig = (options: {
 };
 
 afterEach(() => {
-  vi.clearAllMocks();
+  mock.clearAllMocks();
 });
 
 describe("sync doctor", () => {

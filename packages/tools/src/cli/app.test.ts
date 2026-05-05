@@ -1,9 +1,9 @@
-import { beforeEach, describe, expect, test, vi } from "vitest";
+import { beforeEach, describe, expect, mock, test } from "bun:test";
 
-const performRelease = vi.fn();
+type MockFn = ReturnType<typeof mock>;
 
-vi.mock("../lib/release.ts", () => ({
-  performRelease,
+mock.module("../lib/release.ts", () => ({
+  performRelease: mock(),
   releaseTypeSchema: {
     options: ["patch", "minor", "major"],
     safeParseAsync: async (input: string) => ({
@@ -13,10 +13,12 @@ vi.mock("../lib/release.ts", () => ({
   },
 }));
 
+import * as mockedRelease from "../lib/release.ts";
+
 describe("tools cli", () => {
   beforeEach(() => {
-    performRelease.mockReset();
-    performRelease.mockResolvedValue({
+    (mockedRelease.performRelease as MockFn).mockReset();
+    (mockedRelease.performRelease as MockFn).mockResolvedValue({
       dryRun: true,
       previousTag: "v0.0.3",
       tag: "v0.1.0",
@@ -36,7 +38,7 @@ describe("tools cli", () => {
       },
     });
 
-    expect(performRelease).toHaveBeenCalledWith(
+    expect(mockedRelease.performRelease).toHaveBeenCalledWith(
       expect.objectContaining({
         cwd: process.cwd(),
         dryRun: true,

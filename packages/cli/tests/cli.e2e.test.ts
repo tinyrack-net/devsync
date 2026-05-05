@@ -1,5 +1,5 @@
+import { describe, expect, it } from "bun:test";
 import { execa } from "execa";
-import { describe, expect, it } from "vitest";
 import packageJson from "../package.json" with { type: "json" };
 import { rootCommandNames } from "../src/cli/root-commands.ts";
 import { cliNodeOptions } from "../src/test/helpers/cli-entry.ts";

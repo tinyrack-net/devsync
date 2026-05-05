@@ -1,7 +1,6 @@
+import { afterEach, describe, expect, it } from "bun:test";
 import { readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-
-import { afterEach, describe, expect, it } from "vitest";
 
 import {
   createAgeIdentityFile,

@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "bun:test";
 
 import type { ResolvedSyncConfig } from "#app/config/sync.ts";
 import { buildEffectiveSyncConfig, type RuntimeAgeConfig } from "./runtime.ts";

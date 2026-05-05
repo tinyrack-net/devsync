@@ -1,6 +1,6 @@
+import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { mkdir, readFile, rename, symlink, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
   createSyncE2EContext,
   type SyncE2EContext,
@@ -17,9 +17,8 @@ afterEach(async () => {
   await ctx.cleanup();
 });
 
-describe.runIf(process.platform === "win32")(
-  "issue always updating directory (Windows case sensitivity)",
-  () => {
+if (process.platform === "win32") {
+  describe("issue always updating directory (Windows case sensitivity)", () => {
     it("should not show pull changes when child directory physical casing differs on Windows", async () => {
       const parentDir = join(ctx.homeDir, "parent");
       const childDir = join(parentDir, "SKILLS"); // Physical: SKILLS
@@ -111,5 +110,5 @@ describe.runIf(process.platform === "win32")(
       const secondPull = await ctx.runCli(["pull", "-y"]);
       expect(stripAnsi(secondPull.stdout)).toContain("Already up to date");
     });
-  },
-);
+  });
+}

@@ -1,32 +1,46 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, mock } from "bun:test";
 import { DotweaveError } from "#app/lib/error.ts";
-import { trackTarget } from "./track.ts";
 
-const mocked = vi.hoisted(() => ({
-  bashrcPath:
-    process.platform === "win32"
-      ? "C:\\home\\user\\.bashrc"
-      : "/home/user/.bashrc",
-  homeDirectory: process.platform === "win32" ? "C:\\home\\user" : "/home/user",
-  getPathStats: vi.fn(),
-  ensureGitRepository: vi.fn(),
-  readSyncConfig: vi.fn(),
-  writeValidatedSyncConfig: vi.fn(),
-  resolveSyncPaths: vi.fn(() => ({
-    syncDirectory: "/tmp/dotweave",
-    configPath: "/tmp/dotweave/manifest.jsonc",
-  })),
-  resolveSyncConfigResolutionContext: vi.fn(() => ({
+mock.module("#app/lib/filesystem.ts", () => ({
+  getPathStats: mock(),
+}));
+
+mock.module("#app/lib/git.ts", () => ({
+  ensureGitRepository: mock(),
+}));
+
+mock.module("#app/config/sync.ts", () => ({
+  readSyncConfig: mock(),
+  normalizeSyncProfileName: mock((s: string) => s),
+  normalizeSyncRepoPath: mock((s: string) => s),
+}));
+
+mock.module("./config-file.ts", () => ({
+  buildSyncConfigDocument: mock((config: unknown) => config),
+  writeValidatedSyncConfig: mock(),
+}));
+
+mock.module("./runtime.ts", () => ({
+  resolveSyncConfigResolutionContext: mock(() => ({
     homeDirectory:
       process.platform === "win32" ? "C:\\home\\user" : "/home/user",
   })),
-  buildSyncConfigDocument: vi.fn((config) => config),
-  resolveDefaultIdentityFile: vi.fn(() =>
+  resolveSyncPaths: mock(() => ({
+    syncDirectory: "/tmp/dotweave",
+    configPath: "/tmp/dotweave/manifest.jsonc",
+  })),
+}));
+
+mock.module("#app/config/identity-file.ts", () => ({
+  resolveDefaultIdentityFile: mock(() =>
     process.platform === "win32"
       ? "C:\\home\\user\\.ssh\\id_rsa"
       : "/home/user/.ssh/id_rsa",
   ),
-  readEnvValue: vi.fn((key) => {
+}));
+
+mock.module("#app/config/runtime-env.ts", () => ({
+  readEnvValue: mock((key: string) => {
     if (key === "HOME") {
       return process.platform === "win32" ? "C:\\home\\user" : "/home/user";
     }
@@ -39,78 +53,61 @@ const mocked = vi.hoisted(() => ({
   }),
 }));
 
-vi.mock("#app/lib/filesystem.ts", () => ({
-  getPathStats: mocked.getPathStats,
+mock.module("#app/lib/path.ts", () => ({
+  doPathsOverlap: mock(() => false),
 }));
 
-vi.mock("#app/lib/git.ts", () => ({
-  ensureGitRepository: mocked.ensureGitRepository,
-}));
-
-vi.mock("#app/config/sync.ts", () => ({
-  readSyncConfig: mocked.readSyncConfig,
-  normalizeSyncProfileName: vi.fn((s) => s),
-  normalizeSyncRepoPath: vi.fn((s) => s),
-}));
-
-vi.mock("./config-file.ts", () => ({
-  buildSyncConfigDocument: mocked.buildSyncConfigDocument,
-  writeValidatedSyncConfig: mocked.writeValidatedSyncConfig,
-}));
-
-vi.mock("./runtime.ts", () => ({
-  resolveSyncConfigResolutionContext: mocked.resolveSyncConfigResolutionContext,
-  resolveSyncPaths: mocked.resolveSyncPaths,
-}));
-
-vi.mock("#app/config/identity-file.ts", () => ({
-  resolveDefaultIdentityFile: mocked.resolveDefaultIdentityFile,
-}));
-
-vi.mock("#app/config/runtime-env.ts", () => ({
-  readEnvValue: mocked.readEnvValue,
-}));
-
-vi.mock("#app/lib/path.ts", () => ({
-  doPathsOverlap: vi.fn(() => false),
-}));
-
-vi.mock("./paths.ts", () => ({
-  buildRepoPathWithinRoot: vi.fn((target, homeDirectory) =>
+mock.module("./paths.ts", () => ({
+  buildRepoPathWithinRoot: mock((target: string, homeDirectory: string) =>
     target.slice(homeDirectory.length + 1).replaceAll("\\", "/"),
   ),
-  buildConfiguredHomeLocalPath: vi.fn((p) => `~/${p}`),
+  buildConfiguredHomeLocalPath: mock((p: string) => `~/${p}`),
 }));
+
+import * as mockedSync from "#app/config/sync.ts";
+import * as mockedFilesystem from "#app/lib/filesystem.ts";
+import * as mockedConfigFile from "./config-file.ts";
+
+import { trackTarget } from "./track.ts";
+
+type MockFn = ReturnType<typeof mock>;
+
+const bashrcPath =
+  process.platform === "win32"
+    ? "C:\\home\\user\\.bashrc"
+    : "/home/user/.bashrc";
+const homeDirectory =
+  process.platform === "win32" ? "C:\\home\\user" : "/home/user";
 
 describe("track service", () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    mock.clearAllMocks();
   });
 
   it("successfully tracks a new file", async () => {
-    mocked.getPathStats.mockResolvedValue({
+    (mockedFilesystem.getPathStats as MockFn).mockResolvedValue({
       isDirectory: () => false,
       isFile: () => true,
       isSymbolicLink: () => false,
     });
-    mocked.readSyncConfig.mockResolvedValue({
+    (mockedSync.readSyncConfig as MockFn).mockResolvedValue({
       entries: [],
       age: {},
     });
 
     const result = await trackTarget(
-      { target: mocked.bashrcPath, mode: "normal" },
-      mocked.homeDirectory,
+      { target: bashrcPath, mode: "normal" },
+      homeDirectory,
     );
 
     expect(result.alreadyTracked).toBe(false);
     expect(result.changed).toBe(true);
-    expect(result.localPath).toBe(mocked.bashrcPath);
-    expect(mocked.writeValidatedSyncConfig).toHaveBeenCalled();
+    expect(result.localPath).toBe(bashrcPath);
+    expect(mockedConfigFile.writeValidatedSyncConfig).toHaveBeenCalled();
   });
 
   it("throws error for missing target", async () => {
-    mocked.getPathStats.mockResolvedValue(undefined);
+    (mockedFilesystem.getPathStats as MockFn).mockResolvedValue(undefined);
 
     await expect(
       trackTarget(
@@ -121,19 +118,19 @@ describe("track service", () => {
               : "/home/user/missing",
           mode: "normal",
         },
-        mocked.homeDirectory,
+        homeDirectory,
       ),
     ).rejects.toThrow(DotweaveError);
   });
 
   it("detects when a target is already tracked", async () => {
-    const localPath = mocked.bashrcPath;
-    mocked.getPathStats.mockResolvedValue({
+    const localPath = bashrcPath;
+    (mockedFilesystem.getPathStats as MockFn).mockResolvedValue({
       isDirectory: () => false,
       isFile: () => true,
       isSymbolicLink: () => false,
     });
-    mocked.readSyncConfig.mockResolvedValue({
+    (mockedSync.readSyncConfig as MockFn).mockResolvedValue({
       entries: [
         {
           localPath,
@@ -148,7 +145,7 @@ describe("track service", () => {
 
     const result = await trackTarget(
       { target: localPath, mode: "normal" },
-      mocked.homeDirectory,
+      homeDirectory,
     );
 
     expect(result.alreadyTracked).toBe(true);
@@ -156,13 +153,13 @@ describe("track service", () => {
   });
 
   it("updates existing entry if mode changes", async () => {
-    const localPath = mocked.bashrcPath;
-    mocked.getPathStats.mockResolvedValue({
+    const localPath = bashrcPath;
+    (mockedFilesystem.getPathStats as MockFn).mockResolvedValue({
       isDirectory: () => false,
       isFile: () => true,
       isSymbolicLink: () => false,
     });
-    mocked.readSyncConfig.mockResolvedValue({
+    (mockedSync.readSyncConfig as MockFn).mockResolvedValue({
       entries: [
         {
           localPath,
@@ -177,7 +174,7 @@ describe("track service", () => {
 
     const result = await trackTarget(
       { target: localPath, mode: "secret" },
-      mocked.homeDirectory,
+      homeDirectory,
     );
 
     expect(result.alreadyTracked).toBe(true);

@@ -1,6 +1,5 @@
+import { describe, expect, it } from "bun:test";
 import { resolve } from "node:path";
-
-import { describe, expect, it } from "vitest";
 
 import type { ResolvedSyncConfigEntry } from "#app/config/sync.ts";
 import {

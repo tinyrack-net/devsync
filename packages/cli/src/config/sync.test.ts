@@ -1,9 +1,8 @@
+import { afterEach, describe, expect, it } from "bun:test";
 import { join } from "node:path";
 
-import { afterEach, describe, expect, it, vi } from "vitest";
-
 import type { PlatformKey } from "#app/config/platform.ts";
-import { createTemporaryDirectory } from "#app/test/helpers/sync-fixture.ts";
+import { createTemporaryDirectory } from "../test/helpers/sync-fixture.ts";
 import {
   normalizeSyncProfileName,
   parseSyncConfig as parseSyncConfigBase,
@@ -12,8 +11,6 @@ import {
 
 afterEach(() => {
   forcedPlatformKey = "linux";
-  vi.restoreAllMocks();
-  vi.unstubAllEnvs();
 });
 
 let forcedPlatformKey: PlatformKey = "linux";

@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it } from "bun:test";
 import {
   BASH_AUTOCOMPLETE_SCRIPT,
   POWERSHELL_AUTOCOMPLETE_SCRIPT,
@@ -6,8 +6,15 @@ import {
   ZSH_AUTOCOMPLETE_SCRIPT,
 } from "./autocomplete.ts";
 
+let originalCompLine: string | undefined;
+
 afterEach(() => {
-  vi.unstubAllEnvs();
+  if (originalCompLine !== undefined) {
+    process.env["COMP_LINE"] = originalCompLine;
+    originalCompLine = undefined;
+  } else {
+    delete process.env["COMP_LINE"];
+  }
 });
 
 describe("autocomplete helpers", () => {
@@ -35,7 +42,8 @@ describe("autocomplete helpers", () => {
   });
 
   it("prefers COMP_LINE when shells provide a richer completion line", () => {
-    vi.stubEnv("COMP_LINE", "  dotweave   profile   use   work  ");
+    originalCompLine = process.env["COMP_LINE"];
+    process.env["COMP_LINE"] = "  dotweave   profile   use   work  ";
 
     expect(resolveCompletionInputs(["ignored", "tokens"])).toEqual([
       "profile",
@@ -46,7 +54,8 @@ describe("autocomplete helpers", () => {
   });
 
   it("returns an empty input list for blank completion lines", () => {
-    vi.stubEnv("COMP_LINE", "   ");
+    originalCompLine = process.env["COMP_LINE"];
+    process.env["COMP_LINE"] = "   ";
 
     expect(resolveCompletionInputs(["dotweave", "track"])).toEqual([]);
   });

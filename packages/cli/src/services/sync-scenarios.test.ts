@@ -1,35 +1,44 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, mock } from "bun:test";
 import { CONSTANTS } from "#app/config/constants.ts";
 import { buildPullPlan } from "./pull.ts";
 import { buildPushPlan } from "./push.ts";
 import type { EffectiveSyncConfig } from "./runtime.ts";
 
-const mocked = vi.hoisted(() => ({
-  buildRepositorySnapshot: vi.fn(),
-  buildLocalSnapshot: vi.fn(),
-  buildEntryMaterialization: vi.fn(),
-  countDeletedLocalNodes: vi.fn(),
-  collectChangedLocalPaths: vi.fn(),
+type MockFn = ReturnType<typeof mock>;
+
+mock.module("./repo-snapshot.ts", () => ({
+  buildRepositorySnapshot: mock(),
 }));
 
-vi.mock("./repo-snapshot.ts", () => ({
-  buildRepositorySnapshot: mocked.buildRepositorySnapshot,
+mock.module("./local-snapshot.ts", () => ({
+  buildLocalSnapshot: mock(),
 }));
 
-vi.mock("./local-snapshot.ts", () => ({
-  buildLocalSnapshot: mocked.buildLocalSnapshot,
+mock.module("./local-materialization.ts", () => ({
+  buildEntryMaterialization: mock(),
+  countDeletedLocalNodes: mock(),
+  collectChangedLocalPaths: mock(),
+  buildPullCounts: mock(() => ({})),
 }));
 
-vi.mock("./local-materialization.ts", () => ({
-  buildEntryMaterialization: mocked.buildEntryMaterialization,
-  countDeletedLocalNodes: mocked.countDeletedLocalNodes,
-  collectChangedLocalPaths: mocked.collectChangedLocalPaths,
-  buildPullCounts: vi.fn(() => ({})),
-}));
+import * as mockedLocalMaterialization from "./local-materialization.ts";
+import * as mockedLocalSnapshot from "./local-snapshot.ts";
+import * as mockedRepoSnapshot from "./repo-snapshot.ts";
+
+const mocked = {
+  buildRepositorySnapshot: mockedRepoSnapshot.buildRepositorySnapshot as MockFn,
+  buildLocalSnapshot: mockedLocalSnapshot.buildLocalSnapshot as MockFn,
+  buildEntryMaterialization:
+    mockedLocalMaterialization.buildEntryMaterialization as MockFn,
+  countDeletedLocalNodes:
+    mockedLocalMaterialization.countDeletedLocalNodes as MockFn,
+  collectChangedLocalPaths:
+    mockedLocalMaterialization.collectChangedLocalPaths as MockFn,
+};
 
 describe("sync scenarios (unit)", () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    mock.clearAllMocks();
   });
 
   it("handles multi-profile configuration in pull plan", async () => {
@@ -118,7 +127,6 @@ describe("sync scenarios (unit)", () => {
       ]),
     );
 
-    // In actual implementation, buildLocalSnapshot filters out ignored entries.
     const plan = await buildPushPlan(config, "/tmp/sync");
 
     const artifactRepoPaths = plan.artifacts.map((a) => a.repoPath);

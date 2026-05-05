@@ -1,61 +1,55 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, mock } from "bun:test";
 import { CONSTANTS } from "#app/config/constants.ts";
 import type { LoadedSyncConfig } from "./runtime.ts";
-import { getStatus } from "./status.ts";
 
-const mocked = vi.hoisted(() => ({
-  resolveSyncConfigFilePath: vi.fn(() => "/tmp/dotweave/manifest.jsonc"),
-  ensureGitRepository: vi.fn(),
-  loadSyncConfig: vi.fn(),
-  resolveSyncPaths: vi.fn(() => ({
+mock.module("#app/config/sync.ts", () => ({
+  resolveSyncConfigFilePath: mock(() => "/tmp/dotweave/manifest.jsonc"),
+}));
+
+mock.module("#app/lib/git.ts", () => ({
+  ensureGitRepository: mock(),
+}));
+
+mock.module("./runtime.ts", () => ({
+  loadSyncConfig: mock(),
+  resolveSyncPaths: mock(() => ({
     syncDirectory: "/tmp/dotweave",
   })),
-  buildPushPlan: vi.fn(),
-  buildPullPlan: vi.fn(),
-  isRepoArtifactCurrent: vi.fn(),
-  buildArtifactKey: vi.fn(
+}));
+
+mock.module("./push.ts", () => ({
+  buildPushPlan: mock(),
+  buildPushResultFromPlan: mock(() => ({ result: "push" })),
+  buildPushPlanPreview: mock(() => ["push-preview"]),
+}));
+
+mock.module("./pull.ts", () => ({
+  buildPullPlan: mock(),
+  buildPullResultFromPlan: mock(() => ({ result: "pull" })),
+  buildPullPlanPreview: mock(() => ["pull-preview"]),
+}));
+
+mock.module("./repo-artifacts.ts", () => ({
+  buildArtifactKey: mock(
     (a: { profile: string; repoPath: string }) => `${a.profile}/${a.repoPath}`,
   ),
-  buildPushResultFromPlan: vi.fn(() => ({ result: "push" })),
-  buildPullResultFromPlan: vi.fn(() => ({ result: "pull" })),
-  buildPushPlanPreview: vi.fn(() => ["push-preview"]),
-  buildPullPlanPreview: vi.fn(() => ["pull-preview"]),
+  isRepoArtifactCurrent: mock(),
+  parseArtifactRelativePath: mock((p: string) => ({ repoPath: p })),
 }));
 
-vi.mock("#app/config/sync.ts", () => ({
-  resolveSyncConfigFilePath: mocked.resolveSyncConfigFilePath,
-}));
+import * as mockedGit from "#app/lib/git.ts";
+import * as mockedPull from "./pull.ts";
+import * as mockedPush from "./push.ts";
+import * as mockedRepoArtifacts from "./repo-artifacts.ts";
+import * as mockedRuntime from "./runtime.ts";
 
-vi.mock("#app/lib/git.ts", () => ({
-  ensureGitRepository: mocked.ensureGitRepository,
-}));
+import { getStatus } from "./status.ts";
 
-vi.mock("./runtime.ts", () => ({
-  loadSyncConfig: mocked.loadSyncConfig,
-  resolveSyncPaths: mocked.resolveSyncPaths,
-}));
-
-vi.mock("./push.ts", () => ({
-  buildPushPlan: mocked.buildPushPlan,
-  buildPushResultFromPlan: mocked.buildPushResultFromPlan,
-  buildPushPlanPreview: mocked.buildPushPlanPreview,
-}));
-
-vi.mock("./pull.ts", () => ({
-  buildPullPlan: mocked.buildPullPlan,
-  buildPullResultFromPlan: mocked.buildPullResultFromPlan,
-  buildPullPlanPreview: mocked.buildPullPlanPreview,
-}));
-
-vi.mock("./repo-artifacts.ts", () => ({
-  buildArtifactKey: mocked.buildArtifactKey,
-  isRepoArtifactCurrent: mocked.isRepoArtifactCurrent,
-  parseArtifactRelativePath: vi.fn((p: string) => ({ repoPath: p })),
-}));
+type MockFn = ReturnType<typeof mock>;
 
 describe("status service", () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    mock.clearAllMocks();
   });
 
   it("successfully returns status result", async () => {
@@ -85,17 +79,19 @@ describe("status service", () => {
       },
     };
 
-    mocked.loadSyncConfig.mockResolvedValue(mockConfig);
-    mocked.buildPushPlan.mockResolvedValue({
+    (mockedRuntime.loadSyncConfig as MockFn).mockResolvedValue(mockConfig);
+    (mockedPush.buildPushPlan as MockFn).mockResolvedValue({
       artifacts: [{ profile: "default", repoPath: ".bashrc", kind: "file" }],
       existingArtifactKeys: new Set(),
       desiredArtifactKeys: new Set(["default/.bashrc"]),
     });
-    mocked.buildPullPlan.mockResolvedValue({
+    (mockedPull.buildPullPlan as MockFn).mockResolvedValue({
       updatedLocalPaths: ["/home/user/.bashrc"],
       deletedLocalPaths: [],
     });
-    mocked.isRepoArtifactCurrent.mockResolvedValue(false);
+    (mockedRepoArtifacts.isRepoArtifactCurrent as MockFn).mockResolvedValue(
+      false,
+    );
 
     const result = await getStatus();
 
@@ -103,7 +99,7 @@ describe("status service", () => {
     expect(result.entryCount).toBe(1);
     expect(result.push.changes.added).toContain(".bashrc");
     expect(result.pull.changes.updated).toContain("/home/user/.bashrc");
-    expect(mocked.ensureGitRepository).toHaveBeenCalledWith("/tmp/dotweave");
+    expect(mockedGit.ensureGitRepository).toHaveBeenCalledWith("/tmp/dotweave");
   });
 
   it("handles empty active profile", async () => {
@@ -119,13 +115,13 @@ describe("status service", () => {
       },
     };
 
-    mocked.loadSyncConfig.mockResolvedValue(mockConfig);
-    mocked.buildPushPlan.mockResolvedValue({
+    (mockedRuntime.loadSyncConfig as MockFn).mockResolvedValue(mockConfig);
+    (mockedPush.buildPushPlan as MockFn).mockResolvedValue({
       artifacts: [],
       existingArtifactKeys: new Set(),
       desiredArtifactKeys: new Set(),
     });
-    mocked.buildPullPlan.mockResolvedValue({
+    (mockedPull.buildPullPlan as MockFn).mockResolvedValue({
       updatedLocalPaths: [],
       deletedLocalPaths: [],
     });

@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "bun:test";
 import { CONSTANTS } from "#app/config/constants.ts";
 import type { ResolvedSyncConfigEntry } from "#app/config/sync-schema.ts";
 import {

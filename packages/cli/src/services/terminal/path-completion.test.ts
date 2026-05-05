@@ -1,9 +1,8 @@
+import { afterEach, describe, expect, it } from "bun:test";
 import * as fs from "node:fs/promises";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import * as path from "node:path";
-
-import { afterEach, describe, expect, it } from "vitest";
 
 import type { DotweaveCliContext } from "./cli-runtime.ts";
 import { proposePathCompletions } from "./path-completion.ts";

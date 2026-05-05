@@ -1,40 +1,34 @@
+import { afterEach, describe, expect, it, mock } from "bun:test";
 import { EventEmitter } from "node:events";
 import { rm } from "node:fs/promises";
 
-import { afterEach, describe, expect, it, vi } from "vitest";
-
-const mockEnv = vi.hoisted(() => ({
-  COMSPEC: undefined as string | undefined,
-  HOME: undefined as string | undefined,
-  SHELL: undefined as string | undefined,
-  XDG_CONFIG_HOME: undefined as string | undefined,
+mock.module("node:child_process", () => ({
+  spawn: mock(),
 }));
 
-const spawnMock = vi.hoisted(() => vi.fn());
-
-vi.mock("node:child_process", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("node:child_process")>();
-
-  return {
-    ...actual,
-    spawn: spawnMock,
-  };
-});
-
-vi.mock("#app/lib/env.ts", () => ({
-  ENV: mockEnv,
+mock.module("#app/lib/env.ts", () => ({
+  ENV: {
+    COMSPEC: undefined as string | undefined,
+    HOME: undefined as string | undefined,
+    SHELL: undefined as string | undefined,
+    XDG_CONFIG_HOME: undefined as string | undefined,
+  },
 }));
 
-vi.mock("#app/config/runtime-env.ts", () => ({
+mock.module("#app/config/runtime-env.ts", () => ({
   resolveCurrentPlatformKey: () => "linux",
 }));
 
-import { createTemporaryDirectory } from "#app/test/helpers/sync-fixture.ts";
+import { spawn as spawnMock } from "node:child_process";
+import { ENV } from "#app/lib/env.ts";
+import { createTemporaryDirectory } from "../../test/helpers/sync-fixture.ts";
 
 import {
   launchShellInDirectory,
   resolveShellCommandForPlatform,
 } from "./shell.ts";
+
+type MockFn = ReturnType<typeof mock>;
 
 const temporaryDirectories: string[] = [];
 
@@ -47,13 +41,12 @@ const createWorkspace = async () => {
 };
 
 afterEach(async () => {
-  vi.restoreAllMocks();
+  mock.clearAllMocks();
 
-  mockEnv.COMSPEC = undefined;
-  mockEnv.HOME = undefined;
-  mockEnv.SHELL = undefined;
-  mockEnv.XDG_CONFIG_HOME = undefined;
-  spawnMock.mockReset();
+  ENV.COMSPEC = undefined;
+  ENV.HOME = undefined;
+  ENV.SHELL = undefined;
+  ENV.XDG_CONFIG_HOME = undefined;
 
   while (temporaryDirectories.length > 0) {
     const directory = temporaryDirectories.pop();
@@ -66,23 +59,23 @@ afterEach(async () => {
 
 describe("shell launcher", () => {
   it("resolves platform defaults from standard shell environment variables", async () => {
-    mockEnv.SHELL = "/bin/zsh";
+    ENV.SHELL = "/bin/zsh";
     expect(await resolveShellCommandForPlatform("linux")).toEqual({
       args: [],
       command: "/bin/zsh",
     });
 
-    mockEnv.SHELL = undefined;
+    ENV.SHELL = undefined;
     expect(await resolveShellCommandForPlatform("wsl")).toEqual({
       args: [],
       command: "/bin/sh",
     });
 
-    mockEnv.COMSPEC = "C:\\Windows\\System32\\cmd.exe";
+    ENV.COMSPEC = "C:\\Windows\\System32\\cmd.exe";
     expect(
       await resolveShellCommandForPlatform("win", {
         initialWindowsProcessId: 1,
-        inspectWindowsProcess: vi.fn(async () => undefined),
+        inspectWindowsProcess: mock(async () => undefined),
       }),
     ).toEqual({
       args: [],
@@ -91,7 +84,7 @@ describe("shell launcher", () => {
   });
 
   it("prefers the invoking PowerShell over wrapper cmd.exe on Windows", async () => {
-    const inspectWindowsProcess = vi.fn(async (processId: number) => {
+    const inspectWindowsProcess = mock(async (processId: number) => {
       if (processId === 200) {
         return {
           commandLine:
@@ -116,7 +109,7 @@ describe("shell launcher", () => {
       return undefined;
     });
 
-    mockEnv.COMSPEC = "C:\\Windows\\System32\\cmd.exe";
+    ENV.COMSPEC = "C:\\Windows\\System32\\cmd.exe";
     expect(
       await resolveShellCommandForPlatform("win", {
         initialWindowsProcessId: 200,
@@ -130,7 +123,7 @@ describe("shell launcher", () => {
   });
 
   it("keeps interactive cmd.exe sessions on Windows", async () => {
-    const inspectWindowsProcess = vi.fn(async (processId: number) => {
+    const inspectWindowsProcess = mock(async (processId: number) => {
       if (processId === 200) {
         return {
           commandLine: '"C:\\Windows\\System32\\cmd.exe"',
@@ -144,7 +137,7 @@ describe("shell launcher", () => {
       return undefined;
     });
 
-    mockEnv.COMSPEC = "C:\\Windows\\System32\\cmd.exe";
+    ENV.COMSPEC = "C:\\Windows\\System32\\cmd.exe";
     expect(
       await resolveShellCommandForPlatform("win", {
         initialWindowsProcessId: 200,
@@ -162,26 +155,28 @@ describe("shell launcher", () => {
     const shellDirectory = `${workspace}/sync`;
     const child = new EventEmitter() as EventEmitter & {
       stdout?: {
-        on: ReturnType<typeof vi.fn>;
-        setEncoding: ReturnType<typeof vi.fn>;
+        on: MockFn;
+        setEncoding: MockFn;
       };
     };
 
-    mockEnv.SHELL = "/bin/zsh";
-    spawnMock.mockImplementation((command, args, options) => {
-      expect(command).toBe("/bin/zsh");
-      expect(args).toEqual([]);
-      expect(options).toMatchObject({
-        cwd: shellDirectory,
-        env: process.env,
-        stdio: "inherit",
-      });
-      queueMicrotask(() => {
-        child.emit("close", 0, null);
-      });
+    ENV.SHELL = "/bin/zsh";
+    (spawnMock as MockFn).mockImplementation(
+      (command: string, args: string[], options: Record<string, unknown>) => {
+        expect(command).toBe("/bin/zsh");
+        expect(args).toEqual([]);
+        expect(options).toMatchObject({
+          cwd: shellDirectory,
+          env: process.env,
+          stdio: "inherit",
+        });
+        queueMicrotask(() => {
+          child.emit("close", 0, null);
+        });
 
-      return child;
-    });
+        return child;
+      },
+    );
 
     await expect(
       launchShellInDirectory(shellDirectory),

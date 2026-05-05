@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "bun:test";
 
 import { resolveSyncConfigFilePath } from "#app/config/sync.ts";
 import { buildPushPlanPreview, buildPushResultFromPlan } from "./push.ts";

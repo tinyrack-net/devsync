@@ -1,3 +1,4 @@
+import { afterEach, describe, expect, it, mock, spyOn } from "bun:test";
 import {
   chmod,
   lstat,
@@ -9,21 +10,18 @@ import {
 } from "node:fs/promises";
 import { join } from "node:path";
 
-import { afterEach, describe, expect, it, vi } from "vitest";
-
 import { createSymlink } from "#app/lib/filesystem.ts";
 
-const mockEnv = vi.hoisted(() => ({
-  HOME: "",
-  XDG_CONFIG_HOME: "",
-  WSL_DISTRO_NAME: undefined as string | undefined,
-}));
-
-vi.mock("#app/lib/env.ts", () => ({
-  ENV: mockEnv,
+mock.module("#app/lib/env.ts", () => ({
+  ENV: {
+    HOME: "",
+    XDG_CONFIG_HOME: "",
+    WSL_DISTRO_NAME: undefined as string | undefined,
+  },
 }));
 
 import * as platformConfig from "#app/config/platform.ts";
+import { ENV } from "#app/lib/env.ts";
 import {
   createAgeKeyPair,
   createTemporaryDirectory,
@@ -53,15 +51,15 @@ const createWorkspace = async () => {
 };
 
 const setEnvironment = (homeDirectory: string, xdgConfigHome: string) => {
-  mockEnv.HOME = homeDirectory;
-  mockEnv.XDG_CONFIG_HOME = xdgConfigHome;
+  ENV.HOME = homeDirectory;
+  ENV.XDG_CONFIG_HOME = xdgConfigHome;
 };
 
 afterEach(async () => {
-  vi.restoreAllMocks();
-  mockEnv.HOME = "";
-  mockEnv.XDG_CONFIG_HOME = "";
-  mockEnv.WSL_DISTRO_NAME = undefined;
+  mock.clearAllMocks();
+  ENV.HOME = "";
+  ENV.XDG_CONFIG_HOME = "";
+  ENV.WSL_DISTRO_NAME = undefined;
 
   while (temporaryDirectories.length > 0) {
     const directory = temporaryDirectories.pop();
@@ -326,7 +324,7 @@ describe("sync service", () => {
     const bundleDirectory = join(homeDirectory, ".config", "mytool");
     const ageKeys = await createAgeKeyPair();
     setEnvironment(homeDirectory, xdgConfigHome);
-    mockEnv.WSL_DISTRO_NAME = "Ubuntu";
+    ENV.WSL_DISTRO_NAME = "Ubuntu";
     const cwd = homeDirectory;
 
     await writeIdentityFile(xdgConfigHome, ageKeys.identity);
@@ -528,7 +526,7 @@ describe("sync service", () => {
     const gitconfig = join(homeDirectory, ".gitconfig");
     const ageKeys = await createAgeKeyPair();
     setEnvironment(homeDirectory, xdgConfigHome);
-    mockEnv.WSL_DISTRO_NAME = "Ubuntu";
+    ENV.WSL_DISTRO_NAME = "Ubuntu";
     const cwd = homeDirectory;
 
     await writeIdentityFile(xdgConfigHome, ageKeys.identity);
@@ -687,7 +685,7 @@ describe("sync service", () => {
     const secretsFile = join(zshDirectory, "secrets.zsh");
     const ageKeys = await createAgeKeyPair();
     setEnvironment(homeDirectory, xdgConfigHome);
-    const platformSpy = vi.spyOn(platformConfig, "detectCurrentPlatformKey");
+    const platformSpy = spyOn(platformConfig, "detectCurrentPlatformKey");
 
     await writeIdentityFile(xdgConfigHome, ageKeys.identity);
     await mkdir(zshDirectory, { recursive: true });
@@ -764,7 +762,7 @@ describe("sync service", () => {
     const secretsFile = join(zshDirectory, "secrets.zsh");
     const ageKeys = await createAgeKeyPair();
     setEnvironment(homeDirectory, xdgConfigHome);
-    const platformSpy = vi.spyOn(platformConfig, "detectCurrentPlatformKey");
+    const platformSpy = spyOn(platformConfig, "detectCurrentPlatformKey");
 
     await writeIdentityFile(xdgConfigHome, ageKeys.identity);
     await mkdir(zshDirectory, { recursive: true });

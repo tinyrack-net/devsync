@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, mock, spyOn } from "bun:test";
 import packageJson from "../package.json" with { type: "json" };
 import { runCli } from "./application.ts";
 import { rootCommandNames } from "./cli/root-commands.ts";
@@ -7,12 +7,12 @@ const captureProcessOutput = () => {
   let stdout = "";
   let stderr = "";
 
-  vi.spyOn(process.stdout, "write").mockImplementation(((chunk: unknown) => {
+  spyOn(process.stdout, "write").mockImplementation(((chunk: unknown) => {
     stdout += String(chunk);
 
     return true;
   }) as never);
-  vi.spyOn(process.stderr, "write").mockImplementation(((chunk: unknown) => {
+  spyOn(process.stderr, "write").mockImplementation(((chunk: unknown) => {
     stderr += String(chunk);
 
     return true;
@@ -26,7 +26,7 @@ const captureProcessOutput = () => {
 
 afterEach(() => {
   process.exitCode = undefined;
-  vi.restoreAllMocks();
+  mock.restore();
 });
 
 describe("CLI application", () => {
@@ -35,7 +35,7 @@ describe("CLI application", () => {
 
     await runCli(["--version"]);
 
-    expect(process.exitCode).toBe(0);
+    expect(process.exitCode as unknown as number).toBe(0);
     expect(output.stdout()).toContain(`dotweave/${packageJson.version}`);
     expect(output.stderr()).toBe("");
   });
@@ -45,7 +45,7 @@ describe("CLI application", () => {
 
     await runCli([]);
 
-    expect(process.exitCode).toBe(0);
+    expect(process.exitCode as unknown as number).toBe(0);
     expect(output.stderr()).toBe("");
 
     for (const commandName of rootCommandNames) {
@@ -62,18 +62,18 @@ describe("CLI application", () => {
 
     await runCli(["autocomplete", "bash"]);
 
-    expect(process.exitCode).toBe(0);
+    expect(process.exitCode as unknown as number).toBe(0);
     expect(scriptOutput.stdout()).toContain("__dotweave_complete() {");
     expect(scriptOutput.stderr()).toBe("");
 
-    vi.restoreAllMocks();
+    mock.restore();
     process.exitCode = undefined;
 
     const completionOutput = captureProcessOutput();
 
     await runCli(["__complete", "dotweave", "aut"]);
 
-    expect(process.exitCode).toBe(0);
+    expect(process.exitCode as unknown as number).toBe(0);
     expect(completionOutput.stdout()).toContain("autocomplete");
     expect(completionOutput.stderr()).toBe("");
   });
@@ -100,7 +100,7 @@ describe("CLI application", () => {
       'Expected "bogus" to be one of (normal|secret|ignore)',
     );
 
-    vi.restoreAllMocks();
+    mock.restore();
     process.exitCode = undefined;
 
     const missingArgumentOutput = captureProcessOutput();

@@ -1,121 +1,85 @@
+import { afterEach, beforeEach, describe, expect, it, mock } from "bun:test";
 import type { Command } from "@stricli/core";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DotweaveError } from "#app/lib/error.ts";
 import type { DotweaveCliContext } from "#app/services/terminal/cli-runtime.ts";
 
-const mockLogger = vi.hoisted(() => ({
-  fail: vi.fn(),
-  info: vi.fn(),
-  level: 3,
-  log: vi.fn(),
-  start: vi.fn(),
-  success: vi.fn(),
-  verbose: vi.fn(),
-  warn: vi.fn(),
+type MockFn = ReturnType<typeof mock>;
+
+mock.module("node:fs/promises", () => ({
+  mkdir: mock(),
 }));
 
-const mocked = vi.hoisted(() => ({
-  applyPullPlan: vi.fn(),
-  assignProfiles: vi.fn(),
-  buildPullResultFromPlan: vi.fn(),
-  clearActiveProfile: vi.fn(),
-  consolaPrompt: vi.fn(),
-  createMissingRepositoryAgeKeyError: vi.fn(),
-  getStatus: vi.fn(),
-  initializeSyncDirectory: vi.fn(),
-  launchShellInDirectory: vi.fn(),
-  listProfiles: vi.fn(),
-  mkdir: vi.fn(),
-  pathExists: vi.fn(),
-  preparePull: vi.fn(),
-  pushChanges: vi.fn(),
-  readEnvValue: vi.fn(),
-  resolveConfiguredAbsolutePath: vi.fn(),
-  resolveDefaultIdentityFile: vi.fn(),
-  resolveDotweaveConfigDirectory: vi.fn(),
-  resolveDotweaveSyncDirectory: vi.fn(),
-  runDoctorChecks: vi.fn(),
-  setActiveProfile: vi.fn(),
-  setTargetMode: vi.fn(),
-  trackTarget: vi.fn(),
-  untrackTarget: vi.fn(),
+mock.module("#app/config/xdg.ts", () => ({
+  resolveConfiguredAbsolutePath: mock(),
+  resolveDotweaveConfigDirectory: mock(),
 }));
 
-vi.mock("node:fs/promises", () => ({
-  mkdir: mocked.mkdir,
+mock.module("#app/config/runtime-env.ts", () => ({
+  readEnvValue: mock(),
+  resolveDotweaveSyncDirectoryFromEnv: mock(),
 }));
 
-vi.mock("#app/config/xdg.ts", () => ({
-  resolveConfiguredAbsolutePath: mocked.resolveConfiguredAbsolutePath,
-  resolveDotweaveConfigDirectory: mocked.resolveDotweaveConfigDirectory,
+mock.module("#app/config/identity-file.ts", () => ({
+  resolveDefaultIdentityFile: mock(),
 }));
 
-vi.mock("#app/config/runtime-env.ts", () => ({
-  readEnvValue: mocked.readEnvValue,
-  resolveDotweaveSyncDirectoryFromEnv: mocked.resolveDotweaveSyncDirectory,
-}));
-
-vi.mock("#app/config/identity-file.ts", () => ({
-  resolveDefaultIdentityFile: mocked.resolveDefaultIdentityFile,
-}));
-
-vi.mock("#app/lib/env.ts", () => ({
+mock.module("#app/lib/env.ts", () => ({
   ENV: {},
 }));
 
-vi.mock("#app/lib/filesystem.ts", () => ({
-  pathExists: mocked.pathExists,
+mock.module("#app/lib/filesystem.ts", () => ({
+  pathExists: mock(),
 }));
 
-vi.mock("#app/services/track.ts", () => ({
-  trackTarget: mocked.trackTarget,
+mock.module("#app/services/track.ts", () => ({
+  trackTarget: mock(),
 }));
 
-vi.mock("#app/services/doctor.ts", () => ({
-  runDoctorChecks: mocked.runDoctorChecks,
+mock.module("#app/services/doctor.ts", () => ({
+  runDoctorChecks: mock(),
 }));
 
-vi.mock("#app/services/untrack.ts", () => ({
-  untrackTarget: mocked.untrackTarget,
+mock.module("#app/services/untrack.ts", () => ({
+  untrackTarget: mock(),
 }));
 
-vi.mock("#app/services/init.ts", () => ({
-  createMissingRepositoryAgeKeyError: mocked.createMissingRepositoryAgeKeyError,
-  initializeSyncDirectory: mocked.initializeSyncDirectory,
+mock.module("#app/services/init.ts", () => ({
+  createMissingRepositoryAgeKeyError: mock(),
+  initializeSyncDirectory: mock(),
 }));
 
-vi.mock("#app/services/profile.ts", () => ({
-  assignProfiles: mocked.assignProfiles,
-  clearActiveProfile: mocked.clearActiveProfile,
-  listProfiles: mocked.listProfiles,
-  setActiveProfile: mocked.setActiveProfile,
+mock.module("#app/services/profile.ts", () => ({
+  assignProfiles: mock(),
+  clearActiveProfile: mock(),
+  listProfiles: mock(),
+  setActiveProfile: mock(),
 }));
 
-vi.mock("#app/services/pull.ts", () => ({
-  applyPullPlan: mocked.applyPullPlan,
-  buildPullResultFromPlan: mocked.buildPullResultFromPlan,
-  preparePull: mocked.preparePull,
+mock.module("#app/services/pull.ts", () => ({
+  applyPullPlan: mock(),
+  buildPullResultFromPlan: mock(),
+  preparePull: mock(),
 }));
 
-vi.mock("#app/services/push.ts", () => ({
-  pushChanges: mocked.pushChanges,
+mock.module("#app/services/push.ts", () => ({
+  pushChanges: mock(),
 }));
 
-vi.mock("#app/services/set.ts", () => ({
-  setTargetMode: mocked.setTargetMode,
+mock.module("#app/services/set.ts", () => ({
+  setTargetMode: mock(),
 }));
 
-vi.mock("#app/services/status.ts", () => ({
-  getStatus: mocked.getStatus,
+mock.module("#app/services/status.ts", () => ({
+  getStatus: mock(),
 }));
 
-vi.mock("consola", () => ({
+mock.module("consola", () => ({
   default: {
-    prompt: mocked.consolaPrompt,
+    prompt: mock(),
   },
 }));
 
-vi.mock("#app/services/terminal/cli-runtime.ts", () => ({
+mock.module("#app/services/terminal/cli-runtime.ts", () => ({
   verboseFlag: {
     brief: "verbose",
     kind: "boolean",
@@ -123,13 +87,43 @@ vi.mock("#app/services/terminal/cli-runtime.ts", () => ({
   },
 }));
 
-vi.mock("#app/services/terminal/logger.ts", () => ({
-  createCliLogger: vi.fn(() => mockLogger),
+mock.module("#app/services/terminal/logger.ts", () => {
+  const logger = {
+    fail: mock(),
+    info: mock(),
+    level: 3,
+    log: mock(),
+    start: mock(),
+    success: mock(),
+    verbose: mock(),
+    warn: mock(),
+  };
+  return {
+    createCliLogger: mock(() => logger),
+  };
+});
+
+mock.module("#app/services/terminal/shell.ts", () => ({
+  launchShellInDirectory: mock(),
 }));
 
-vi.mock("#app/services/terminal/shell.ts", () => ({
-  launchShellInDirectory: mocked.launchShellInDirectory,
-}));
+import * as mockedFs from "node:fs/promises";
+import * as mockedConsola from "consola";
+import * as mockedIdentityFile from "#app/config/identity-file.ts";
+import * as mockedRuntimeEnv from "#app/config/runtime-env.ts";
+import * as mockedXdg from "#app/config/xdg.ts";
+import * as mockedFilesystem from "#app/lib/filesystem.ts";
+import * as mockedDoctor from "#app/services/doctor.ts";
+import * as mockedInit from "#app/services/init.ts";
+import * as mockedProfile from "#app/services/profile.ts";
+import * as mockedPull from "#app/services/pull.ts";
+import * as mockedPush from "#app/services/push.ts";
+import * as mockedSet from "#app/services/set.ts";
+import * as mockedStatus from "#app/services/status.ts";
+import * as mockedLogger from "#app/services/terminal/logger.ts";
+import * as mockedShell from "#app/services/terminal/shell.ts";
+import * as mockedTrack from "#app/services/track.ts";
+import * as mockedUntrack from "#app/services/untrack.ts";
 
 import cdCommand from "./cd.ts";
 import doctorCommand from "./doctor.ts";
@@ -141,6 +135,41 @@ import pushCommand from "./push.ts";
 import statusCommand from "./status.ts";
 import trackCommand from "./track.ts";
 import untrackCommand from "./untrack.ts";
+
+const mockLogger = (mockedLogger.createCliLogger as MockFn)();
+
+const mocked = {
+  mkdir: mockedFs.mkdir as MockFn,
+  resolveConfiguredAbsolutePath:
+    mockedXdg.resolveConfiguredAbsolutePath as MockFn,
+  resolveDotweaveConfigDirectory:
+    mockedXdg.resolveDotweaveConfigDirectory as MockFn,
+  readEnvValue: mockedRuntimeEnv.readEnvValue as MockFn,
+  resolveDotweaveSyncDirectory:
+    mockedRuntimeEnv.resolveDotweaveSyncDirectoryFromEnv as MockFn,
+  resolveDefaultIdentityFile:
+    mockedIdentityFile.resolveDefaultIdentityFile as MockFn,
+  pathExists: mockedFilesystem.pathExists as MockFn,
+  trackTarget: mockedTrack.trackTarget as MockFn,
+  runDoctorChecks: mockedDoctor.runDoctorChecks as MockFn,
+  untrackTarget: mockedUntrack.untrackTarget as MockFn,
+  createMissingRepositoryAgeKeyError:
+    mockedInit.createMissingRepositoryAgeKeyError as MockFn,
+  initializeSyncDirectory: mockedInit.initializeSyncDirectory as MockFn,
+  assignProfiles: mockedProfile.assignProfiles as MockFn,
+  clearActiveProfile: mockedProfile.clearActiveProfile as MockFn,
+  listProfiles: mockedProfile.listProfiles as MockFn,
+  setActiveProfile: mockedProfile.setActiveProfile as MockFn,
+  applyPullPlan: mockedPull.applyPullPlan as MockFn,
+  buildPullResultFromPlan: mockedPull.buildPullResultFromPlan as MockFn,
+  preparePull: mockedPull.preparePull as MockFn,
+  pushChanges: mockedPush.pushChanges as MockFn,
+  setTargetMode: mockedSet.setTargetMode as MockFn,
+  getStatus: mockedStatus.getStatus as MockFn,
+  consolaPrompt: (mockedConsola as unknown as { default: { prompt: MockFn } })
+    .default.prompt,
+  launchShellInDirectory: mockedShell.launchShellInDirectory as MockFn,
+};
 
 const runCommand = async (
   command: Command<DotweaveCliContext>,
@@ -167,7 +196,7 @@ const runCommand = async (
 
 beforeEach(() => {
   process.exitCode = undefined;
-  vi.clearAllMocks();
+  mock.clearAllMocks();
 
   mocked.resolveDefaultIdentityFile.mockReturnValue("/tmp/keys.txt");
   mocked.resolveConfiguredAbsolutePath.mockReturnValue("/tmp/keys.txt");

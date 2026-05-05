@@ -1,18 +1,29 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, mock } from "bun:test";
 import { CONSTANTS } from "#app/config/constants.ts";
 import { buildRepositorySnapshot } from "./repo-snapshot.ts";
 import type { EffectiveSyncConfig } from "./runtime.ts";
 
-const mocked = vi.hoisted(() => ({
-  getPathStats: vi.fn(),
-  listDirectoryEntries: vi.fn(),
-  lstat: vi.fn(),
-  readFile: vi.fn(),
-  readlink: vi.fn(),
-  decryptSecretFile: vi.fn(),
-  resolveSyncRule: vi.fn(),
-  collectArtifactProfiles: vi.fn(() => new Set(["work"])),
-  parseArtifactRelativePath: vi.fn((p) => {
+type MockFn = ReturnType<typeof mock>;
+
+mock.module("node:fs/promises", () => ({
+  lstat: mock(),
+  readFile: mock(),
+  readlink: mock(),
+}));
+
+mock.module("#app/lib/filesystem.ts", () => ({
+  getPathStats: mock(),
+  listDirectoryEntries: mock(),
+}));
+
+mock.module("#app/config/sync.ts", () => ({
+  resolveSyncRule: mock(),
+  resolveManagedSyncMode: mock(() => "normal"),
+}));
+
+mock.module("./repo-artifacts.ts", () => ({
+  collectArtifactProfiles: mock(() => new Set(["work"])),
+  parseArtifactRelativePath: mock((p: string) => {
     const segments = p.split("/");
     return {
       profile: segments[0],
@@ -20,38 +31,36 @@ const mocked = vi.hoisted(() => ({
       secret: p.endsWith(".age"),
     };
   }),
-  assertStorageSafeRepoPath: vi.fn(),
+  assertStorageSafeRepoPath: mock(),
 }));
 
-vi.mock("node:fs/promises", () => ({
-  lstat: mocked.lstat,
-  readFile: mocked.readFile,
-  readlink: mocked.readlink,
+mock.module("#app/lib/file-mode.ts", () => ({
+  isExecutableMode: mock(() => false),
 }));
 
-vi.mock("#app/lib/filesystem.ts", () => ({
-  getPathStats: mocked.getPathStats,
-  listDirectoryEntries: mocked.listDirectoryEntries,
-}));
+import * as mockedFs from "node:fs/promises";
+import * as mockedSyncConfig from "#app/config/sync.ts";
+import * as mockedFilesystem from "#app/lib/filesystem.ts";
+import * as mockedRepoArtifacts from "./repo-artifacts.ts";
 
-vi.mock("#app/config/sync.ts", () => ({
-  resolveSyncRule: mocked.resolveSyncRule,
-  resolveManagedSyncMode: vi.fn(() => "normal"),
-}));
-
-vi.mock("./repo-artifacts.ts", () => ({
-  collectArtifactProfiles: mocked.collectArtifactProfiles,
-  parseArtifactRelativePath: mocked.parseArtifactRelativePath,
-  assertStorageSafeRepoPath: mocked.assertStorageSafeRepoPath,
-}));
-
-vi.mock("#app/lib/file-mode.ts", () => ({
-  isExecutableMode: vi.fn(() => false),
-}));
+const mocked = {
+  getPathStats: mockedFilesystem.getPathStats as MockFn,
+  listDirectoryEntries: mockedFilesystem.listDirectoryEntries as MockFn,
+  lstat: mockedFs.lstat as MockFn,
+  readFile: mockedFs.readFile as MockFn,
+  readlink: mockedFs.readlink as MockFn,
+  resolveSyncRule: mockedSyncConfig.resolveSyncRule as MockFn,
+  collectArtifactProfiles:
+    mockedRepoArtifacts.collectArtifactProfiles as MockFn,
+  parseArtifactRelativePath:
+    mockedRepoArtifacts.parseArtifactRelativePath as MockFn,
+  assertStorageSafeRepoPath:
+    mockedRepoArtifacts.assertStorageSafeRepoPath as MockFn,
+};
 
 describe("repo-snapshot service", () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    mock.clearAllMocks();
   });
 
   it("scans repository and builds snapshot", async () => {
@@ -115,7 +124,7 @@ describe("repo-snapshot service", () => {
     };
 
     mocked.getPathStats.mockResolvedValue({ isDirectory: () => true });
-    mocked.listDirectoryEntries.mockResolvedValueOnce([]); // No files found in work/ profile
+    mocked.listDirectoryEntries.mockResolvedValueOnce([]);
     mocked.resolveSyncRule.mockReturnValue({ profile: "work", mode: "normal" });
 
     const snapshot = await buildRepositorySnapshot("/tmp/repo", config);
