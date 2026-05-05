@@ -6,7 +6,7 @@
   "description": "Documentation homepage for dotweave built with Astro and Starlight.",
   "license": "MIT",
   "engines": {
-    "node": ">=24.0.0"
+    "node": ">=25.0.0"
   },
   "scripts": {
     "dev": "astro dev",
@@ -19,19 +19,19 @@
     "deploy:dry-run": "wrangler deploy --dry-run"
   },
   "dependencies": {
-    "@astrojs/starlight": "^0.38.2",
+    "@astrojs/starlight": "^0.38.4",
     "@astrojs/starlight-tailwind": "^5.0.0",
     "@fontsource/geist-mono": "^5.2.7",
     "@fontsource/geist-sans": "^5.2.5",
-    "@tailwindcss/vite": "^4.2.2",
-    "astro": "^6.1.1",
+    "@tailwindcss/vite": "^4.2.4",
+    "astro": "6.2.2",
     "cobe": "^2.0.1",
     "starlight-theme-black": "^0.6.0",
-    "tailwindcss": "^4.2.2"
+    "tailwindcss": "^4.2.4"
   },
   "devDependencies": {
-    "@astrojs/check": "^0.9.4",
-    "typescript": "^5.9.3",
-    "wrangler": "^4.78.0"
+    "@astrojs/check": "^0.9.9",
+    "typescript": "^6.0.3",
+    "wrangler": "^4.87.0"
   }
 }

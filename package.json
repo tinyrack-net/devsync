@@ -2,7 +2,7 @@
   "name": "dotweave",
   "private": true,
   "type": "module",
-  "packageManager": "pnpm@10.33.0",
+  "packageManager": "pnpm@10.33.3",
   "scripts": {
     "dev": "pnpm run -r --filter @tinyrack/* dev",
     "build": "pnpm run -r --filter @tinyrack/* build",
@@ -13,9 +13,9 @@
     "format:check": "biome check ."
   },
   "devDependencies": {
-    "@biomejs/biome": "^2.3.10"
+    "@biomejs/biome": "^2.4.14"
   },
   "engines": {
-    "node": ">=24.0.0"
+    "node": ">=25.0.0"
   }
 }
