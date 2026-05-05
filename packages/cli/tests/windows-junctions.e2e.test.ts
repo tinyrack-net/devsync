@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import { mkdir, rmdir, rm, symlink, unlink, writeFile } from "node:fs/promises";
+import { mkdir, rm, rmdir, symlink, unlink, writeFile } from "node:fs/promises";
 import { dirname, join, relative } from "node:path";
 import {
   createSyncE2EContext,
