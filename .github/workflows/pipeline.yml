@@ -68,7 +68,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Build pkg
-        run: pnpm --filter @tinyrack/dotweave run pkg:build --target node24-linux-x64,node24-linux-arm64,node24-macos-arm64,node24-win-x64,node24-win-arm64
+        run: pnpm --filter @tinyrack/dotweave run pkg:build --target node24-linux-x64,node24-linux-arm64,node24-macos-x64,node24-macos-arm64,node24-win-x64,node24-win-arm64
 
       - name: Upload dotweave-linux-x64
         uses: actions/upload-artifact@v4
@@ -82,6 +82,13 @@ jobs:
         with:
           name: dotweave-linux-arm64
           path: packages/cli/dist/pkg/dotweave-linux-arm64
+          if-no-files-found: error
+
+      - name: Upload dotweave-darwin-x64
+        uses: actions/upload-artifact@v4
+        with:
+          name: dotweave-darwin-x64
+          path: packages/cli/dist/pkg/dotweave-macos-x64
           if-no-files-found: error
 
       - name: Upload dotweave-darwin-arm64
