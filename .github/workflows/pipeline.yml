@@ -127,10 +127,15 @@ jobs:
       - name: Smoke test SEA executable
         run: pnpm --filter @tinyrack/dotweave run sea:smoke
 
-      - name: Rename executable
+      - name: Rename executable (Unix)
+        if: runner.os != 'Windows'
         shell: bash
-        run: mv ${{ matrix.executable_path }} packages/cli/dist/sea/${{
-          matrix.artifact_name }}
+        run: mv ${{ matrix.executable_path }} packages/cli/dist/sea/${{ matrix.artifact_name }}
+
+      - name: Rename executable (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: Move-Item -Path '${{ matrix.executable_path }}' -Destination 'packages/cli/dist/sea/${{ matrix.artifact_name }}'
 
       - name: Upload SEA artifact
         uses: actions/upload-artifact@v4
