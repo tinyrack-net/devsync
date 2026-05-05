@@ -74,11 +74,11 @@ jobs:
           #   artifact_name: dotweave-darwin-x64
           #   executable_path: packages/cli/dist/sea/dotweave
           - os: windows-latest
-            runs_on: [self-hosted, windows]
+            runs_on: [self-hosted, windows, x64]
             artifact_name: dotweave-win32-x64.exe
             executable_path: packages/cli/dist/sea/dotweave.exe
           - os: windows-latest
-            runs_on: [self-hosted, windows]
+            runs_on: [self-hosted, windows, x64]
             artifact_name: dotweave-win32-arm64.exe
             executable_path: packages/cli/dist/sea/dotweave.exe
     runs-on: ${{ matrix.runs_on }}
