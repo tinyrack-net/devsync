@@ -25,13 +25,22 @@ const buildPkgCommand = buildCommand<{ target?: string }, []>({
   },
 });
 
-const smokePkgCommand = buildCommand<{ skipBuild: boolean }, []>({
+const smokePkgCommand = buildCommand<
+  { skipBuild: boolean; executablePath?: string },
+  []
+>({
   parameters: {
     flags: {
       skipBuild: {
         brief: "Skip building the executable before running smoke tests",
         kind: "boolean",
         default: false,
+      },
+      executablePath: {
+        brief: "Path to the executable to test (relative to repo root)",
+        kind: "parsed",
+        parse: String,
+        optional: true,
       },
     },
   },
@@ -43,6 +52,9 @@ const smokePkgCommand = buildCommand<{ skipBuild: boolean }, []>({
     await performPkgSmoke({
       repoRoot,
       skipBuild: flags.skipBuild,
+      ...(flags.executablePath !== undefined
+        ? { executablePath: flags.executablePath }
+        : {}),
     });
   },
 });

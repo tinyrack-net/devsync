@@ -195,16 +195,19 @@ export async function performPkgBuild(options: PkgBuildOptions) {
 export async function performPkgSmoke(options: {
   repoRoot: string;
   skipBuild: boolean;
+  executablePath?: string;
 }) {
   const cliDir = join(options.repoRoot, "packages", "cli");
   const packageJson = JSON.parse(
     await readFile(join(cliDir, "package.json"), "utf8"),
   );
   const pkgDirectory = join(cliDir, "dist", "pkg");
-  const executablePath = join(
-    pkgDirectory,
-    process.platform === "win32" ? "dotweave.exe" : "dotweave",
-  );
+  const executablePath = options.executablePath
+    ? join(options.repoRoot, options.executablePath)
+    : join(
+        pkgDirectory,
+        process.platform === "win32" ? "dotweave.exe" : "dotweave",
+      );
 
   const smokeEnvironment = {
     FORCE_COLOR: "0",
