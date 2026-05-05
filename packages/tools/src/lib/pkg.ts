@@ -69,9 +69,11 @@ export async function performPkgBuild(options: PkgBuildOptions) {
   const pkgBundlePath = join(pkgOutputDirectory, "dotweave.bundle.js");
 
   const isMultiTarget = options.target?.includes(",");
-  const isWin = !isMultiTarget && (options.target
-    ? options.target.includes("win")
-    : process.platform === "win32");
+  const isWin =
+    !isMultiTarget &&
+    (options.target
+      ? options.target.includes("win")
+      : process.platform === "win32");
 
   const executablePath = join(
     pkgOutputDirectory,
@@ -173,7 +175,9 @@ export async function performPkgBuild(options: PkgBuildOptions) {
   await bundleForPkg();
 
   const pkgTarget = options.target || "node24";
-  console.log(`Generating pkg executable for ${pkgTarget} at ${executablePath}...`);
+  console.log(
+    `Generating pkg executable for ${pkgTarget} at ${executablePath}...`,
+  );
   await exec([
     "-t",
     pkgTarget,

@@ -126,6 +126,10 @@ jobs:
             runs_on: macos-26
             artifact_name: dotweave-darwin-arm64
             executable_path: packages/cli/dist/pkg/dotweave
+          - os: macos-26-intel
+            runs_on: macos-13
+            artifact_name: dotweave-darwin-x64
+            executable_path: packages/cli/dist/pkg/dotweave
           - os: windows-latest-x64
             runs_on: [self-hosted, Windows, X64]
             artifact_name: dotweave-win32-x64.exe
@@ -449,4 +453,6 @@ jobs:
         with:
           store_login: ${{ secrets.SNAPCRAFT_STORE_CREDENTIALS }}
           snap: ${{ steps.build.outputs.snap }}
+          release: stable
+{{ steps.build.outputs.snap }}
           release: stable
