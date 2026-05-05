@@ -1,15 +1,15 @@
 import { buildRouteMap } from "@stricli/core";
 import { appimageRoute } from "./appimage.ts";
 import { homebrewRoute } from "./homebrew.ts";
+import { pkgRoute } from "./pkg.ts";
 import { releaseCommand } from "./release.ts";
-import { seaRoute } from "./sea.ts";
 import { signRoute } from "./sign.ts";
 import { verifyRoute } from "./verify.ts";
 
 export const commands = buildRouteMap({
   routes: {
     release: releaseCommand,
-    sea: seaRoute,
+    pkg: pkgRoute,
     verify: verifyRoute,
     sign: signRoute,
     appimage: appimageRoute,

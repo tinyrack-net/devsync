@@ -30,6 +30,7 @@
   },
   "dependencies": {
     "@stricli/core": "^1.2.6",
+    "@yao-pkg/pkg": "^6.19.0",
     "consola": "^3.4.2",
     "execa": "^9.6.1",
     "zod": "^4.4.3"
@@ -39,7 +40,7 @@
     "@types/node": "^25.6.0",
     "@vitest/coverage-v8": "^4.1.5",
     "typescript": "^6.0.3",
-    "vite": "^7.3.2",
+    "vite": "^8.0.10",
     "vitest": "^4.1.5"
   }
 }

@@ -47,8 +47,66 @@ jobs:
       - name: Run validation
         run: pnpm run ci:validate
 
-  build-sea:
+  build-pkg:
     needs: validate
+    if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build pkg
+        run: pnpm --filter @tinyrack/dotweave run pkg:build --target node24-linux-x64,node24-linux-arm64,node24-macos-arm64,node24-win-x64,node24-win-arm64
+
+      - name: Upload dotweave-linux-x64
+        uses: actions/upload-artifact@v4
+        with:
+          name: dotweave-linux-x64
+          path: packages/cli/dist/pkg/dotweave-linux-x64
+          if-no-files-found: error
+
+      - name: Upload dotweave-linux-arm64
+        uses: actions/upload-artifact@v4
+        with:
+          name: dotweave-linux-arm64
+          path: packages/cli/dist/pkg/dotweave-linux-arm64
+          if-no-files-found: error
+
+      - name: Upload dotweave-darwin-arm64
+        uses: actions/upload-artifact@v4
+        with:
+          name: dotweave-darwin-arm64
+          path: packages/cli/dist/pkg/dotweave-macos-arm64
+          if-no-files-found: error
+
+      - name: Upload dotweave-win32-x64.exe
+        uses: actions/upload-artifact@v4
+        with:
+          name: dotweave-win32-x64.exe
+          path: packages/cli/dist/pkg/dotweave-win-x64.exe
+          if-no-files-found: error
+
+      - name: Upload dotweave-win32-arm64.exe
+        uses: actions/upload-artifact@v4
+        with:
+          name: dotweave-win32-arm64.exe
+          path: packages/cli/dist/pkg/dotweave-win-arm64.exe
+          if-no-files-found: error
+
+  sign-and-test:
+    needs: build-pkg
     if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')
     strategy:
       fail-fast: false
@@ -57,28 +115,25 @@ jobs:
           - os: ubuntu-latest
             runs_on: ubuntu-latest
             artifact_name: dotweave-linux-x64
-            executable_path: packages/cli/dist/sea/dotweave
+            executable_path: packages/cli/dist/pkg/dotweave
           - os: ubuntu-24.04-arm
             runs_on: ubuntu-24.04-arm
             artifact_name: dotweave-linux-arm64
-            executable_path: packages/cli/dist/sea/dotweave
+            executable_path: packages/cli/dist/pkg/dotweave
           # macos-26 is arm64. Keep the artifact name explicit while darwin-x64
-          # SEA builds are disabled due to Node 25 SIGSEGV on launch.
+          # pkg builds are disabled due to Node 25 SIGSEGV on launch.
           - os: macos-26
             runs_on: macos-26
             artifact_name: dotweave-darwin-arm64
-            executable_path: packages/cli/dist/sea/dotweave
-          # - os: macos-26-intel
-          #   artifact_name: dotweave-darwin-x64
-          #   executable_path: packages/cli/dist/sea/dotweave
-          - os: windows-latest
+            executable_path: packages/cli/dist/pkg/dotweave
+          - os: windows-latest-x64
             runs_on: [self-hosted, Windows, X64]
             artifact_name: dotweave-win32-x64.exe
-            executable_path: packages/cli/dist/sea/dotweave.exe
-          - os: windows-latest
+            executable_path: packages/cli/dist/pkg/dotweave.exe
+          - os: windows-latest-arm64
             runs_on: [self-hosted, Windows, X64]
             artifact_name: dotweave-win32-arm64.exe
-            executable_path: packages/cli/dist/sea/dotweave.exe
+            executable_path: packages/cli/dist/pkg/dotweave.exe
     runs-on: ${{ matrix.runs_on }}
     env:
       ESIGNER_USERNAME: ${{ secrets.ESIGNER_USERNAME }}
@@ -98,8 +153,23 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Build SEA
-        run: pnpm --filter @tinyrack/dotweave run sea:build
+      - name: Download pkg artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ matrix.artifact_name }}
+          path: packages/cli/dist/pkg
+
+      - name: Restore executable name (Unix)
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          mv packages/cli/dist/pkg/${{ matrix.artifact_name }} ${{ matrix.executable_path }}
+          chmod +x ${{ matrix.executable_path }}
+
+      - name: Restore executable name (Windows)
+        if: runner.os == 'Windows'
+        shell: powershell
+        run: Move-Item -Path 'packages/cli/dist/pkg/${{ matrix.artifact_name }}' -Destination '${{ matrix.executable_path }}'
 
       - name: Sign and Notarize macOS binary
         if: startsWith(matrix.os, 'macos')
@@ -124,30 +194,21 @@ jobs:
           file_path: ${{ matrix.executable_path }}
           environment_name: PROD
 
-      - name: Smoke test SEA executable
-        run: pnpm --filter @tinyrack/dotweave run sea:smoke
+      - name: Smoke test pkg executable
+        run: pnpm --filter @tinyrack/dotweave run pkg:smoke --skip-build
 
-      - name: Rename executable (Unix)
-        if: runner.os != 'Windows'
-        shell: bash
-        run: mv ${{ matrix.executable_path }} packages/cli/dist/sea/${{ matrix.artifact_name }}
-
-      - name: Rename executable (Windows)
-        if: runner.os == 'Windows'
-        shell: powershell
-        run: Move-Item -Path '${{ matrix.executable_path }}' -Destination 'packages/cli/dist/sea/${{ matrix.artifact_name }}'
-
-      - name: Upload SEA artifact
+      - name: Replace Artifact with Signed Version
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.artifact_name }}
-          path: packages/cli/dist/sea/${{ matrix.artifact_name }}
+          path: ${{ matrix.executable_path }}
+          overwrite: true
           if-no-files-found: error
 
   build-appimage:
     needs:
       - validate
-      - build-sea
+      - build-pkg
     if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')
     strategy:
       fail-fast: false
@@ -176,14 +237,14 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Download SEA artifact
+      - name: Download pkg artifact
         uses: actions/download-artifact@v4
         with:
           name: ${{ matrix.artifact }}
-          path: packages/cli/dist/sea
+          path: packages/cli/dist/pkg
 
       - name: Build AppImage
-        run: pnpm --filter @tinyrack/dotweave-tools run cli appimage build --executablePath packages/cli/dist/sea/${{ matrix.artifact }} --outputPath ${{ matrix.artifact }}.AppImage --arch ${{ matrix.arch }}
+        run: pnpm --filter @tinyrack/dotweave-tools run cli appimage build --executablePath packages/cli/dist/pkg/${{ matrix.artifact }} --outputPath ${{ matrix.artifact }}.AppImage --arch ${{ matrix.arch }}
 
       - name: Upload AppImage artifact
         uses: actions/upload-artifact@v4
@@ -194,7 +255,7 @@ jobs:
   publish-release:
     needs:
       - validate
-      - build-sea
+      - build-pkg
       - build-appimage
     if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
@@ -244,14 +305,14 @@ jobs:
             gh release create "${GITHUB_REF_NAME}" --generate-notes
           fi
 
-      - name: Download SEA artifacts
+      - name: Download pkg artifacts
         uses: actions/download-artifact@v4
         with:
           pattern: dotweave-*
           path: release-assets
           merge-multiple: true
 
-      - name: Upload SEA artifacts to GitHub Release
+      - name: Upload pkg artifacts to GitHub Release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -283,7 +344,8 @@ jobs:
   publish-snap:
     needs:
       - validate
-      - build-sea
+      - build-pkg
+      - sign-and-test
     if: false # Temporarily disabled
     strategy:
       fail-fast: false
@@ -298,7 +360,68 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v4
 
-      - name: Download SEA artifact
+      - name: Download pkg artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: bin-temp
+
+      - name: Prepare binary
+        run: |
+          mv bin-temp/${{ matrix.artifact }} ./dotweave
+          chmod +x ./dotweave
+
+      - name: Build Snap
+        id: build
+        uses: snapcore/action-build@v1
+
+      - name: Upload Snap artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}-snap
+          path: ${{ steps.build.outputs.snap }}
+
+      - name: Publish Snap
+        uses: snapcore/action-publish@v1
+        env:
+          SNAPCRAFT_STORE_CREDENTIALS: ${{ secrets.SNAPCRAFT_STORE_CREDENTIALS }}
+        with:
+          store_login: ${{ secrets.SNAPCRAFT_STORE_CREDENTIALS }}
+          snap: ${{ steps.build.outputs.snap }}
+          release: stable
+        path: homebrew-tap
+          token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+
+      - name: Update Homebrew Tap
+        run: |
+          mkdir -p homebrew-tap/Formula
+          cp release-assets/dotweave*.rb homebrew-tap/Formula/
+          cd homebrew-tap
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add Formula/dotweave*.rb
+          git commit -m "Update dotweave to ${GITHUB_REF_NAME}" || echo "No changes to commit"
+          git push
+
+  publish-snap:
+    needs:
+      - validate
+      - build-pkg
+    if: false # Temporarily disabled
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            artifact: dotweave-linux-x64
+          - os: ubuntu-24.04-arm
+            artifact: dotweave-linux-arm64
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Download pkg artifact
         uses: actions/download-artifact@v4
         with:
           name: ${{ matrix.artifact }}

@@ -40,7 +40,7 @@ Managed via `pnpm` workspaces:
 - **Run Tests:** `pnpm --filter @tinyrack/dotweave test`
 - **Full Check (Typecheck + Lint + Test):** `pnpm --filter @tinyrack/dotweave check`
 - **Run Local CLI:** `node packages/cli/bin/index.js` or `pnpm --filter @tinyrack/dotweave start`
-- **SEA Build (Single Executable):** `pnpm --filter @tinyrack/dotweave sea:build`
+- **Executable Build:** `pnpm --filter @tinyrack/dotweave pkg:build`
 
 ### Homepage Package (`packages/homepage`)
 - **Dev Server:** `pnpm --filter @tinyrack/dotweave-homepage dev`
