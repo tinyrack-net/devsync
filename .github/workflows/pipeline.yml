@@ -32,22 +32,16 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v4
 
-      - name: Set up pnpm
-        uses: pnpm/action-setup@v4
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
         with:
-          version: 10.33.0
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 24
-          cache: pnpm
+          bun-version: "1.3.13"
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        run: bun install --frozen-lockfile
 
       - name: Run validation
-        run: pnpm run ci:validate
+        run: bun run ci:validate
 
   build-sea:
     needs: validate
@@ -56,31 +50,24 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - os: ubuntu-latest
+          - os: linux
             runs_on: ubuntu-latest
-            artifact_name: dotweave-linux-x64
-            executable_path: packages/cli/dist/sea/dotweave
-          - os: ubuntu-24.04-arm
-            runs_on: ubuntu-24.04-arm
-            artifact_name: dotweave-linux-arm64
-            executable_path: packages/cli/dist/sea/dotweave
-          # macos-26 is arm64. Keep the artifact name explicit while darwin-x64
-          # SEA builds are disabled due to Node 25 SIGSEGV on launch.
-          - os: macos-26
+            targets: "bun-linux-x64 bun-linux-arm64"
+            artifact_1: dotweave-linux-x64
+            artifact_2: dotweave-linux-arm64
+            native_artifact: dotweave-linux-x64
+          - os: macos
             runs_on: macos-26
-            artifact_name: dotweave-darwin-arm64
-            executable_path: packages/cli/dist/sea/dotweave
-          # - os: macos-26-intel
-          #   artifact_name: dotweave-darwin-x64
-          #   executable_path: packages/cli/dist/sea/dotweave
-          - os: windows-latest
+            targets: "bun-darwin-arm64 bun-darwin-x64"
+            artifact_1: dotweave-darwin-arm64
+            artifact_2: dotweave-darwin-x64
+            native_artifact: dotweave-darwin-arm64
+          - os: windows
             runs_on: [self-hosted, windows]
-            artifact_name: dotweave-win32-x64.exe
-            executable_path: packages/cli/dist/sea/dotweave.exe
-          - os: windows-latest
-            runs_on: [self-hosted, windows]
-            artifact_name: dotweave-win32-arm64.exe
-            executable_path: packages/cli/dist/sea/dotweave.exe
+            targets: "bun-windows-x64 bun-windows-arm64"
+            artifact_1: dotweave-win32-x64.exe
+            artifact_2: dotweave-win32-arm64.exe
+            native_artifact: dotweave-win32-x64.exe
     runs-on: ${{ matrix.runs_on }}
     env:
       ESIGNER_USERNAME: ${{ secrets.ESIGNER_USERNAME }}
@@ -88,25 +75,33 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v4
 
-      - name: Set up pnpm
-        uses: pnpm/action-setup@v4
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
         with:
-          version: 10.33.0
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 25
-          cache: pnpm
+          bun-version: "1.3.13"
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        run: bun install --frozen-lockfile
 
-      - name: Build SEA
-        run: pnpm --filter @tinyrack/dotweave run sea:build
+      - name: Build SEA executables
+        shell: bash
+        run: |
+          read -ra TARGETS <<< "${{ matrix.targets }}"
+          artifacts=("${{ matrix.artifact_1 }}" "${{ matrix.artifact_2 }}")
+          for i in "${!TARGETS[@]}"; do
+            target="${TARGETS[$i]}"
+            artifact="${artifacts[$i]}"
+            bun run --filter @tinyrack/dotweave-tools cli sea build --target "$target"
+            if [[ "$artifact" == *.exe ]]; then
+              mv packages/cli/dist/sea/dotweave.exe "packages/cli/dist/sea/$artifact"
+            else
+              mv packages/cli/dist/sea/dotweave "packages/cli/dist/sea/$artifact"
+            fi
+          done
 
-      - name: Sign and Notarize macOS binary
+      - name: Sign and Notarize macOS binaries
         if: startsWith(matrix.os, 'macos')
+        shell: bash
         env:
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
           APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
@@ -114,9 +109,14 @@ jobs:
           APPLE_NOTARY_KEY_ID: ${{ secrets.APPLE_NOTARY_KEY_ID }}
           APPLE_NOTARY_ISSUER_ID: ${{ secrets.APPLE_NOTARY_ISSUER_ID }}
           APPLE_NOTARY_KEY_P8_BASE64: ${{ secrets.APPLE_NOTARY_KEY_P8_BASE64 }}
-        run: pnpm --filter @tinyrack/dotweave-tools run cli sign macos --executablePath ${{ matrix.executable_path }}
+        run: |
+          for artifact in "${{ matrix.artifact_1 }}" "${{ matrix.artifact_2 }}"; do
+            cp "packages/cli/dist/sea/$artifact" packages/cli/dist/sea/dotweave
+            bun run --filter @tinyrack/dotweave-tools cli sign macos --executablePath packages/cli/dist/sea/dotweave
+            mv packages/cli/dist/sea/dotweave "packages/cli/dist/sea/$artifact"
+          done
 
-      - name: Sign Windows binary (SSL.com eSigner)
+      - name: Sign Windows x64 binary (SSL.com eSigner)
         if: startsWith(matrix.os, 'windows') && env.ESIGNER_USERNAME != ''
         uses: sslcom/esigner-codesign@v1.3.2
         with:
@@ -125,22 +125,40 @@ jobs:
           password: ${{ secrets.ESIGNER_PASSWORD }}
           credential_id: ${{ secrets.ESIGNER_CREDENTIAL_ID }}
           totp_secret: ${{ secrets.ESIGNER_TOTP_SECRET }}
-          file_path: ${{ matrix.executable_path }}
+          file_path: packages/cli/dist/sea/dotweave-win32-x64.exe
+          environment_name: PROD
+
+      - name: Sign Windows arm64 binary (SSL.com eSigner)
+        if: startsWith(matrix.os, 'windows') && env.ESIGNER_USERNAME != ''
+        uses: sslcom/esigner-codesign@v1.3.2
+        with:
+          command: sign
+          username: ${{ secrets.ESIGNER_USERNAME }}
+          password: ${{ secrets.ESIGNER_PASSWORD }}
+          credential_id: ${{ secrets.ESIGNER_CREDENTIAL_ID }}
+          totp_secret: ${{ secrets.ESIGNER_TOTP_SECRET }}
+          file_path: packages/cli/dist/sea/dotweave-win32-arm64.exe
           environment_name: PROD
 
       - name: Smoke test SEA executable
-        run: pnpm --filter @tinyrack/dotweave run sea:smoke
-
-      - name: Rename executable
         shell: bash
-        run: mv ${{ matrix.executable_path }} packages/cli/dist/sea/${{
-          matrix.artifact_name }}
+        run: |
+          cp "packages/cli/dist/sea/${{ matrix.native_artifact }}" packages/cli/dist/sea/dotweave
+          chmod +x packages/cli/dist/sea/dotweave
+          bun run --filter @tinyrack/dotweave sea:smoke
 
-      - name: Upload SEA artifact
+      - name: Upload first SEA artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.artifact_name }}
-          path: packages/cli/dist/sea/${{ matrix.artifact_name }}
+          name: ${{ matrix.artifact_1 }}
+          path: packages/cli/dist/sea/${{ matrix.artifact_1 }}
+          if-no-files-found: error
+
+      - name: Upload second SEA artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact_2 }}
+          path: packages/cli/dist/sea/${{ matrix.artifact_2 }}
           if-no-files-found: error
 
   build-appimage:
@@ -163,19 +181,13 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v4
 
-      - name: Set up pnpm
-        uses: pnpm/action-setup@v4
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
         with:
-          version: 10.33.0
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 24
-          cache: pnpm
+          bun-version: "1.3.13"
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        run: bun install --frozen-lockfile
 
       - name: Download SEA artifact
         uses: actions/download-artifact@v4
@@ -184,7 +196,7 @@ jobs:
           path: packages/cli/dist/sea
 
       - name: Build AppImage
-        run: pnpm --filter @tinyrack/dotweave-tools run cli appimage build --executablePath packages/cli/dist/sea/${{ matrix.artifact }} --outputPath ${{ matrix.artifact }}.AppImage --arch ${{ matrix.arch }}
+        run: bun run --filter @tinyrack/dotweave-tools cli appimage build --executablePath packages/cli/dist/sea/${{ matrix.artifact }} --outputPath ${{ matrix.artifact }}.AppImage --arch ${{ matrix.arch }}
 
       - name: Upload AppImage artifact
         uses: actions/upload-artifact@v4
@@ -207,35 +219,33 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v4
 
-      - name: Set up pnpm
-        uses: pnpm/action-setup@v4
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
         with:
-          version: 10.33.0
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 24
-          cache: pnpm
-          registry-url: https://registry.npmjs.org
+          bun-version: "1.3.13"
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        run: bun install --frozen-lockfile
 
       - name: Verify tag matches package version
-        run: pnpm --filter @tinyrack/dotweave-tools run cli verify release-tag
+        run: bun run --filter @tinyrack/dotweave-tools cli verify release-tag
 
       - name: Copy README and LICENSE
         run: |
           cp README.md packages/cli/
           cp LICENSE packages/cli/
 
+      - name: Build CLI package
+        run: bun run --filter @tinyrack/dotweave build
+
       - name: Verify published package contents
-        run: pnpm --filter @tinyrack/dotweave pack --dry-run
+        run: bun run --filter @tinyrack/dotweave pack --dry-run
 
       - name: Publish package to npm
-        run: pnpm --filter @tinyrack/dotweave publish --provenance --access public
-          --no-git-checks
+        run: bun publish --access public --no-git-checks
+        working-directory: packages/cli
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: Create GitHub Release
         env:
@@ -263,7 +273,7 @@ jobs:
           done < <(find release-assets -type f | sort)
 
       - name: Generate Homebrew Formula
-        run: pnpm --filter @tinyrack/dotweave-tools run cli homebrew generate --version "${GITHUB_REF_NAME}" --artifacts-dir "${{ github.workspace }}/release-assets"
+        run: bun run --filter @tinyrack/dotweave-tools cli homebrew generate --version "${GITHUB_REF_NAME}" --artifacts-dir "${{ github.workspace }}/release-assets"
 
       - name: Checkout Homebrew Tap
         uses: actions/checkout@v4
