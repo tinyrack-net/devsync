@@ -134,7 +134,7 @@ jobs:
 
       - name: Rename executable (Windows)
         if: runner.os == 'Windows'
-        shell: pwsh
+        shell: powershell
         run: Move-Item -Path '${{ matrix.executable_path }}' -Destination 'packages/cli/dist/sea/${{ matrix.artifact_name }}'
 
       - name: Upload SEA artifact
