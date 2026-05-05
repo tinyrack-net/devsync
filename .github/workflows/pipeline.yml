@@ -122,28 +122,32 @@ jobs:
           - os: ubuntu-latest
             runs_on: ubuntu-latest
             artifact_name: dotweave-linux-x64
+            downloaded_name: dotweave-linux-x64
             executable_path: packages/cli/dist/pkg/dotweave
           - os: ubuntu-24.04-arm
             runs_on: ubuntu-24.04-arm
             artifact_name: dotweave-linux-arm64
+            downloaded_name: dotweave-linux-arm64
             executable_path: packages/cli/dist/pkg/dotweave
-          # macos-26 is arm64. Keep the artifact name explicit while darwin-x64
-          # pkg builds are disabled.
           - os: macos-26
             runs_on: macos-26
             artifact_name: dotweave-darwin-arm64
+            downloaded_name: dotweave-macos-arm64
             executable_path: packages/cli/dist/pkg/dotweave
           - os: macos-26-intel
             runs_on: macos-13
             artifact_name: dotweave-darwin-x64
+            downloaded_name: dotweave-macos-x64
             executable_path: packages/cli/dist/pkg/dotweave
           - os: windows-latest-x64
             runs_on: [self-hosted, Windows, X64]
             artifact_name: dotweave-win32-x64.exe
+            downloaded_name: dotweave-win-x64.exe
             executable_path: packages/cli/dist/pkg/dotweave.exe
           - os: windows-latest-arm64
             runs_on: [self-hosted, Windows, X64]
             artifact_name: dotweave-win32-arm64.exe
+            downloaded_name: dotweave-win-arm64.exe
             executable_path: packages/cli/dist/pkg/dotweave.exe
     runs-on: ${{ matrix.runs_on }}
     env:
@@ -174,13 +178,13 @@ jobs:
         if: runner.os != 'Windows'
         shell: bash
         run: |
-          mv packages/cli/dist/pkg/${{ matrix.artifact_name }} ${{ matrix.executable_path }}
+          mv packages/cli/dist/pkg/${{ matrix.downloaded_name }} ${{ matrix.executable_path }}
           chmod +x ${{ matrix.executable_path }}
 
       - name: Restore executable name (Windows)
         if: runner.os == 'Windows'
         shell: powershell
-        run: Move-Item -Path 'packages/cli/dist/pkg/${{ matrix.artifact_name }}' -Destination '${{ matrix.executable_path }}'
+        run: Move-Item -Path 'packages/cli/dist/pkg/${{ matrix.downloaded_name }}' -Destination '${{ matrix.executable_path }}'
 
       - name: Sign and Notarize macOS binary
         if: startsWith(matrix.os, 'macos')
