@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import { mkdir, rm, symlink, writeFile } from "node:fs/promises";
+import { mkdir, rmdir, rm, symlink, unlink, writeFile } from "node:fs/promises";
 import { dirname, join, relative } from "node:path";
 import {
   createSyncE2EContext,
@@ -81,7 +81,18 @@ describe("Windows junction and symlink target normalization", () => {
     );
     const relativeTarget = relative(dirname(linkPath), targetDir);
 
-    await rm(repoLinkPath, { force: true });
+    const repoStats = await import("node:fs/promises").then((m) =>
+      m.lstat(repoLinkPath).catch(() => null),
+    );
+    if (repoStats?.isSymbolicLink()) {
+      if (repoStats.isDirectory()) {
+        await rmdir(repoLinkPath);
+      } else {
+        await unlink(repoLinkPath);
+      }
+    } else {
+      await rm(repoLinkPath, { force: true, recursive: true });
+    }
     await symlink(relativeTarget, repoLinkPath, "file");
 
     // 3. Pull - should match the absolute local junction with the relative repo target
