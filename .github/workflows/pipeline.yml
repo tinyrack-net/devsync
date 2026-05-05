@@ -121,7 +121,7 @@ jobs:
             artifact_name: dotweave-linux-arm64
             executable_path: packages/cli/dist/pkg/dotweave
           # macos-26 is arm64. Keep the artifact name explicit while darwin-x64
-          # pkg builds are disabled due to Node 25 SIGSEGV on launch.
+          # pkg builds are disabled.
           - os: macos-26
             runs_on: macos-26
             artifact_name: dotweave-darwin-arm64
@@ -151,7 +151,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 25
+          node-version: 24
           cache: pnpm
 
       - name: Install dependencies
@@ -392,67 +392,4 @@ jobs:
         with:
           store_login: ${{ secrets.SNAPCRAFT_STORE_CREDENTIALS }}
           snap: ${{ steps.build.outputs.snap }}
-          release: stable
-        path: homebrew-tap
-          token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
-
-      - name: Update Homebrew Tap
-        run: |
-          mkdir -p homebrew-tap/Formula
-          cp release-assets/dotweave*.rb homebrew-tap/Formula/
-          cd homebrew-tap
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add Formula/dotweave*.rb
-          git commit -m "Update dotweave to ${GITHUB_REF_NAME}" || echo "No changes to commit"
-          git push
-
-  publish-snap:
-    needs:
-      - validate
-      - build-pkg
-    if: false # Temporarily disabled
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - os: ubuntu-latest
-            artifact: dotweave-linux-x64
-          - os: ubuntu-24.04-arm
-            artifact: dotweave-linux-arm64
-    runs-on: ${{ matrix.os }}
-    steps:
-      - name: Check out repository
-        uses: actions/checkout@v4
-
-      - name: Download pkg artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: ${{ matrix.artifact }}
-          path: bin-temp
-
-      - name: Prepare binary
-        run: |
-          mv bin-temp/${{ matrix.artifact }} ./dotweave
-          chmod +x ./dotweave
-
-      - name: Build Snap
-        id: build
-        uses: snapcore/action-build@v1
-
-      - name: Upload Snap artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: ${{ matrix.artifact }}-snap
-          path: ${{ steps.build.outputs.snap }}
-
-      - name: Publish Snap
-        uses: snapcore/action-publish@v1
-        env:
-          SNAPCRAFT_STORE_CREDENTIALS: ${{ secrets.SNAPCRAFT_STORE_CREDENTIALS }}
-        with:
-          store_login: ${{ secrets.SNAPCRAFT_STORE_CREDENTIALS }}
-          snap: ${{ steps.build.outputs.snap }}
-          release: stable
-{{ steps.build.outputs.snap }}
           release: stable
