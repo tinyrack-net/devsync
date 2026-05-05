@@ -31,7 +31,6 @@ export const runConfigMigrations = async (
   }
 
   const configObject = rawConfig as Record<string, unknown>;
-  // biome-ignore lint/complexity/useLiteralKeys: noPropertyAccessFromIndexSignature requires bracket notation
   const version = configObject["version"];
 
   if (typeof version !== "number") {

@@ -14,7 +14,6 @@ const verifyReleaseTagCommand = buildCommand<Record<string, never>, []>({
     const repoRoot = await getRepoRoot(process.cwd());
     const pkgPath = join(repoRoot, "packages/cli/package.json");
     const pkg = JSON.parse(await readFile(pkgPath, "utf8"));
-    // biome-ignore lint/complexity/useLiteralKeys: must use bracket notation for index signature access
     const tag = process.env["GITHUB_REF_NAME"];
     const expectedTag = `v${pkg.version}`;
 

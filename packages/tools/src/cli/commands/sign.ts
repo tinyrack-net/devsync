@@ -22,17 +22,11 @@ const signMacosCommand = buildCommand<{ executablePath: string }, []>({
     const executablePath = join(repoRoot, flags.executablePath);
     const entitlementsPath = join(repoRoot, "packages/cli/entitlements.plist");
 
-    // biome-ignore lint/complexity/useLiteralKeys: must use bracket notation for index signature access
     const appleCertificate = process.env["APPLE_CERTIFICATE"];
-    // biome-ignore lint/complexity/useLiteralKeys: must use bracket notation for index signature access
     const appleCertificatePassword = process.env["APPLE_CERTIFICATE_PASSWORD"];
-    // biome-ignore lint/complexity/useLiteralKeys: must use bracket notation for index signature access
     const appleDeveloperId = process.env["APPLE_DEVELOPER_ID"];
-    // biome-ignore lint/complexity/useLiteralKeys: must use bracket notation for index signature access
     const appleNotaryKeyId = process.env["APPLE_NOTARY_KEY_ID"];
-    // biome-ignore lint/complexity/useLiteralKeys: must use bracket notation for index signature access
     const appleNotaryIssuerId = process.env["APPLE_NOTARY_ISSUER_ID"];
-    // biome-ignore lint/complexity/useLiteralKeys: must use bracket notation for index signature access
     const appleNotaryKeyP8Base64 = process.env["APPLE_NOTARY_KEY_P8_BASE64"];
 
     if (appleCertificate) {
