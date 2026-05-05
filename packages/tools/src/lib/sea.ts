@@ -1,9 +1,6 @@
 import { spawn, spawnSync } from "node:child_process";
-import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
-import { builtinModules, createRequire } from "node:module";
+import { mkdir, readFile, rm } from "node:fs/promises";
 import { join } from "node:path";
-
-const require = createRequire(import.meta.url);
 
 type CommandOptions = {
   cwd?: string;
@@ -18,43 +15,13 @@ type CommandResult = {
   stdout: string;
 };
 
-export const seaBuilderMinimumVersion = "25.5.0";
-
-const builtinSpecifiers = new Set(
-  builtinModules.flatMap((entry) =>
-    entry.startsWith("node:")
-      ? [entry, entry.slice("node:".length)]
-      : [entry, `node:${entry}`],
-  ),
-);
-
-const parseVersion = (version: string): number[] => {
-  return version
-    .replace(/^v/, "")
-    .split(".")
-    .map((segment) => {
-      return Number.parseInt(segment, 10);
-    });
-};
-
-const compareVersions = (left: number[], right: number[]): number => {
-  const maxLength = Math.max(left.length, right.length);
-
-  for (let index = 0; index < maxLength; index += 1) {
-    const leftValue = left[index] ?? 0;
-    const rightValue = right[index] ?? 0;
-
-    if (leftValue > rightValue) {
-      return 1;
-    }
-
-    if (leftValue < rightValue) {
-      return -1;
-    }
-  }
-
-  return 0;
-};
+export type SeaTarget =
+  | "bun-linux-x64"
+  | "bun-linux-arm64"
+  | "bun-darwin-x64"
+  | "bun-darwin-arm64"
+  | "bun-windows-x64"
+  | "bun-windows-arm64";
 
 const formatCommand = (command: string, args: string[]): string => {
   return [command, ...args]
@@ -62,23 +29,6 @@ const formatCommand = (command: string, args: string[]): string => {
       return /\s/.test(segment) ? JSON.stringify(segment) : segment;
     })
     .join(" ");
-};
-
-export const isNodeBuiltinSpecifier = (specifier: string): boolean => {
-  return builtinSpecifiers.has(specifier);
-};
-
-export const ensureSeaBuilderNode = (): void => {
-  if (
-    compareVersions(
-      parseVersion(process.version),
-      parseVersion(seaBuilderMinimumVersion),
-    ) < 0
-  ) {
-    throw new Error(
-      `Node.js ${seaBuilderMinimumVersion}+ is required for Node SEA builds. Current runtime: ${process.version}.`,
-    );
-  }
 };
 
 export const runCommand = async (
@@ -143,143 +93,53 @@ export const captureCommand = (
 
 export type SeaBuildOptions = {
   repoRoot: string;
+  target: SeaTarget | undefined;
   bundleOnly: boolean;
 };
 
 export async function performSeaBuild(options: SeaBuildOptions) {
   const cliDir = join(options.repoRoot, "packages", "cli");
-  const distDirectory = join(cliDir, "dist");
-  const seaDirectory = join(distDirectory, "sea");
-  const seaBundlePath = join(seaDirectory, "dotweave.bundle.js");
-  const seaConfigPath = join(seaDirectory, "sea-config.json");
-  const seaExecutablePath = join(
-    seaDirectory,
-    process.platform === "win32" ? "dotweave.exe" : "dotweave",
-  );
-  const tscCliPath = require.resolve("typescript/bin/tsc");
+  const seaDirectory = join(cliDir, "dist", "sea");
+  const entryPoint = join(cliDir, "src", "index.ts");
 
-  const buildDistribution = async (): Promise<void> => {
-    console.log("Building dist/ output...");
-    await runCommand(
-      process.execPath,
-      [tscCliPath, "-p", "tsconfig.build.json"],
-      {
-        cwd: cliDir,
-      },
-    );
-  };
+  const isWindows =
+    options.target?.startsWith("bun-windows") ??
+    (process.platform === "win32" && !options.target);
+  const executableName = isWindows ? "dotweave.exe" : "dotweave";
+  const seaExecutablePath = join(seaDirectory, executableName);
 
-  const bundleForSea = async (): Promise<void> => {
-    const { build: viteBuild } = require("vite");
-    console.log("Bundling dist/index.js for SEA...");
-    await rm(seaDirectory, { force: true, recursive: true });
-    await mkdir(seaDirectory, { recursive: true });
+  const buildArgs = [
+    "build",
+    entryPoint,
+    "--compile",
+    "--minify",
+    "--sourcemap",
+    "--outfile",
+    seaExecutablePath,
+    "--no-compile-autoload-dotenv",
+    "--no-compile-autoload-bunfig",
+  ];
 
-    await viteBuild({
-      appType: "custom",
-      root: cliDir,
-      build: {
-        copyPublicDir: false,
-        emptyOutDir: false,
-        lib: {
-          entry: join(distDirectory, "index.js"),
-          fileName: () => "dotweave.bundle",
-          formats: ["es"],
-        },
-        minify: false,
-        outDir: seaDirectory,
-        reportCompressedSize: false,
-        rollupOptions: {
-          external: (specifier: string) => {
-            return (
-              typeof specifier === "string" && isNodeBuiltinSpecifier(specifier)
-            );
-          },
-          output: {
-            entryFileNames: "dotweave.bundle.js",
-            format: "es",
-          },
-        },
-        sourcemap: false,
-        target: "node25",
-      },
-      logLevel: "info",
-    });
-
-    const bundleSource = await readFile(seaBundlePath, "utf8");
-    validateBundleImports(bundleSource);
-    console.log(`SEA bundle written to ${seaBundlePath}`);
-  };
-
-  const validateBundleImports = (bundleSource: string): void => {
-    const importPatterns = [
-      /^\s*import\s+.+?\s+from\s+["']([^"']+)["'];?$/gm,
-      /^\s*import\s+["']([^"']+)["'];?$/gm,
-      /^\s*export\s+.+?\s+from\s+["']([^"']+)["'];?$/gm,
-    ];
-    const unexpectedImports = new Set<string>();
-
-    for (const pattern of importPatterns) {
-      let match = pattern.exec(bundleSource);
-
-      while (match !== null) {
-        const specifier = match[1];
-
-        if (specifier === undefined) {
-          match = pattern.exec(bundleSource);
-          continue;
-        }
-
-        if (!isNodeBuiltinSpecifier(specifier)) {
-          unexpectedImports.add(specifier);
-        }
-
-        match = pattern.exec(bundleSource);
-      }
-    }
-
-    if (unexpectedImports.size > 0) {
-      throw new Error(
-        `SEA bundle still has non-builtin imports: ${[...unexpectedImports].sort().join(", ")}`,
-      );
-    }
-  };
-
-  const writeSeaConfig = async (): Promise<void> => {
-    const seaConfig = {
-      disableExperimentalSEAWarning: true,
-      main: seaBundlePath,
-      mainFormat: "module" as const,
-      output: seaExecutablePath,
-      useCodeCache: false,
-      useSnapshot: false,
-    };
-
-    await writeFile(seaConfigPath, `${JSON.stringify(seaConfig, null, 2)}\n`);
-  };
-
-  const buildSeaExecutable = async (): Promise<void> => {
-    ensureSeaBuilderNode();
-    console.log(`Generating SEA executable with Node.js ${process.version}...`);
-    await rm(seaExecutablePath, { force: true });
-    await writeSeaConfig();
-    await runCommand(process.execPath, ["--build-sea", seaConfigPath], {
-      cwd: options.repoRoot,
-    });
-    console.log(`SEA executable written to ${seaExecutablePath}`);
-  };
-
-  await buildDistribution();
-  await bundleForSea();
-
-  if (!options.bundleOnly) {
-    await buildSeaExecutable();
+  if (options.target) {
+    buildArgs.push("--target", options.target);
   }
+
+  await rm(seaExecutablePath, { force: true });
+  await mkdir(seaDirectory, { recursive: true });
+
+  console.log(
+    `Building SEA executable with bun build --compile${options.target ? ` (target: ${options.target})` : ""}...`,
+  );
+  await runCommand("bun", buildArgs, {
+    cwd: options.repoRoot,
+  });
+  console.log(`SEA executable written to ${seaExecutablePath}`);
 }
 
 export async function performSeaSmoke(options: {
   repoRoot: string;
   skipBuild: boolean;
+  target?: SeaTarget;
 }) {
   const cliDir = join(options.repoRoot, "packages/cli");
   const packageJson = JSON.parse(
@@ -291,10 +151,8 @@ export async function performSeaSmoke(options: {
     process.platform === "win32" ? "dotweave.exe" : "dotweave",
   );
 
-  const smokeEnvironment = {
+  const smokeEnvironment: Record<string, string> = {
     FORCE_COLOR: "0",
-    NODE_NO_WARNINGS: "1",
-    NODE_OPTIONS: "",
     NO_COLOR: "1",
   };
 
@@ -346,7 +204,11 @@ export async function performSeaSmoke(options: {
   };
 
   if (!options.skipBuild) {
-    await performSeaBuild({ repoRoot: options.repoRoot, bundleOnly: false });
+    await performSeaBuild({
+      repoRoot: options.repoRoot,
+      bundleOnly: false,
+      target: options.target,
+    });
   }
 
   const versionResult = runSeaExecutable(["--version"]);

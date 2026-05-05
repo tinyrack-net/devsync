@@ -1,0 +1,5 @@
+[test]
+timeout = 10000
+
+coverageReporter = ["text", "lcov"]
+coveragePathIgnorePatterns = ["src/**/*.test.ts", "src/test/**", "src/index.ts"]

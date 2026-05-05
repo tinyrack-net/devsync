@@ -10,5 +10,5 @@
     "declarationMap": true,
     "sourceMap": true
   },
-  "exclude": ["src/**/*.test.ts", "src/test/**", "tests/**", "vitest.config.ts"]
+  "exclude": ["src/**/*.test.ts", "src/test/**", "tests/**"]
 }

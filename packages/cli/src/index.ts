@@ -1,4 +1,6 @@
-#!/usr/bin/env node
+#!/usr/bin/env bun
 import { runCli } from "#app/application.ts";
 
-await runCli(process.argv.slice(2));
+void (async () => {
+  await runCli(process.argv.slice(2));
+})();

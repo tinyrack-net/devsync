@@ -10,7 +10,7 @@
     "moduleResolution": "nodenext",
     "resolvePackageJsonImports": true,
     "target": "esnext",
-    "types": ["node"],
+    "types": ["node", "bun"],
     "noUncheckedIndexedAccess": true,
     "exactOptionalPropertyTypes": true,
     "noImplicitReturns": true,

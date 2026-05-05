@@ -10,7 +10,7 @@
       "#app/*.ts": ["./src/*.ts"]
     },
     "moduleDetection": "force",
-    "types": ["node"],
+    "types": ["node", "bun"],
     "resolveJsonModule": true,
     "allowImportingTsExtensions": true,
     "verbatimModuleSyntax": true,
@@ -30,12 +30,7 @@
     "noUnusedParameters": true,
     "erasableSyntaxOnly": true,
     "forceConsistentCasingInFileNames": true,
-    "skipLibCheck": false
+    "skipLibCheck": true
   },
-  "include": [
-    "src/**/*.ts",
-    "scripts/**/*.ts",
-    "tests/**/*.e2e.test.ts",
-    "vitest.config.ts"
-  ]
+  "include": ["src/**/*.ts", "scripts/**/*.ts", "tests/**/*.e2e.test.ts"]
 }

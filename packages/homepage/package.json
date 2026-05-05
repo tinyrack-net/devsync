@@ -6,7 +6,7 @@
   "description": "Documentation homepage for dotweave built with Astro and Starlight.",
   "license": "MIT",
   "engines": {
-    "node": ">=24.0.0"
+    "bun": ">=1.3.13"
   },
   "scripts": {
     "dev": "astro dev",

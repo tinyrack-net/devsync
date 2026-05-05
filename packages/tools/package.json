@@ -18,10 +18,10 @@
     }
   },
   "scripts": {
-    "cli": "node src/cli.ts",
-    "test": "vitest run",
-    "test:coverage": "vitest run --coverage",
-    "build": "pnpm run typecheck",
+    "cli": "bun src/cli.ts",
+    "test": "bun test",
+    "test:coverage": "bun test --coverage",
+    "build": "bun run typecheck",
     "typecheck": "tsc -p tsconfig.json",
     "typecheck:watch": "tsc -p tsconfig.json --watch"
   },
@@ -34,8 +34,6 @@
   "devDependencies": {
     "@biomejs/biome": "^2.3.10",
     "@types/node": "^24.12.0",
-    "@vitest/coverage-v8": "^4.1.1",
-    "typescript": "^6.0.2",
-    "vitest": "^4.1.1"
+    "typescript": "^6.0.2"
   }
 }
