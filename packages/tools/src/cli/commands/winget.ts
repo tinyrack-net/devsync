@@ -45,16 +45,16 @@ async function generateManifests(flags: GenerateManifestFlags) {
   await fs.mkdir(manifestsDir, { recursive: true });
 
   const rootManifest = `# Created with wingetcreate
-# yaml-language-server: $schema=https://aka.ms/winget-manifest.singleton.1.10.0.schema.json
+# yaml-language-server: $schema=https://aka.ms/winget-manifest.singleton.1.12.0.schema.json
 PackageIdentifier: tinyrack.dotweave
 PackageVersion: ${cleanVersion}
 DefaultLocale: en-US
 ManifestType: version
-ManifestVersion: 1.10.0
+ManifestVersion: 1.12.0
 `;
 
   const localeManifest = `# Created with wingetcreate
-# yaml-language-server: $schema=https://aka.ms/winget-manifest.defaultLocale.1.10.0.schema.json
+# yaml-language-server: $schema=https://aka.ms/winget-manifest.defaultLocale.1.12.0.schema.json
 PackageIdentifier: tinyrack.dotweave
 PackageVersion: ${cleanVersion}
 PackageLocale: en-US
@@ -72,11 +72,11 @@ Tags:
   - sync
   - configuration
 ManifestType: defaultLocale
-ManifestVersion: 1.10.0
+ManifestVersion: 1.12.0
 `;
 
   const installerManifest = `# Created with wingetcreate
-# yaml-language-server: $schema=https://aka.ms/winget-manifest.installer.1.10.0.schema.json
+# yaml-language-server: $schema=https://aka.ms/winget-manifest.installer.1.12.0.schema.json
 PackageIdentifier: tinyrack.dotweave
 PackageVersion: ${cleanVersion}
 InstallerLocale: en-US
@@ -92,7 +92,7 @@ Installers:
     InstallerUrl: https://github.com/tinyrack-net/dotweave/releases/download/v${cleanVersion}/dotweave-win-arm64.exe
     InstallerSha256: ${hashes["dotweave-win-arm64.exe"]}
 ManifestType: installer
-ManifestVersion: 1.10.0
+ManifestVersion: 1.12.0
 `;
 
   const rootPath = path.join(manifestsDir, "tinyrack.dotweave.yaml");
