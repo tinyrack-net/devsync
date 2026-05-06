@@ -405,6 +405,19 @@ jobs:
           git commit -m "Update dotweave to ${GITHUB_REF_NAME}" || echo "No changes to commit"
           git push
 
+  submit-winget:
+    name: Submit to winget-pkgs
+    needs: publish-release
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: vedantmgoyal2009/winget-releaser@v2
+        with:
+          identifier: tinyrack.dotweave
+          installers-regex: 'dotweave-win-\w+\.exe$'
+          token: ${{ secrets.WINGET_TOKEN }}
+
   publish-snap:
     name: Publish Snap (${{ matrix.artifact }})
     needs:
