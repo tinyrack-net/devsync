@@ -1,0 +1,29 @@
+name: 'Setup Dotweave'
+description: 'Standard checkout and setup for Dotweave'
+inputs:
+  node-version:
+    description: 'Node version to use'
+    default: '24'
+  install:
+    description: 'Whether to run pnpm install'
+    default: 'true'
+
+runs:
+  using: "composite"
+  steps:
+    - name: Check out repository
+      uses: actions/checkout@v4
+
+    - name: Set up pnpm
+      uses: pnpm/action-setup@v4
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ inputs.node-version }}
+        cache: pnpm
+
+    - name: Install dependencies
+      if: inputs.install == 'true'
+      run: pnpm install --frozen-lockfile
+      shell: bash
