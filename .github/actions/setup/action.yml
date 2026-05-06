@@ -20,7 +20,12 @@ runs:
         node-version: ${{ inputs.node-version }}
         cache: pnpm
 
-    - name: Install dependencies
-      if: inputs.install == 'true'
+    - name: Install dependencies (Windows)
+      if: inputs.install == 'true' && runner.os == 'Windows'
+      run: pnpm install --frozen-lockfile
+      shell: powershell
+
+    - name: Install dependencies (Non-Windows)
+      if: inputs.install == 'true' && runner.os != 'Windows'
       run: pnpm install --frozen-lockfile
       shell: bash
