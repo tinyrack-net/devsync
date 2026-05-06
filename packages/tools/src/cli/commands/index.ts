@@ -5,6 +5,7 @@ import { pkgRoute } from "./pkg.ts";
 import { releaseCommand } from "./release.ts";
 import { signRoute } from "./sign.ts";
 import { verifyRoute } from "./verify.ts";
+import { wingetRoute } from "./winget.ts";
 
 export const commands = buildRouteMap({
   routes: {
@@ -14,6 +15,7 @@ export const commands = buildRouteMap({
     sign: signRoute,
     appimage: appimageRoute,
     homebrew: homebrewRoute,
+    winget: wingetRoute,
   },
   docs: {
     brief: "dotweave repository tools",
