@@ -4,13 +4,40 @@ import { buildCommand, buildRouteMap } from "@stricli/core";
 import { execa } from "execa";
 import { getRepoRoot } from "../../lib/git.ts";
 
-const signMacosCommand = buildCommand<{ executablePath: string }, []>({
+async function withRetry<T>(
+  fn: () => Promise<T>,
+  maxRetries = 2,
+  delayMs = 30_000,
+): Promise<T> {
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      return await fn();
+    } catch (error) {
+      if (attempt === maxRetries) throw error;
+      console.log(
+        `Attempt ${attempt}/${maxRetries} failed, retrying in ${delayMs / 1000}s...`,
+      );
+      await new Promise((resolve) => setTimeout(resolve, delayMs));
+    }
+  }
+  throw new Error("Unreachable");
+}
+
+const signMacosCommand = buildCommand<
+  { executablePath: string; skipNotarize: boolean },
+  []
+>({
   parameters: {
     flags: {
       executablePath: {
         kind: "parsed",
         brief: "Path to the executable to sign",
         parse: String,
+      },
+      skipNotarize: {
+        kind: "boolean",
+        brief: "Skip notarization (codesign only)",
+        default: false,
       },
     },
   },
@@ -111,7 +138,7 @@ const signMacosCommand = buildCommand<{ executablePath: string }, []>({
           executablePath,
         ]);
 
-        if (appleNotaryKeyP8Base64) {
+        if (appleNotaryKeyP8Base64 && !flags.skipNotarize) {
           if (!appleNotaryKeyId || !appleNotaryIssuerId) {
             throw new Error(
               "APPLE_NOTARY_KEY_ID and APPLE_NOTARY_ISSUER_ID are required when APPLE_NOTARY_KEY_P8_BASE64 is set",
@@ -125,19 +152,23 @@ const signMacosCommand = buildCommand<{ executablePath: string }, []>({
           const zipPath = `${executablePath}.zip`;
           await execa("zip", ["-j", zipPath, executablePath]);
 
-          await execa("xcrun", [
-            "notarytool",
-            "submit",
-            zipPath,
-            "--key",
-            "AuthKey.p8",
-            "--key-id",
-            appleNotaryKeyId,
-            "--issuer",
-            appleNotaryIssuerId,
-            "--wait",
-          ]);
+          await withRetry(() =>
+            execa("xcrun", [
+              "notarytool",
+              "submit",
+              zipPath,
+              "--key",
+              "AuthKey.p8",
+              "--key-id",
+              appleNotaryKeyId,
+              "--issuer",
+              appleNotaryIssuerId,
+              "--wait",
+            ]),
+          );
           await rm("AuthKey.p8");
+        } else if (flags.skipNotarize) {
+          console.log("Notarization skipped (--skip-notarize flag).");
         } else {
           console.log("No Notary API Key found. Skipping notarization.");
         }
