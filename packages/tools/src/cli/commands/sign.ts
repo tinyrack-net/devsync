@@ -61,6 +61,11 @@ const signMacosCommand = buildCommand<{ executablePath: string }, []>({
       await writeFile("certificate.p12", certBuffer);
 
       try {
+        try {
+          await execa("security", ["delete-keychain", "build.keychain"]);
+        } catch {
+          // Ignore if keychain doesn't exist
+        }
         await execa("security", [
           "create-keychain",
           "-p",
