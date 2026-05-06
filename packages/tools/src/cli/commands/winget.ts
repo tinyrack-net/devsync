@@ -45,7 +45,7 @@ async function generateManifests(flags: GenerateManifestFlags) {
   await fs.mkdir(manifestsDir, { recursive: true });
 
   const rootManifest = `# Created with wingetcreate
-# yaml-language-server: $schema=https://aka.ms/winget-manifest.singleton.1.12.0.schema.json
+# yaml-language-server: $schema=https://aka.ms/winget-manifest.version.1.12.0.schema.json
 PackageIdentifier: tinyrack.dotweave
 PackageVersion: ${cleanVersion}
 DefaultLocale: en-US
