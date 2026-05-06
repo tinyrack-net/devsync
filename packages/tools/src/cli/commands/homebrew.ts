@@ -43,7 +43,7 @@ export const generateFormulaCommand = buildCommand<GenerateFormulaFlags, []>({
       : path.resolve(repoRoot, rawArtifactsDir);
 
     const artifacts = [
-      { name: "dotweave-darwin-arm64", os: "mac", arch: "arm" },
+      { name: "dotweave-macos-arm64", os: "mac", arch: "arm" },
       { name: "dotweave-linux-x64", os: "linux", arch: "intel" },
       { name: "dotweave-linux-arm64", os: "linux", arch: "arm" },
     ];
@@ -73,8 +73,8 @@ export const generateFormulaCommand = buildCommand<GenerateFormulaFlags, []>({
 
   on_macos do
     on_arm do
-      url "https://github.com/tinyrack-net/dotweave/releases/download/v${cleanVersion}/dotweave-darwin-arm64"
-      sha256 "${hashes["dotweave-darwin-arm64"]}"
+      url "https://github.com/tinyrack-net/dotweave/releases/download/v${cleanVersion}/dotweave-macos-arm64"
+      sha256 "${hashes["dotweave-macos-arm64"]}"
     end
   end
 
@@ -91,12 +91,13 @@ export const generateFormulaCommand = buildCommand<GenerateFormulaFlags, []>({
 
   def install
     if OS.mac? && Hardware::CPU.arm?
-      bin.install "dotweave-darwin-arm64" => "dotweave"
-    elsif OS.linux? && Hardware::CPU.intel?
+      bin.install "dotweave-macos-arm64" => "dotweave"
+    elsif OS.linux && Hardware::CPU.intel?
       bin.install "dotweave-linux-x64" => "dotweave"
-    elsif OS.linux? && Hardware::CPU.arm?
+    elsif OS.linux && Hardware::CPU.arm?
       bin.install "dotweave-linux-arm64" => "dotweave"
     end
+  end
   end
 
   test do
