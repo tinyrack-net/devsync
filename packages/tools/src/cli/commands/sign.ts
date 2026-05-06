@@ -197,9 +197,53 @@ const signMacosCommand = buildCommand<
   },
 });
 
+const signWindowsCommand = buildCommand<{ executablePath: string }, []>({
+  parameters: {
+    flags: {
+      executablePath: {
+        kind: "parsed",
+        brief: "Path to the executable to sign",
+        parse: String,
+      },
+    },
+  },
+  docs: {
+    brief: "Sign Windows binary using signtool.exe",
+  },
+  async func(flags) {
+    const repoRoot = await getRepoRoot(process.cwd());
+    const executablePath = join(repoRoot, flags.executablePath);
+
+    // biome-ignore lint/complexity/useLiteralKeys: must use bracket notation for index signature access
+    const thumbprint = process.env["WINDOWS_CERT_THUMBPRINT"];
+
+    if (!thumbprint) {
+      console.log(
+        "WINDOWS_CERT_THUMBPRINT not found. Skipping Windows signing.",
+      );
+      return;
+    }
+
+    console.log(`Signing Windows binary: ${executablePath}`);
+    await execa("signtool.exe", [
+      "sign",
+      "/sha1",
+      thumbprint,
+      "/fd",
+      "sha256",
+      "/tr",
+      "http://timestamp.digicert.com",
+      "/td",
+      "sha256",
+      executablePath,
+    ]);
+  },
+});
+
 export const signRoute = buildRouteMap({
   routes: {
     macos: signMacosCommand,
+    windows: signWindowsCommand,
   },
   docs: {
     brief: "Signing commands",
