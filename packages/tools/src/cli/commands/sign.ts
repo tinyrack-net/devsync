@@ -99,6 +99,21 @@ const signMacosCommand = buildCommand<
           "actions",
           "build.keychain",
         ]);
+        const { stdout: currentKeychains } = await execa("security", [
+          "list-keychains",
+        ]);
+        const keychainList = currentKeychains
+          .split("\n")
+          .map((k) => k.trim())
+          .filter(Boolean);
+        if (!keychainList.includes("build.keychain")) {
+          await execa("security", [
+            "list-keychains",
+            "-s",
+            ...keychainList,
+            "build.keychain",
+          ]);
+        }
         await execa("security", ["default-keychain", "-s", "build.keychain"]);
         await execa("security", [
           "unlock-keychain",
