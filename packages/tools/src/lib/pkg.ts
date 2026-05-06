@@ -186,7 +186,6 @@ export async function performPkgBuild(options: PkgBuildOptions) {
     executablePath,
     "--public",
     "--no-bytecode",
-    "--no-signature",
   ]);
 
   console.log(`pkg executable generated at ${executablePath}`);

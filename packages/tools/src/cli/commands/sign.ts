@@ -35,6 +35,20 @@ const signMacosCommand = buildCommand<{ executablePath: string }, []>({
     // biome-ignore lint/complexity/useLiteralKeys: must use bracket notation for index signature access
     const appleNotaryKeyP8Base64 = process.env["APPLE_NOTARY_KEY_P8_BASE64"];
 
+    console.log("Removing existing signature if any...");
+    try {
+      await execa("codesign", ["--remove-signature", executablePath]);
+    } catch {
+      // Ignore if it fails (e.g. no signature exists)
+    }
+
+    console.log("Removing extended attributes if any...");
+    try {
+      await execa("xattr", ["-cr", executablePath]);
+    } catch {
+      // Ignore if it fails
+    }
+
     if (appleCertificate) {
       if (!appleCertificatePassword || !appleDeveloperId) {
         throw new Error(
