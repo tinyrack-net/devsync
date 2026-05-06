@@ -11,9 +11,6 @@ inputs:
 runs:
   using: "composite"
   steps:
-    - name: Check out repository
-      uses: actions/checkout@v4
-
     - name: Set up pnpm
       uses: pnpm/action-setup@v4
 

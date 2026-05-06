@@ -23,6 +23,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
+      - uses: actions/checkout@v4
       - uses: ./.github/actions/setup
       - name: Run lint
         run: pnpm run format:check
@@ -32,6 +33,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
+      - uses: actions/checkout@v4
       - uses: ./.github/actions/setup
       - name: Run typecheck
         run: pnpm run typecheck
@@ -48,6 +50,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     timeout-minutes: 30
     steps:
+      - uses: actions/checkout@v4
       - uses: ./.github/actions/setup
       - name: Build
         run: pnpm run build
@@ -63,6 +66,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
+      - uses: actions/checkout@v4
       - uses: ./.github/actions/setup
       - name: Build pkg
         run: pnpm --filter @tinyrack/dotweave run pkg:build --target
@@ -133,6 +137,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     timeout-minutes: 15
     steps:
+      - uses: actions/checkout@v4
       - uses: ./.github/actions/setup
       - name: Download artifact
         uses: actions/download-artifact@v4
@@ -177,6 +182,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     timeout-minutes: 30
     steps:
+      - uses: actions/checkout@v4
       - uses: ./.github/actions/setup
       - name: Download artifact
         uses: actions/download-artifact@v4
@@ -227,6 +233,7 @@ jobs:
     env:
       ESIGNER_USERNAME: ${{ secrets.ESIGNER_USERNAME }}
     steps:
+      - uses: actions/checkout@v4
       - uses: ./.github/actions/setup
       - name: Download Windows x64
         uses: actions/download-artifact@v4
@@ -305,6 +312,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     timeout-minutes: 20
     steps:
+      - uses: actions/checkout@v4
       - uses: ./.github/actions/setup
       - name: Download pkg artifact
         uses: actions/download-artifact@v4
@@ -341,6 +349,7 @@ jobs:
       id-token: write
 
     steps:
+      - uses: actions/checkout@v4
       - uses: ./.github/actions/setup
         with:
           install: 'true'
