@@ -1,5 +1,5 @@
 import { spawnSync } from "node:child_process";
-import { mkdir, readFile, rm } from "node:fs/promises";
+import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { builtinModules, createRequire } from "node:module";
 import { join } from "node:path";
 import { exec } from "@yao-pkg/pkg";
@@ -57,16 +57,20 @@ export const captureCommand = (
   };
 };
 
+export type SeaCompressAlgorithm = "Brotli" | "GZip" | "Zstd";
+
 export type PkgBuildOptions = {
   repoRoot: string;
   target?: string;
+  compress?: SeaCompressAlgorithm;
 };
 
 export async function performPkgBuild(options: PkgBuildOptions) {
   const cliDir = join(options.repoRoot, "packages", "cli");
   const distDirectory = join(cliDir, "dist");
   const pkgOutputDirectory = join(distDirectory, "pkg");
-  const pkgBundlePath = join(pkgOutputDirectory, "dotweave.bundle.js");
+  const bundleFileName = "dotweave.mjs";
+  const pkgBundlePath = join(pkgOutputDirectory, bundleFileName);
 
   const isMultiTarget = options.target?.includes(",");
   const isWin =
@@ -107,7 +111,7 @@ export async function performPkgBuild(options: PkgBuildOptions) {
         emptyOutDir: false,
         lib: {
           entry: join(distDirectory, "index.js"),
-          fileName: () => "dotweave.bundle.js",
+          fileName: () => bundleFileName,
           formats: ["es"],
         },
         minify: false,
@@ -120,7 +124,7 @@ export async function performPkgBuild(options: PkgBuildOptions) {
             );
           },
           output: {
-            entryFileNames: "dotweave.bundle.js",
+            entryFileNames: bundleFileName,
             format: "es",
           },
         },
@@ -174,22 +178,48 @@ export async function performPkgBuild(options: PkgBuildOptions) {
 
   await bundleForPkg();
 
-  const pkgTarget = options.target || "node24";
-  console.log(
-    `Generating pkg executable for ${pkgTarget} at ${executablePath}...`,
+  const pkgConfigPath = join(pkgOutputDirectory, "pkg.config.mjs");
+  const targetList = (options.target || "node24")
+    .split(",")
+    .map((t) => t.trim());
+  const pkgConfig: Record<string, unknown> = {
+    targets: targetList,
+    outputPath: pkgOutputDirectory,
+    sea: true,
+    seaConfig: {
+      useCodeCache: true,
+      disableExperimentalSEAWarning: true,
+    },
+    ...(options.compress !== undefined ? { compress: options.compress } : {}),
+  };
+
+  await writeFile(
+    pkgConfigPath,
+    `export default ${JSON.stringify(pkgConfig, null, 2)};\n`,
   );
-  await exec([
+
+  const pkgTarget = options.target || "node24";
+  const execArgs = [
     "-t",
     pkgTarget,
     pkgBundlePath,
-    "-o",
-    executablePath,
-    "--public",
-    "--no-bytecode",
+    "--config",
+    pkgConfigPath,
     "--no-signature",
-  ]);
+  ];
 
-  console.log(`pkg executable generated at ${executablePath}`);
+  if (!isMultiTarget) {
+    execArgs.push("-o", executablePath);
+  }
+
+  console.log(`Generating SEA executable for ${pkgTarget}...`);
+  await exec(execArgs);
+
+  if (isMultiTarget) {
+    console.log(`SEA executables generated in ${pkgOutputDirectory}`);
+  } else {
+    console.log(`SEA executable generated at ${executablePath}`);
+  }
 }
 
 export async function performPkgSmoke(options: {

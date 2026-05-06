@@ -1,8 +1,26 @@
 import { buildCommand, buildRouteMap } from "@stricli/core";
 import { getRepoRoot } from "../../lib/git.ts";
-import { performPkgBuild, performPkgSmoke } from "../../lib/pkg.ts";
+import {
+  performPkgBuild,
+  performPkgSmoke,
+  type SeaCompressAlgorithm,
+} from "../../lib/pkg.ts";
 
-const buildPkgCommand = buildCommand<{ target?: string }, []>({
+const COMPRESS_ALGORITHMS = new Set<string>(["Brotli", "GZip", "Zstd"]);
+
+const parseCompress = (value: string): SeaCompressAlgorithm => {
+  if (!COMPRESS_ALGORITHMS.has(value)) {
+    throw new Error(
+      `Invalid compress algorithm: ${value}. Must be one of: ${[...COMPRESS_ALGORITHMS].join(", ")}`,
+    );
+  }
+  return value as SeaCompressAlgorithm;
+};
+
+const buildPkgCommand = buildCommand<
+  { target?: string; compress?: SeaCompressAlgorithm },
+  []
+>({
   parameters: {
     flags: {
       target: {
@@ -11,16 +29,23 @@ const buildPkgCommand = buildCommand<{ target?: string }, []>({
         parse: String,
         optional: true,
       },
+      compress: {
+        brief: "VFS compression algorithm (Brotli, GZip, Zstd)",
+        kind: "parsed",
+        parse: parseCompress,
+        optional: true,
+      },
     },
   },
   docs: {
-    brief: "Build a single executable application using @yao-pkg/pkg",
+    brief: "Build a single executable application using @yao-pkg/pkg SEA mode",
   },
   async func(flags) {
     const repoRoot = await getRepoRoot(process.cwd());
     await performPkgBuild({
       repoRoot,
       ...(flags.target !== undefined ? { target: flags.target } : {}),
+      ...(flags.compress !== undefined ? { compress: flags.compress } : {}),
     });
   },
 });
@@ -65,7 +90,7 @@ export const pkgRoute = buildRouteMap({
     smoke: smokePkgCommand,
   },
   docs: {
-    brief: "Manage @yao-pkg/pkg builds",
+    brief: "Manage @yao-pkg/pkg SEA builds",
   },
 });
 
