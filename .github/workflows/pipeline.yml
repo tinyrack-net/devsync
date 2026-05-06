@@ -230,8 +230,6 @@ jobs:
     if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')
     runs-on: [self-hosted, Windows, X64]
     timeout-minutes: 30
-    env:
-      ESIGNER_USERNAME: ${{ secrets.ESIGNER_USERNAME }}
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/setup
@@ -247,29 +245,13 @@ jobs:
           name: dotweave-win32-arm64.exe
           path: packages/cli/dist/pkg
 
-      - name: Sign x64 binary (SSL.com eSigner)
-        if: env.ESIGNER_USERNAME != ''
-        uses: sslcom/esigner-codesign@v1.3.2
-        with:
-          command: sign
-          username: ${{ secrets.ESIGNER_USERNAME }}
-          password: ${{ secrets.ESIGNER_PASSWORD }}
-          credential_id: ${{ secrets.ESIGNER_CREDENTIAL_ID }}
-          totp_secret: ${{ secrets.ESIGNER_TOTP_SECRET }}
-          file_path: packages/cli/dist/pkg/dotweave-win-x64.exe
-          environment_name: PROD
-
-      - name: Sign arm64 binary (SSL.com eSigner)
-        if: env.ESIGNER_USERNAME != ''
-        uses: sslcom/esigner-codesign@v1.3.2
-        with:
-          command: sign
-          username: ${{ secrets.ESIGNER_USERNAME }}
-          password: ${{ secrets.ESIGNER_PASSWORD }}
-          credential_id: ${{ secrets.ESIGNER_CREDENTIAL_ID }}
-          totp_secret: ${{ secrets.ESIGNER_TOTP_SECRET }}
-          file_path: packages/cli/dist/pkg/dotweave-win-arm64.exe
-          environment_name: PROD
+      - name: Sign Windows binaries
+        shell: cmd
+        env:
+          WINDOWS_CERT_THUMBPRINT: ${{ secrets.WINDOWS_CERT_THUMBPRINT }}
+        run: |
+          pnpm --filter @tinyrack/dotweave-tools run cli sign windows --executablePath packages/cli/dist/pkg/dotweave-win-x64.exe
+          pnpm --filter @tinyrack/dotweave-tools run cli sign windows --executablePath packages/cli/dist/pkg/dotweave-win-arm64.exe
 
       - name: Smoke test x64 binary
         run: pnpm --filter @tinyrack/dotweave-tools run cli pkg smoke --skip-build
