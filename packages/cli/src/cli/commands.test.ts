@@ -19,7 +19,6 @@ const mocked = vi.hoisted(() => ({
   assignProfiles: vi.fn(),
   buildPullResultFromPlan: vi.fn(),
   clearActiveProfile: vi.fn(),
-  consolaPrompt: vi.fn(),
   createMissingRepositoryAgeKeyError: vi.fn(),
   getStatus: vi.fn(),
   initializeSyncDirectory: vi.fn(),
@@ -28,6 +27,7 @@ const mocked = vi.hoisted(() => ({
   mkdir: vi.fn(),
   pathExists: vi.fn(),
   preparePull: vi.fn(),
+  promptAsk: vi.fn(),
   pushChanges: vi.fn(),
   readEnvValue: vi.fn(),
   resolveConfiguredAbsolutePath: vi.fn(),
@@ -109,10 +109,8 @@ vi.mock("#app/services/status.ts", () => ({
   getStatus: mocked.getStatus,
 }));
 
-vi.mock("consola", () => ({
-  default: {
-    prompt: mocked.consolaPrompt,
-  },
+vi.mock("#app/lib/prompt.ts", () => ({
+  ask: mocked.promptAsk,
 }));
 
 vi.mock("#app/services/terminal/cli-runtime.ts", () => ({
@@ -173,7 +171,7 @@ beforeEach(() => {
   mocked.resolveConfiguredAbsolutePath.mockReturnValue("/tmp/keys.txt");
   mocked.resolveDotweaveSyncDirectory.mockReturnValue("/tmp/dotweave");
   mocked.pathExists.mockResolvedValue(true);
-  mocked.consolaPrompt.mockResolvedValue(undefined);
+  mocked.promptAsk.mockResolvedValue(undefined);
   mocked.createMissingRepositoryAgeKeyError.mockImplementation(() => {
     return new DotweaveError(
       "Existing repository setup requires an age private key.",
@@ -371,7 +369,7 @@ describe("CLI command modules", () => {
       "git@example.com:dotfiles.git",
     );
 
-    expect(mocked.consolaPrompt).not.toHaveBeenCalled();
+    expect(mocked.promptAsk).not.toHaveBeenCalled();
     expect(mocked.initializeSyncDirectory).toHaveBeenCalledWith(
       {
         ageIdentity: "AGE-SECRET-KEY-123",
@@ -388,7 +386,7 @@ describe("CLI command modules", () => {
 
   it("rejects a blank prompted key when importing an existing repository", async () => {
     mocked.pathExists.mockResolvedValue(false);
-    mocked.consolaPrompt.mockResolvedValue("   ");
+    mocked.promptAsk.mockResolvedValue("   ");
 
     await expect(
       runCommand(initCommand, { promptKey: true }, "origin"),
@@ -396,9 +394,8 @@ describe("CLI command modules", () => {
       /Existing repository setup requires an age private key/u,
     );
 
-    expect(mocked.consolaPrompt).toHaveBeenCalledWith(
+    expect(mocked.promptAsk).toHaveBeenCalledWith(
       "Enter the age private key for the existing repository: ",
-      { type: "text", cancel: "reject" },
     );
     expect(mocked.initializeSyncDirectory).not.toHaveBeenCalled();
   });
@@ -565,26 +562,25 @@ describe("CLI command modules", () => {
 
     await runCommand(pullCommand, { verbose: false });
 
-    expect(mocked.consolaPrompt).not.toHaveBeenCalled();
+    expect(mocked.promptAsk).not.toHaveBeenCalled();
     expect(mocked.applyPullPlan).not.toHaveBeenCalled();
     expect(mockLogger.info).toHaveBeenCalledWith("Already up to date");
   });
 
   it("applies pull changes after interactive confirmation", async () => {
-    mocked.consolaPrompt.mockResolvedValueOnce("y");
+    mocked.promptAsk.mockResolvedValueOnce("y");
 
     await runCommand(pullCommand, { verbose: false });
 
-    expect(mocked.consolaPrompt).toHaveBeenCalledWith(
+    expect(mocked.promptAsk).toHaveBeenCalledWith(
       "Apply these changes? [y/N] ",
-      { cancel: "reject", type: "text" },
     );
     expect(mocked.applyPullPlan).toHaveBeenCalledTimes(1);
     expect(mockLogger.success).toHaveBeenCalledWith("Pull complete");
   });
 
   it("cancels pull changes when confirmation is not y", async () => {
-    mocked.consolaPrompt.mockResolvedValueOnce("n");
+    mocked.promptAsk.mockResolvedValueOnce("n");
 
     await runCommand(pullCommand, { verbose: false });
 
@@ -595,7 +591,7 @@ describe("CLI command modules", () => {
   it("skips prompting when --yes is provided", async () => {
     await runCommand(pullCommand, { verbose: false, yes: true });
 
-    expect(mocked.consolaPrompt).not.toHaveBeenCalled();
+    expect(mocked.promptAsk).not.toHaveBeenCalled();
     expect(mocked.applyPullPlan).toHaveBeenCalledTimes(1);
     expect(mockLogger.log).toHaveBeenCalledWith("  1 local paths updated");
     expect(mockLogger.log).toHaveBeenCalledWith("  1 local paths removed");

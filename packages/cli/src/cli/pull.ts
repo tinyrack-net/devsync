@@ -1,7 +1,7 @@
 import { buildCommand } from "@stricli/core";
-import consola from "consola";
 import pc from "picocolors";
 import { DotweaveError } from "#app/lib/error.ts";
+import { ask } from "#app/lib/prompt.ts";
 import {
   applyPullPlan,
   buildPullResultFromPlan,
@@ -98,10 +98,7 @@ const pullCommand = buildCommand<PullFlags, [], DotweaveCliContext>({
         );
       }
 
-      const answer = await consola.prompt("Apply these changes? [y/N] ", {
-        cancel: "reject",
-        type: "text",
-      });
+      const answer = await ask("Apply these changes? [y/N] ");
 
       if (answer.trim() !== "y") {
         logger.info("Skipped pull changes");

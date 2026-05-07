@@ -1,9 +1,9 @@
 import { buildCommand } from "@stricli/core";
-import consola from "consola";
 import pc from "picocolors";
 import { resolveDefaultIdentityFile } from "#app/config/identity-file.ts";
 import { readEnvValue } from "#app/config/runtime-env.ts";
 import { pathExists } from "#app/lib/filesystem.ts";
+import { ask } from "#app/lib/prompt.ts";
 import {
   createMissingRepositoryAgeKeyError,
   type InitResult,
@@ -61,11 +61,10 @@ const initCommand = buildCommand<InitFlags, [string?], DotweaveCliContext>({
       !identityFileExists &&
       ((flags.promptKey ?? false) || importingRepository);
     const promptedKey = shouldPrompt
-      ? await consola.prompt(
+      ? await ask(
           importingRepository
             ? "Enter the age private key for the existing repository: "
             : "Enter an age private key (leave empty to generate a new one): ",
-          { type: "text", cancel: "reject" },
         )
       : undefined;
     const trimmedPromptedKey = promptedKey?.trim();
