@@ -105,7 +105,6 @@ export const generateFormulaCommand = buildCommand<GenerateFormulaFlags, []>({
       bin.install "dotweave-linux-arm64" => "dotweave"
     end
   end
-  end
 
   test do
     system "#{bin}/dotweave", "--version"

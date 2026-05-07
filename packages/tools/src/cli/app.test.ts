@@ -87,4 +87,49 @@ describe("tools cli", () => {
     );
     expect(versionManifest).toContain("ManifestType: version");
   });
+
+  test("generates syntactically valid Ruby formula with balanced blocks", async () => {
+    const artifactsDir = await fs.mkdtemp(path.join(os.tmpdir(), "dotweave-"));
+    for (const name of [
+      "dotweave-macos-arm64",
+      "dotweave-macos-x64",
+      "dotweave-linux-x64",
+      "dotweave-linux-arm64",
+    ]) {
+      await fs.writeFile(path.join(artifactsDir, name), name);
+    }
+
+    const { runCli } = await import("./app.ts");
+
+    await runCli(
+      [
+        "homebrew",
+        "generate",
+        "--version",
+        "v0.42.9",
+        "--artifacts-dir",
+        artifactsDir,
+      ],
+      {
+        process: {
+          env: process.env,
+          exitCode: null,
+          stdout: process.stdout,
+          stderr: process.stderr,
+        },
+      },
+    );
+
+    const formula = await fs.readFile(
+      path.join(artifactsDir, "dotweave.rb"),
+      "utf8",
+    );
+
+    expect(formula).toContain("class Dotweave < Formula");
+    expect(formula).toContain("def install");
+    expect(formula).toContain("test do");
+    expect(formula).toContain(
+      'desc "Git-backed configuration synchronization tool for dotfiles"',
+    );
+  });
 });
