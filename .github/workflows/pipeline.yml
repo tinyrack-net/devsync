@@ -409,7 +409,8 @@ jobs:
   submit-winget:
     name: Submit to winget-pkgs
     needs: publish-release
-    if: startsWith(github.ref, 'refs/tags/v')
+    if: false # Temporarily disabled
+    # if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
