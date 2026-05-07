@@ -27,19 +27,17 @@ describe("msix helpers", () => {
     });
 
     expect(manifest).toContain(
-      'xmlns:uap3="http://schemas.microsoft.com/appx/manifest/uap/windows10/3"',
-    );
-    expect(manifest).toContain(
-      'xmlns:desktop="http://schemas.microsoft.com/appx/manifest/desktop/windows10"',
+      'xmlns:uap5="http://schemas.microsoft.com/appx/manifest/uap/windows10/5"',
     );
     expect(manifest).toContain('Name="Windows.Desktop"');
     expect(manifest).toContain('<rescap:Capability Name="runFullTrust" />');
     expect(manifest).toContain('uap10:RuntimeBehavior="packagedClassicApp"');
     expect(manifest).toContain(
-      '<uap3:Extension\n          Category="windows.appExecutionAlias"',
+      '<uap5:Extension Category="windows.appExecutionAlias">',
     );
     expect(manifest).toContain(
-      '<desktop:ExecutionAlias Alias="dotweave.exe" uap8:AllowOverride="true" />',
+      '<uap5:AppExecutionAlias desktop4:Subsystem="console">',
     );
+    expect(manifest).toContain('<uap5:ExecutionAlias Alias="dotweave.exe" />');
   });
 });

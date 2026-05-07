@@ -127,13 +127,11 @@ export const buildMsixManifest = (options: {
 <Package
   xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10"
   xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10"
-  xmlns:uap3="http://schemas.microsoft.com/appx/manifest/uap/windows10/3"
-  xmlns:uap8="http://schemas.microsoft.com/appx/manifest/uap/windows10/8"
+  xmlns:uap5="http://schemas.microsoft.com/appx/manifest/uap/windows10/5"
   xmlns:uap10="http://schemas.microsoft.com/appx/manifest/uap/windows10/10"
-  xmlns:desktop="http://schemas.microsoft.com/appx/manifest/desktop/windows10"
   xmlns:desktop4="http://schemas.microsoft.com/appx/manifest/desktop/windows10/4"
   xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities"
-  IgnorableNamespaces="uap uap3 uap8 uap10 desktop desktop4 rescap">
+  IgnorableNamespaces="uap uap5 uap10 desktop4 rescap">
   <Identity
     Name="${escapeXml(options.identity.identityName)}"
     Publisher="${escapeXml(options.identity.publisher)}"
@@ -170,13 +168,11 @@ export const buildMsixManifest = (options: {
         Square44x44Logo="Assets\\Square44x44Logo.png"
         BackgroundColor="#102A43" />
       <Extensions>
-        <uap3:Extension
-          Category="windows.appExecutionAlias"
-          EntryPoint="Windows.FullTrustApplication">
-          <uap3:AppExecutionAlias desktop4:Subsystem="console">
-            <desktop:ExecutionAlias Alias="${APP_EXECUTABLE_NAME}" uap8:AllowOverride="true" />
-          </uap3:AppExecutionAlias>
-        </uap3:Extension>
+        <uap5:Extension Category="windows.appExecutionAlias">
+          <uap5:AppExecutionAlias desktop4:Subsystem="console">
+            <uap5:ExecutionAlias Alias="${APP_EXECUTABLE_NAME}" />
+          </uap5:AppExecutionAlias>
+        </uap5:Extension>
       </Extensions>
     </Application>
   </Applications>
