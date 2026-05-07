@@ -1,10 +1,10 @@
 import { join } from "node:path";
-import type { ConsolaInstance } from "consola";
 import { CONSTANTS } from "#app/config/constants.ts";
 import { resolveSyncConfigFilePath } from "#app/config/sync.ts";
 import { removePathAtomically } from "#app/lib/filesystem.ts";
 import { ensureGitRepository } from "#app/lib/git.ts";
 import { limitConcurrency } from "#app/lib/promise.ts";
+import type { CliLogger } from "#app/services/terminal/logger.ts";
 import { buildLocalSnapshot, type SnapshotNode } from "./local-snapshot.ts";
 import {
   buildArtifactKey,
@@ -79,7 +79,7 @@ const buildPushCounts = (snapshot: ReadonlyMap<string, SnapshotNode>) => {
 export const buildPushPlan = async (
   config: EffectiveSyncConfig,
   syncDirectory: string,
-  reporter?: ConsolaInstance,
+  reporter?: CliLogger,
 ): Promise<PushPlan> => {
   reporter?.start("Scanning local files...");
   const snapshot = await buildLocalSnapshot(config, reporter);
@@ -142,7 +142,7 @@ export const buildPushResultFromPlan = (
 
 export const pushChanges = async (
   request: PushRequest,
-  reporter?: ConsolaInstance,
+  reporter?: CliLogger,
 ): Promise<PushResult> => {
   reporter?.start("Starting push...");
   const { syncDirectory } = resolveSyncPaths();

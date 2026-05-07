@@ -1,9 +1,9 @@
-import type { ConsolaInstance } from "consola";
 import { CONSTANTS } from "#app/config/constants.ts";
 import { resolveSyncConfigFilePath } from "#app/config/sync.ts";
 import { ensureGitRepository } from "#app/lib/git.ts";
 import { doPathsOverlap, isPathEqualOrNested } from "#app/lib/path.ts";
 import { limitConcurrency } from "#app/lib/promise.ts";
+import type { CliLogger } from "#app/services/terminal/logger.ts";
 import {
   applyEntryMaterialization,
   buildEntryMaterialization,
@@ -120,7 +120,7 @@ const buildUpdatedLocalPaths = async (
 export const buildPullPlan = async (
   config: EffectiveSyncConfig,
   syncDirectory: string,
-  reporter?: ConsolaInstance,
+  reporter?: CliLogger,
 ): Promise<PullPlan> => {
   reporter?.start("Scanning repository artifacts...");
   const snapshot = await buildRepositorySnapshot(
@@ -221,7 +221,7 @@ export const buildPullResultFromPlan = (
 
 export const pullChanges = async (
   request: PullRequest,
-  reporter?: ConsolaInstance,
+  reporter?: CliLogger,
 ): Promise<PullResult> => {
   const prepared = await preparePull(request, reporter);
 
@@ -238,7 +238,7 @@ export const pullChanges = async (
 
 export const preparePull = async (
   request: PullRequest,
-  reporter?: ConsolaInstance,
+  reporter?: CliLogger,
 ): Promise<PreparedPull> => {
   reporter?.start("Starting pull...");
   const { syncDirectory } = resolveSyncPaths();
@@ -305,7 +305,7 @@ const buildApplyPullPlanBatches = (
 export const applyPullPlan = async (
   config: EffectiveSyncConfig,
   plan: PullPlan,
-  reporter?: ConsolaInstance,
+  reporter?: CliLogger,
 ) => {
   for (const batch of buildApplyPullPlanBatches(config, plan)) {
     await limitConcurrency(

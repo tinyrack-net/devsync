@@ -1,6 +1,6 @@
-import type { ConsolaInstance } from "consola";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { DotweaveError } from "#app/lib/error.ts";
+import type { CliLogger } from "#app/services/terminal/logger.ts";
 
 const mocked = vi.hoisted(() => ({
   buildRepositorySnapshot: vi.fn(),
@@ -44,7 +44,7 @@ const createReporter = (verbose = false) => {
     start: vi.fn(),
     verbose: vi.fn(),
   };
-  return Object.assign(raw as unknown as ConsolaInstance, {
+  return Object.assign(raw as unknown as CliLogger, {
     start: raw.start,
     verbose: raw.verbose,
   });

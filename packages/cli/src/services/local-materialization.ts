@@ -8,7 +8,6 @@ import {
   rm,
 } from "node:fs/promises";
 import { basename, dirname, isAbsolute, join, posix, resolve } from "node:path";
-import type { ConsolaInstance } from "consola";
 import { CONSTANTS } from "#app/config/constants.ts";
 import {
   collectChildEntryPaths,
@@ -38,6 +37,7 @@ import {
 } from "#app/lib/filesystem.ts";
 import { buildDirectoryKey } from "#app/lib/path.ts";
 import { limitConcurrency } from "#app/lib/promise.ts";
+import type { CliLogger } from "#app/services/terminal/logger.ts";
 import type { FileLikeSnapshotNode, SnapshotNode } from "./local-snapshot.ts";
 
 type MaterializationConfig = ResolvedSyncConfig &
@@ -46,7 +46,7 @@ type MaterializationConfig = ResolvedSyncConfig &
   }>;
 
 const reportPullPlanningProgress = (
-  reporter: ConsolaInstance | undefined,
+  reporter: CliLogger | undefined,
   state: { scannedLocalNodeCount: number },
   repoPath: string,
 ) => {
@@ -212,7 +212,7 @@ const resolveStagingParentDirectory = (targetPath: string) => {
 const stageAndReplaceFilePath = async (
   targetPath: string,
   node: FileLikeSnapshotNode,
-  reporter?: ConsolaInstance,
+  reporter?: CliLogger,
   fileMode?: number,
 ) => {
   reporter?.verbose(`staging local file ${targetPath}`);
@@ -317,7 +317,7 @@ export const buildEntryMaterialization = (
   entry: ResolvedSyncConfigEntry,
   snapshot: ReadonlyMap<string, SnapshotNode>,
   config: Pick<ResolvedSyncConfig, "entries">,
-  reporter?: ConsolaInstance,
+  reporter?: CliLogger,
 ): EntryMaterialization => {
   if (entry.kind === "file") {
     const node = snapshot.get(entry.repoPath);
@@ -409,7 +409,7 @@ const collectLocalLeafKeys = async (
   keyToLocalPath: Map<string, string> | undefined,
   childEntryPaths: ReadonlySet<string>,
   prefix?: string,
-  reporter?: ConsolaInstance,
+  reporter?: CliLogger,
   progressState: { scannedLocalNodeCount: number } = {
     scannedLocalNodeCount: 0,
   },
@@ -545,7 +545,7 @@ const reconcileMaterializedDirectoryPath = async (
   desiredKeys: ReadonlySet<string>,
   desiredNodes: ReadonlyMap<string, FileLikeSnapshotNode>,
   config: MaterializationConfig,
-  reporter?: ConsolaInstance,
+  reporter?: CliLogger,
   fileMode?: number,
 ) => {
   const desiredRootKey = buildDirectoryKey(entry.repoPath);
@@ -648,7 +648,7 @@ export const countDeletedLocalNodes = async (
   desiredKeys: ReadonlySet<string>,
   config: MaterializationConfig,
   existingKeys: Set<string> = new Set<string>(),
-  reporter?: ConsolaInstance,
+  reporter?: CliLogger,
   keyToLocalPath?: Map<string, string>,
   deletedKeys?: Set<string>,
 ) => {
@@ -806,7 +806,7 @@ export const applyEntryMaterialization = async (
   entry: ResolvedSyncConfigEntry,
   materialization: EntryMaterialization,
   config: MaterializationConfig,
-  reporter?: ConsolaInstance,
+  reporter?: CliLogger,
 ) => {
   const rule = resolveSyncRule(config, entry.repoPath, config.activeProfile);
 

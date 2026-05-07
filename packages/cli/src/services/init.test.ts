@@ -12,10 +12,10 @@ vi.mock("#app/lib/env.ts", () => ({
   ENV: mockEnv,
 }));
 
-import type { ConsolaInstance } from "consola";
 import { createInitialSyncConfig, formatSyncConfig } from "#app/config/sync.ts";
 import { DotweaveError } from "#app/lib/error.ts";
 import { initializeSyncDirectory } from "#app/services/init.ts";
+import type { CliLogger } from "#app/services/terminal/logger.ts";
 import {
   createAgeKeyPair,
   createTemporaryDirectory,
@@ -50,7 +50,7 @@ const createProgressCapture = (verbose = false) => {
         messages.push(`detail:${message}`);
       }
     },
-  } as unknown as ConsolaInstance;
+  } as unknown as CliLogger;
 
   return {
     messages,

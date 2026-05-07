@@ -1,6 +1,5 @@
 import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
-import type { ConsolaInstance } from "consola";
 import { CONSTANTS } from "#app/config/constants.ts";
 import {
   formatGlobalDotweaveConfig,
@@ -30,6 +29,7 @@ import {
   initializeRepository,
 } from "#app/lib/git.ts";
 import { resolveJsoncConfigPath } from "#app/lib/jsonc.ts";
+import type { CliLogger } from "#app/services/terminal/logger.ts";
 import {
   resolveAgeFromSyncConfig,
   resolveSyncConfigResolutionContext,
@@ -81,7 +81,7 @@ const normalizeRecipients = (recipients: readonly string[]) => {
 
 const resolveInitAgeBootstrap = async (
   request: InitRequest,
-  reporter?: ConsolaInstance,
+  reporter?: CliLogger,
 ) => {
   const identityFile = resolveDefaultIdentityFile(
     readEnvValue("HOME"),
@@ -239,7 +239,7 @@ const ensureManagedRepositoryAttributes = async (syncDirectory: string) => {
 
 export const initializeSyncDirectory = async (
   request: InitRequest,
-  reporter?: ConsolaInstance,
+  reporter?: CliLogger,
 ): Promise<InitResult> => {
   reporter?.start("Initializing sync directory...");
   const { syncDirectory, configPath, globalConfigPath } = resolveSyncPaths();

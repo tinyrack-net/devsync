@@ -1,11 +1,20 @@
 import { buildCommand } from "@stricli/core";
-import { consola } from "consola";
 import {
   performRelease,
   type ReleaseType,
   releaseTypeSchema,
 } from "../../lib/release.ts";
 import { parseWithZod } from "../../lib/zod.ts";
+
+function createReleaseLogger() {
+  const prefix = "[release] ";
+
+  return {
+    info: (message: string) => console.log(`${prefix}${message}`),
+    start: (message: string) => console.log(`${prefix}▶ ${message}`),
+    success: (message: string) => console.log(`${prefix}✔ ${message}`),
+  };
+}
 
 type ReleaseArgs = [releaseType: ReleaseType];
 type ReleaseCommandFlags = {
@@ -16,11 +25,7 @@ export async function runReleaseCommand(
   flags: ReleaseCommandFlags,
   releaseType: ReleaseType,
 ): Promise<void> {
-  const logger = consola.create({
-    defaults: {
-      tag: "release",
-    },
-  });
+  const logger = createReleaseLogger();
 
   const result = await performRelease({
     cwd: process.cwd(),

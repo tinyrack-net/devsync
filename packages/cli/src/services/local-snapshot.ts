@@ -1,6 +1,5 @@
 import { lstat, readFile, readlink } from "node:fs/promises";
 import { join, posix } from "node:path";
-import type { ConsolaInstance } from "consola";
 import {
   collectChildEntryPaths,
   type ResolvedSyncConfig,
@@ -9,6 +8,7 @@ import {
 import { DotweaveError } from "#app/lib/error.ts";
 import { isExecutableMode } from "#app/lib/file-mode.ts";
 import { getPathStats, listDirectoryEntries } from "#app/lib/filesystem.ts";
+import type { CliLogger } from "#app/services/terminal/logger.ts";
 import { assertStorageSafeRepoPath } from "./repo-artifacts.ts";
 
 type SnapshotConfig = ResolvedSyncConfig &
@@ -54,7 +54,7 @@ export const addSnapshotNode = (
 };
 
 const reportLocalScanProgress = (
-  reporter: ConsolaInstance | undefined,
+  reporter: CliLogger | undefined,
   state: { scannedEntryCount: number },
   repoPath: string,
   kind: "directory" | "file" | "other" | "symlink",
@@ -126,7 +126,7 @@ const walkLocalDirectory = async (
   localDirectory: string,
   repoPathPrefix: string,
   childEntryPaths: ReadonlySet<string>,
-  reporter?: ConsolaInstance,
+  reporter?: CliLogger,
   progressState: { scannedEntryCount: number } = { scannedEntryCount: 0 },
 ) => {
   const entries = await listDirectoryEntries(localDirectory);
@@ -173,7 +173,7 @@ const walkLocalDirectory = async (
 
 export const buildLocalSnapshot = async (
   config: SnapshotConfig,
-  reporter?: ConsolaInstance,
+  reporter?: CliLogger,
 ) => {
   const snapshot = new Map<string, SnapshotNode>();
   const progressState = { scannedEntryCount: 0 };

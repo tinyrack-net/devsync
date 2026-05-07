@@ -1,10 +1,10 @@
-import type { ConsolaInstance } from "consola";
 import {
   resolveSyncConfigFilePath,
   type SyncConfigEntryKind,
   type SyncMode,
 } from "#app/config/sync.ts";
 import { ensureGitRepository } from "#app/lib/git.ts";
+import type { CliLogger } from "#app/services/terminal/logger.ts";
 import type { PullPlan } from "./pull.ts";
 import {
   buildPullPlan,
@@ -116,7 +116,7 @@ const buildPullChanges = (plan: PullPlan): PullChanges => {
 export const getStatus = async (
   options: Readonly<{
     profile?: string;
-    reporter?: ConsolaInstance;
+    reporter?: CliLogger;
   }> = {},
 ): Promise<StatusResult> => {
   const reporter = options.reporter;

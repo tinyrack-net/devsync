@@ -1,6 +1,6 @@
-import type { ConsolaInstance } from "consola";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { doPathsOverlap } from "#app/lib/path.ts";
+import type { CliLogger } from "#app/services/terminal/logger.ts";
 
 const mocked = vi.hoisted(() => ({
   applyEntryMaterialization: vi.fn(),
@@ -317,7 +317,7 @@ describe("pull planning", () => {
       level: 3,
       start: vi.fn(),
       verbose: vi.fn(),
-    } as unknown as ConsolaInstance;
+    } as unknown as CliLogger;
     const config = {
       age: {
         identityFile: "/tmp/dotweave/keys.txt",

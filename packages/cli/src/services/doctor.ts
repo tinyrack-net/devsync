@@ -1,8 +1,8 @@
-import type { ConsolaInstance } from "consola";
 import { resolveSyncConfigFilePath } from "#app/config/sync.ts";
 import { formatDotweaveError } from "#app/lib/error.ts";
 import { pathExists } from "#app/lib/filesystem.ts";
 import { ensureRepository } from "#app/lib/git.ts";
+import type { CliLogger } from "#app/services/terminal/logger.ts";
 import { buildEntryMaterialization } from "./local-materialization.ts";
 import { buildRepositorySnapshot } from "./repo-snapshot.ts";
 import {
@@ -46,7 +46,7 @@ const fail = (checkId: string, detail: string): DoctorCheck => ({
 });
 
 export const runDoctorChecks = async (
-  reporter?: ConsolaInstance,
+  reporter?: CliLogger,
 ): Promise<DoctorResult> => {
   reporter?.start("Running doctor checks...");
   const { syncDirectory } = resolveSyncPaths();

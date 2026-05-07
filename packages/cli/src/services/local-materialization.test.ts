@@ -1,6 +1,5 @@
 import { mkdir, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import type { ConsolaInstance } from "consola";
 import { afterEach, describe, expect, it } from "vitest";
 import type {
   ResolvedSyncConfig,
@@ -15,6 +14,7 @@ import {
   countDeletedLocalNodes,
 } from "#app/services/local-materialization.ts";
 import type { FileLikeSnapshotNode } from "#app/services/local-snapshot.ts";
+import type { CliLogger } from "#app/services/terminal/logger.ts";
 import { createTemporaryDirectory } from "../test/helpers/sync-fixture.ts";
 
 const temporaryDirectories: string[] = [];
@@ -66,7 +66,7 @@ const createProgressCapture = () => {
     verbose: (message: string) => {
       messages.push(message);
     },
-  } as unknown as ConsolaInstance;
+  } as unknown as CliLogger;
 
   return { messages, reporter };
 };

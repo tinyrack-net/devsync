@@ -65,7 +65,6 @@
   "dependencies": {
     "@stricli/core": "^1.2.6",
     "age-encryption": "^0.3.0",
-    "consola": "^3.4.2",
     "picocolors": "^1.1.1",
     "zod": "^4.4.3"
   },

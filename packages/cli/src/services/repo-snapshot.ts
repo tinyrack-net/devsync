@@ -1,11 +1,11 @@
 import { lstat, readFile, readlink } from "node:fs/promises";
 import { join } from "node:path";
-import type { ConsolaInstance } from "consola";
 import { resolveManagedSyncMode, resolveSyncRule } from "#app/config/sync.ts";
 import { decryptSecretFile } from "#app/lib/crypto.ts";
 import { DotweaveError, wrapUnknownError } from "#app/lib/error.ts";
 import { isExecutableMode } from "#app/lib/file-mode.ts";
 import { getPathStats, listDirectoryEntries } from "#app/lib/filesystem.ts";
+import type { CliLogger } from "#app/services/terminal/logger.ts";
 import { addSnapshotNode, type SnapshotNode } from "./local-snapshot.ts";
 import {
   assertStorageSafeRepoPath,
@@ -17,7 +17,7 @@ import type { EffectiveSyncConfig } from "./runtime.ts";
 type RepositorySnapshotConfig = EffectiveSyncConfig;
 
 const reportRepositoryScanProgress = (
-  reporter: ConsolaInstance | undefined,
+  reporter: CliLogger | undefined,
   state: { scannedStorageEntryCount: number },
   storagePath: string,
   kind: "directory" | "file",
@@ -211,7 +211,7 @@ const walkArtifactTree = async (
   config: RepositorySnapshotConfig,
   snapshot: Map<string, SnapshotNode>,
   prefix = "",
-  reporter?: ConsolaInstance,
+  reporter?: CliLogger,
   progressState: { scannedStorageEntryCount: number } = {
     scannedStorageEntryCount: 0,
   },
@@ -248,7 +248,7 @@ const walkArtifactTree = async (
 export const buildRepositorySnapshot = async (
   syncDirectory: string,
   config: RepositorySnapshotConfig,
-  reporter?: ConsolaInstance,
+  reporter?: CliLogger,
 ) => {
   const snapshot = new Map<string, SnapshotNode>();
   const artifactsDirectory = syncDirectory;

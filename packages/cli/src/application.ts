@@ -5,7 +5,6 @@ import {
   run,
   text_en,
 } from "@stricli/core";
-import { createConsola } from "consola";
 import { buildRootRoute } from "#app/cli/index.ts";
 import { CONSTANTS } from "#app/config/constants.ts";
 import { formatDotweaveError } from "#app/lib/error.ts";
@@ -14,18 +13,13 @@ import {
   createCliContext,
   type DotweaveCliContext,
 } from "#app/services/terminal/cli-runtime.ts";
+import { createCliLogger } from "#app/services/terminal/logger.ts";
 
 type CommandError = Error & {
   exitCode?: number;
 };
 
-const errorLogger = createConsola({
-  formatOptions: {
-    colors: process.stderr.isTTY ?? false,
-    compact: true,
-    date: false,
-  },
-  level: 3,
+const errorLogger = createCliLogger({
   stderr: process.stderr,
   stdout: process.stderr,
 });

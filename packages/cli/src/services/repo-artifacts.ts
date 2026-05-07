@@ -1,6 +1,5 @@
 import { lstat, mkdir, readFile, readlink } from "node:fs/promises";
 import { join } from "node:path";
-import type { ConsolaInstance } from "consola";
 import { CONSTANTS } from "#app/config/constants.ts";
 import {
   findOwningSyncEntry,
@@ -26,6 +25,7 @@ import {
 } from "#app/lib/filesystem.ts";
 import { buildDirectoryKey } from "#app/lib/path.ts";
 import { limitConcurrency } from "#app/lib/promise.ts";
+import type { CliLogger } from "#app/services/terminal/logger.ts";
 import type { SnapshotNode } from "./local-snapshot.ts";
 import type { EffectiveSyncConfig } from "./runtime.ts";
 
@@ -157,7 +157,7 @@ export const parseArtifactRelativePath = (relativePath: string) => {
 export const buildRepoArtifacts = async (
   snapshot: ReadonlyMap<string, SnapshotNode>,
   config: ArtifactConfig,
-  reporter?: ConsolaInstance,
+  reporter?: CliLogger,
 ) => {
   const artifacts: RepoArtifact[] = [];
   const seenArtifactKeys = new Set<string>();
@@ -296,7 +296,7 @@ const collectArtifactLeafKeys = async (
 export const collectExistingArtifactKeys = async (
   syncDirectory: string,
   config: ArtifactConfig,
-  reporter?: ConsolaInstance,
+  reporter?: CliLogger,
 ) => {
   const keys = new Set<string>();
   const artifactsDirectory = syncDirectory;
@@ -471,7 +471,7 @@ export const writeArtifactsToDirectory = async (
   rootDirectory: string,
   artifacts: readonly RepoArtifact[],
   ageConfig?: AgeWriteConfig,
-  reporter?: ConsolaInstance,
+  reporter?: CliLogger,
 ) => {
   await mkdir(rootDirectory, { recursive: true });
   let processedArtifactCount = 0;

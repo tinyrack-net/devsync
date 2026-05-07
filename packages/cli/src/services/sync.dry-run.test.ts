@@ -12,13 +12,13 @@ vi.mock("#app/lib/env.ts", () => ({
   ENV: mockEnv,
 }));
 
-import type { ConsolaInstance } from "consola";
 import { CONSTANTS } from "#app/config/constants.ts";
 import { initializeSyncDirectory } from "#app/services/init.ts";
 import { pullChanges } from "#app/services/pull.ts";
 import { pushChanges } from "#app/services/push.ts";
 import { setTargetMode } from "#app/services/set.ts";
 import { getStatus } from "#app/services/status.ts";
+import type { CliLogger } from "#app/services/terminal/logger.ts";
 import { trackTarget } from "#app/services/track.ts";
 import {
   createAgeKeyPair,
@@ -53,7 +53,7 @@ const createProgressCapture = (verbose = false) => {
         messages.push(`detail:${message}`);
       }
     },
-  } as unknown as ConsolaInstance;
+  } as unknown as CliLogger;
 
   return {
     messages,

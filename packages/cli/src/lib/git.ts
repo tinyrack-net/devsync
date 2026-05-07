@@ -1,7 +1,7 @@
 import { execFile, spawn } from "node:child_process";
 import { promisify } from "node:util";
-import type { ConsolaInstance } from "consola";
 import { wrapUnknownError } from "#app/lib/error.ts";
+import type { CliLogger } from "#app/services/terminal/logger.ts";
 
 const execFileAsync = promisify(execFile);
 
@@ -46,7 +46,7 @@ const runGitCommand = async (
  * Streams git progress lines to the reporter as complete messages arrive.
  */
 const forwardGitProgressChunk = (
-  reporter: ConsolaInstance | undefined,
+  reporter: CliLogger | undefined,
   state: { remainder: string },
   chunk: string,
 ) => {
@@ -73,7 +73,7 @@ const forwardGitProgressChunk = (
  * Flushes any final buffered git progress line to the reporter.
  */
 const flushGitProgressChunk = (
-  reporter: ConsolaInstance | undefined,
+  reporter: CliLogger | undefined,
   state: { remainder: string },
 ) => {
   if (!((reporter?.level ?? 0) >= 4)) {
@@ -95,7 +95,7 @@ const runStreamingGitCommand = async (
   args: readonly string[],
   options?: Readonly<{
     cwd?: string;
-    reporter?: ConsolaInstance;
+    reporter?: CliLogger;
   }>,
 ) => {
   return await new Promise<{
@@ -178,7 +178,7 @@ export const ensureRepository = async (directory: string) => {
 export const initializeRepository = async (
   directory: string,
   source?: string,
-  reporter?: ConsolaInstance,
+  reporter?: CliLogger,
 ) => {
   if (source === undefined) {
     await runStreamingGitCommand(["init", "-b", "main", directory], {
