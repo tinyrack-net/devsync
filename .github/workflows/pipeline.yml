@@ -223,12 +223,12 @@ jobs:
           overwrite: true
           if-no-files-found: error
 
-  # Windows remains separate due to self-hosted runner and specific tool requirements
-  sign-and-test-windows:
-    name: Sign & Test (Windows)
+  # Windows remains separate because MSIX packaging uses Windows SDK tools.
+  package-windows:
+    name: Package & Test (Windows)
     needs: build-pkg
     if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')
-    runs-on: [self-hosted, Windows, X64]
+    runs-on: windows-latest
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
@@ -245,17 +245,54 @@ jobs:
           name: dotweave-win32-arm64.exe
           path: packages/cli/dist/pkg
 
-      - name: Sign Windows binaries
-        shell: cmd
-        env:
-          WINDOWS_CERT_THUMBPRINT: ${{ secrets.WINDOWS_CERT_THUMBPRINT }}
-        run: |
-          pnpm --filter @tinyrack/dotweave-tools run cli sign windows --executablePath packages/cli/dist/pkg/dotweave-win-x64.exe
-          pnpm --filter @tinyrack/dotweave-tools run cli sign windows --executablePath packages/cli/dist/pkg/dotweave-win-arm64.exe
-
       - name: Smoke test x64 binary
         run: pnpm --filter @tinyrack/dotweave-tools run cli pkg smoke --skip-build
           --executablePath packages/cli/dist/pkg/dotweave-win-x64.exe
+
+      - name: Build Windows x64 MSIX
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: powershell
+        env:
+          MSIX_IDENTITY_NAME: ${{ secrets.MSIX_IDENTITY_NAME }}
+          MSIX_PUBLISHER: ${{ secrets.MSIX_PUBLISHER }}
+          MSIX_PUBLISHER_DISPLAY_NAME: ${{ secrets.MSIX_PUBLISHER_DISPLAY_NAME }}
+        run: pnpm --filter @tinyrack/dotweave-tools run cli msix build
+          --arch x64 --executablePath packages/cli/dist/pkg/dotweave-win-x64.exe
+
+      - name: Build Windows arm64 MSIX
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: powershell
+        env:
+          MSIX_IDENTITY_NAME: ${{ secrets.MSIX_IDENTITY_NAME }}
+          MSIX_PUBLISHER: ${{ secrets.MSIX_PUBLISHER }}
+          MSIX_PUBLISHER_DISPLAY_NAME: ${{ secrets.MSIX_PUBLISHER_DISPLAY_NAME }}
+        run: pnpm --filter @tinyrack/dotweave-tools run cli msix build
+          --arch arm64 --executablePath packages/cli/dist/pkg/dotweave-win-arm64.exe
+
+      - name: Smoke test MSIX alias
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: powershell
+        env:
+          MSIX_IDENTITY_NAME: ${{ secrets.MSIX_IDENTITY_NAME }}
+        run: |
+          $existing = Get-AppxPackage -Name "$env:MSIX_IDENTITY_NAME" -ErrorAction SilentlyContinue
+          if ($existing) {
+            Remove-AppxPackage -Package $existing.PackageFullName
+          }
+          Add-AppxPackage -Register (Resolve-Path "packages/cli/dist/msix/x64/AppxManifest.xml")
+          try {
+            dotweave.exe --version
+          } finally {
+            $package = Get-AppxPackage -Name "$env:MSIX_IDENTITY_NAME" -ErrorAction SilentlyContinue
+            if ($package) {
+              Remove-AppxPackage -Package $package.PackageFullName
+            }
+          }
+
+      - name: Bundle Windows MSIX packages
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: powershell
+        run: pnpm --filter @tinyrack/dotweave-tools run cli msix bundle
 
       - name: Upload Windows x64
         uses: actions/upload-artifact@v4
@@ -270,6 +307,33 @@ jobs:
         with:
           name: dotweave-win32-arm64.exe
           path: packages/cli/dist/pkg/dotweave-win-arm64.exe
+          overwrite: true
+          if-no-files-found: error
+
+      - name: Upload Windows x64 MSIX
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: actions/upload-artifact@v4
+        with:
+          name: dotweave-win32-x64-msix
+          path: packages/cli/dist/pkg/dotweave-win-x64.msix
+          overwrite: true
+          if-no-files-found: error
+
+      - name: Upload Windows arm64 MSIX
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: actions/upload-artifact@v4
+        with:
+          name: dotweave-win32-arm64-msix
+          path: packages/cli/dist/pkg/dotweave-win-arm64.msix
+          overwrite: true
+          if-no-files-found: error
+
+      - name: Upload Windows MSIX bundle
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: actions/upload-artifact@v4
+        with:
+          name: dotweave-windows-msixbundle
+          path: packages/cli/dist/pkg/dotweave-windows.msixbundle
           overwrite: true
           if-no-files-found: error
 
@@ -322,7 +386,7 @@ jobs:
       - test
       - build-pkg
       - sign-and-test
-      - sign-and-test-windows
+      - package-windows
       - build-appimage
     if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
@@ -406,19 +470,47 @@ jobs:
           git commit -m "Update dotweave to ${GITHUB_REF_NAME}" || echo "No changes to commit"
           git push
 
-  submit-winget:
-    name: Submit to winget-pkgs
+  publish-store:
+    name: Publish to Microsoft Store
     needs: publish-release
     if: false # Temporarily disabled
     # if: startsWith(github.ref, 'refs/tags/v')
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
+    runs-on: windows-latest
+    timeout-minutes: 30
     steps:
-      - uses: vedantmgoyal2009/winget-releaser@v2
+      - uses: actions/checkout@v4
+
+      - name: Download MSIX bundle
+        uses: actions/download-artifact@v4
         with:
-          identifier: tinyrack.dotweave
-          installers-regex: 'dotweave-win-\w+\.exe$'
-          token: ${{ secrets.WINGET_TOKEN }}
+          name: dotweave-windows-msixbundle
+          path: store-assets
+
+      - name: Set up Microsoft Store CLI
+        uses: microsoft/microsoft-store-apppublisher@v1.1
+
+      - name: Configure Microsoft Store CLI
+        shell: powershell
+        env:
+          PARTNER_CENTER_TENANT_ID: ${{ secrets.PARTNER_CENTER_TENANT_ID }}
+          PARTNER_CENTER_SELLER_ID: ${{ secrets.PARTNER_CENTER_SELLER_ID }}
+          PARTNER_CENTER_CLIENT_ID: ${{ secrets.PARTNER_CENTER_CLIENT_ID }}
+          PARTNER_CENTER_CLIENT_SECRET: ${{ secrets.PARTNER_CENTER_CLIENT_SECRET }}
+        run: |
+          msstore reconfigure `
+            --tenantId "$env:PARTNER_CENTER_TENANT_ID" `
+            --sellerId "$env:PARTNER_CENTER_SELLER_ID" `
+            --clientId "$env:PARTNER_CENTER_CLIENT_ID" `
+            --clientSecret "$env:PARTNER_CENTER_CLIENT_SECRET"
+
+      - name: Publish MSIX bundle to Store
+        shell: powershell
+        env:
+          MSSTORE_PRODUCT_ID: ${{ secrets.MSSTORE_PRODUCT_ID }}
+        run: |
+          $bundle = Resolve-Path "store-assets/dotweave-windows.msixbundle"
+          msstore publish "$bundle" -id "$env:MSSTORE_PRODUCT_ID"
+          msstore submission poll "$env:MSSTORE_PRODUCT_ID"
 
   publish-snap:
     name: Publish Snap (${{ matrix.artifact }})
