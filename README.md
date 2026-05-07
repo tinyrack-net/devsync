@@ -30,7 +30,7 @@ Most dotfiles tools start from the repository and ask you to shape your local sy
 ## Quick Start
 
 ```bash
-# Install
+# Install with npm on macOS, Linux, WSL, or as a cross-platform fallback
 npm install -g @tinyrack/dotweave
 
 # Initialize
@@ -44,6 +44,10 @@ dotweave track ~/.ssh/config --mode secret
 # Push local state to sync repo
 dotweave push
 ```
+
+On Windows, install dotweave from the Microsoft Store once the listing is live.
+Portable Windows `.exe` files remain attached to GitHub Releases for manual
+use.
 
 ## Documentation
 
