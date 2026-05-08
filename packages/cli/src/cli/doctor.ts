@@ -1,7 +1,8 @@
 import { buildCommand } from "@stricli/core";
 import pc from "picocolors";
+import { DotweaveError } from "#app/lib/error.ts";
 import { type DoctorCheck, runDoctorChecks } from "#app/services/doctor.ts";
-import { type DotweaveCliContext } from "#app/services/terminal/cli-runtime.ts";
+import type { DotweaveCliContext } from "#app/services/terminal/cli-runtime.ts";
 import { createCliLogger } from "#app/services/terminal/logger.ts";
 
 const normalizeCheckId = (checkId: string) => {
@@ -86,7 +87,11 @@ const doctorCommand = buildCommand<
     }
 
     if (result.hasFailures) {
-      process.exitCode = 1;
+      const error = new DotweaveError(
+        "Doctor found issues.",
+      ) as DotweaveError & { exitCode: number };
+      error.exitCode = 1;
+      throw error;
     }
   },
   parameters: {

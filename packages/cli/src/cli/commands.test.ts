@@ -620,7 +620,7 @@ describe("CLI command modules", () => {
     );
   });
 
-  it("marks doctor failures through process.exitCode", async () => {
+  it("marks doctor failures by throwing with exit code", async () => {
     mocked.runDoctorChecks.mockResolvedValue({
       checks: [
         {
@@ -635,13 +635,14 @@ describe("CLI command modules", () => {
       syncDirectory: "/tmp/dotweave",
     });
 
-    await runCommand(doctorCommand, {});
+    await expect(runCommand(doctorCommand, {})).rejects.toThrow(
+      "Doctor found issues.",
+    );
 
     expect(mocked.runDoctorChecks).toHaveBeenCalled();
     expect(mockLogger.fail).toHaveBeenCalledWith(
       expect.stringContaining("Doctor found issues"),
     );
-    expect(process.exitCode).toBe(1);
   });
 
   it("creates the sync directory before launching cd shells", async () => {

@@ -23,8 +23,7 @@ describe("doctor CLI e2e", () => {
   it("reports git repository failure before init", async () => {
     const result = await ctx.runCli(["doctor"], { reject: false });
 
-    // consola.fail() routes to stdout (not stderr)
-    expect(result.exitCode).toBe(0);
+    expect(result.exitCode).toBe(1);
     expect(stripAnsi(result.stdout)).toContain("Doctor found issues");
   });
 
