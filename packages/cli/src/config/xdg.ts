@@ -4,20 +4,6 @@ import { isAbsolute, resolve } from "node:path";
 import { CONSTANTS } from "#app/config/constants.ts";
 import { trimConfiguredValue } from "#app/lib/string.ts";
 
-const xdgConfigHomeToken = "$XDG_CONFIG_HOME";
-const xdgConfigHomeTokenPrefix = `${xdgConfigHomeToken}/`;
-const bracedXdgConfigHomeToken = "${XDG_CONFIG_HOME}";
-const bracedXdgConfigHomePrefix = `${bracedXdgConfigHomeToken}/`;
-
-const readTrimmedEnvironmentValue = (
-  readEnv: (name: string) => string | undefined,
-  key: string,
-) => {
-  const value = readEnv(key);
-
-  return value === undefined ? undefined : trimConfiguredValue(value);
-};
-
 export const resolveHomeDirectory = (home: string | undefined) => {
   const configuredValue = trimConfiguredValue(home);
 
@@ -85,20 +71,14 @@ export const expandConfiguredPath = (
   expandedValue = expandHomePath(expandedValue, home);
   const resolvedXdgConfigHome = resolveXdgConfigHome(home, xdgConfigHome);
 
-  if (expandedValue === xdgConfigHomeToken) {
-    expandedValue = resolvedXdgConfigHome;
-  } else if (expandedValue.startsWith(xdgConfigHomeTokenPrefix)) {
-    expandedValue = resolve(
-      resolvedXdgConfigHome,
-      expandedValue.slice(xdgConfigHomeTokenPrefix.length),
-    );
-  } else if (expandedValue === bracedXdgConfigHomeToken) {
-    expandedValue = resolvedXdgConfigHome;
-  } else if (expandedValue.startsWith(bracedXdgConfigHomePrefix)) {
-    expandedValue = resolve(
-      resolvedXdgConfigHome,
-      expandedValue.slice(bracedXdgConfigHomePrefix.length),
-    );
+  const xdgMatch = expandedValue.match(
+    /^\$(?:\{XDG_CONFIG_HOME\}|XDG_CONFIG_HOME)(?:\/(.*))?$/,
+  );
+  if (xdgMatch) {
+    expandedValue =
+      xdgMatch[1] != null
+        ? resolve(resolvedXdgConfigHome, xdgMatch[1])
+        : resolvedXdgConfigHome;
   }
 
   return expandedValue;
@@ -119,7 +99,7 @@ export const resolveConfiguredAbsolutePath = (
 
   if (!isAbsolute(expandedValue)) {
     throw new Error(
-      `Configured path must be absolute or start with ~ or ${xdgConfigHomeToken}: ${value}`,
+      `Configured path must be absolute or start with ~ or $XDG_CONFIG_HOME: ${value}`,
     );
   }
 
@@ -131,7 +111,7 @@ export const expandWindowsEnvVars = (
   readEnv: (name: string) => string | undefined,
 ): string => {
   return value.replace(/%([^%]+)%/g, (_match, varName: string) => {
-    const envValue = readTrimmedEnvironmentValue(readEnv, varName);
+    const envValue = trimConfiguredValue(readEnv(varName));
 
     if (envValue === undefined) {
       throw new Error(`Environment variable %${varName}% is not defined.`);
