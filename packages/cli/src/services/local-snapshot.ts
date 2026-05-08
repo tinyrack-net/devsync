@@ -2,18 +2,13 @@ import { lstat, readFile, readlink } from "node:fs/promises";
 import { join, posix } from "node:path";
 import {
   collectChildEntryPaths,
-  type ResolvedSyncConfig,
   resolveManagedSyncMode,
 } from "#app/config/sync.ts";
 import { DotweaveError } from "#app/lib/error.ts";
 import { isExecutableMode } from "#app/lib/file-mode.ts";
 import { getPathStats, listDirectoryEntries } from "#app/lib/filesystem.ts";
 import { assertStorageSafeRepoPath } from "./repo-artifacts.ts";
-
-type SnapshotConfig = ResolvedSyncConfig &
-  Readonly<{
-    activeProfile?: string;
-  }>;
+import type { ProfiledSyncConfig } from "./runtime.ts";
 
 export type SnapshotNode =
   | Readonly<{
@@ -54,7 +49,7 @@ export const addSnapshotNode = (
 
 const addLocalNode = async (
   snapshot: Map<string, SnapshotNode>,
-  config: SnapshotConfig,
+  config: ProfiledSyncConfig,
   repoPath: string,
   path: string,
   stats: Awaited<ReturnType<typeof lstat>>,
@@ -101,7 +96,7 @@ const addLocalNode = async (
 
 const walkLocalDirectory = async (
   snapshot: Map<string, SnapshotNode>,
-  config: SnapshotConfig,
+  config: ProfiledSyncConfig,
   localDirectory: string,
   repoPathPrefix: string,
   childEntryPaths: ReadonlySet<string>,
@@ -134,7 +129,7 @@ const walkLocalDirectory = async (
   }
 };
 
-export const buildLocalSnapshot = async (config: SnapshotConfig) => {
+export const buildLocalSnapshot = async (config: ProfiledSyncConfig) => {
   const snapshot = new Map<string, SnapshotNode>();
 
   for (const entry of config.entries) {

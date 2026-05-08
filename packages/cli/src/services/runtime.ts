@@ -42,6 +42,11 @@ export type EffectiveSyncConfig = ResolvedSyncConfig &
     age: RuntimeAgeConfig;
   }>;
 
+export type ProfiledSyncConfig = ResolvedSyncConfig &
+  Readonly<{
+    activeProfile?: string;
+  }>;
+
 export type LoadedSyncConfig = Readonly<{
   effectiveConfig: EffectiveSyncConfig;
   fullConfig: ResolvedSyncConfig;
