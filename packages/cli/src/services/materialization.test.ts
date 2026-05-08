@@ -2,18 +2,18 @@ import { mkdir, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import type {
-  ResolvedSyncConfig,
   ResolvedSyncConfigEntry,
   SyncConfigEntryKind,
   SyncMode,
-} from "#app/config/sync.ts";
+} from "#app/config/sync-schema.ts";
 import { createSymlink } from "#app/lib/filesystem.ts";
 import { buildDirectoryKey } from "#app/lib/path.ts";
+import type { FileLikeSnapshotNode } from "#app/services/local-snapshot.ts";
 import {
   collectChangedLocalPaths,
   countDeletedLocalNodes,
-} from "#app/services/local-materialization.ts";
-import type { FileLikeSnapshotNode } from "#app/services/local-snapshot.ts";
+} from "#app/services/materialization.ts";
+import type { EffectiveSyncConfig } from "#app/services/runtime.ts";
 import { createTemporaryDirectory } from "../test/helpers/sync-fixture.ts";
 
 const temporaryDirectories: string[] = [];
@@ -50,8 +50,12 @@ const createEntry = (
 
 const createConfig = (
   entries: readonly ResolvedSyncConfigEntry[],
-): ResolvedSyncConfig => {
+): EffectiveSyncConfig => {
   return {
+    age: {
+      identityFile: "/tmp/keys.txt",
+      recipients: [],
+    },
     entries,
     version: 7,
   };
