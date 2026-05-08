@@ -80,5 +80,3 @@ export const releaseCommand = buildCommand<ReleaseCommandFlags, ReleaseArgs>({
   },
   func: runReleaseCommand,
 });
-
-export default releaseCommand;

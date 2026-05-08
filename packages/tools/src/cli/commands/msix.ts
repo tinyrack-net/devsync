@@ -118,5 +118,3 @@ export const msixRoute = buildRouteMap({
     brief: "Manage Windows MSIX packages",
   },
 });
-
-export default msixRoute;

@@ -40,5 +40,3 @@ export const verifyRoute = buildRouteMap({
     brief: "Verification commands",
   },
 });
-
-export default verifyRoute;

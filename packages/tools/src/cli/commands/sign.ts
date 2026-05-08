@@ -205,5 +205,3 @@ export const signRoute = buildRouteMap({
     brief: "Signing commands",
   },
 });
-
-export default signRoute;

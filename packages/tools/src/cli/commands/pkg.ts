@@ -93,5 +93,3 @@ export const pkgRoute = buildRouteMap({
     brief: "Manage @yao-pkg/pkg SEA builds",
   },
 });
-
-export default pkgRoute;

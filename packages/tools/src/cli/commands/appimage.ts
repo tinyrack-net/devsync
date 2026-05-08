@@ -96,5 +96,3 @@ export const appimageRoute = buildRouteMap({
     brief: "AppImage commands",
   },
 });
-
-export default appimageRoute;
