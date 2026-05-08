@@ -3,8 +3,9 @@ import pc from "picocolors";
 import { DotweaveError } from "#app/lib/error.ts";
 import { ask } from "#app/lib/prompt.ts";
 import { applyPullPlan, preparePull } from "#app/services/pull.ts";
-import { type DotweaveCliContext } from "#app/services/terminal/cli-runtime.ts";
+import type { DotweaveCliContext } from "#app/services/terminal/cli-runtime.ts";
 import { createCliLogger } from "#app/services/terminal/logger.ts";
+import { profileFlag } from "./shared-flags.ts";
 
 type PullFlags = {
   dryRun?: boolean;
@@ -104,13 +105,7 @@ const pullCommand = buildCommand<PullFlags, [], DotweaveCliContext>({
         kind: "boolean",
         optional: true,
       },
-      profile: {
-        brief: "Use a specific profile layer for this command",
-        kind: "parsed",
-        optional: true,
-        parse: String,
-        placeholder: "profile",
-      },
+      profile: profileFlag,
       yes: {
         brief: "Apply pull changes without prompting",
         kind: "boolean",

@@ -1,8 +1,9 @@
 import { buildCommand } from "@stricli/core";
 import pc from "picocolors";
 import { pushChanges } from "#app/services/push.ts";
-import { type DotweaveCliContext } from "#app/services/terminal/cli-runtime.ts";
+import type { DotweaveCliContext } from "#app/services/terminal/cli-runtime.ts";
 import { createCliLogger } from "#app/services/terminal/logger.ts";
+import { profileFlag } from "./shared-flags.ts";
 
 type PushFlags = {
   dryRun?: boolean;
@@ -43,13 +44,7 @@ const pushCommand = buildCommand<PushFlags, [], DotweaveCliContext>({
         kind: "boolean",
         optional: true,
       },
-      profile: {
-        brief: "Use a specific profile layer for this command",
-        kind: "parsed",
-        optional: true,
-        parse: String,
-        placeholder: "profile",
-      },
+      profile: profileFlag,
     },
   },
 });

@@ -5,8 +5,9 @@ import {
   type PullChanges,
   type PushChanges,
 } from "#app/services/status.ts";
-import { type DotweaveCliContext } from "#app/services/terminal/cli-runtime.ts";
+import type { DotweaveCliContext } from "#app/services/terminal/cli-runtime.ts";
 import { createCliLogger } from "#app/services/terminal/logger.ts";
+import { profileFlag } from "./shared-flags.ts";
 
 type StatusFlags = {
   profile?: string;
@@ -149,13 +150,7 @@ const statusCommand = buildCommand<StatusFlags, [], DotweaveCliContext>({
   },
   parameters: {
     flags: {
-      profile: {
-        brief: "Use a specific profile layer for this command",
-        kind: "parsed",
-        optional: true,
-        parse: String,
-        placeholder: "profile",
-      },
+      profile: profileFlag,
     },
   },
 });
