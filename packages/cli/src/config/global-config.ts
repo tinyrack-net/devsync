@@ -8,7 +8,7 @@ import { parseJsonc, resolveJsoncConfigPath } from "#app/lib/jsonc.ts";
 import { ensureTrailingNewline } from "#app/lib/string.ts";
 import { formatInputIssues } from "#app/lib/validation.ts";
 import { migrateGlobalConfigV2ToV3 } from "#app/migrations/global-v3.ts";
-import { normalizeSyncProfileName } from "./sync.ts";
+import { normalizeSyncProfileName } from "./sync-schema.ts";
 
 const globalConfigMigrationRegistry = new Map([[2, migrateGlobalConfigV2ToV3]]);
 

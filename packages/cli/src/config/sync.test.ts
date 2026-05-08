@@ -4,11 +4,11 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { PlatformKey } from "#app/config/platform.ts";
 import { createTemporaryDirectory } from "#app/test/helpers/sync-fixture.ts";
+import { resolveSyncRule } from "./sync-entry.ts";
 import {
   normalizeSyncProfileName,
   parseSyncConfig as parseSyncConfigBase,
-  resolveSyncRule,
-} from "./sync.ts";
+} from "./sync-schema.ts";
 
 afterEach(() => {
   forcedPlatformKey = "linux";

@@ -218,7 +218,8 @@ describe("sync service", () => {
 
     setEnvironment(homeDirectory, xdgConfigHome);
 
-    const { syncDirectory } = await initializeSyncDirectory({
+    const syncDirectory = join(xdgConfigHome, "dotweave", "repository");
+    await initializeSyncDirectory({
       identityFile: "$XDG_CONFIG_HOME/dotweave/keys.txt",
       recipients: [ageKeys.recipient],
     });

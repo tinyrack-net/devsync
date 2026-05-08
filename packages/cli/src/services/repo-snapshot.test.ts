@@ -34,7 +34,7 @@ vi.mock("#app/lib/filesystem.ts", () => ({
   listDirectoryEntries: mocked.listDirectoryEntries,
 }));
 
-vi.mock("#app/config/sync.ts", () => ({
+vi.mock("#app/config/sync-entry.ts", () => ({
   resolveSyncRule: mocked.resolveSyncRule,
   resolveManagedSyncMode: vi.fn(() => "normal"),
 }));

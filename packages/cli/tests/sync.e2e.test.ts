@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
   createInitialSyncConfig,
   formatSyncConfig,
-} from "../src/config/sync.ts";
+} from "../src/config/sync-schema.ts";
 import { cliNodeOptions } from "../src/test/helpers/cli-entry.ts";
 import {
   createSyncE2EContext,

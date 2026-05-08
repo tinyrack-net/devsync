@@ -5,7 +5,7 @@ import {
   resolveSyncConfigFilePath,
   type SyncConfig,
   syncConfigSchema,
-} from "#app/config/sync.ts";
+} from "#app/config/sync-schema.ts";
 import { writeTextFileAtomically } from "#app/lib/filesystem.ts";
 
 export const sortSyncConfigEntries = (

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import type { ResolvedSyncConfig } from "#app/config/sync.ts";
+import type { ResolvedSyncConfig } from "#app/config/sync-schema.ts";
 import { buildEffectiveSyncConfig, type RuntimeAgeConfig } from "./runtime.ts";
 
 const testAge: RuntimeAgeConfig = {

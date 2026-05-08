@@ -4,7 +4,7 @@ import type { PlatformStringValue } from "#app/config/platform.ts";
 import {
   normalizeSyncRepoPath,
   type ResolvedSyncConfigEntry,
-} from "#app/config/sync.ts";
+} from "#app/config/sync-schema.ts";
 import { expandHomePath } from "#app/config/xdg.ts";
 import { DotweaveError } from "#app/lib/error.ts";
 import { isExplicitLocalPath } from "#app/lib/path.ts";

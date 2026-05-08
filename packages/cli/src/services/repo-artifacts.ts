@@ -3,10 +3,12 @@ import { join } from "node:path";
 import { CONSTANTS } from "#app/config/constants.ts";
 import {
   findOwningSyncEntry,
+  resolveSyncRule,
+} from "#app/config/sync-entry.ts";
+import {
   hasReservedSyncArtifactSuffixSegment,
   type ResolvedSyncConfigEntry,
-  resolveSyncRule,
-} from "#app/config/sync.ts";
+} from "#app/config/sync-schema.ts";
 import {
   fileContentsEqual,
   shouldNormalizeTextLineEndings,

@@ -1,6 +1,9 @@
 import { lstat, readFile, readlink } from "node:fs/promises";
 import { join } from "node:path";
-import { resolveManagedSyncMode, resolveSyncRule } from "#app/config/sync.ts";
+import {
+  resolveManagedSyncMode,
+  resolveSyncRule,
+} from "#app/config/sync-entry.ts";
 import { decryptSecretFile } from "#app/lib/crypto.ts";
 import { DotweaveError, wrapUnknownError } from "#app/lib/error.ts";
 import { isExecutableMode } from "#app/lib/file-mode.ts";

@@ -2,7 +2,7 @@ import {
   type ResolvedSyncConfig,
   readSyncConfig,
   type SyncConfigResolutionContext,
-} from "#app/config/sync.ts";
+} from "#app/config/sync-schema.ts";
 import { ensureGitRepository } from "#app/lib/git.ts";
 import {
   resolveSyncConfigResolutionContext,

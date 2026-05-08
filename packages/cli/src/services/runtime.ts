@@ -20,7 +20,7 @@ import {
   readSyncConfig,
   resolveSyncConfigFilePath,
   type SyncConfigResolutionContext,
-} from "#app/config/sync.ts";
+} from "#app/config/sync-schema.ts";
 import { DotweaveError } from "#app/lib/error.ts";
 
 export type RuntimeAgeConfig = Readonly<{
@@ -40,11 +40,6 @@ export type EffectiveSyncConfig = ResolvedSyncConfig &
   Readonly<{
     activeProfile?: string;
     age: RuntimeAgeConfig;
-  }>;
-
-export type ProfiledSyncConfig = ResolvedSyncConfig &
-  Readonly<{
-    activeProfile?: string;
   }>;
 
 export type LoadedSyncConfig = Readonly<{
