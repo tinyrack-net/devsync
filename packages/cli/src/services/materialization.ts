@@ -24,8 +24,8 @@ import {
 } from "#app/lib/content.ts";
 import { DotweaveError } from "#app/lib/error.ts";
 import {
-  buildExecutableMode,
   buildSearchableDirectoryMode,
+  isExecutableMode,
   supportsPosixFileModes,
 } from "#app/lib/file-mode.ts";
 import {
@@ -176,12 +176,11 @@ const materializedDirectoryModeMatches = (
     return true;
   }
 
-  const maskedActualMode = actualMode & 0o777;
-
   if (fileMode === undefined) {
-    const ownerAndSearchMask = 0o711;
-    return (maskedActualMode & ownerAndSearchMask) === ownerAndSearchMask;
+    return true;
   }
+
+  const maskedActualMode = actualMode & 0o777;
 
   return maskedActualMode === (buildSearchableDirectoryMode(fileMode) & 0o777);
 };
@@ -195,22 +194,13 @@ const materializedFileModeMatches = (
     return true;
   }
 
-  const expectedMode = (fileMode ?? buildExecutableMode(executable)) & 0o777;
   const maskedActualMode = actualMode & 0o777;
 
-  if (maskedActualMode === expectedMode) {
-    return true;
-  }
-
   if (fileMode === undefined) {
-    const ownerAndExecMask = 0o711;
-    return (
-      (maskedActualMode & ownerAndExecMask) ===
-      (expectedMode & ownerAndExecMask)
-    );
+    return isExecutableMode(maskedActualMode) === executable;
   }
 
-  return false;
+  return maskedActualMode === (fileMode & 0o777);
 };
 
 const isMaterializedFileLikeNodeCurrent = async (

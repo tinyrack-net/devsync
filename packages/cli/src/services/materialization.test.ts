@@ -1,4 +1,4 @@
-import { mkdir, rm, writeFile } from "node:fs/promises";
+import { chmod, mkdir, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import type {
@@ -6,6 +6,7 @@ import type {
   SyncConfigEntryKind,
   SyncMode,
 } from "#app/config/sync-schema.ts";
+import { formatPermissionOctal } from "#app/lib/file-mode.ts";
 import { createSymlink } from "#app/lib/filesystem.ts";
 import { buildDirectoryKey } from "#app/lib/path.ts";
 import type { FileLikeSnapshotNode } from "#app/services/local-snapshot.ts";
@@ -33,15 +34,22 @@ const createEntry = (
   localPath: string,
   repoPath: string,
   mode: SyncMode,
+  permission?: number,
 ): ResolvedSyncConfigEntry => {
   return {
     configuredLocalPath: { default: localPath },
     configuredMode: { default: mode },
+    ...(permission === undefined
+      ? {}
+      : {
+          configuredPermission: { default: formatPermissionOctal(permission) },
+        }),
     kind,
     localPath,
     mode,
     modeExplicit: true,
-    permissionExplicit: false,
+    ...(permission === undefined ? {} : { permission }),
+    permissionExplicit: permission !== undefined,
     profiles: [],
     profilesExplicit: false,
     repoPath,
@@ -247,6 +255,156 @@ describe("local materialization", () => {
       }),
     ).toEqual([join(appDirectory, "missing.txt")]);
   });
+
+  it.skipIf(process.platform === "win32")(
+    "ignores non-executable file permission drift without explicit permission",
+    async () => {
+      const workspace = await createWorkspace();
+      const configFile = join(workspace, ".config", "app", "config.json");
+
+      await mkdir(join(workspace, ".config", "app"), { recursive: true });
+      await writeFile(configFile, '{"version":1}\n', "utf8");
+      await chmod(configFile, 0o600);
+
+      const entry = createEntry(
+        "file",
+        configFile,
+        ".config/app/config.json",
+        "normal",
+      );
+
+      expect(
+        await collectChangedLocalPaths(entry, {
+          desiredKeys: new Set([".config/app/config.json"]),
+          node: {
+            contents: Buffer.from('{"version":1}\n'),
+            executable: false,
+            secret: false,
+            type: "file",
+          },
+          type: "file",
+        }),
+      ).toEqual([]);
+    },
+  );
+
+  it.skipIf(process.platform === "win32")(
+    "reports executable-bit drift without explicit permission",
+    async () => {
+      const workspace = await createWorkspace();
+      const scriptFile = join(workspace, ".local", "bin", "tool");
+
+      await mkdir(join(workspace, ".local", "bin"), { recursive: true });
+      await writeFile(scriptFile, "#!/bin/sh\n", "utf8");
+      await chmod(scriptFile, 0o644);
+
+      const entry = createEntry(
+        "file",
+        scriptFile,
+        ".local/bin/tool",
+        "normal",
+      );
+
+      expect(
+        await collectChangedLocalPaths(entry, {
+          desiredKeys: new Set([".local/bin/tool"]),
+          node: {
+            contents: Buffer.from("#!/bin/sh\n"),
+            executable: true,
+            secret: false,
+            type: "file",
+          },
+          type: "file",
+        }),
+      ).toEqual([scriptFile]);
+    },
+  );
+
+  it.skipIf(process.platform === "win32")(
+    "reports explicit file permission drift",
+    async () => {
+      const workspace = await createWorkspace();
+      const keyFile = join(workspace, ".ssh", "id_rsa");
+
+      await mkdir(join(workspace, ".ssh"), { recursive: true });
+      await writeFile(keyFile, "key\n", "utf8");
+      await chmod(keyFile, 0o644);
+
+      const entry = createEntry(
+        "file",
+        keyFile,
+        ".ssh/id_rsa",
+        "normal",
+        0o600,
+      );
+
+      expect(
+        await collectChangedLocalPaths(entry, {
+          desiredKeys: new Set([".ssh/id_rsa"]),
+          node: {
+            contents: Buffer.from("key\n"),
+            executable: false,
+            secret: false,
+            type: "file",
+          },
+          type: "file",
+        }),
+      ).toEqual([keyFile]);
+    },
+  );
+
+  it.skipIf(process.platform === "win32")(
+    "ignores directory permission drift without explicit permission",
+    async () => {
+      const workspace = await createWorkspace();
+      const appDirectory = join(workspace, ".config", "app");
+
+      await mkdir(appDirectory, { recursive: true });
+      await chmod(appDirectory, 0o700);
+
+      const entry = createEntry(
+        "directory",
+        appDirectory,
+        ".config/app",
+        "normal",
+      );
+
+      expect(
+        await collectChangedLocalPaths(entry, {
+          desiredKeys: new Set([buildDirectoryKey(".config/app")]),
+          nodes: new Map(),
+          type: "directory",
+        }),
+      ).toEqual([]);
+    },
+  );
+
+  it.skipIf(process.platform === "win32")(
+    "reports explicit directory permission drift",
+    async () => {
+      const workspace = await createWorkspace();
+      const sshDirectory = join(workspace, ".ssh");
+
+      await mkdir(sshDirectory, { recursive: true });
+      await chmod(sshDirectory, 0o755);
+
+      const entry = createEntry(
+        "directory",
+        sshDirectory,
+        ".ssh",
+        "normal",
+        0o600,
+      );
+
+      expect(
+        await collectChangedLocalPaths(entry, {
+          desiredKeys: new Set([buildDirectoryKey(".ssh")]),
+          nodes: new Map(),
+          type: "directory",
+        }),
+      ).toEqual([sshDirectory]);
+    },
+  );
 
   it("includes stale local paths for incremental directory updates", async () => {
     const workspace = await createWorkspace();

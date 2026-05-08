@@ -1,14 +1,38 @@
-import { describe, expect, it } from "vitest";
+import { chmod, mkdir, rm, writeFile } from "node:fs/promises";
+import { join } from "node:path";
+import { afterEach, describe, expect, it } from "vitest";
 import { CONSTANTS } from "#app/config/constants.ts";
 import type { ResolvedSyncConfigEntry } from "#app/config/sync-schema.ts";
+import { createTemporaryDirectory } from "#app/test/helpers/sync-fixture.ts";
 import {
   buildArtifactKey,
   collectArtifactProfiles,
+  isRepoArtifactCurrent,
   isSecretArtifactPath,
   parseArtifactRelativePath,
   resolveArtifactRelativePath,
   stripSecretArtifactSuffix,
 } from "./repo-artifacts.ts";
+
+const temporaryDirectories: string[] = [];
+
+const createWorkspace = async () => {
+  const directory = await createTemporaryDirectory("dotweave-repo-artifacts-");
+
+  temporaryDirectories.push(directory);
+
+  return directory;
+};
+
+afterEach(async () => {
+  while (temporaryDirectories.length > 0) {
+    const directory = temporaryDirectories.pop();
+
+    if (directory !== undefined) {
+      await rm(directory, { force: true, recursive: true });
+    }
+  }
+});
 
 describe("repo-artifacts service", () => {
   it("collects artifact profiles from entries", () => {
@@ -90,4 +114,76 @@ describe("repo-artifacts service", () => {
     expect(parsedSecret.repoPath).toBe("token");
     expect(parsedSecret.secret).toBe(true);
   });
+
+  it.skipIf(process.platform === "win32")(
+    "treats non-executable artifact permission noise as current",
+    async () => {
+      const workspace = await createWorkspace();
+      const artifactDirectory = join(workspace, "default");
+      const artifactPath = join(artifactDirectory, "file.txt");
+
+      await mkdir(artifactDirectory, { recursive: true });
+      await writeFile(artifactPath, "data\n", "utf8");
+      await chmod(artifactPath, 0o600);
+
+      await expect(
+        isRepoArtifactCurrent(workspace, {
+          category: "plain",
+          contents: Buffer.from("data\n"),
+          executable: false,
+          kind: "file",
+          profile: "default",
+          repoPath: "file.txt",
+        }),
+      ).resolves.toBe(true);
+    },
+  );
+
+  it.skipIf(process.platform === "win32")(
+    "treats executable artifacts as current when the executable bit matches",
+    async () => {
+      const workspace = await createWorkspace();
+      const artifactDirectory = join(workspace, "default");
+      const artifactPath = join(artifactDirectory, "tool");
+
+      await mkdir(artifactDirectory, { recursive: true });
+      await writeFile(artifactPath, "#!/bin/sh\n", "utf8");
+      await chmod(artifactPath, 0o755);
+
+      await expect(
+        isRepoArtifactCurrent(workspace, {
+          category: "plain",
+          contents: Buffer.from("#!/bin/sh\n"),
+          executable: true,
+          kind: "file",
+          profile: "default",
+          repoPath: "tool",
+        }),
+      ).resolves.toBe(true);
+    },
+  );
+
+  it.skipIf(process.platform === "win32")(
+    "reports executable artifact drift when the executable bit differs",
+    async () => {
+      const workspace = await createWorkspace();
+      const artifactDirectory = join(workspace, "default");
+      const artifactPath = join(artifactDirectory, "tool");
+
+      await mkdir(artifactDirectory, { recursive: true });
+      await writeFile(artifactPath, "#!/bin/sh\n", "utf8");
+      await chmod(artifactPath, 0o644);
+
+      await expect(
+        isRepoArtifactCurrent(workspace, {
+          category: "plain",
+          contents: Buffer.from("#!/bin/sh\n"),
+          executable: true,
+          kind: "file",
+          profile: "default",
+          repoPath: "tool",
+        }),
+      ).resolves.toBe(false);
+    },
+  );
 });

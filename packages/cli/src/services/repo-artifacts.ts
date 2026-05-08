@@ -16,7 +16,7 @@ import {
 import { decryptSecretFile, encryptSecretFile } from "#app/lib/crypto.ts";
 import { DotweaveError } from "#app/lib/error.ts";
 import {
-  buildExecutableMode,
+  isExecutableMode,
   supportsPosixFileModes,
 } from "#app/lib/file-mode.ts";
 import {
@@ -355,7 +355,7 @@ const fileModeMatches = (actualMode: number, executable: boolean) => {
     return true;
   }
 
-  return (actualMode & 0o777) === buildExecutableMode(executable);
+  return isExecutableMode(actualMode) === executable;
 };
 
 const isSecretArtifactUnchanged = async (
