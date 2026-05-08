@@ -8,7 +8,7 @@ import {
   type InitResult,
   initializeSyncDirectory,
 } from "#app/services/init.ts";
-import { type DotweaveCliContext } from "#app/services/terminal/cli-runtime.ts";
+import type { DotweaveCliContext } from "#app/services/terminal/cli-runtime.ts";
 import { createCliLogger } from "#app/services/terminal/logger.ts";
 
 type InitFlags = {

@@ -1,6 +1,6 @@
 import { buildCommand } from "@stricli/core";
 import { clearActiveProfile, setActiveProfile } from "#app/services/profile.ts";
-import { type DotweaveCliContext } from "#app/services/terminal/cli-runtime.ts";
+import type { DotweaveCliContext } from "#app/services/terminal/cli-runtime.ts";
 import { createCliLogger } from "#app/services/terminal/logger.ts";
 
 type ProfileUseFlags = Record<string, never>;

@@ -4,7 +4,7 @@ import { CONSTANTS } from "#app/config/constants.ts";
 import { DotweaveError } from "#app/lib/error.ts";
 import { assignProfiles } from "#app/services/profile.ts";
 import { setTargetMode } from "#app/services/set.ts";
-import { type DotweaveCliContext } from "#app/services/terminal/cli-runtime.ts";
+import type { DotweaveCliContext } from "#app/services/terminal/cli-runtime.ts";
 import { createCliLogger } from "#app/services/terminal/logger.ts";
 import { proposePathCompletions } from "#app/services/terminal/path-completion.ts";
 import { trackTarget } from "#app/services/track.ts";
