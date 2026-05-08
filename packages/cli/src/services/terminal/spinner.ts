@@ -1,5 +1,5 @@
 import type { Stream } from "./logger.ts";
-import { c, S } from "./theme.ts";
+import { color, SYMBOLS } from "./theme.ts";
 
 export interface Spinner {
   succeed(text: string): void;
@@ -15,7 +15,7 @@ const isCI = Boolean(
 );
 
 const createSpinner = (stream: Stream, text: string): Spinner => {
-  const frames = S.spinner;
+  const frames = SYMBOLS.spinner;
   let frameIndex = 0;
   let intervalId: ReturnType<typeof setInterval> | undefined;
   let running = true;
@@ -35,7 +35,9 @@ const createSpinner = (stream: Stream, text: string): Spinner => {
   const render = () => {
     if (!running) return;
     clear();
-    stream.write(`${c.info(frames[frameIndex] ?? frames[0])} ${c.dim(text)}`);
+    stream.write(
+      `${color.info(frames[frameIndex] ?? frames[0])} ${color.dim(text)}`,
+    );
     frameIndex = (frameIndex + 1) % frames.length;
   };
 
@@ -43,24 +45,24 @@ const createSpinner = (stream: Stream, text: string): Spinner => {
     intervalId = setInterval(render, 80);
     render();
   } else {
-    stream.write(`${c.dim(S.bullet)} ${c.dim(text)}\n`);
+    stream.write(`${color.dim(SYMBOLS.bullet)} ${color.dim(text)}\n`);
   }
 
   return {
     succeed: (msg: string) => {
       running = false;
       if (intervalId !== undefined) clearInterval(intervalId);
-      writeLine(`${c.success(S.success)} ${c.success(msg)}`);
+      writeLine(`${color.success(SYMBOLS.success)} ${color.success(msg)}`);
     },
     fail: (msg: string) => {
       running = false;
       if (intervalId !== undefined) clearInterval(intervalId);
-      writeLine(`${c.error(S.error)} ${c.error(msg)}`);
+      writeLine(`${color.error(SYMBOLS.error)} ${color.error(msg)}`);
     },
     warn: (msg: string) => {
       running = false;
       if (intervalId !== undefined) clearInterval(intervalId);
-      writeLine(`${c.warn(S.warn)} ${c.warn(msg)}`);
+      writeLine(`${color.warn(SYMBOLS.warn)} ${color.warn(msg)}`);
     },
     stop: () => {
       running = false;

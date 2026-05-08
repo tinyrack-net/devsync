@@ -1,6 +1,6 @@
 import pc from "picocolors";
 
-export const S = {
+export const SYMBOLS = {
   success: "✔",
   error: "✖",
   warn: "⚠",
@@ -14,7 +14,7 @@ export const S = {
   spinner: ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"],
 } as const;
 
-export const c = {
+export const color = {
   success: (s: string) => pc.green(s),
   error: (s: string) => pc.red(s),
   warn: (s: string) => pc.yellow(s),

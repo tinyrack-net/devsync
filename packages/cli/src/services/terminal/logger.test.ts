@@ -15,7 +15,7 @@ vi.mock("./spinner.ts", () => ({
 vi.mock("./theme.ts", () => {
   const tag = (name: string) => (input: string) => `${name}(${input})`;
   return {
-    c: {
+    color: {
       success: tag("success"),
       error: tag("error"),
       warn: tag("warn"),
@@ -25,7 +25,7 @@ vi.mock("./theme.ts", () => {
       label: tag("label"),
       highlight: tag("highlight"),
     },
-    S: {
+    SYMBOLS: {
       success: "✔",
       error: "✖",
       warn: "⚠",

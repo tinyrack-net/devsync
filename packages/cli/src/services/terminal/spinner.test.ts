@@ -6,14 +6,14 @@ import { createSpinner } from "./spinner.ts";
 vi.mock("./theme.ts", () => {
   const tag = (name: string) => (input: string) => `${name}(${input})`;
   return {
-    c: {
+    color: {
       success: tag("success"),
       error: tag("error"),
       warn: tag("warn"),
       info: tag("info"),
       dim: tag("dim"),
     },
-    S: {
+    SYMBOLS: {
       success: "✔",
       error: "✖",
       warn: "⚠",

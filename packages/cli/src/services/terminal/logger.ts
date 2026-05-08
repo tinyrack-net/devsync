@@ -1,6 +1,6 @@
 import pc from "picocolors";
 import { createSpinner, type Spinner } from "./spinner.ts";
-import { c, S } from "./theme.ts";
+import { color, SYMBOLS } from "./theme.ts";
 
 export interface CliLogger {
   log(message: string): void;
@@ -62,20 +62,20 @@ export const createCliLogger = (
     // Core logger surface used across commands; each method formats consistently.
     return {
       log: (m) => w(stdout, m),
-      info: (m) => w(stdout, `${c.info(S.info)} ${m}`),
-      success: (m) => w(stdout, `${c.success(S.success)} ${m}`),
-      fail: (m) => w(stdout, `${c.error(S.error)} ${m}`),
-      warn: (m) => w(stderr, `${c.warn(S.warn)} ${m}`),
-      error: (m) => w(stderr, `${c.error(S.error)} ${m}`),
-      start: (m) => w(stdout, `${c.info(S.bullet)} ${c.dim(m)}`),
+      info: (m) => w(stdout, `${color.info(SYMBOLS.info)} ${m}`),
+      success: (m) => w(stdout, `${color.success(SYMBOLS.success)} ${m}`),
+      fail: (m) => w(stdout, `${color.error(SYMBOLS.error)} ${m}`),
+      warn: (m) => w(stderr, `${color.warn(SYMBOLS.warn)} ${m}`),
+      error: (m) => w(stderr, `${color.error(SYMBOLS.error)} ${m}`),
+      start: (m) => w(stdout, `${color.info(SYMBOLS.bullet)} ${color.dim(m)}`),
 
       section: (title) => {
         w(stdout, "");
-        w(stdout, c.bold(title));
+        w(stdout, color.bold(title));
       },
 
       kv: (key, value) => {
-        w(stdout, `${INDENT}${c.label(key)}: ${value}`);
+        w(stdout, `${INDENT}${color.label(key)}: ${value}`);
       },
 
       list: (items, opts) => {
@@ -84,7 +84,7 @@ export const createCliLogger = (
           const isLast = i === items.length - 1;
           const highlight = opts?.highlightLast === true && isLast;
           const line = `${INDENT}${bullet} ${items[i]}`;
-          w(stdout, highlight ? c.highlight(line) : line);
+          w(stdout, highlight ? color.highlight(line) : line);
         }
       },
 
@@ -93,15 +93,15 @@ export const createCliLogger = (
         for (const item of items) {
           const paddedKey = item.key.padEnd(maxKeyLen);
           if (item.value !== undefined) {
-            w(stdout, `${INDENT}${c.label(paddedKey)}  ${item.value}`);
+            w(stdout, `${INDENT}${color.label(paddedKey)}  ${item.value}`);
           } else {
-            w(stdout, `${INDENT}${c.label(item.key)}`);
+            w(stdout, `${INDENT}${color.label(item.key)}`);
           }
         }
       },
 
       divider: () => {
-        w(stdout, c.dim("————————————————"));
+        w(stdout, color.dim("————————————————"));
       },
 
       spinner: (text: string) => {
