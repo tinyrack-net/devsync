@@ -1,4 +1,6 @@
 import pc from "picocolors";
+import { createSpinner, type Spinner } from "./spinner.ts";
+import { c, S } from "./theme.ts";
 
 export interface CliLogger {
   log(message: string): void;
@@ -9,14 +11,34 @@ export interface CliLogger {
   error(message: string): void;
   start(message: string): void;
   withTag(tag: string): CliLogger;
+
+  debug(message: string): void;
+  verbose: boolean;
+
+  section(title: string): void;
+  kv(key: string, value: string): void;
+  list(
+    items: string[],
+    opts?: { bullet?: string; highlightLast?: boolean },
+  ): void;
+  listKeyValue(items: { key: string; value?: string }[]): void;
+  divider(): void;
+
+  spinner(text: string): Spinner;
 }
 
-type Stream = Pick<NodeJS.WriteStream, "write">;
+type Stream = Pick<
+  NodeJS.WriteStream,
+  "write" | "isTTY" | "clearLine" | "cursorTo"
+>;
+
+const INDENT = "  ";
 
 const createImpl = (
   stdout: Stream,
   stderr: Stream,
   tag: string | undefined,
+  verbose: boolean,
 ): CliLogger => {
   const prefix = tag === undefined ? "" : pc.dim(`[${tag}] `);
 
@@ -26,13 +48,61 @@ const createImpl = (
 
   const logger: CliLogger = {
     log: (m) => w(stdout, m),
-    info: (m) => w(stdout, pc.cyan(`${pc.bold("i")} ${m}`)),
-    success: (m) => w(stdout, pc.green(`${pc.bold("✔")} ${m}`)),
-    fail: (m) => w(stdout, pc.red(`${pc.bold("✖")} ${m}`)),
-    warn: (m) => w(stderr, pc.yellow(`${pc.bold("⚠")} ${m}`)),
-    error: (m) => w(stderr, pc.red(`${pc.bold("✖")} ${m}`)),
-    start: (m) => w(stdout, pc.cyan(`${pc.bold("▶")} ${m}`)),
-    withTag: (t) => createImpl(stdout, stderr, t),
+    info: (m) => w(stdout, `${c.info(S.info)} ${m}`),
+    success: (m) => w(stdout, `${c.success(S.success)} ${m}`),
+    fail: (m) => w(stdout, `${c.error(S.error)} ${m}`),
+    warn: (m) => w(stderr, `${c.warn(S.warn)} ${m}`),
+    error: (m) => w(stderr, `${c.error(S.error)} ${m}`),
+    start: (m) => w(stdout, `${c.info(S.bullet)} ${c.dim(m)}`),
+
+    verbose,
+
+    debug: (m) => {
+      if (verbose) {
+        w(stdout, c.dim(`${INDENT}${m}`));
+      }
+    },
+
+    section: (title) => {
+      w(stdout, "");
+      w(stdout, c.bold(title));
+    },
+
+    kv: (key, value) => {
+      w(stdout, `${INDENT}${c.label(key)}: ${value}`);
+    },
+
+    list: (items, opts) => {
+      const bullet = opts?.bullet ?? "-";
+      for (let i = 0; i < items.length; i++) {
+        const isLast = i === items.length - 1;
+        const highlight = opts?.highlightLast === true && isLast;
+        const line = `${INDENT}${bullet} ${items[i]}`;
+        w(stdout, highlight ? c.highlight(line) : line);
+      }
+    },
+
+    listKeyValue: (items) => {
+      const maxKeyLen = Math.max(...items.map((item) => item.key.length));
+      for (const item of items) {
+        const paddedKey = item.key.padEnd(maxKeyLen);
+        if (item.value !== undefined) {
+          w(stdout, `${INDENT}${c.label(paddedKey)}  ${item.value}`);
+        } else {
+          w(stdout, `${INDENT}${c.label(item.key)}`);
+        }
+      }
+    },
+
+    divider: () => {
+      w(stdout, c.dim("————————————————"));
+    },
+
+    spinner: (text: string) => {
+      return createSpinner(stdout, text);
+    },
+
+    withTag: (t) => createImpl(stdout, stderr, t, verbose),
   };
 
   return logger;
@@ -43,10 +113,12 @@ export const createCliLogger = (
     stderr?: NodeJS.WriteStream;
     stdout?: NodeJS.WriteStream;
     tag?: string;
+    verbose?: boolean;
   }> = {},
 ): CliLogger =>
   createImpl(
     options.stdout ?? process.stdout,
     options.stderr ?? process.stderr,
     options.tag,
+    options.verbose ?? false,
   );

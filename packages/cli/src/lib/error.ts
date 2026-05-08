@@ -44,7 +44,7 @@ export const formatDotweaveError = (error: DotweaveError | Error | string) => {
   return compactLines([
     error.message,
     ...error.details,
-    error.hint === undefined ? undefined : `Hint: ${error.hint}`,
+    error.hint === undefined ? undefined : `→ ${error.hint}`,
   ]).join("\n");
 };
 

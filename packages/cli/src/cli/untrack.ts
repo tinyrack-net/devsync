@@ -18,9 +18,8 @@ const untrackCommand = buildCommand<UntrackFlags, [string], ApplicationContext>(
       const result = await untrackTarget({ target }, process.cwd());
 
       logger.success(`Stopped tracking ${result.repoPath}`);
-      logger.log(
-        `  ${result.plainArtifactCount} plain · ${result.secretArtifactCount} secret artifacts`,
-      );
+      logger.kv("plain", String(result.plainArtifactCount));
+      logger.kv("secret", String(result.secretArtifactCount));
     },
     parameters: {
       flags: {},

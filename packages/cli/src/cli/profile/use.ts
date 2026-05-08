@@ -30,7 +30,7 @@ const profileUseCommand = buildCommand<
     }
 
     if (result.warning) {
-      logger.warn(`  ${result.warning}`);
+      logger.warn(result.warning);
     }
   },
   parameters: {

@@ -1,15 +1,15 @@
 import type { ApplicationContext } from "@stricli/core";
 import { buildCommand } from "@stricli/core";
-import pc from "picocolors";
 import { DotweaveError } from "#app/lib/error.ts";
 import { ask } from "#app/lib/prompt.ts";
 import { applyPullPlan, preparePull } from "#app/services/pull.ts";
 import { createCliLogger } from "#app/services/terminal/logger.ts";
-import { profileFlag } from "./shared-flags.ts";
+import { profileFlag, verboseFlag } from "./shared-flags.ts";
 
 type PullFlags = {
   dryRun?: boolean;
   profile?: string;
+  verbose?: boolean;
   yes?: boolean;
 };
 
@@ -18,24 +18,14 @@ const logPullPlanChanges = (
   updatedLocalPaths: readonly string[],
   deletedLocalPaths: readonly string[],
 ) => {
-  logger.info("Planned pull changes");
-
   if (updatedLocalPaths.length > 0) {
-    logger.log(
-      `  ${pc.bold("Update from repository")} (${updatedLocalPaths.length})`,
-    );
-
-    for (const path of updatedLocalPaths) {
-      logger.log(pc.dim(`    + ${path}`));
-    }
+    logger.section(`Update from repository (${updatedLocalPaths.length})`);
+    logger.list(updatedLocalPaths as string[], { bullet: "+" });
   }
 
   if (deletedLocalPaths.length > 0) {
-    logger.log(`  ${pc.bold("Remove locally")} (${deletedLocalPaths.length})`);
-
-    for (const path of deletedLocalPaths) {
-      logger.log(pc.dim(`    - ${path}`));
-    }
+    logger.section(`Remove locally (${deletedLocalPaths.length})`);
+    logger.list(deletedLocalPaths as string[], { bullet: "-" });
   }
 };
 
@@ -47,26 +37,30 @@ const pullCommand = buildCommand<PullFlags, [], ApplicationContext>({
   },
   async func(flags) {
     const dryRun = flags.dryRun ?? false;
-    const logger = createCliLogger();
+    const logger = createCliLogger({ verbose: flags.verbose ?? false });
+
+    const spin = logger.spinner("Preparing pull...");
     const prepared = await preparePull({ dryRun, profile: flags.profile });
     const { config, plan } = prepared;
+    spin.stop();
 
     if (
       plan.updatedLocalPaths.length === 0 &&
       plan.deletedLocalPaths.length === 0
     ) {
       logger.info("Already up to date");
-
       return;
     }
 
+    logger.info("Planned pull changes");
     logPullPlanChanges(logger, plan.updatedLocalPaths, plan.deletedLocalPaths);
 
     if (dryRun) {
-      logger.info(`Pull preview ${pc.dim("(dry run)")}`);
+      logger.info("Pull preview (dry run)");
     } else if (flags.yes ?? false) {
+      const applySpin = logger.spinner("Applying pull...");
       await applyPullPlan(config, plan);
-      logger.success("Pull complete");
+      applySpin.succeed("Pull complete");
     } else {
       if (!(process.stdin.isTTY ?? false)) {
         throw new DotweaveError(
@@ -84,18 +78,21 @@ const pullCommand = buildCommand<PullFlags, [], ApplicationContext>({
         return;
       }
 
+      const applySpin = logger.spinner("Applying pull...");
       await applyPullPlan(config, plan);
-      logger.success("Pull complete");
+      applySpin.succeed("Pull complete");
     }
 
     const updateAction = dryRun ? "would be updated" : "updated";
     const removeAction = dryRun ? "would be removed" : "removed";
 
-    logger.log(
-      `  ${plan.updatedLocalPaths.length} local paths ${updateAction}`,
+    logger.kv(
+      "updated",
+      `${plan.updatedLocalPaths.length} paths ${updateAction}`,
     );
-    logger.log(
-      `  ${plan.deletedLocalPaths.length} local paths ${removeAction}`,
+    logger.kv(
+      "removed",
+      `${plan.deletedLocalPaths.length} paths ${removeAction}`,
     );
   },
   parameters: {
@@ -106,6 +103,7 @@ const pullCommand = buildCommand<PullFlags, [], ApplicationContext>({
         optional: true,
       },
       profile: profileFlag,
+      verbose: verboseFlag,
       yes: {
         brief: "Apply pull changes without prompting",
         kind: "boolean",

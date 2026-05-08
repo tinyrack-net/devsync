@@ -1,6 +1,5 @@
 import type { ApplicationContext } from "@stricli/core";
 import { buildCommand } from "@stricli/core";
-import pc from "picocolors";
 import { CONSTANTS } from "#app/config/constants.ts";
 import { DotweaveError } from "#app/lib/error.ts";
 import { assignProfiles } from "#app/services/profile.ts";
@@ -13,6 +12,7 @@ type TrackFlags = {
   mode: "ignore" | "normal" | "secret";
   profile?: readonly string[];
   repoPath?: string;
+  verbose?: boolean;
 };
 
 const trackCommand = buildCommand<TrackFlags, string[], ApplicationContext>({
@@ -22,7 +22,7 @@ const trackCommand = buildCommand<TrackFlags, string[], ApplicationContext>({
       "Register one or more files or directories inside your home directory so dotweave can mirror them into the sync directory. If a target is already tracked, its mode is updated. Targets may also be repository paths inside a tracked directory to create child entries with a specific mode.",
   },
   async func(flags, ...targets) {
-    const logger = createCliLogger();
+    const logger = createCliLogger({ verbose: flags.verbose ?? false });
     const profiles = [...(flags.profile ?? [])];
     const cwd = process.cwd();
 
@@ -58,13 +58,14 @@ const trackCommand = buildCommand<TrackFlags, string[], ApplicationContext>({
           logger.info(`${result.repoPath} already tracked`);
         }
 
-        const profileInfo =
-          result.profiles.length > 0
-            ? ` · profiles: ${result.profiles.join(", ")}`
-            : "";
-        logger.log(
-          `  ${result.localPath} · mode: ${result.mode}${profileInfo}`,
-        );
+        const details: { key: string; value?: string }[] = [
+          { key: "path", value: result.localPath },
+          { key: "mode", value: result.mode },
+        ];
+        if (result.profiles.length > 0) {
+          details.push({ key: "profiles", value: result.profiles.join(", ") });
+        }
+        logger.listKeyValue(details);
       } catch (error: unknown) {
         if (
           flags.repoPath === undefined &&
@@ -90,10 +91,10 @@ const trackCommand = buildCommand<TrackFlags, string[], ApplicationContext>({
             logger.success(`Updated sync mode for ${setResult.repoPath}`);
           }
 
-          logger.log(`  mode: ${setResult.mode}`);
+          logger.listKeyValue([{ key: "mode", value: setResult.mode }]);
 
           if (setResult.reason === "already-set") {
-            logger.log(pc.dim(`  already ${setResult.mode}`));
+            logger.log(`  already ${setResult.mode}`);
           }
 
           continue;
@@ -125,6 +126,11 @@ const trackCommand = buildCommand<TrackFlags, string[], ApplicationContext>({
         optional: true,
         parse: String,
         placeholder: "path",
+      },
+      verbose: {
+        brief: "Show detailed debug output",
+        kind: "boolean",
+        optional: true,
       },
     },
     positional: {

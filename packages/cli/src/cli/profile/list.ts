@@ -21,13 +21,24 @@ const profileListCommand = buildCommand<
     const result = await listProfiles();
 
     logger.info("Profiles");
-    logger.log(
-      `  active: ${result.activeProfile ?? "none"} · available: ${result.availableProfiles.length === 0 ? "none" : result.availableProfiles.join(", ")}`,
-    );
-    logger.log(`  ${result.assignments.length} restricted entries`);
 
-    if (result.activeProfile === undefined && result.assignments.length > 0) {
-      logger.warn("  restricted entries are skipped until a profile is active");
+    const profiles = [...result.availableProfiles];
+    if (profiles.length === 0) {
+      logger.log("  none");
+    } else {
+      logger.list(
+        profiles.map((name) =>
+          name === result.activeProfile ? `${name} (active)` : name,
+        ),
+        { highlightLast: false },
+      );
+    }
+
+    if (result.assignments.length > 0) {
+      logger.log(`  ${result.assignments.length} restricted entries`);
+      if (result.activeProfile === undefined) {
+        logger.warn("restricted entries are skipped until a profile is active");
+      }
     }
   },
   parameters: {

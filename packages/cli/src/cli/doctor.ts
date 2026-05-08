@@ -1,9 +1,13 @@
 import type { ApplicationContext } from "@stricli/core";
 import { buildCommand } from "@stricli/core";
-import pc from "picocolors";
 import { DotweaveError } from "#app/lib/error.ts";
 import { type DoctorCheck, runDoctorChecks } from "#app/services/doctor.ts";
 import { createCliLogger } from "#app/services/terminal/logger.ts";
+import { c, S } from "#app/services/terminal/theme.ts";
+
+type DoctorFlags = {
+  verbose?: boolean;
+};
 
 const normalizeCheckId = (checkId: string) => {
   switch (checkId) {
@@ -23,29 +27,27 @@ const stripTrailingPeriod = (value: string) => {
 const formatCheckIcon = (level: DoctorCheck["level"]) => {
   switch (level) {
     case "ok":
-      return pc.green("✔");
+      return c.success(S.success);
     case "warn":
-      return pc.yellow("⚠");
+      return c.warn(S.warn);
     case "fail":
-      return pc.red("✖");
+      return c.error(S.error);
   }
 };
 
-const doctorCommand = buildCommand<
-  Record<string, never>,
-  [],
-  ApplicationContext
->({
+const doctorCommand = buildCommand<DoctorFlags, [], ApplicationContext>({
   docs: {
     brief:
       "Check sync directory, config, age identity, and tracked local paths",
     fullDescription:
       "Run health checks for the local sync setup, including repository availability, config validity, age identity configuration, and whether tracked local paths still exist where dotweave expects them.",
   },
-  async func() {
-    const logger = createCliLogger();
+  async func(flags) {
+    const logger = createCliLogger({ verbose: flags.verbose ?? false });
 
+    const spin = logger.spinner("Running checks...");
     const result = await runDoctorChecks();
+    spin.stop();
 
     let okCount = 0;
     let warningCount = 0;
@@ -61,7 +63,7 @@ const doctorCommand = buildCommand<
       }
     }
 
-    const summary = pc.dim(
+    const summary = c.dim(
       `(${okCount} ok · ${warningCount} warnings · ${failureCount} failures)`,
     );
 
@@ -78,11 +80,11 @@ const doctorCommand = buildCommand<
     if (nonOkChecks.length > 0) {
       for (const check of nonOkChecks.slice(0, 3)) {
         logger.log(
-          `  ${formatCheckIcon(check.level)} ${normalizeCheckId(check.checkId)} – ${stripTrailingPeriod(check.detail)}`,
+          `  ${formatCheckIcon(check.level)} ${normalizeCheckId(check.checkId)} — ${stripTrailingPeriod(check.detail)}`,
         );
       }
       if (nonOkChecks.length > 3) {
-        logger.log(pc.dim(`  ... ${nonOkChecks.length - 3} more issues`));
+        logger.log(c.dim(`  ... ${nonOkChecks.length - 3} more issues`));
       }
     }
 
@@ -95,7 +97,13 @@ const doctorCommand = buildCommand<
     }
   },
   parameters: {
-    flags: {},
+    flags: {
+      verbose: {
+        brief: "Show detailed debug output",
+        kind: "boolean",
+        optional: true,
+      },
+    },
   },
 });
 
