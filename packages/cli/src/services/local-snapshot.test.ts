@@ -1,4 +1,4 @@
-import { mkdir, rm, writeFile } from "node:fs/promises";
+import { chmod, mkdir, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import type {
@@ -6,6 +6,7 @@ import type {
   SyncConfigEntryKind,
   SyncMode,
 } from "#app/config/sync-schema.ts";
+import { formatPermissionOctal } from "#app/lib/file-mode.ts";
 import { buildLocalSnapshot } from "#app/services/local-snapshot.ts";
 import type { EffectiveSyncConfig } from "#app/services/runtime.ts";
 import { createTemporaryDirectory } from "../test/helpers/sync-fixture.ts";
@@ -25,15 +26,22 @@ const createEntry = (
   localPath: string,
   repoPath: string,
   mode: SyncMode,
+  permission?: number,
 ): ResolvedSyncConfigEntry => {
   return {
     configuredLocalPath: { default: localPath },
     configuredMode: { default: mode },
+    ...(permission === undefined
+      ? {}
+      : {
+          configuredPermission: { default: formatPermissionOctal(permission) },
+        }),
     kind,
     localPath,
     mode,
     modeExplicit: true,
-    permissionExplicit: false,
+    ...(permission === undefined ? {} : { permission }),
+    permissionExplicit: permission !== undefined,
     profiles: [],
     profilesExplicit: false,
     repoPath,
@@ -135,4 +143,28 @@ describe("local snapshot", () => {
       false,
     );
   });
+
+  it.skipIf(process.platform === "win32")(
+    "derives executable metadata from explicit manifest permission",
+    async () => {
+      const workspace = await createWorkspace();
+      const keyFile = join(workspace, ".ssh", "id_rsa");
+
+      await mkdir(join(workspace, ".ssh"), { recursive: true });
+      await writeFile(keyFile, "key\n", "utf8");
+      await chmod(keyFile, 0o755);
+
+      const snapshot = await buildLocalSnapshot(
+        createConfig([
+          createEntry("file", keyFile, ".ssh/id_rsa", "normal", 0o600),
+        ]),
+      );
+      const node = snapshot.get(".ssh/id_rsa");
+
+      expect(node).toMatchObject({
+        executable: false,
+        type: "file",
+      });
+    },
+  );
 });

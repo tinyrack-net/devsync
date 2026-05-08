@@ -1,6 +1,7 @@
 import { lstat, readFile, readlink } from "node:fs/promises";
 import { join } from "node:path";
 import {
+  findOwningSyncEntry,
   resolveManagedSyncMode,
   resolveSyncRule,
 } from "#app/config/sync-entry.ts";
@@ -30,6 +31,16 @@ const isActiveStorageProfile = (
   }
 
   return rule.profile === storageProfile;
+};
+
+const resolveSnapshotExecutable = (
+  config: RepositorySnapshotConfig,
+  repoPath: string,
+  artifactMode: number | bigint,
+) => {
+  const entry = findOwningSyncEntry(config, repoPath);
+
+  return isExecutableMode(entry?.permission ?? artifactMode);
 };
 
 const readArtifactLeaf = async (
@@ -125,7 +136,11 @@ const readArtifactLeaf = async (
 
     addSnapshotNode(snapshot, artifact.repoPath, {
       contents,
-      executable: isExecutableMode(stats.mode),
+      executable: resolveSnapshotExecutable(
+        config,
+        artifact.repoPath,
+        stats.mode,
+      ),
       secret: true,
       type: "file",
     });
@@ -182,7 +197,11 @@ const readArtifactLeaf = async (
 
   addSnapshotNode(snapshot, artifact.repoPath, {
     contents: await readFile(absolutePath),
-    executable: isExecutableMode(stats.mode),
+    executable: resolveSnapshotExecutable(
+      config,
+      artifact.repoPath,
+      stats.mode,
+    ),
     secret: false,
     type: "file",
   });

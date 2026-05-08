@@ -2,6 +2,7 @@ import { lstat, readFile, readlink } from "node:fs/promises";
 import { join, posix } from "node:path";
 import {
   collectChildEntryPaths,
+  findOwningSyncEntry,
   resolveManagedSyncMode,
 } from "#app/config/sync-entry.ts";
 import { DotweaveError } from "#app/lib/error.ts";
@@ -34,6 +35,16 @@ export type FileLikeSnapshotNode = Extract<
   SnapshotNode,
   Readonly<{ type: "file" | "symlink" }>
 >;
+
+const resolveSnapshotExecutable = (
+  config: EffectiveSyncConfig,
+  repoPath: string,
+  filesystemMode: number | bigint,
+) => {
+  const entry = findOwningSyncEntry(config, repoPath);
+
+  return isExecutableMode(entry?.permission ?? filesystemMode);
+};
 
 export const addSnapshotNode = (
   snapshot: Map<string, SnapshotNode>,
@@ -88,7 +99,7 @@ const addLocalNode = async (
 
   addSnapshotNode(snapshot, repoPath, {
     contents: await readFile(path),
-    executable: isExecutableMode(stats.mode),
+    executable: resolveSnapshotExecutable(config, repoPath, stats.mode),
     secret: mode === "secret",
     type: "file",
   });
