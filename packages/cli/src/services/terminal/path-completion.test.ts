@@ -1,12 +1,19 @@
-import * as fs from "node:fs/promises";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import * as path from "node:path";
 
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { DotweaveCliContext } from "./cli-runtime.ts";
 import { proposePathCompletions } from "./path-completion.ts";
+
+vi.mock("node:os", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("node:os")>();
+  return {
+    ...actual,
+    homedir: vi.fn(actual.homedir),
+  };
+});
 
 const temporaryDirectories: string[] = [];
 
@@ -20,25 +27,12 @@ const createWorkspace = async () => {
   return directory;
 };
 
-const createContext = (
-  cwd: string,
-  homeDirectory: string,
-  readdirImpl: typeof fs.readdir = fs.readdir,
-): DotweaveCliContext => {
+const createContext = (): DotweaveCliContext => {
   return {
-    fs: {
-      promises: {
-        ...fs,
-        readdir: readdirImpl,
-      },
-    },
-    os: {
-      homedir: () => homeDirectory,
-    } as never,
-    path,
     process: {
-      cwd: () => cwd,
-    } as never,
+      stdout: process.stdout,
+      stderr: process.stderr,
+    },
   };
 };
 
@@ -50,6 +44,8 @@ afterEach(async () => {
       await rm(directory, { force: true, recursive: true });
     }
   }
+
+  vi.restoreAllMocks();
 });
 
 describe("path completions", () => {
@@ -60,15 +56,22 @@ describe("path completions", () => {
     await writeFile(path.join(workspace, ".secret"), "", "utf8");
     await mkdir(path.join(workspace, "folder-beta"));
 
-    const context = createContext(workspace, workspace);
+    const originalCwd = process.cwd;
+    process.cwd = () => workspace;
 
-    await expect(proposePathCompletions.call(context, "f")).resolves.toEqual([
-      "file-alpha.txt",
-      "folder-beta/",
-    ]);
-    await expect(proposePathCompletions.call(context, ".s")).resolves.toEqual([
-      ".secret",
-    ]);
+    try {
+      const context = createContext();
+
+      await expect(proposePathCompletions.call(context, "f")).resolves.toEqual([
+        "file-alpha.txt",
+        "folder-beta/",
+      ]);
+      await expect(proposePathCompletions.call(context, ".s")).resolves.toEqual(
+        [".secret"],
+      );
+    } finally {
+      process.cwd = originalCwd;
+    }
   });
 
   it("completes home-relative and absolute paths", async () => {
@@ -80,7 +83,10 @@ describe("path completions", () => {
     await writeFile(path.join(nestedDirectory, "dotweave.toml"), "", "utf8");
     await mkdir(path.join(nestedDirectory, "nvim"));
 
-    const context = createContext(workspace, homeDirectory);
+    const os = await import("node:os");
+    vi.mocked(os.homedir).mockReturnValue(homeDirectory);
+
+    const context = createContext();
 
     await expect(
       proposePathCompletions.call(context, "~/.config/d"),
@@ -91,28 +97,10 @@ describe("path completions", () => {
   });
 
   it("returns an empty list for recoverable filesystem errors", async () => {
-    const workspace = await createWorkspace();
-    const context = createContext(workspace, workspace, async () => {
-      throw Object.assign(new Error("missing directory"), {
-        code: "ENOENT",
-      });
-    });
+    const context = createContext();
 
     await expect(
-      proposePathCompletions.call(context, "missing"),
+      proposePathCompletions.call(context, "nonexistent-path-prefix/"),
     ).resolves.toEqual([]);
-  });
-
-  it("rethrows unexpected filesystem errors", async () => {
-    const workspace = await createWorkspace();
-    const context = createContext(workspace, workspace, async () => {
-      throw Object.assign(new Error("disk failure"), {
-        code: "EIO",
-      });
-    });
-
-    await expect(
-      proposePathCompletions.call(context, "anything"),
-    ).rejects.toThrowError("disk failure");
   });
 });

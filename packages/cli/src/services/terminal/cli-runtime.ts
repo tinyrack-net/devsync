@@ -1,23 +1,21 @@
-import * as fs from "node:fs";
-import * as os from "node:os";
-import * as path from "node:path";
+import type { ApplicationContext } from "@stricli/core";
 
-export type DotweaveCliContext = {
-  fs: {
-    promises: typeof fs.promises;
-  };
-  os: typeof os;
-  path: typeof path;
-  process: NodeJS.Process;
-};
+export type DotweaveCliContext = ApplicationContext;
 
 export const createCliContext = (): DotweaveCliContext => {
   return {
-    fs: {
-      promises: fs.promises,
+    process: {
+      stdout: process.stdout,
+      stderr: process.stderr,
+      get env() {
+        return process.env;
+      },
+      get exitCode() {
+        return process.exitCode;
+      },
+      set exitCode(value) {
+        process.exitCode = value;
+      },
     },
-    os,
-    path,
-    process,
   };
 };

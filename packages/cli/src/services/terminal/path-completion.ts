@@ -1,3 +1,7 @@
+import * as fs from "node:fs/promises";
+import * as os from "node:os";
+import * as path from "node:path";
+
 import type { DotweaveCliContext } from "#app/services/terminal/cli-runtime.ts";
 
 const HOME_PREFIX = "~";
@@ -24,10 +28,7 @@ const isRecoverableCompletionError = (error: unknown) => {
   );
 };
 
-const buildRelativeCompletionBase = (
-  partial: string,
-  context: DotweaveCliContext,
-): CompletionBase => {
+const buildRelativeCompletionBase = (partial: string): CompletionBase => {
   const lastSeparatorIndex = partial.lastIndexOf(SHELL_PATH_SEPARATOR);
   const displayPrefix =
     lastSeparatorIndex < 0 ? "" : partial.slice(0, lastSeparatorIndex + 1);
@@ -35,8 +36,8 @@ const buildRelativeCompletionBase = (
     lastSeparatorIndex < 0 ? partial : partial.slice(lastSeparatorIndex + 1);
 
   return {
-    absoluteDirectory: context.path.resolve(
-      context.process.cwd(),
+    absoluteDirectory: path.resolve(
+      process.cwd(),
       displayPrefix === "" ? "." : displayPrefix,
     ),
     displayPrefix,
@@ -44,10 +45,7 @@ const buildRelativeCompletionBase = (
   };
 };
 
-const buildAbsoluteCompletionBase = (
-  partial: string,
-  context: DotweaveCliContext,
-): CompletionBase => {
+const buildAbsoluteCompletionBase = (partial: string): CompletionBase => {
   const lastSeparatorIndex = partial.lastIndexOf(SHELL_PATH_SEPARATOR);
   const displayPrefix =
     lastSeparatorIndex < 0
@@ -57,7 +55,7 @@ const buildAbsoluteCompletionBase = (
     lastSeparatorIndex < 0 ? partial : partial.slice(lastSeparatorIndex + 1);
 
   return {
-    absoluteDirectory: context.path.resolve(displayPrefix),
+    absoluteDirectory: path.resolve(displayPrefix),
     displayPrefix,
     entryPrefix,
   };
@@ -65,11 +63,10 @@ const buildAbsoluteCompletionBase = (
 
 const buildHomeCompletionBase = (
   partial: string,
-  context: DotweaveCliContext,
 ): CompletionBase | undefined => {
   if (partial === HOME_PREFIX) {
     return {
-      absoluteDirectory: context.os.homedir(),
+      absoluteDirectory: os.homedir(),
       displayPrefix: `${HOME_PREFIX}${SHELL_PATH_SEPARATOR}`,
       entryPrefix: "",
     };
@@ -91,8 +88,8 @@ const buildHomeCompletionBase = (
       : homeRelativePath.slice(lastSeparatorIndex + 1);
 
   return {
-    absoluteDirectory: context.path.resolve(
-      context.os.homedir(),
+    absoluteDirectory: path.resolve(
+      os.homedir(),
       directorySuffix === "" ? "." : directorySuffix,
     ),
     displayPrefix: `${HOME_PREFIX}${SHELL_PATH_SEPARATOR}${directorySuffix}`,
@@ -100,19 +97,16 @@ const buildHomeCompletionBase = (
   };
 };
 
-const resolveCompletionBase = (
-  partial: string,
-  context: DotweaveCliContext,
-): CompletionBase | undefined => {
+const resolveCompletionBase = (partial: string): CompletionBase | undefined => {
   if (partial.startsWith(HOME_PREFIX)) {
-    return buildHomeCompletionBase(partial, context);
+    return buildHomeCompletionBase(partial);
   }
 
   if (partial.startsWith(SHELL_PATH_SEPARATOR)) {
-    return buildAbsoluteCompletionBase(partial, context);
+    return buildAbsoluteCompletionBase(partial);
   }
 
-  return buildRelativeCompletionBase(partial, context);
+  return buildRelativeCompletionBase(partial);
 };
 
 const shouldIncludeEntry = (name: string, entryPrefix: string) => {
@@ -144,14 +138,14 @@ export const proposePathCompletions = async function (
   this: DotweaveCliContext,
   partial: string,
 ) {
-  const base = resolveCompletionBase(partial, this);
+  const base = resolveCompletionBase(partial);
 
   if (base === undefined) {
     return [];
   }
 
   try {
-    const entries = await this.fs.promises.readdir(base.absoluteDirectory, {
+    const entries = await fs.readdir(base.absoluteDirectory, {
       withFileTypes: true,
     });
 
@@ -160,7 +154,7 @@ export const proposePathCompletions = async function (
       .map((entry) => {
         return buildCompletionValue(base, entry.name, entry.isDirectory());
       })
-      .sort((left, right) => left.localeCompare(right));
+      .sort((left: string, right: string) => left.localeCompare(right));
   } catch (error) {
     if (isRecoverableCompletionError(error)) {
       return [];
