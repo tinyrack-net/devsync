@@ -1,3 +1,5 @@
+import { resolve } from "node:path";
+
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 const mockEnv = vi.hoisted(() => ({
@@ -54,7 +56,7 @@ describe("runtime-env", () => {
   describe("resolveHomeDirectoryFromEnv", () => {
     it("resolves HOME when set", () => {
       mockEnv.HOME = "/home/test";
-      expect(resolveHomeDirectoryFromEnv()).toBe("/home/test");
+      expect(resolveHomeDirectoryFromEnv()).toBe(resolve("/home/test"));
     });
 
     it("falls back to os.homedir when HOME is not set", () => {
@@ -68,12 +70,12 @@ describe("runtime-env", () => {
     it("resolves XDG_CONFIG_HOME when set", () => {
       mockEnv.HOME = "/home/test";
       mockEnv.XDG_CONFIG_HOME = "/home/test/.config";
-      expect(resolveXdgConfigHomeFromEnv()).toBe("/home/test/.config");
+      expect(resolveXdgConfigHomeFromEnv()).toBe(resolve("/home/test/.config"));
     });
 
     it("falls back to ~/.config when XDG_CONFIG_HOME is not set", () => {
       mockEnv.HOME = "/home/test";
-      expect(resolveXdgConfigHomeFromEnv()).toBe("/home/test/.config");
+      expect(resolveXdgConfigHomeFromEnv()).toBe(resolve("/home/test/.config"));
     });
   });
 
@@ -82,7 +84,7 @@ describe("runtime-env", () => {
       mockEnv.HOME = "/home/test";
       mockEnv.XDG_CONFIG_HOME = "/home/test/.config";
       expect(resolveDotweaveGlobalConfigFilePathFromEnv()).toBe(
-        "/home/test/.config/dotweave/settings.jsonc",
+        resolve("/home/test/.config/dotweave/settings.jsonc"),
       );
     });
   });
@@ -92,7 +94,7 @@ describe("runtime-env", () => {
       mockEnv.HOME = "/home/test";
       mockEnv.XDG_CONFIG_HOME = "/home/test/.config";
       expect(resolveDotweaveSyncDirectoryFromEnv()).toBe(
-        "/home/test/.config/dotweave/repository",
+        resolve("/home/test/.config/dotweave/repository"),
       );
     });
   });

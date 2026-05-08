@@ -1,3 +1,5 @@
+import { resolve } from "node:path";
+
 import { describe, expect, it } from "vitest";
 
 import {
@@ -55,8 +57,14 @@ describe("path helpers", () => {
     });
 
     it("resolves relative target against baseDir", () => {
+      const expected =
+        process.platform === "win32"
+          ? resolve("/opt/app/venv", "../bin/python3")
+                .replaceAll("\\", "/")
+                .toLowerCase()
+          : "/opt/app/bin/python3";
       expect(normalizeLinkTarget("../bin/python3", "/opt/app/venv")).toBe(
-        "/opt/app/bin/python3",
+        expected,
       );
     });
 
@@ -71,9 +79,13 @@ describe("path helpers", () => {
     });
 
     it("resolves dot-slash relative target against baseDir", () => {
-      expect(normalizeLinkTarget("./script.sh", "/home/user")).toBe(
-        "/home/user/script.sh",
-      );
+      const expected =
+        process.platform === "win32"
+          ? resolve("/home/user", "./script.sh")
+                .replaceAll("\\", "/")
+                .toLowerCase()
+          : "/home/user/script.sh";
+      expect(normalizeLinkTarget("./script.sh", "/home/user")).toBe(expected);
     });
   });
 });

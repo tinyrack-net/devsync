@@ -344,9 +344,10 @@ describe("repo-snapshot service", () => {
     );
     mocked.getPathStats.mockResolvedValue({ isDirectory: () => true });
     mocked.listDirectoryEntries.mockImplementation((dir: string) => {
-      if (dir.endsWith("/work"))
+      const lastSegment = dir.split(/[/\\]/).pop()!;
+      if (lastSegment === "work")
         return Promise.resolve([{ name: "work.conf" }]);
-      if (dir.endsWith("/default"))
+      if (lastSegment === "default")
         return Promise.resolve([{ name: "common.conf" }]);
       return Promise.resolve([]);
     });
