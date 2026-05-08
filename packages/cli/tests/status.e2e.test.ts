@@ -109,4 +109,60 @@ describe("status CLI e2e", () => {
     expect(out).toContain("Push changes");
     expect(out).toContain("No push changes");
   });
+
+  it("reports push and pull changes for tracked entries", async () => {
+    const configDir = join(ctx.homeDir, ".config", "myapp");
+    const configFile = join(configDir, "config.toml");
+    const ageKeys = await ctx.createAgeKeyPair();
+
+    await ctx.writeIdentityFile(ageKeys.identity);
+    await mkdir(configDir, { recursive: true });
+    await writeFile(configFile, "key = value\n");
+
+    await ctx.runCli(["init"]);
+    await ctx.runCli(["track", configDir]);
+    await ctx.runCli(["push"]);
+
+    const repoArtifact = join(
+      ctx.xdgDir,
+      "dotweave",
+      "repository",
+      "default",
+      ".config",
+      "myapp",
+      "config.toml",
+    );
+    await writeFile(repoArtifact, "key = repo-modified\n");
+
+    const result = await ctx.runCli(["status"]);
+
+    expect(result.exitCode).toBe(0);
+    const out = stripAnsi(result.stdout);
+    expect(out).toContain("Pull changes");
+    expect(out).toContain("Changed");
+  });
+
+  it("reports no changes when repository is up to date", async () => {
+    const configDir = join(ctx.homeDir, ".config", "myapp");
+    const configFile = join(configDir, "config.toml");
+    const ageKeys = await ctx.createAgeKeyPair();
+
+    await ctx.writeIdentityFile(ageKeys.identity);
+    await mkdir(configDir, { recursive: true });
+    await writeFile(configFile, "key = value\n");
+
+    await ctx.runCli(["init"]);
+    await ctx.runCli(["track", configDir]);
+    await ctx.runCli(["push"]);
+    await ctx.runCli(["pull"]);
+
+    const result = await ctx.runCli(["status"]);
+
+    expect(result.exitCode).toBe(0);
+    const out = stripAnsi(result.stdout);
+    expect(out).toContain("Push changes");
+    expect(out).toContain("No push changes");
+    expect(out).toContain("Pull changes");
+    expect(out).toContain("No pull changes");
+  });
 });

@@ -7,6 +7,7 @@ import {
   createSyncE2EContext,
   type SyncE2EContext,
 } from "../src/test/helpers/e2e-context.ts";
+import { readSettingsJson } from "../src/test/helpers/mock-factories.ts";
 import { stripAnsi } from "../src/test/helpers/sync-fixture.ts";
 
 let ctx: SyncE2EContext;
@@ -43,9 +44,9 @@ describe("profile CLI e2e", () => {
     expect(setResult.exitCode).toBe(0);
     expect(stripAnsi(setResult.stdout)).toContain("Active profile set to work");
 
-    const settings = JSON.parse(
+    const settings = readSettingsJson(
       await readFile(join(ctx.xdgDir, "dotweave", "settings.jsonc"), "utf8"),
-    ) as { activeProfile: string };
+    );
 
     expect(settings.activeProfile).toBe("work");
   });
@@ -61,9 +62,9 @@ describe("profile CLI e2e", () => {
     expect(clearResult.exitCode).toBe(0);
     expect(stripAnsi(clearResult.stdout)).toContain("Active profile cleared");
 
-    const settings = JSON.parse(
+    const settings = readSettingsJson(
       await readFile(join(ctx.xdgDir, "dotweave", "settings.jsonc"), "utf8"),
-    ) as { activeProfile?: string };
+    );
 
     expect(settings.activeProfile).toBeUndefined();
   });
@@ -132,4 +133,58 @@ describe("profile CLI e2e", () => {
     );
     await expect(readFile(personalArtifact, "utf8")).rejects.toThrow();
   }, 15_000);
+
+  it("rejects invalid profile names with special characters", async () => {
+    const ageKeys = await ctx.createAgeKeyPair();
+    await ctx.writeIdentityFile(ageKeys.identity);
+    await ctx.runCli(["init"]);
+
+    const spaceResult = await ctx.runCli(["profile", "use", "invalid name"], {
+      reject: false,
+    });
+    expect(spaceResult.exitCode).not.toBe(0);
+    expect(spaceResult.stderr).toContain("unsupported characters");
+
+    const slashResult = await ctx.runCli(
+      ["profile", "use", "name/with/slashes"],
+      {
+        reject: false,
+      },
+    );
+    expect(slashResult.exitCode).not.toBe(0);
+    expect(slashResult.stderr).toContain("unsupported characters");
+  });
+
+  it("handles profile use for a non-existent profile gracefully", async () => {
+    const ageKeys = await ctx.createAgeKeyPair();
+    await ctx.writeIdentityFile(ageKeys.identity);
+    await ctx.runCli(["init"]);
+
+    const result = await ctx.runCli(["profile", "use", "ghost"]);
+
+    expect(result.exitCode).toBe(0);
+    expect(stripAnsi(result.stdout)).toContain("Active profile set to ghost");
+    expect(stripAnsi(result.stderr)).toContain(
+      "not referenced by any tracked entry",
+    );
+  });
+
+  it("lists no profiles when no entries have explicit profiles", async () => {
+    const configDir = join(ctx.homeDir, ".config", "myapp");
+    const ageKeys = await ctx.createAgeKeyPair();
+
+    await ctx.writeIdentityFile(ageKeys.identity);
+    await mkdir(configDir, { recursive: true });
+    await writeFile(join(configDir, "config.toml"), "key = value\n");
+
+    await ctx.runCli(["init"]);
+    await ctx.runCli(["track", configDir]);
+
+    const result = await ctx.runCli(["profile", "list"]);
+
+    expect(result.exitCode).toBe(0);
+    const out = stripAnsi(result.stdout);
+    expect(out).toContain("Profiles");
+    expect(out).toContain("none");
+  });
 });

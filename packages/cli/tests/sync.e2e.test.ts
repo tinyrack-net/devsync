@@ -11,6 +11,10 @@ import {
   createSyncE2EContext,
   type SyncE2EContext,
 } from "../src/test/helpers/e2e-context.ts";
+import {
+  parseManifestEntries,
+  readManifestJson,
+} from "../src/test/helpers/mock-factories.ts";
 import { createPtySession } from "../src/test/helpers/pty.ts";
 import { stripAnsi } from "../src/test/helpers/sync-fixture.ts";
 
@@ -355,15 +359,9 @@ describe("sync CLI e2e", () => {
       "--mode",
       "ignore",
     ]);
-    const configAfterSet = JSON.parse(
+    const configAfterSetEntries = parseManifestEntries(
       await readFile(join(syncDirectory, "manifest.jsonc"), "utf8"),
-    ) as {
-      entries: Array<{
-        kind: string;
-        localPath: { default: string };
-        mode?: { default: string };
-      }>;
-    };
+    );
 
     expect(stripAnsi(trackResult.stdout)).toContain(
       "Started tracking .config/mytool",
@@ -374,7 +372,7 @@ describe("sync CLI e2e", () => {
       "Started tracking .config/mytool/public.json",
     );
     expect(stripAnsi(subtreeRuleResult.stdout)).toMatch(/mode\s+ignore/);
-    expect(configAfterSet.entries).toMatchObject([
+    expect(configAfterSetEntries).toMatchObject([
       {
         kind: "directory",
         localPath: { default: "~/.config/mytool" },
@@ -400,13 +398,11 @@ describe("sync CLI e2e", () => {
     await ctx.runCli(["untrack", ".config/mytool/cache"]);
     await ctx.runCli(["untrack", ".config/mytool/public.json"]);
 
-    const configAfterUntrack = JSON.parse(
+    const { entries: untrackEntries } = readManifestJson(
       await readFile(join(syncDirectory, "manifest.jsonc"), "utf8"),
-    ) as {
-      entries: unknown[];
-    };
+    );
 
-    expect(configAfterUntrack.entries).toEqual([]);
+    expect(untrackEntries).toEqual([]);
   }, 15_000);
 
   it("syncs with the default profile namespace using push and pull", async () => {

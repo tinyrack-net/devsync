@@ -1,8 +1,16 @@
+import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { join } from "node:path";
+
 import { execa } from "execa";
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import packageJson from "../package.json" with { type: "json" };
 import { rootCommandRoutes } from "../src/cli/root-commands.ts";
 import { cliNodeOptions } from "../src/test/helpers/cli-entry.ts";
+import {
+  createSyncE2EContext,
+  type SyncE2EContext,
+} from "../src/test/helpers/e2e-context.ts";
+import { stripAnsi } from "../src/test/helpers/sync-fixture.ts";
 
 const runCli = async (
   args: readonly string[],
@@ -88,5 +96,57 @@ describe("CLI e2e", () => {
     expect(listResult.stderr).toContain("not found");
     expect(dirResult.exitCode).not.toBe(0);
     expect(dirResult.stderr).toContain("not found");
+  });
+});
+
+let ctx: SyncE2EContext;
+
+beforeEach(async () => {
+  ctx = await createSyncE2EContext();
+});
+
+afterEach(async () => {
+  await ctx.cleanup();
+});
+
+describe("CLI sync cycle e2e", () => {
+  it("runs a full init-track-push-pull cycle", async () => {
+    const configDir = join(ctx.homeDir, ".config", "myapp");
+    const configFile = join(configDir, "config.toml");
+    const ageKeys = await ctx.createAgeKeyPair();
+
+    await ctx.writeIdentityFile(ageKeys.identity);
+    await mkdir(configDir, { recursive: true });
+    await writeFile(configFile, "key = value\n");
+
+    await ctx.runCli(["init"]);
+    await ctx.runCli(["track", configDir]);
+    await ctx.runCli(["push"]);
+
+    await writeFile(configFile, "key = modified\n");
+    await ctx.runCli(["pull", "-y"]);
+
+    const content = await readFile(configFile, "utf8");
+    expect(content).toContain("key = value\n");
+  });
+
+  it("reports status for an initialized repository", async () => {
+    const configDir = join(ctx.homeDir, ".config", "myapp");
+    const ageKeys = await ctx.createAgeKeyPair();
+
+    await ctx.writeIdentityFile(ageKeys.identity);
+    await mkdir(configDir, { recursive: true });
+    await writeFile(join(configDir, "config.toml"), "key = value\n");
+
+    await ctx.runCli(["init"]);
+    await ctx.runCli(["track", configDir]);
+
+    const result = await ctx.runCli(["status"]);
+
+    expect(result.exitCode).toBe(0);
+    const out = stripAnsi(result.stdout);
+    expect(out).toContain("Sync status");
+    expect(out).toContain("Push changes");
+    expect(out).toContain("Add");
   });
 });
