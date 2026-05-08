@@ -1,23 +1,22 @@
+import type { ApplicationContext } from "@stricli/core";
 import {
   type Application,
   buildCommand,
   buildRouteMap,
   proposeCompletions,
 } from "@stricli/core";
-
 import {
   BASH_AUTOCOMPLETE_SCRIPT,
   POWERSHELL_AUTOCOMPLETE_SCRIPT,
   resolveCompletionInputs,
   ZSH_AUTOCOMPLETE_SCRIPT,
 } from "#app/services/autocomplete.ts";
-import type { DotweaveCliContext } from "#app/services/terminal/cli-runtime.ts";
 
 type EmptyFlags = Record<never, never>;
 
-let _application: Application<DotweaveCliContext> | undefined;
+let _application: Application<ApplicationContext> | undefined;
 
-export const setApplication = (app: Application<DotweaveCliContext>) => {
+export const setApplication = (app: Application<ApplicationContext>) => {
   _application = app;
 };
 
@@ -25,7 +24,7 @@ const buildAutocompleteScriptCommand = (
   shell: "bash" | "zsh" | "powershell",
   script: string,
 ) => {
-  return buildCommand<EmptyFlags, [], DotweaveCliContext>({
+  return buildCommand<EmptyFlags, [], ApplicationContext>({
     docs: {
       brief: `Print ${shell} autocomplete script`,
       fullDescription: `Emit a ${shell} autocomplete script for use with \`eval "$(dotweave autocomplete ${shell})"\`.`,
@@ -50,7 +49,7 @@ const powershellAutocompleteCommand = buildAutocompleteScriptCommand(
   POWERSHELL_AUTOCOMPLETE_SCRIPT,
 );
 
-const completeCommand = buildCommand<EmptyFlags, string[], DotweaveCliContext>({
+const completeCommand = buildCommand<EmptyFlags, string[], ApplicationContext>({
   docs: {
     brief: "Internal completion command",
   },

@@ -2,7 +2,7 @@ import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
 
-import type { DotweaveCliContext } from "#app/services/terminal/cli-runtime.ts";
+import type { ApplicationContext } from "@stricli/core";
 
 const HOME_PREFIX = "~";
 const HIDDEN_ENTRY_PREFIX = ".";
@@ -135,7 +135,7 @@ const buildCompletionValue = (
 };
 
 export const proposePathCompletions = async function (
-  this: DotweaveCliContext,
+  this: ApplicationContext,
   partial: string,
 ) {
   const base = resolveCompletionBase(partial);

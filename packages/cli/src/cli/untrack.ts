@@ -1,11 +1,11 @@
+import type { ApplicationContext } from "@stricli/core";
 import { buildCommand } from "@stricli/core";
-import type { DotweaveCliContext } from "#app/services/terminal/cli-runtime.ts";
 import { createCliLogger } from "#app/services/terminal/logger.ts";
 import { untrackTarget } from "#app/services/untrack.ts";
 
 type UntrackFlags = Record<string, never>;
 
-const untrackCommand = buildCommand<UntrackFlags, [string], DotweaveCliContext>(
+const untrackCommand = buildCommand<UntrackFlags, [string], ApplicationContext>(
   {
     docs: {
       brief: "Stop tracking a synced path",

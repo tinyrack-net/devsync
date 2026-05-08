@@ -1,3 +1,4 @@
+import type { ApplicationContext } from "@stricli/core";
 import { buildCommand } from "@stricli/core";
 import { resolveDefaultIdentityFile } from "#app/config/identity-file.ts";
 import { readEnvValue } from "#app/config/runtime-env.ts";
@@ -8,7 +9,6 @@ import {
   type InitResult,
   initializeSyncDirectory,
 } from "#app/services/init.ts";
-import type { DotweaveCliContext } from "#app/services/terminal/cli-runtime.ts";
 import { createCliLogger } from "#app/services/terminal/logger.ts";
 
 type InitFlags = {
@@ -33,7 +33,7 @@ const formatAgeSummary = (result: InitResult) => {
     : "using existing identity";
 };
 
-const initCommand = buildCommand<InitFlags, [string?], DotweaveCliContext>({
+const initCommand = buildCommand<InitFlags, [string?], ApplicationContext>({
   docs: {
     brief: "Initialize the git-backed sync directory",
     fullDescription:

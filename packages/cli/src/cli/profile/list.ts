@@ -1,6 +1,6 @@
+import type { ApplicationContext } from "@stricli/core";
 import { buildCommand } from "@stricli/core";
 import { listProfiles } from "#app/services/profile.ts";
-import type { DotweaveCliContext } from "#app/services/terminal/cli-runtime.ts";
 import { createCliLogger } from "#app/services/terminal/logger.ts";
 
 type ProfileListFlags = Record<string, never>;
@@ -8,7 +8,7 @@ type ProfileListFlags = Record<string, never>;
 const profileListCommand = buildCommand<
   ProfileListFlags,
   [],
-  DotweaveCliContext
+  ApplicationContext
 >({
   docs: {
     brief: "Show configured and active sync profiles",

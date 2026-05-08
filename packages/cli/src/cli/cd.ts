@@ -1,11 +1,10 @@
 import { mkdir } from "node:fs/promises";
-
+import type { ApplicationContext } from "@stricli/core";
 import { buildCommand } from "@stricli/core";
 import { resolveDotweaveSyncDirectoryFromEnv } from "#app/config/runtime-env.ts";
-import type { DotweaveCliContext } from "#app/services/terminal/cli-runtime.ts";
 import { launchShellInDirectory } from "#app/services/terminal/shell.ts";
 
-const cdCommand = buildCommand<Record<string, never>, [], DotweaveCliContext>({
+const cdCommand = buildCommand<Record<string, never>, [], ApplicationContext>({
   docs: {
     brief: "Launch a shell in the sync directory",
     fullDescription:

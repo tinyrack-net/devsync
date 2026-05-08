@@ -1,10 +1,8 @@
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import * as path from "node:path";
-
+import type { ApplicationContext } from "@stricli/core";
 import { afterEach, describe, expect, it, vi } from "vitest";
-
-import type { DotweaveCliContext } from "./cli-runtime.ts";
 import { proposePathCompletions } from "./path-completion.ts";
 
 vi.mock("node:os", async (importOriginal) => {
@@ -27,7 +25,7 @@ const createWorkspace = async () => {
   return directory;
 };
 
-const createContext = (): DotweaveCliContext => {
+const createContext = (): ApplicationContext => {
   return {
     process: {
       stdout: process.stdout,

@@ -1,9 +1,9 @@
+import type { ApplicationContext } from "@stricli/core";
 import { buildCommand } from "@stricli/core";
 import pc from "picocolors";
 import { DotweaveError } from "#app/lib/error.ts";
 import { ask } from "#app/lib/prompt.ts";
 import { applyPullPlan, preparePull } from "#app/services/pull.ts";
-import type { DotweaveCliContext } from "#app/services/terminal/cli-runtime.ts";
 import { createCliLogger } from "#app/services/terminal/logger.ts";
 import { profileFlag } from "./shared-flags.ts";
 
@@ -39,7 +39,7 @@ const logPullPlanChanges = (
   }
 };
 
-const pullCommand = buildCommand<PullFlags, [], DotweaveCliContext>({
+const pullCommand = buildCommand<PullFlags, [], ApplicationContext>({
   docs: {
     brief: "Apply the git-backed sync directory to local config paths",
     fullDescription:

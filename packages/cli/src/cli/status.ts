@@ -1,3 +1,4 @@
+import type { ApplicationContext } from "@stricli/core";
 import { buildCommand } from "@stricli/core";
 import pc from "picocolors";
 import {
@@ -5,7 +6,6 @@ import {
   type PullChanges,
   type PushChanges,
 } from "#app/services/status.ts";
-import type { DotweaveCliContext } from "#app/services/terminal/cli-runtime.ts";
 import { createCliLogger } from "#app/services/terminal/logger.ts";
 import { profileFlag } from "./shared-flags.ts";
 
@@ -122,7 +122,7 @@ const logPullChanges = (
   }
 };
 
-const statusCommand = buildCommand<StatusFlags, [], DotweaveCliContext>({
+const statusCommand = buildCommand<StatusFlags, [], ApplicationContext>({
   docs: {
     brief: "Show planned push and pull changes for the current sync config",
     fullDescription:

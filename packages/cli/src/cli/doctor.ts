@@ -1,8 +1,8 @@
+import type { ApplicationContext } from "@stricli/core";
 import { buildCommand } from "@stricli/core";
 import pc from "picocolors";
 import { DotweaveError } from "#app/lib/error.ts";
 import { type DoctorCheck, runDoctorChecks } from "#app/services/doctor.ts";
-import type { DotweaveCliContext } from "#app/services/terminal/cli-runtime.ts";
 import { createCliLogger } from "#app/services/terminal/logger.ts";
 
 const normalizeCheckId = (checkId: string) => {
@@ -34,7 +34,7 @@ const formatCheckIcon = (level: DoctorCheck["level"]) => {
 const doctorCommand = buildCommand<
   Record<string, never>,
   [],
-  DotweaveCliContext
+  ApplicationContext
 >({
   docs: {
     brief:

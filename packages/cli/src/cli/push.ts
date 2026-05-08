@@ -1,7 +1,7 @@
+import type { ApplicationContext } from "@stricli/core";
 import { buildCommand } from "@stricli/core";
 import pc from "picocolors";
 import { pushChanges } from "#app/services/push.ts";
-import type { DotweaveCliContext } from "#app/services/terminal/cli-runtime.ts";
 import { createCliLogger } from "#app/services/terminal/logger.ts";
 import { profileFlag } from "./shared-flags.ts";
 
@@ -10,7 +10,7 @@ type PushFlags = {
   profile?: string;
 };
 
-const pushCommand = buildCommand<PushFlags, [], DotweaveCliContext>({
+const pushCommand = buildCommand<PushFlags, [], ApplicationContext>({
   docs: {
     brief: "Mirror local config into the git-backed sync directory",
     fullDescription:

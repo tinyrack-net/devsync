@@ -9,7 +9,6 @@ import { buildRootRoute } from "#app/cli/index.ts";
 import { CONSTANTS } from "#app/config/constants.ts";
 import { formatDotweaveError } from "#app/lib/error.ts";
 import { currentVersion } from "#app/lib/version.ts";
-import { createCliContext } from "#app/services/terminal/cli-runtime.ts";
 import { createCliLogger } from "#app/services/terminal/logger.ts";
 
 type CommandError = Error & {
@@ -95,5 +94,19 @@ setApplication(application);
 export const cliApplication = application;
 
 export const runCli = async (inputs: readonly string[]) => {
-  await run(cliApplication, inputs, createCliContext());
+  await run(cliApplication, inputs, {
+    process: {
+      stdout: process.stdout,
+      stderr: process.stderr,
+      get env() {
+        return process.env;
+      },
+      get exitCode() {
+        return process.exitCode;
+      },
+      set exitCode(value) {
+        process.exitCode = value;
+      },
+    },
+  });
 };

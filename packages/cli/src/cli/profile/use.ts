@@ -1,6 +1,6 @@
+import type { ApplicationContext } from "@stricli/core";
 import { buildCommand } from "@stricli/core";
 import { clearActiveProfile, setActiveProfile } from "#app/services/profile.ts";
-import type { DotweaveCliContext } from "#app/services/terminal/cli-runtime.ts";
 import { createCliLogger } from "#app/services/terminal/logger.ts";
 
 type ProfileUseFlags = Record<string, never>;
@@ -8,7 +8,7 @@ type ProfileUseFlags = Record<string, never>;
 const profileUseCommand = buildCommand<
   ProfileUseFlags,
   [string?],
-  DotweaveCliContext
+  ApplicationContext
 >({
   docs: {
     brief: "Set or clear the active sync profile",

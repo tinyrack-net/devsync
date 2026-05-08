@@ -1,7 +1,6 @@
-import type { Command } from "@stricli/core";
+import type { ApplicationContext, Command } from "@stricli/core";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DotweaveError } from "#app/lib/error.ts";
-import type { DotweaveCliContext } from "#app/services/terminal/cli-runtime.ts";
 
 const mockLogger = vi.hoisted(() => ({
   fail: vi.fn(),
