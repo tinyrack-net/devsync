@@ -135,4 +135,193 @@ describe("status service", () => {
     expect(result.activeProfile).toBeUndefined();
     expect(result.entryCount).toBe(0);
   });
+
+  it("reports push changes with modified artifacts when artifacts are not current", async () => {
+    const mockConfig: LoadedSyncConfig = {
+      effectiveConfig: {
+        version: CONSTANTS.SYNC.CONFIG_VERSION,
+        activeProfile: "default",
+        age: { identityFile: "key.txt", recipients: ["recip"] },
+        entries: [],
+      },
+      fullConfig: {
+        version: CONSTANTS.SYNC.CONFIG_VERSION,
+        entries: [
+          {
+            kind: "file",
+            localPath: "/home/user/.vimrc",
+            profiles: ["default"],
+            mode: "normal",
+            repoPath: ".vimrc",
+            profilesExplicit: true,
+            modeExplicit: true,
+            permissionExplicit: false,
+            configuredMode: { default: "normal" },
+            configuredLocalPath: { default: "~/.vimrc" },
+          },
+        ],
+      },
+    };
+
+    mocked.loadSyncConfig.mockResolvedValue(mockConfig);
+    mocked.buildPushPlan.mockResolvedValue({
+      artifacts: [{ profile: "default", repoPath: ".vimrc", kind: "file" }],
+      existingArtifactKeys: new Set(["default/.vimrc"]),
+      desiredArtifactKeys: new Set(["default/.vimrc"]),
+    });
+    mocked.buildPullPlan.mockResolvedValue({
+      updatedLocalPaths: [],
+      deletedLocalPaths: [],
+    });
+    mocked.isRepoArtifactCurrent.mockResolvedValue(false);
+
+    const result = await getStatus();
+
+    expect(result.push.changes.modified).toContain(".vimrc");
+    expect(result.push.changes.added).not.toContain(".vimrc");
+  });
+
+  it("reports push changes with deleted artifacts for stale keys", async () => {
+    const mockConfig: LoadedSyncConfig = {
+      effectiveConfig: {
+        version: CONSTANTS.SYNC.CONFIG_VERSION,
+        activeProfile: "default",
+        age: { identityFile: "key.txt", recipients: ["recip"] },
+        entries: [],
+      },
+      fullConfig: {
+        version: CONSTANTS.SYNC.CONFIG_VERSION,
+        entries: [],
+      },
+    };
+
+    mocked.loadSyncConfig.mockResolvedValue(mockConfig);
+    mocked.buildPushPlan.mockResolvedValue({
+      artifacts: [],
+      existingArtifactKeys: new Set([
+        "default/.oldconfig",
+        "default/.obsolete",
+      ]),
+      desiredArtifactKeys: new Set(),
+    });
+    mocked.buildPullPlan.mockResolvedValue({
+      updatedLocalPaths: [],
+      deletedLocalPaths: [],
+    });
+
+    const result = await getStatus();
+
+    expect(result.push.changes.deleted).toContain("default/.oldconfig");
+    expect(result.push.changes.deleted).toContain("default/.obsolete");
+  });
+
+  it("reports pull changes including deleted local paths", async () => {
+    const mockConfig: LoadedSyncConfig = {
+      effectiveConfig: {
+        version: CONSTANTS.SYNC.CONFIG_VERSION,
+        activeProfile: "default",
+        age: { identityFile: "key.txt", recipients: ["recip"] },
+        entries: [],
+      },
+      fullConfig: {
+        version: CONSTANTS.SYNC.CONFIG_VERSION,
+        entries: [],
+      },
+    };
+
+    mocked.loadSyncConfig.mockResolvedValue(mockConfig);
+    mocked.buildPushPlan.mockResolvedValue({
+      artifacts: [],
+      existingArtifactKeys: new Set(),
+      desiredArtifactKeys: new Set(),
+    });
+    mocked.buildPullPlan.mockResolvedValue({
+      updatedLocalPaths: [],
+      deletedLocalPaths: ["/home/user/.deprecated", "/home/user/.removed"],
+    });
+
+    const result = await getStatus();
+
+    expect(result.pull.changes.deleted).toContain("/home/user/.deprecated");
+    expect(result.pull.changes.deleted).toContain("/home/user/.removed");
+  });
+
+  it("includes recipientCount from effective config age", async () => {
+    const mockConfig: LoadedSyncConfig = {
+      effectiveConfig: {
+        version: CONSTANTS.SYNC.CONFIG_VERSION,
+        activeProfile: "default",
+        age: { identityFile: "key.txt", recipients: ["recip1", "recip2"] },
+        entries: [],
+      },
+      fullConfig: {
+        version: CONSTANTS.SYNC.CONFIG_VERSION,
+        entries: [],
+      },
+    };
+
+    mocked.loadSyncConfig.mockResolvedValue(mockConfig);
+    mocked.buildPushPlan.mockResolvedValue({
+      artifacts: [],
+      existingArtifactKeys: new Set(),
+      desiredArtifactKeys: new Set(),
+    });
+    mocked.buildPullPlan.mockResolvedValue({
+      updatedLocalPaths: [],
+      deletedLocalPaths: [],
+    });
+
+    const result = await getStatus();
+
+    expect(result.recipientCount).toBe(2);
+  });
+
+  it("returns full config entry metadata (kind, mode, profiles)", async () => {
+    const mockConfig: LoadedSyncConfig = {
+      effectiveConfig: {
+        version: CONSTANTS.SYNC.CONFIG_VERSION,
+        activeProfile: "default",
+        age: { identityFile: "key.txt", recipients: ["recip"] },
+        entries: [],
+      },
+      fullConfig: {
+        version: CONSTANTS.SYNC.CONFIG_VERSION,
+        entries: [
+          {
+            kind: "file",
+            localPath: "/home/user/.bashrc",
+            profiles: ["default", "linux"],
+            mode: "normal",
+            repoPath: ".bashrc",
+            profilesExplicit: true,
+            modeExplicit: true,
+            permissionExplicit: false,
+            configuredMode: { default: "normal", linux: "normal" },
+            configuredLocalPath: { default: "~/.bashrc", linux: "~/.bashrc" },
+          },
+        ],
+      },
+    };
+
+    mocked.loadSyncConfig.mockResolvedValue(mockConfig);
+    mocked.buildPushPlan.mockResolvedValue({
+      artifacts: [],
+      existingArtifactKeys: new Set(),
+      desiredArtifactKeys: new Set(),
+    });
+    mocked.buildPullPlan.mockResolvedValue({
+      updatedLocalPaths: [],
+      deletedLocalPaths: [],
+    });
+
+    const result = await getStatus();
+
+    expect(result.entries[0]).toEqual({
+      kind: "file",
+      localPath: "/home/user/.bashrc",
+      profiles: ["default", "linux"],
+      mode: "normal",
+      repoPath: ".bashrc",
+    });
+  });
 });

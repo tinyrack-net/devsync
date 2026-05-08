@@ -1,3 +1,4 @@
+import { EventEmitter } from "node:events";
 import { rm } from "node:fs/promises";
 
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -17,6 +18,21 @@ vi.mock("#app/config/runtime-env.ts", () => ({
   resolveCurrentPlatformKey: () => "linux",
 }));
 
+const mockSpawn = vi.hoisted(() => {
+  const createChildProcess = (exitCode: number | null) => {
+    const emitter = new EventEmitter();
+    setTimeout(() => {
+      emitter.emit("close", exitCode, null);
+    }, 0);
+    return emitter;
+  };
+  return vi.fn(createChildProcess);
+});
+
+vi.mock("node:child_process", () => ({
+  spawn: mockSpawn,
+}));
+
 import {
   launchShellInDirectory,
   resolveShellCommand,
@@ -32,6 +48,7 @@ afterEach(async () => {
   mockEnv.HOME = undefined;
   mockEnv.SHELL = undefined;
   mockEnv.XDG_CONFIG_HOME = undefined;
+  mockSpawn.mockClear();
 
   while (temporaryDirectories.length > 0) {
     const directory = temporaryDirectories.pop();
@@ -90,6 +107,32 @@ describe("shell launcher", () => {
   describe("launchShellInDirectory", () => {
     it("rejects when the shell process fails to spawn", async () => {
       mockEnv.SHELL = "/nonexistent/shell";
+
+      await expect(launchShellInDirectory("/tmp")).rejects.toThrow();
+    });
+
+    it("launchShellInDirectory resolves when the shell process exits successfully", async () => {
+      mockEnv.SHELL = "/bin/bash";
+      mockSpawn.mockImplementation(() => {
+        const emitter = new EventEmitter();
+        setTimeout(() => {
+          emitter.emit("close", 0, null);
+        }, 0);
+        return emitter;
+      });
+
+      await expect(launchShellInDirectory("/tmp")).resolves.toBeUndefined();
+    });
+
+    it("launchShellInDirectory rejects when the shell process exits non-zero", async () => {
+      mockEnv.SHELL = "/bin/bash";
+      mockSpawn.mockImplementation(() => {
+        const emitter = new EventEmitter();
+        setTimeout(() => {
+          emitter.emit("close", 1, null);
+        }, 0);
+        return emitter;
+      });
 
       await expect(launchShellInDirectory("/tmp")).rejects.toThrow();
     });

@@ -5,6 +5,7 @@ import type {
   ResolvedSyncConfig,
   ResolvedSyncConfigEntry,
 } from "#app/config/sync-schema.ts";
+import { DotweaveError } from "#app/lib/error.ts";
 import {
   buildDefaultPlatformMode,
   collectAllProfileNames,
@@ -245,8 +246,8 @@ describe("sync-entry", () => {
         resolveManagedSyncMode(makeConfig([]), ".bashrc", undefined, "push");
       } catch (error) {
         expect(error).toHaveProperty("code", "UNMANAGED_SYNC_PATH");
-        const details = (error as { details?: string[] }).details ?? [];
-        expect(details.some((d) => d.includes("push"))).toBe(true);
+        if (!(error instanceof DotweaveError)) throw error;
+        expect(error.details.some((d) => d.includes("push"))).toBe(true);
       }
     });
   });

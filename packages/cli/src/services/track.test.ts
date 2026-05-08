@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { DotweaveError } from "#app/lib/error.ts";
+import { doPathsOverlap } from "#app/lib/path.ts";
 import { trackTarget } from "./track.ts";
 
 const mocked = vi.hoisted(() => ({
@@ -79,7 +80,7 @@ vi.mock("#app/config/runtime-env.ts", () => ({
 }));
 
 vi.mock("#app/lib/path.ts", () => ({
-  doPathsOverlap: vi.fn(() => false),
+  doPathsOverlap: vi.fn(),
 }));
 
 vi.mock("./paths.ts", () => ({
@@ -92,6 +93,7 @@ vi.mock("./paths.ts", () => ({
 describe("track service", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(doPathsOverlap).mockReturnValue(false);
   });
 
   it("successfully tracks a new file", async () => {
@@ -190,5 +192,232 @@ describe("track service", () => {
     expect(result.alreadyTracked).toBe(true);
     expect(result.changed).toBe(true);
     expect(result.mode).toBe("secret");
+  });
+
+  it("successfully tracks a new directory", async () => {
+    const dirPath =
+      process.platform === "win32"
+        ? "C:\\home\\user\\.config\\app"
+        : "/home/user/.config/app";
+    mocked.getPathStats.mockResolvedValue({
+      isDirectory: () => true,
+      isFile: () => false,
+      isSymbolicLink: () => false,
+    });
+    mocked.readSyncConfig.mockResolvedValue({
+      entries: [],
+      age: {},
+    });
+
+    const result = await trackTarget(
+      { target: dirPath, mode: "normal" },
+      mocked.homeDirectory,
+    );
+
+    expect(result.alreadyTracked).toBe(false);
+    expect(result.changed).toBe(true);
+    expect(result.kind).toBe("directory");
+    expect(result.localPath).toBe(dirPath);
+    expect(mocked.writeValidatedSyncConfig).toHaveBeenCalled();
+  });
+
+  it("successfully tracks a symlink as a file entry", async () => {
+    const linkPath =
+      process.platform === "win32"
+        ? "C:\\home\\user\\.local\\bin\\app"
+        : "/home/user/.local/bin/app";
+    mocked.getPathStats.mockResolvedValue({
+      isDirectory: () => false,
+      isFile: () => false,
+      isSymbolicLink: () => true,
+    });
+    mocked.readSyncConfig.mockResolvedValue({
+      entries: [],
+      age: {},
+    });
+
+    const result = await trackTarget(
+      { target: linkPath, mode: "normal" },
+      mocked.homeDirectory,
+    );
+
+    expect(result.alreadyTracked).toBe(false);
+    expect(result.changed).toBe(true);
+    expect(result.kind).toBe("file");
+    expect(result.localPath).toBe(linkPath);
+  });
+
+  it("throws TARGET_UNSUPPORTED_TYPE for socket files", async () => {
+    mocked.getPathStats.mockResolvedValue({
+      isFile: () => false,
+      isSymbolicLink: () => false,
+      isDirectory: () => false,
+    });
+    mocked.readSyncConfig.mockResolvedValue({
+      entries: [],
+      age: {},
+    });
+
+    let thrownError: DotweaveError | undefined;
+
+    try {
+      await trackTarget(
+        { target: mocked.bashrcPath, mode: "normal" },
+        mocked.homeDirectory,
+      );
+    } catch (error) {
+      thrownError = error as DotweaveError;
+    }
+
+    expect(thrownError).toBeInstanceOf(DotweaveError);
+    expect(thrownError?.code).toBe("TARGET_UNSUPPORTED_TYPE");
+  });
+
+  it("throws TARGET_OVERLAPS_SYNC_DIR when target overlaps the sync directory", async () => {
+    mocked.getPathStats.mockResolvedValue({
+      isDirectory: () => false,
+      isFile: () => true,
+      isSymbolicLink: () => false,
+    });
+    mocked.readSyncConfig.mockResolvedValue({
+      entries: [],
+      age: {},
+    });
+    vi.mocked(doPathsOverlap).mockReturnValue(true);
+
+    let thrownError: DotweaveError | undefined;
+
+    try {
+      await trackTarget(
+        { target: mocked.bashrcPath, mode: "normal" },
+        mocked.homeDirectory,
+      );
+    } catch (error) {
+      thrownError = error as DotweaveError;
+    }
+
+    expect(thrownError).toBeInstanceOf(DotweaveError);
+    expect(thrownError?.code).toBe("TARGET_OVERLAPS_SYNC_DIR");
+  });
+
+  it("throws TARGET_OVERLAPS_IDENTITY when target overlaps the identity file", async () => {
+    const identityFile =
+      process.platform === "win32"
+        ? "C:\\home\\user\\.ssh\\id_rsa"
+        : "/home/user/.ssh/id_rsa";
+    mocked.getPathStats.mockResolvedValue({
+      isDirectory: () => false,
+      isFile: () => true,
+      isSymbolicLink: () => false,
+    });
+    mocked.readSyncConfig.mockResolvedValue({
+      entries: [],
+      age: { recipients: ["age1test"] },
+    });
+    vi.mocked(doPathsOverlap).mockImplementation(
+      (target: string, other: string) => {
+        if (other === "/tmp/dotweave") return false;
+        return target === other;
+      },
+    );
+
+    let thrownError: DotweaveError | undefined;
+
+    try {
+      await trackTarget(
+        { target: identityFile, mode: "normal" },
+        mocked.homeDirectory,
+      );
+    } catch (error) {
+      thrownError = error as DotweaveError;
+    }
+
+    expect(thrownError).toBeInstanceOf(DotweaveError);
+    expect(thrownError?.code).toBe("TARGET_OVERLAPS_IDENTITY");
+  });
+
+  it("assigns normalized profiles during track", async () => {
+    mocked.getPathStats.mockResolvedValue({
+      isDirectory: () => false,
+      isFile: () => true,
+      isSymbolicLink: () => false,
+    });
+    mocked.readSyncConfig.mockResolvedValue({
+      entries: [],
+      age: {},
+    });
+
+    const result = await trackTarget(
+      {
+        target: mocked.bashrcPath,
+        mode: "normal",
+        profiles: ["work", "personal"],
+      },
+      mocked.homeDirectory,
+    );
+
+    expect(result.profiles).toEqual(["work", "personal"]);
+  });
+
+  it("clears profiles when profiles is empty string array", async () => {
+    const localPath = mocked.bashrcPath;
+    mocked.getPathStats.mockResolvedValue({
+      isDirectory: () => false,
+      isFile: () => true,
+      isSymbolicLink: () => false,
+    });
+    mocked.readSyncConfig.mockResolvedValue({
+      entries: [
+        {
+          localPath,
+          kind: "file",
+          mode: "normal",
+          profiles: ["work"],
+          configuredMode: { default: "normal" },
+        },
+      ],
+      age: {},
+    });
+
+    const result = await trackTarget(
+      { target: localPath, mode: "normal", profiles: [""] },
+      mocked.homeDirectory,
+    );
+
+    expect(result.alreadyTracked).toBe(true);
+    expect(result.changed).toBe(true);
+    expect(result.profiles).toEqual([]);
+  });
+
+  it("updates existing entry repoPath when re-tracking with --repo-path", async () => {
+    const localPath = mocked.bashrcPath;
+    mocked.getPathStats.mockResolvedValue({
+      isDirectory: () => false,
+      isFile: () => true,
+      isSymbolicLink: () => false,
+    });
+    mocked.readSyncConfig.mockResolvedValue({
+      entries: [
+        {
+          localPath,
+          kind: "file",
+          mode: "normal",
+          profiles: [],
+          configuredMode: { default: "normal" },
+          repoPath: ".bashrc",
+          configuredRepoPath: { default: ".bashrc" },
+        },
+      ],
+      age: {},
+    });
+
+    const result = await trackTarget(
+      { target: localPath, mode: "normal", repoPath: "dotfiles/bashrc" },
+      mocked.homeDirectory,
+    );
+
+    expect(result.alreadyTracked).toBe(true);
+    expect(result.changed).toBe(true);
+    expect(result.repoPath).toBe("dotfiles/bashrc");
   });
 });

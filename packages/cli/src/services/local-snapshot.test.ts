@@ -1,4 +1,4 @@
-import { chmod, mkdir, rm, writeFile } from "node:fs/promises";
+import { chmod, mkdir, rm, symlink, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import type {
@@ -164,6 +164,76 @@ describe("local snapshot", () => {
       expect(node).toMatchObject({
         executable: false,
         type: "file",
+      });
+    },
+  );
+
+  it.skipIf(process.platform === "win32")(
+    "captures symlink entries in the snapshot",
+    async () => {
+      const workspace = await createWorkspace();
+      const targetFile = join(workspace, "target.txt");
+      const linkPath = join(workspace, "link.txt");
+
+      await writeFile(targetFile, "target\n", "utf8");
+      await symlink(targetFile, linkPath);
+
+      const snapshot = await buildLocalSnapshot(
+        createConfig([createEntry("file", linkPath, "link.txt", "normal")]),
+      );
+
+      expect(snapshot.get("link.txt")).toMatchObject({
+        type: "symlink",
+        linkTarget: targetFile,
+      });
+    },
+  );
+
+  it("skips absent local paths for normal-mode entries", async () => {
+    const workspace = await createWorkspace();
+    const absentPath = join(workspace, "does-not-exist.txt");
+
+    const snapshot = await buildLocalSnapshot(
+      createConfig([
+        createEntry("file", absentPath, "does-not-exist.txt", "normal"),
+      ]),
+    );
+
+    expect(snapshot.has("does-not-exist.txt")).toBe(false);
+  });
+
+  it("handles file-to-directory type change gracefully", async () => {
+    const workspace = await createWorkspace();
+    const filePath = join(workspace, "expected-dir");
+
+    await writeFile(filePath, "not a directory\n", "utf8");
+
+    await expect(
+      buildLocalSnapshot(
+        createConfig([
+          createEntry("directory", filePath, "expected-dir", "normal"),
+        ]),
+      ),
+    ).rejects.toThrow("expects a directory");
+  });
+
+  it.skipIf(process.platform === "win32")(
+    "handles permission-only entries without explicit configured permission",
+    async () => {
+      const workspace = await createWorkspace();
+      const scriptFile = join(workspace, "script.sh");
+
+      await mkdir(join(workspace), { recursive: true });
+      await writeFile(scriptFile, "#!/bin/sh\n", "utf8");
+      await chmod(scriptFile, 0o755);
+
+      const snapshot = await buildLocalSnapshot(
+        createConfig([createEntry("file", scriptFile, "script.sh", "normal")]),
+      );
+
+      expect(snapshot.get("script.sh")).toMatchObject({
+        type: "file",
+        executable: true,
       });
     },
   );

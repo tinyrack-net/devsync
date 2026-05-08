@@ -101,4 +101,108 @@ describe("path completions", () => {
       proposePathCompletions.call(context, "nonexistent-path-prefix/"),
     ).resolves.toEqual([]);
   });
+
+  it("appends trailing slash to directory completions", async () => {
+    const workspace = await createWorkspace();
+
+    await mkdir(path.join(workspace, "docs"));
+
+    const originalCwd = process.cwd;
+    process.cwd = () => workspace;
+
+    try {
+      const context = createContext();
+
+      await expect(proposePathCompletions.call(context, "d")).resolves.toEqual([
+        "docs/",
+      ]);
+    } finally {
+      process.cwd = originalCwd;
+    }
+  });
+
+  it("completes nested directory paths", async () => {
+    const workspace = await createWorkspace();
+
+    await mkdir(path.join(workspace, "workspace", "project-a"), {
+      recursive: true,
+    });
+    await mkdir(path.join(workspace, "workspace", "project-b"), {
+      recursive: true,
+    });
+
+    const originalCwd = process.cwd;
+    process.cwd = () => workspace;
+
+    try {
+      const context = createContext();
+
+      await expect(
+        proposePathCompletions.call(context, "workspace/"),
+      ).resolves.toEqual(["workspace/project-a/", "workspace/project-b/"]);
+    } finally {
+      process.cwd = originalCwd;
+    }
+  });
+
+  it("completes dotfile paths when explicitly prefixed with a dot", async () => {
+    const workspace = await createWorkspace();
+
+    await writeFile(path.join(workspace, ".bashrc"), "", "utf8");
+    await writeFile(path.join(workspace, ".vimrc"), "", "utf8");
+
+    const originalCwd = process.cwd;
+    process.cwd = () => workspace;
+
+    try {
+      const context = createContext();
+
+      await expect(proposePathCompletions.call(context, ".")).resolves.toEqual([
+        ".bashrc",
+        ".vimrc",
+      ]);
+    } finally {
+      process.cwd = originalCwd;
+    }
+  });
+
+  it("completes paths starting with dot when explicitly prefixed", async () => {
+    const workspace = await createWorkspace();
+    const homeDirectory = path.join(workspace, "home");
+
+    await mkdir(path.join(homeDirectory, ".config", "nvim"), {
+      recursive: true,
+    });
+    await mkdir(path.join(homeDirectory, ".config", "git"), {
+      recursive: true,
+    });
+
+    const os = await import("node:os");
+    vi.mocked(os.homedir).mockReturnValue(homeDirectory);
+
+    const context = createContext();
+
+    await expect(
+      proposePathCompletions.call(context, "~/.config/"),
+    ).resolves.toEqual(["~/.config/git/", "~/.config/nvim/"]);
+  });
+
+  it("handles completions for paths with no matches", async () => {
+    const workspace = await createWorkspace();
+
+    await writeFile(path.join(workspace, "file-alpha.txt"), "", "utf8");
+
+    const originalCwd = process.cwd;
+    process.cwd = () => workspace;
+
+    try {
+      const context = createContext();
+
+      await expect(
+        proposePathCompletions.call(context, "zzz-no-match"),
+      ).resolves.toEqual([]);
+    } finally {
+      process.cwd = originalCwd;
+    }
+  });
 });

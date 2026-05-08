@@ -11,12 +11,12 @@ const captureProcessOutput = () => {
     stdout += String(chunk);
 
     return true;
-  }) as never);
+  }) as typeof process.stdout.write);
   vi.spyOn(process.stderr, "write").mockImplementation(((chunk: unknown) => {
     stderr += String(chunk);
 
     return true;
-  }) as never);
+  }) as typeof process.stderr.write);
 
   return {
     stderr: () => stderr,
@@ -133,6 +133,30 @@ describe("CLI application", () => {
 
     expect(Number(process.exitCode)).not.toBe(0);
     expect(output.stderr().length).toBeGreaterThan(0);
+  });
+
+  it("handles --help flag at root level", async () => {
+    const output = captureProcessOutput();
+
+    await runCli(["--help"]);
+
+    expect(process.exitCode).toBe(0);
+    expect(output.stdout()).toContain(
+      "Manage active and assigned sync profiles",
+    );
+    expect(output.stderr()).toBe("");
+  });
+
+  it("handles --help flag on subcommands", async () => {
+    const output = captureProcessOutput();
+
+    await runCli(["init", "--help"]);
+
+    expect(process.exitCode).toBe(0);
+    expect(output.stdout()).toContain(
+      "Create or connect the local dotweave repository",
+    );
+    expect(output.stderr()).toBe("");
   });
 
   it("handles command execution errors from track on invalid target", async () => {

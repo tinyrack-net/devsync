@@ -1,4 +1,9 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import type {
+  ResolvedSyncConfigEntry,
+  SyncConfigEntryKind,
+  SyncMode,
+} from "#app/config/sync-schema.ts";
 import { doPathsOverlap } from "#app/lib/path.ts";
 
 const mocked = vi.hoisted(() => ({
@@ -48,11 +53,44 @@ import {
   buildPullPlan,
   buildPullPlanPreview,
   buildPullResultFromPlan,
+  type PullPlan,
   pullChanges,
 } from "./pull.ts";
+import type { EffectiveSyncConfig } from "./runtime.ts";
 
 afterEach(() => {
   vi.clearAllMocks();
+});
+
+const createTestEntry = (
+  kind: SyncConfigEntryKind,
+  localPath: string,
+  repoPath: string,
+  mode: SyncMode,
+  permission?: number,
+): ResolvedSyncConfigEntry => ({
+  configuredLocalPath: { default: localPath },
+  configuredMode: { default: mode },
+  kind,
+  localPath,
+  mode,
+  modeExplicit: true,
+  ...(permission === undefined ? {} : { permission }),
+  permissionExplicit: permission !== undefined,
+  profiles: [],
+  profilesExplicit: false,
+  repoPath,
+});
+
+const createTestConfig = (
+  entries: readonly ResolvedSyncConfigEntry[] = [],
+): EffectiveSyncConfig => ({
+  version: 7,
+  entries,
+  age: {
+    identityFile: "/tmp/dotweave/keys.txt",
+    recipients: ["age1recipient"],
+  },
 });
 
 describe("pull helpers", () => {
@@ -134,29 +172,22 @@ describe("pull planning", () => {
     mocked.countDeletedLocalNodes.mockResolvedValue(0);
     mocked.collectChangedLocalPaths.mockResolvedValue([]);
 
-    const config = {
-      age: {
-        identityFile: "/tmp/dotweave/keys.txt",
-        recipients: ["age1recipient"],
-      },
-      entries: [
-        {
-          kind: "directory",
-          localPath: "/tmp/home/.config/app",
-          mode: "normal",
-          repoPath: ".config/app",
-        },
-        {
-          kind: "directory",
-          localPath: "/tmp/home/.config/app/node_modules",
-          mode: "ignore",
-          repoPath: ".config/app/node_modules",
-        },
-      ],
-      version: 7,
-    };
+    const config = createTestConfig([
+      createTestEntry(
+        "directory",
+        "/tmp/home/.config/app",
+        ".config/app",
+        "normal",
+      ),
+      createTestEntry(
+        "directory",
+        "/tmp/home/.config/app/node_modules",
+        ".config/app/node_modules",
+        "ignore",
+      ),
+    ]);
 
-    const plan = await buildPullPlan(config as never, "/tmp/dotweave");
+    const plan = await buildPullPlan(config, "/tmp/dotweave");
 
     expect(mocked.buildEntryMaterialization).toHaveBeenCalledTimes(1);
     expect(mocked.buildEntryMaterialization).toHaveBeenCalledWith(
@@ -214,30 +245,23 @@ describe("pull planning", () => {
       ])
       .mockResolvedValueOnce([]);
 
-    const config = {
-      age: {
-        identityFile: "/tmp/dotweave/keys.txt",
-        recipients: ["age1recipient"],
-      },
-      entries: [
-        {
-          kind: "directory",
-          localPath: "/tmp/home/.config/zsh",
-          mode: "normal",
-          repoPath: ".config/zsh",
-        },
-        {
-          kind: "file",
-          localPath: "/tmp/home/.config/zsh/secrets.zsh",
-          mode: "secret",
-          permission: 0o600,
-          repoPath: ".config/zsh/secrets.zsh",
-        },
-      ],
-      version: 7,
-    };
+    const config = createTestConfig([
+      createTestEntry(
+        "directory",
+        "/tmp/home/.config/zsh",
+        ".config/zsh",
+        "normal",
+      ),
+      createTestEntry(
+        "file",
+        "/tmp/home/.config/zsh/secrets.zsh",
+        ".config/zsh/secrets.zsh",
+        "secret",
+        0o600,
+      ),
+    ]);
 
-    const plan = await buildPullPlan(config as never, "/tmp/dotweave");
+    const plan = await buildPullPlan(config, "/tmp/dotweave");
 
     expect(plan.updatedLocalPaths).toEqual(["/tmp/home/.config/zsh/.zshenv"]);
   });
@@ -274,23 +298,16 @@ describe("pull planning", () => {
       "/tmp/home/.config/app/config.json",
     ]);
 
-    const config = {
-      age: {
-        identityFile: "/tmp/dotweave/keys.txt",
-        recipients: ["age1recipient"],
-      },
-      entries: [
-        {
-          kind: "directory",
-          localPath: "/tmp/home/.config/app",
-          mode: "normal",
-          repoPath: ".config/app",
-        },
-      ],
-      version: 7,
-    };
+    const config = createTestConfig([
+      createTestEntry(
+        "directory",
+        "/tmp/home/.config/app",
+        ".config/app",
+        "normal",
+      ),
+    ]);
 
-    const plan = await buildPullPlan(config as never, "/tmp/dotweave");
+    const plan = await buildPullPlan(config, "/tmp/dotweave");
 
     expect(plan.updatedLocalPaths).toEqual([
       "/tmp/home/.config/app/config.json",
@@ -301,27 +318,20 @@ describe("pull planning", () => {
   });
 
   it("does not apply ignore-mode entries during pull", async () => {
-    const config = {
-      age: {
-        identityFile: "/tmp/dotweave/keys.txt",
-        recipients: ["age1recipient"],
-      },
-      entries: [
-        {
-          kind: "directory",
-          localPath: "/tmp/home/.config/app",
-          mode: "normal",
-          repoPath: ".config/app",
-        },
-        {
-          kind: "directory",
-          localPath: "/tmp/home/.config/app/node_modules",
-          mode: "ignore",
-          repoPath: ".config/app/node_modules",
-        },
-      ],
-      version: 7,
-    };
+    const config = createTestConfig([
+      createTestEntry(
+        "directory",
+        "/tmp/home/.config/app",
+        ".config/app",
+        "normal",
+      ),
+      createTestEntry(
+        "directory",
+        "/tmp/home/.config/app/node_modules",
+        ".config/app/node_modules",
+        "ignore",
+      ),
+    ]);
 
     mocked.ensureGitRepository.mockResolvedValueOnce(undefined);
     mocked.loadSyncConfig.mockResolvedValueOnce({
@@ -349,36 +359,29 @@ describe("pull planning", () => {
   });
 
   it("does not apply overlapping local paths concurrently", async () => {
-    const config = {
-      age: {
-        identityFile: "/tmp/dotweave/keys.txt",
-        recipients: ["age1recipient"],
-      },
-      entries: [
-        {
-          kind: "directory",
-          localPath: "/tmp/home/.config/zsh",
-          mode: "normal",
-          repoPath: ".config/zsh",
-        },
-        {
-          kind: "file",
-          localPath: "/tmp/home/.config/zsh/secrets.zsh",
-          mode: "secret",
-          permission: 0o600,
-          repoPath: ".config/zsh/secrets.zsh",
-        },
-        {
-          kind: "file",
-          localPath: "/tmp/home/.gitconfig",
-          mode: "normal",
-          permission: 0o644,
-          repoPath: ".gitconfig",
-        },
-      ],
-      version: 7,
-    };
-    const plan = {
+    const config = createTestConfig([
+      createTestEntry(
+        "directory",
+        "/tmp/home/.config/zsh",
+        ".config/zsh",
+        "normal",
+      ),
+      createTestEntry(
+        "file",
+        "/tmp/home/.config/zsh/secrets.zsh",
+        ".config/zsh/secrets.zsh",
+        "secret",
+        0o600,
+      ),
+      createTestEntry(
+        "file",
+        "/tmp/home/.gitconfig",
+        ".gitconfig",
+        "normal",
+        0o644,
+      ),
+    ]);
+    const plan: PullPlan = {
       counts: {
         decryptedFileCount: 1,
         directoryCount: 1,
@@ -439,7 +442,7 @@ describe("pull planning", () => {
       },
     );
 
-    await applyPullPlan(config as never, plan as never);
+    await applyPullPlan(config, plan);
 
     expect(overlapped).toBe(false);
     expect(mocked.applyEntryMaterialization).toHaveBeenCalledTimes(3);

@@ -139,7 +139,7 @@ describe("runConfigMigrations", () => {
     );
 
     const backupContent = await readFile(`${filePath}.v2.bak`, "utf8");
-    const backup = JSON.parse(backupContent) as unknown;
+    const backup = JSON.parse(backupContent);
     expect(backup).toEqual(config);
   });
 
@@ -155,7 +155,7 @@ describe("runConfigMigrations", () => {
     await runConfigMigrations(config, registry, 3, filePath);
 
     const backupContent = await readFile(`${filePath}.v1.bak`, "utf8");
-    const backup = JSON.parse(backupContent) as unknown;
+    const backup = JSON.parse(backupContent);
     expect(backup).toEqual(config);
   });
 
@@ -170,7 +170,7 @@ describe("runConfigMigrations", () => {
       filePath,
     );
 
-    const saved = JSON.parse(await readFile(filePath, "utf8")) as unknown;
+    const saved = JSON.parse(await readFile(filePath, "utf8"));
     expect(saved).toEqual({ version: 3, name: "test" });
   });
 

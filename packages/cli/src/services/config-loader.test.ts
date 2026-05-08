@@ -62,4 +62,32 @@ describe("config-loader", () => {
 
     await expect(loadMutableSyncConfig()).rejects.toThrow("invalid config");
   });
+
+  it("loadMutableSyncConfig resolves context and paths", async () => {
+    const mockConfig = {
+      entries: [],
+      version: 7,
+    } as ResolvedSyncConfig;
+    vi.mocked(readSyncConfig).mockResolvedValue(mockConfig);
+    vi.mocked(ensureGitRepository).mockResolvedValue(undefined);
+
+    const result = await loadMutableSyncConfig();
+
+    expect(result.context).toBe(mockContext);
+    expect(result.syncDirectory).toBe(mockResolveSyncPaths.syncDirectory);
+    expect(result.configPath).toBe(mockResolveSyncPaths.configPath);
+  });
+
+  it("loadMutableSyncConfig returns the parsed config from readSyncConfig", async () => {
+    const mockConfig = {
+      entries: [],
+      version: 7,
+    } as ResolvedSyncConfig;
+    vi.mocked(readSyncConfig).mockResolvedValue(mockConfig);
+    vi.mocked(ensureGitRepository).mockResolvedValue(undefined);
+
+    const result = await loadMutableSyncConfig();
+
+    expect(result.config).toBe(mockConfig);
+  });
 });

@@ -9,4 +9,22 @@ describe("identity file config", () => {
       resolve("/tmp/home", ".config", "dotweave", "keys.txt"),
     );
   });
+
+  it("falls back to HOME-based path when XDG_CONFIG_HOME is undefined", () => {
+    expect(resolveDefaultIdentityFile("/tmp/home", undefined)).toBe(
+      resolve("/tmp/home", ".config", "dotweave", "keys.txt"),
+    );
+  });
+
+  it("resolves correctly when HOME contains a trailing slash", () => {
+    expect(resolveDefaultIdentityFile("/tmp/home/", "/tmp/xdg")).toBe(
+      resolve("/tmp/home", ".config", "dotweave", "keys.txt"),
+    );
+  });
+
+  it("handles both HOME and XDG_CONFIG_HOME being the same directory", () => {
+    expect(
+      resolveDefaultIdentityFile("/tmp/home/.config", "/tmp/home/.config"),
+    ).toBe(resolve("/tmp/home/.config", ".config", "dotweave", "keys.txt"));
+  });
 });

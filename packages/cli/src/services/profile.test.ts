@@ -1,5 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import { createMockReadEnv } from "#test/helpers/mock-factories.ts";
+
 const mocked = vi.hoisted(() => ({
   collectAllProfileNames: vi.fn(),
   buildSyncConfigDocument: vi.fn((config: unknown) => ({
@@ -17,7 +19,7 @@ const mocked = vi.hoisted(() => ({
   resolveSyncConfigResolutionContext: vi.fn(() => ({
     homeDirectory: "/tmp/home",
     platformKey: "linux",
-    readEnv: (_name: string) => undefined as string | undefined,
+    readEnv: createMockReadEnv(),
     xdgConfigHome: "/tmp/home/.config",
   })),
   resolveSyncPaths: vi.fn(() => ({

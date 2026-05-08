@@ -119,4 +119,34 @@ describe("path helpers", () => {
       );
     }).toThrowError(/Multiple tracked sync entries match/u);
   });
+
+  it("resolves tracked entries by relative cwd path", () => {
+    const entry = trackedEntry({
+      localPath: resolve("/tmp/home", "bundle"),
+      repoPath: "bundle",
+    });
+
+    expect(
+      resolveTrackedEntry("bundle", [entry], "/tmp/home", "/tmp/home"),
+    ).toEqual(entry);
+  });
+
+  it("returns undefined when no entries match the target", () => {
+    expect(
+      resolveTrackedEntry(
+        "nonexistent",
+        [trackedEntry({ repoPath: ".gitconfig" })],
+        "/tmp/cwd",
+        "/tmp/home",
+      ),
+    ).toBeUndefined();
+  });
+
+  it("handles tryNormalizeRepoPathInput for valid paths", () => {
+    expect(tryNormalizeRepoPathInput("config/app")).toBe("config/app");
+  });
+
+  it("handles tryNormalizeRepoPathInput for absolute paths", () => {
+    expect(tryNormalizeRepoPathInput("/absolute/path")).toBeUndefined();
+  });
 });

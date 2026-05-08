@@ -4,6 +4,7 @@ import { dirname, join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { createTemporaryDirectory } from "#app/test/helpers/sync-fixture.ts";
+import { createMockReadEnv } from "#test/helpers/mock-factories.ts";
 import { resolveArtifactRelativePath } from "./repo-artifacts.ts";
 
 const mocked = vi.hoisted(() => ({
@@ -15,7 +16,7 @@ const mocked = vi.hoisted(() => ({
   resolveSyncConfigResolutionContext: vi.fn(() => ({
     homeDirectory: "/tmp/home",
     platformKey: "linux",
-    readEnv: (_name: string) => undefined as string | undefined,
+    readEnv: createMockReadEnv(),
     xdgConfigHome: "/tmp/home/.config",
   })),
   resolveSyncPaths: vi.fn(),
@@ -245,5 +246,168 @@ describe("untrack service", () => {
     });
     await expect(access(plainRoot)).rejects.toThrowError();
     await expect(access(siblingPath)).resolves.toBeUndefined();
+  });
+
+  it("removes secret artifacts for file entries with secret mode", async () => {
+    const workspace = await createWorkspace();
+    const entry = {
+      kind: "file",
+      localPath: "/tmp/home/.env",
+      profiles: [],
+      repoPath: ".env",
+    };
+    const defaultSecretPath = join(
+      workspace,
+      ...resolveArtifactRelativePath({
+        category: "secret",
+        profile: "default",
+        repoPath: entry.repoPath,
+      }).split("/"),
+    );
+
+    await writeArtifactFile(defaultSecretPath, "secret-key=value\n");
+
+    mocked.resolveSyncPaths.mockReturnValueOnce({
+      configPath: join(workspace, "manifest.jsonc"),
+      homeDirectory: "/tmp/home",
+      syncDirectory: workspace,
+    });
+    mocked.ensureGitRepository.mockResolvedValueOnce(undefined);
+    mocked.readSyncConfig.mockResolvedValueOnce({
+      entries: [entry],
+      version: 7,
+    });
+    mocked.resolveTrackedEntry.mockReturnValueOnce(entry);
+
+    const result = await untrackTarget({ target: "~/.env" }, "/tmp/cwd");
+
+    expect(result.secretArtifactCount).toBeGreaterThan(0);
+    await expect(access(defaultSecretPath)).rejects.toThrowError();
+  });
+
+  it("handles untracking the last entry in the config", async () => {
+    const workspace = await createWorkspace();
+    const entry = {
+      kind: "file",
+      localPath: "/tmp/home/.gitconfig",
+      profiles: [],
+      repoPath: ".gitconfig",
+    };
+
+    mocked.resolveSyncPaths.mockReturnValueOnce({
+      configPath: join(workspace, "manifest.jsonc"),
+      homeDirectory: "/tmp/home",
+      syncDirectory: workspace,
+    });
+    mocked.ensureGitRepository.mockResolvedValueOnce(undefined);
+    mocked.readSyncConfig.mockResolvedValueOnce({
+      entries: [entry],
+      version: 7,
+    });
+    mocked.resolveTrackedEntry.mockReturnValueOnce(entry);
+
+    await untrackTarget({ target: "~/.gitconfig" }, "/tmp/cwd");
+
+    expect(mocked.buildSyncConfigDocument).toHaveBeenCalledWith({
+      entries: [],
+      version: 7,
+    });
+  });
+
+  it("counts artifacts correctly for entries with multiple profiles", async () => {
+    const workspace = await createWorkspace();
+    const entry = {
+      kind: "file",
+      localPath: "/tmp/home/.gitconfig",
+      profiles: ["work", "personal"],
+      repoPath: ".gitconfig",
+    };
+    const defaultPlainPath = join(
+      workspace,
+      ...resolveArtifactRelativePath({
+        category: "plain",
+        profile: "default",
+        repoPath: entry.repoPath,
+      }).split("/"),
+    );
+    const workPlainPath = join(
+      workspace,
+      ...resolveArtifactRelativePath({
+        category: "plain",
+        profile: "work",
+        repoPath: entry.repoPath,
+      }).split("/"),
+    );
+    const personalPlainPath = join(
+      workspace,
+      ...resolveArtifactRelativePath({
+        category: "plain",
+        profile: "personal",
+        repoPath: entry.repoPath,
+      }).split("/"),
+    );
+
+    await writeArtifactFile(defaultPlainPath);
+    await writeArtifactFile(workPlainPath);
+    await writeArtifactFile(personalPlainPath);
+
+    mocked.resolveSyncPaths.mockReturnValueOnce({
+      configPath: join(workspace, "manifest.jsonc"),
+      homeDirectory: "/tmp/home",
+      syncDirectory: workspace,
+    });
+    mocked.ensureGitRepository.mockResolvedValueOnce(undefined);
+    mocked.readSyncConfig.mockResolvedValueOnce({
+      entries: [entry],
+      version: 7,
+    });
+    mocked.resolveTrackedEntry.mockReturnValueOnce(entry);
+
+    const result = await untrackTarget({ target: "~/.gitconfig" }, "/tmp/cwd");
+
+    expect(result.plainArtifactCount).toBe(3);
+  });
+
+  it("prunes deeply nested empty parent directories after artifact removal", async () => {
+    const workspace = await createWorkspace();
+    const entry = {
+      kind: "file",
+      localPath: "/tmp/home/.config/deep/nested/path/file.txt",
+      profiles: ["work"],
+      repoPath: ".config/deep/nested/path/file.txt",
+    };
+    const artifactPath = join(
+      workspace,
+      ...resolveArtifactRelativePath({
+        category: "plain",
+        profile: "work",
+        repoPath: entry.repoPath,
+      }).split("/"),
+    );
+
+    await writeArtifactFile(artifactPath);
+
+    mocked.resolveSyncPaths.mockReturnValueOnce({
+      configPath: join(workspace, "manifest.jsonc"),
+      homeDirectory: "/tmp/home",
+      syncDirectory: workspace,
+    });
+    mocked.ensureGitRepository.mockResolvedValueOnce(undefined);
+    mocked.readSyncConfig.mockResolvedValueOnce({
+      entries: [entry],
+      version: 7,
+    });
+    mocked.resolveTrackedEntry.mockReturnValueOnce(entry);
+
+    await untrackTarget(
+      { target: "~/.config/deep/nested/path/file.txt" },
+      "/tmp/cwd",
+    );
+
+    await expect(access(artifactPath)).rejects.toThrowError();
+    await expect(access(dirname(artifactPath))).rejects.toThrowError();
+    await expect(
+      access(dirname(dirname(dirname(artifactPath)))),
+    ).rejects.toThrowError();
   });
 });

@@ -13,6 +13,11 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { createSymlink } from "#app/lib/filesystem.ts";
 
+import {
+  parseManifestEntries,
+  readManifestJson,
+} from "#test/helpers/mock-factories.ts";
+
 const mockEnv = vi.hoisted(() => ({
   HOME: "",
   XDG_CONFIG_HOME: "",
@@ -112,18 +117,14 @@ describe("sync service", () => {
       cwd,
     );
 
-    const config = JSON.parse(
-      await readFile(
-        join(xdgConfigHome, "dotweave", "repository", "manifest.jsonc"),
-        "utf8",
-      ),
-    ) as {
-      entries: Array<Record<string, unknown>>;
-      version: number;
-    };
+    const manifestText = await readFile(
+      join(xdgConfigHome, "dotweave", "repository", "manifest.jsonc"),
+      "utf8",
+    );
+    const config = readManifestJson(manifestText);
 
     expect(config.version).toBe(7);
-    expect(config).toHaveProperty("age");
+    expect(JSON.parse(manifestText)).toHaveProperty("age");
     expect(config.entries).toEqual([
       {
         kind: "directory",
@@ -171,9 +172,7 @@ describe("sync service", () => {
       "repository",
       "manifest.jsonc",
     );
-    const config = JSON.parse(await readFile(manifestPath, "utf8")) as {
-      entries: Array<Record<string, unknown>>;
-    };
+    const config = readManifestJson(await readFile(manifestPath, "utf8"));
 
     expect(config.entries).toEqual([
       {
@@ -367,18 +366,16 @@ describe("sync service", () => {
       cwd,
     );
 
-    const config = JSON.parse(
+    const entries = parseManifestEntries(
       await readFile(
         join(xdgConfigHome, "dotweave", "repository", "manifest.jsonc"),
         "utf8",
       ),
-    ) as {
-      entries: Array<{ mode?: { default: string; wsl?: string } }>;
-    };
+    );
 
     expect(result.alreadyTracked).toBe(true);
     expect(result.changed).toBe(true);
-    expect(config.entries[0]?.mode).toEqual({ default: "secret" });
+    expect(entries[0]?.mode).toEqual({ default: "secret" });
   });
 
   it("manages the active profile through the global config", async () => {
@@ -469,16 +466,11 @@ describe("sync service", () => {
       "repository",
       "manifest.jsonc",
     );
-    const config = JSON.parse(await readFile(manifestPath, "utf8")) as {
-      entries: Array<{
-        kind: string;
-        localPath: { default: string };
-        mode?: { default: string };
-        repoPath?: { default: string };
-      }>;
-    };
+    const configEntries = parseManifestEntries(
+      await readFile(manifestPath, "utf8"),
+    );
 
-    expect(config.entries).toEqual([
+    expect(configEntries).toEqual([
       {
         kind: "directory",
         localPath: { default: "~/.config/app" },
@@ -570,17 +562,15 @@ describe("sync service", () => {
       cwd,
     );
 
-    const config = JSON.parse(
+    const entries = parseManifestEntries(
       await readFile(
         join(xdgConfigHome, "dotweave", "repository", "manifest.jsonc"),
         "utf8",
       ),
-    ) as {
-      entries: Array<{ mode?: { default: string; wsl?: string } }>;
-    };
+    );
 
     expect(result.action).toBe("updated");
-    expect(config.entries[0]?.mode).toEqual({ default: "secret" });
+    expect(entries[0]?.mode).toEqual({ default: "secret" });
   });
 
   it("pushes and pulls with the active profile", async () => {
@@ -662,19 +652,14 @@ describe("sync service", () => {
       cwd,
     );
 
-    const configAfterModeChange = JSON.parse(
+    const entriesAfterModeChange = parseManifestEntries(
       await readFile(
         join(xdgConfigHome, "dotweave", "repository", "manifest.jsonc"),
         "utf8",
       ),
-    ) as {
-      entries: Array<{
-        localPath: { default: string };
-        mode?: { default: string };
-      }>;
-    };
-    const secretEntry = configAfterModeChange.entries.find(
-      (entry) => entry.localPath.default === "~/.config/zsh/secrets.zsh",
+    );
+    const secretEntry = entriesAfterModeChange.find(
+      (entry) => entry.localPath?.["default"] === "~/.config/zsh/secrets.zsh",
     );
 
     expect(secretEntry?.mode).toEqual({ default: "normal" });
@@ -1206,13 +1191,11 @@ describe("sync service", () => {
 
     await pushChanges({ dryRun: false });
 
-    const config = JSON.parse(await readFile(manifestPath, "utf8")) as {
-      entries: Array<{
-        permission?: { default: string };
-      }>;
-    };
+    const permissionEntries = parseManifestEntries(
+      await readFile(manifestPath, "utf8"),
+    );
 
-    expect(config.entries[0]?.permission).toEqual({ default: "0600" });
+    expect(permissionEntries[0]?.permission).toEqual({ default: "0600" });
   });
 
   it("assigns and unassigns profiles to entries", async () => {
@@ -1246,14 +1229,14 @@ describe("sync service", () => {
     expect(assignResult.action).toBe("assigned");
     expect(assignResult.profiles).toEqual(["default", "work"]);
 
-    const config = JSON.parse(
+    const profileEntries = parseManifestEntries(
       await readFile(
         join(xdgConfigHome, "dotweave", "repository", "manifest.jsonc"),
         "utf8",
       ),
-    ) as { entries: Array<{ profiles?: string[] }> };
+    );
 
-    expect(config.entries[0]?.profiles).toEqual(["default", "work"]);
+    expect(profileEntries[0]?.profiles).toEqual(["default", "work"]);
 
     const listResult = await listProfiles();
 
@@ -1282,14 +1265,14 @@ describe("sync service", () => {
     expect(clearResult.action).toBe("assigned");
     expect(clearResult.profiles).toEqual([]);
 
-    const configAfter = JSON.parse(
+    const profileEntriesAfter = parseManifestEntries(
       await readFile(
         join(xdgConfigHome, "dotweave", "repository", "manifest.jsonc"),
         "utf8",
       ),
-    ) as { entries: Array<{ profiles?: string[] }> };
+    );
 
-    expect(configAfter.entries[0]?.profiles).toBeUndefined();
+    expect(profileEntriesAfter[0]?.profiles).toBeUndefined();
   });
 
   it("deletes local files that were removed from repository during pull", async () => {

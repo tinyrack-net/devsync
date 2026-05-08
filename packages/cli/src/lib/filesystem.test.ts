@@ -1,3 +1,4 @@
+import { Stats } from "node:fs";
 import {
   chmod,
   lstat,
@@ -25,6 +26,22 @@ import {
   writeSymlinkNode,
   writeTextFileAtomically,
 } from "./filesystem.ts";
+
+const createMockStats = (overrides: {
+  isFile: () => boolean;
+  isDirectory: () => boolean;
+  isSymbolicLink: () => boolean;
+  mode: number;
+}): Stats => {
+  const stats = Object.create(Stats.prototype) as Stats;
+  Object.assign(stats, {
+    isFile: overrides.isFile,
+    isDirectory: overrides.isDirectory,
+    isSymbolicLink: overrides.isSymbolicLink,
+    mode: overrides.mode,
+  });
+  return stats;
+};
 
 const temporaryDirectories: string[] = [];
 
@@ -162,15 +179,43 @@ describe("filesystem helpers", () => {
     const sourcePath = join(workspace, "source");
     const targetPath = join(workspace, "target");
 
-    const mockStats = {
+    const mockStats = createMockStats({
       isDirectory: () => false,
       isSymbolicLink: () => false,
       isFile: () => false,
-    } as unknown as Awaited<ReturnType<typeof lstat>>;
+      mode: 0,
+    });
 
     await expect(
       copyFilesystemNode(sourcePath, targetPath, mockStats),
     ).rejects.toThrow("Unsupported filesystem entry");
+  });
+
+  it("pathExists returns true for readable directories", async () => {
+    const workspace = await createWorkspace();
+    const subDir = join(workspace, "subdir");
+    await mkdir(subDir, { recursive: true });
+    expect(await pathExists(subDir)).toBe(true);
+  });
+
+  it("listDirectoryEntries returns empty array for empty directories", async () => {
+    const workspace = await createWorkspace();
+    const emptyDir = join(workspace, "empty");
+    await mkdir(emptyDir, { recursive: true });
+    expect(await listDirectoryEntries(emptyDir)).toEqual([]);
+  });
+
+  it("writeTextFileAtomically creates a new file with correct content", async () => {
+    const workspace = await createWorkspace();
+    const filePath = join(workspace, "new.txt");
+    await writeTextFileAtomically(filePath, "hello\n");
+    expect(await readFile(filePath, "utf8")).toBe("hello\n");
+  });
+
+  it("removePathAtomically is idempotent for missing paths", async () => {
+    const workspace = await createWorkspace();
+    const missingPath = join(workspace, "does-not-exist");
+    await expect(removePathAtomically(missingPath)).resolves.toBeUndefined();
   });
 
   it("applies explicit fileMode when provided to writeFileNode", async () => {

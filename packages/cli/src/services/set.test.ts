@@ -4,6 +4,8 @@ import type {
   ResolvedSyncConfigEntry,
 } from "#app/config/sync-schema.ts";
 
+import { createMockReadEnv } from "#test/helpers/mock-factories.ts";
+
 const nativePath = (value: string) =>
   process.platform === "win32" ? `C:${value.replaceAll("/", "\\")}` : value;
 
@@ -28,7 +30,7 @@ const mocked = vi.hoisted(() => ({
   resolveSyncConfigResolutionContext: vi.fn(() => ({
     homeDirectory: process.platform === "win32" ? "C:\\tmp\\home" : "/tmp/home",
     platformKey: "linux",
-    readEnv: (_name: string) => undefined as string | undefined,
+    readEnv: createMockReadEnv(),
     xdgConfigHome:
       process.platform === "win32"
         ? "C:\\tmp\\home\\.config"

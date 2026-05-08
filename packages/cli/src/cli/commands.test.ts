@@ -160,7 +160,14 @@ const runCommand = async (
   const func =
     typeof loaded === "function" ? loaded : (loaded.default ?? loaded.func);
 
-  await func?.call({} as never, flags, ...args);
+  const mockContext: ApplicationContext = {
+    process: {
+      stdout: process.stdout,
+      stderr: process.stderr,
+    },
+  };
+
+  await func?.call(mockContext, flags, ...args);
 };
 
 beforeEach(() => {

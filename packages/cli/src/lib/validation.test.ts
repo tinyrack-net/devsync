@@ -29,4 +29,65 @@ describe("validation helpers", () => {
       "- entries.0.repoPath: Value must not be empty.",
     );
   });
+
+  it("formats multiple issues on separate lines", () => {
+    const issues = [
+      {
+        code: "custom",
+        message: "Required.",
+        path: ["name"],
+      },
+      {
+        code: "custom",
+        message: "Invalid format.",
+        path: ["email"],
+      },
+    ] satisfies ZodIssue[];
+
+    expect(formatInputIssues(issues)).toBe(
+      "- name: Required.\n- email: Invalid format.",
+    );
+  });
+
+  it("formats deeply nested paths with 3+ levels", () => {
+    const issues = [
+      {
+        code: "custom",
+        message: "Bad mode.",
+        path: ["config", "entries", 0, "mode", "default"],
+      },
+    ] satisfies ZodIssue[];
+
+    expect(formatInputIssues(issues)).toBe(
+      "- config.entries.0.mode.default: Bad mode.",
+    );
+  });
+
+  it("handles numeric path segments correctly", () => {
+    const issues = [
+      {
+        code: "custom",
+        message: "Missing.",
+        path: ["items", 2, "name"],
+      },
+    ] satisfies ZodIssue[];
+
+    expect(formatInputIssues(issues)).toBe("- items.2.name: Missing.");
+  });
+
+  it("handles special characters in path segments", () => {
+    const issues = [
+      {
+        code: "custom",
+        message: "Invalid.",
+        path: ["field-with-dashes"],
+      },
+    ] satisfies ZodIssue[];
+
+    expect(formatInputIssues(issues)).toBe("- field-with-dashes: Invalid.");
+  });
+
+  it("formats an empty issues list as empty string", () => {
+    expect(formatInputIssues([])).toBe("");
+  });
 });
