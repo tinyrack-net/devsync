@@ -8,7 +8,6 @@ import type {
   SyncMode,
 } from "#app/config/sync.ts";
 import { buildLocalSnapshot } from "#app/services/local-snapshot.ts";
-import type { CliLogger } from "#app/services/terminal/logger.ts";
 import { createTemporaryDirectory } from "../test/helpers/sync-fixture.ts";
 
 const temporaryDirectories: string[] = [];
@@ -50,19 +49,6 @@ const createConfig = (
   };
 };
 
-const createProgressCapture = () => {
-  const messages: string[] = [];
-  const reporter = {
-    level: 4,
-    start: () => {},
-    verbose: (message: string) => {
-      messages.push(message);
-    },
-  } as unknown as CliLogger;
-
-  return { messages, reporter };
-};
-
 afterEach(async () => {
   while (temporaryDirectories.length > 0) {
     const directory = temporaryDirectories.pop();
@@ -95,26 +81,12 @@ describe("local snapshot", () => {
         "ignore",
       ),
     ]);
-    const { messages, reporter } = createProgressCapture();
-
-    const snapshot = await buildLocalSnapshot(config, reporter);
+    const snapshot = await buildLocalSnapshot(config);
 
     expect([...snapshot.keys()].sort()).toEqual([
       ".config/opencode",
       ".config/opencode/settings.json",
     ]);
-    expect(
-      messages.some((message) => {
-        return message.includes(".config/opencode/node_modules/pkg-a");
-      }),
-    ).toBe(false);
-    expect(
-      messages.some((message) => {
-        return message.includes(
-          ".config/opencode/node_modules/pkg-a/dist/index.js",
-        );
-      }),
-    ).toBe(false);
   });
 
   it("still captures explicit child overrides under ignored directories", async () => {

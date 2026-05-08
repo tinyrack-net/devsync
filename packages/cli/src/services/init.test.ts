@@ -15,7 +15,6 @@ vi.mock("#app/lib/env.ts", () => ({
 import { createInitialSyncConfig, formatSyncConfig } from "#app/config/sync.ts";
 import { DotweaveError } from "#app/lib/error.ts";
 import { initializeSyncDirectory } from "#app/services/init.ts";
-import type { CliLogger } from "#app/services/terminal/logger.ts";
 import {
   createAgeKeyPair,
   createTemporaryDirectory,
@@ -36,26 +35,6 @@ const createWorkspace = async () => {
 const setEnvironment = (homeDirectory: string, xdgConfigHome: string) => {
   mockEnv.HOME = homeDirectory;
   mockEnv.XDG_CONFIG_HOME = xdgConfigHome;
-};
-
-const createProgressCapture = (verbose = false) => {
-  const messages: string[] = [];
-  const reporter = {
-    level: verbose ? 4 : 3,
-    start: (message: string) => {
-      messages.push(message);
-    },
-    verbose: (message: string) => {
-      if (verbose) {
-        messages.push(`detail:${message}`);
-      }
-    },
-  } as unknown as CliLogger;
-
-  return {
-    messages,
-    reporter,
-  };
 };
 
 afterEach(async () => {
@@ -127,30 +106,18 @@ describe("init service", () => {
     const xdgConfigHome = join(workspace, "xdg");
     const sourceRepository = join(workspace, "remote-sync");
     const ageKeys = await createAgeKeyPair();
-    const { messages, reporter } = createProgressCapture();
 
     await writeIdentityFile(xdgConfigHome, ageKeys.identity);
     await runGit(["init", "-b", "main", sourceRepository], workspace);
 
     setEnvironment(homeDirectory, xdgConfigHome);
-    const result = await initializeSyncDirectory(
-      {
-        recipients: [ageKeys.recipient],
-        repository: sourceRepository,
-      },
-      reporter,
-    );
+    const result = await initializeSyncDirectory({
+      recipients: [ageKeys.recipient],
+      repository: sourceRepository,
+    });
 
     expect(result.gitAction).toBe("cloned");
     expect(result.gitSource).toBe(sourceRepository);
-    expect(messages[0]).toBe("Initializing sync directory...");
-    expect(messages).toEqual(
-      expect.arrayContaining([
-        `Cloning the sync directory from ${sourceRepository}...`,
-        "Preparing sync encryption settings...",
-        "Writing sync config...",
-      ]),
-    );
     expect(
       await readFile(join(result.syncDirectory, "manifest.jsonc"), "utf8"),
     ).toContain('"version": 7');

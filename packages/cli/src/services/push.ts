@@ -4,7 +4,6 @@ import { resolveSyncConfigFilePath } from "#app/config/sync.ts";
 import { removePathAtomically } from "#app/lib/filesystem.ts";
 import { ensureGitRepository } from "#app/lib/git.ts";
 import { limitConcurrency } from "#app/lib/promise.ts";
-import type { CliLogger } from "#app/services/terminal/logger.ts";
 import { buildLocalSnapshot, type SnapshotNode } from "./local-snapshot.ts";
 import {
   buildArtifactKey,
@@ -79,22 +78,17 @@ const buildPushCounts = (snapshot: ReadonlyMap<string, SnapshotNode>) => {
 export const buildPushPlan = async (
   config: EffectiveSyncConfig,
   syncDirectory: string,
-  reporter?: CliLogger,
 ): Promise<PushPlan> => {
-  reporter?.start("Scanning local files...");
-  const snapshot = await buildLocalSnapshot(config, reporter);
-  reporter?.start("Preparing repository artifacts...");
-  const artifacts = await buildRepoArtifacts(snapshot, config, reporter);
+  const snapshot = await buildLocalSnapshot(config);
+  const artifacts = await buildRepoArtifacts(snapshot, config);
   const desiredArtifactKeys = new Set(
     artifacts.map((artifact) => {
       return buildArtifactKey(artifact);
     }),
   );
-  reporter?.start("Scanning existing repository artifacts...");
   const existingArtifactKeys = await collectExistingArtifactKeys(
     syncDirectory,
     config,
-    reporter,
   );
   const deletedArtifactCount = [...existingArtifactKeys].filter((key) => {
     return !desiredArtifactKeys.has(key);
@@ -142,33 +136,21 @@ export const buildPushResultFromPlan = (
 
 export const pushChanges = async (
   request: PushRequest,
-  reporter?: CliLogger,
 ): Promise<PushResult> => {
-  reporter?.start("Starting push...");
   const { syncDirectory } = resolveSyncPaths();
 
-  reporter?.start("Checking sync directory...");
   await ensureGitRepository(syncDirectory);
 
-  reporter?.start("Loading sync configuration...");
   const { effectiveConfig: config } = await loadSyncConfig(syncDirectory, {
     ...(request.profile === undefined ? {} : { profile: request.profile }),
   });
-  const plan = await buildPushPlan(config, syncDirectory, reporter);
+  const plan = await buildPushPlan(config, syncDirectory);
 
   if (!request.dryRun) {
     const artifactsDirectory = syncDirectory;
     const staleArtifactKeys = [...plan.existingArtifactKeys].filter((key) => {
       return !plan.desiredArtifactKeys.has(key);
     });
-
-    if (staleArtifactKeys.length > 0) {
-      reporter?.start(
-        `Removing ${staleArtifactKeys.length} stale repository artifact${staleArtifactKeys.length === 1 ? "" : "s"}...`,
-      );
-    }
-
-    let removedArtifactCount = 0;
 
     await limitConcurrency(
       CONSTANTS.SYNC.DEFAULT_CONCURRENCY,
@@ -178,32 +160,16 @@ export const pushChanges = async (
           ? staleKey.slice(0, -1)
           : staleKey;
 
-        removedArtifactCount += 1;
-
-        if ((reporter?.level ?? 0) >= 4) {
-          reporter?.verbose(
-            `removing stale repository artifact ${relativePath}`,
-          );
-        } else if (removedArtifactCount % 100 === 0) {
-          reporter?.start(
-            `Removed ${removedArtifactCount} stale repository artifacts...`,
-          );
-        }
-
         await removePathAtomically(
           join(artifactsDirectory, ...relativePath.split("/")),
         );
       },
     );
 
-    reporter?.start(
-      `Writing ${plan.artifacts.length} repository artifact${plan.artifacts.length === 1 ? "" : "s"}...`,
-    );
     await writeArtifactsToDirectory(
       artifactsDirectory,
       plan.artifacts,
       config.age,
-      reporter,
     );
   }
 

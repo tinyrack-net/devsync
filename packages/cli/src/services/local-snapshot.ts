@@ -8,7 +8,6 @@ import {
 import { DotweaveError } from "#app/lib/error.ts";
 import { isExecutableMode } from "#app/lib/file-mode.ts";
 import { getPathStats, listDirectoryEntries } from "#app/lib/filesystem.ts";
-import type { CliLogger } from "#app/services/terminal/logger.ts";
 import { assertStorageSafeRepoPath } from "./repo-artifacts.ts";
 
 type SnapshotConfig = ResolvedSyncConfig &
@@ -51,26 +50,6 @@ export const addSnapshotNode = (
   }
 
   snapshot.set(repoPath, node);
-};
-
-const reportLocalScanProgress = (
-  reporter: CliLogger | undefined,
-  state: { scannedEntryCount: number },
-  repoPath: string,
-  kind: "directory" | "file" | "other" | "symlink",
-) => {
-  state.scannedEntryCount += 1;
-
-  if ((reporter?.level ?? 0) >= 4) {
-    reporter?.verbose(`scanned local ${kind} ${repoPath}`);
-    return;
-  }
-
-  if (state.scannedEntryCount % 100 === 0) {
-    reporter?.start(
-      `Scanned ${state.scannedEntryCount} local filesystem entries...`,
-    );
-  }
 };
 
 const addLocalNode = async (
@@ -126,8 +105,6 @@ const walkLocalDirectory = async (
   localDirectory: string,
   repoPathPrefix: string,
   childEntryPaths: ReadonlySet<string>,
-  reporter?: CliLogger,
-  progressState: { scannedEntryCount: number } = { scannedEntryCount: 0 },
 ) => {
   const entries = await listDirectoryEntries(localDirectory);
 
@@ -140,18 +117,6 @@ const walkLocalDirectory = async (
     }
 
     const stats = await lstat(localPath);
-    reportLocalScanProgress(
-      reporter,
-      progressState,
-      repoPath,
-      stats.isDirectory()
-        ? "directory"
-        : stats.isSymbolicLink()
-          ? "symlink"
-          : stats.isFile()
-            ? "file"
-            : "other",
-    );
 
     if (stats.isDirectory()) {
       assertStorageSafeRepoPath(repoPath);
@@ -161,8 +126,6 @@ const walkLocalDirectory = async (
         localPath,
         repoPath,
         childEntryPaths,
-        reporter,
-        progressState,
       );
       continue;
     }
@@ -171,19 +134,13 @@ const walkLocalDirectory = async (
   }
 };
 
-export const buildLocalSnapshot = async (
-  config: SnapshotConfig,
-  reporter?: CliLogger,
-) => {
+export const buildLocalSnapshot = async (config: SnapshotConfig) => {
   const snapshot = new Map<string, SnapshotNode>();
-  const progressState = { scannedEntryCount: 0 };
 
   for (const entry of config.entries) {
-    reporter?.start(`Scanning tracked entry ${entry.repoPath}...`);
     const stats = await getPathStats(entry.localPath);
 
     if (stats === undefined) {
-      reporter?.verbose(`skipped missing local entry ${entry.repoPath}`);
       continue;
     }
 
@@ -197,19 +154,6 @@ export const buildLocalSnapshot = async (
       if (entryMode === "ignore") {
         continue;
       }
-
-      reportLocalScanProgress(
-        reporter,
-        progressState,
-        entry.repoPath,
-        stats.isSymbolicLink()
-          ? "symlink"
-          : stats.isFile()
-            ? "file"
-            : stats.isDirectory()
-              ? "directory"
-              : "other",
-      );
 
       if (stats.isDirectory()) {
         throw new DotweaveError(
@@ -247,8 +191,6 @@ export const buildLocalSnapshot = async (
       entry.localPath,
       entry.repoPath,
       childEntryPaths,
-      reporter,
-      progressState,
     );
     addSnapshotNode(snapshot, entry.repoPath, {
       type: "directory",

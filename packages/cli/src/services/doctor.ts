@@ -2,7 +2,6 @@ import { resolveSyncConfigFilePath } from "#app/config/sync.ts";
 import { formatDotweaveError } from "#app/lib/error.ts";
 import { pathExists } from "#app/lib/filesystem.ts";
 import { ensureRepository } from "#app/lib/git.ts";
-import type { CliLogger } from "#app/services/terminal/logger.ts";
 import { buildEntryMaterialization } from "./local-materialization.ts";
 import { buildRepositorySnapshot } from "./repo-snapshot.ts";
 import {
@@ -45,16 +44,12 @@ const fail = (checkId: string, detail: string): DoctorCheck => ({
   level: "fail",
 });
 
-export const runDoctorChecks = async (
-  reporter?: CliLogger,
-): Promise<DoctorResult> => {
-  reporter?.start("Running doctor checks...");
+export const runDoctorChecks = async (): Promise<DoctorResult> => {
   const { syncDirectory } = resolveSyncPaths();
   const configPath = resolveSyncConfigFilePath(syncDirectory);
   const checks: DoctorCheck[] = [];
 
   try {
-    reporter?.start("Checking sync directory...");
     await ensureRepository(syncDirectory);
     checks.push(ok("git", "Sync directory is a git repository."));
   } catch (error: unknown) {
@@ -77,7 +72,6 @@ export const runDoctorChecks = async (
   let config: EffectiveSyncConfig;
 
   try {
-    reporter?.start("Loading sync configuration...");
     const { effectiveConfig, fullConfig } = await loadSyncConfig(syncDirectory);
 
     config = effectiveConfig;
@@ -114,7 +108,6 @@ export const runDoctorChecks = async (
     };
   }
 
-  reporter?.start("Checking age identity...");
   checks.push(
     (await pathExists(config.age.identityFile))
       ? ok("age", `Age identity file exists at ${config.age.identityFile}.`)
@@ -131,40 +124,19 @@ export const runDoctorChecks = async (
     return entry.mode !== "ignore" && entry.localPath.length > 0;
   });
 
-  const missingCount = 0;
-  let checkedLocalPathCount = 0;
   const healthyMissingEntries = new Set<string>();
 
-  reporter?.start("Scanning repository artifacts...");
   const repositorySnapshot = await buildRepositorySnapshot(
     syncDirectory,
     config,
-    reporter,
   );
-
-  reporter?.start("Checking tracked local paths...");
   try {
     for (const entry of missingEntries) {
-      checkedLocalPathCount += 1;
-
-      if ((reporter?.level ?? 0) >= 4) {
-        reporter?.verbose(`checked tracked local path ${entry.localPath}`);
-      } else if (checkedLocalPathCount % 100 === 0) {
-        reporter?.start(
-          `Checked ${checkedLocalPathCount} tracked local paths...`,
-        );
-      }
-
       if (await pathExists(entry.localPath)) {
         continue;
       }
 
-      buildEntryMaterialization(
-        entry,
-        repositorySnapshot,
-        config,
-        (reporter?.level ?? 0) >= 4 ? reporter : undefined,
-      );
+      buildEntryMaterialization(entry, repositorySnapshot, config);
       healthyMissingEntries.add(entry.repoPath);
     }
   } catch (error: unknown) {
@@ -190,17 +162,12 @@ export const runDoctorChecks = async (
   }
 
   checks.push(
-    missingCount === 0
-      ? ok(
-          "local-paths",
-          healthyMissingEntries.size === 0
-            ? "All tracked local paths currently exist."
-            : `All missing local paths are healthy for the current sync state (${healthyMissingEntries.size} entr${healthyMissingEntries.size === 1 ? "y" : "ies"}).`,
-        )
-      : warn(
-          "local-paths",
-          `${missingCount} tracked local path${missingCount === 1 ? " is" : "s are"} missing.`,
-        ),
+    ok(
+      "local-paths",
+      healthyMissingEntries.size === 0
+        ? "All tracked local paths currently exist."
+        : `All missing local paths are healthy for the current sync state (${healthyMissingEntries.size} entr${healthyMissingEntries.size === 1 ? "y" : "ies"}).`,
+    ),
   );
 
   const hasFailures = checks.some((check) => check.level === "fail");

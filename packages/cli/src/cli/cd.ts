@@ -2,19 +2,10 @@ import { mkdir } from "node:fs/promises";
 
 import { buildCommand } from "@stricli/core";
 import { resolveDotweaveSyncDirectoryFromEnv } from "#app/config/runtime-env.ts";
-import {
-  type DotweaveCliContext,
-  verboseFlag,
-} from "#app/services/terminal/cli-runtime.ts";
+import { type DotweaveCliContext } from "#app/services/terminal/cli-runtime.ts";
 import { launchShellInDirectory } from "#app/services/terminal/shell.ts";
 
-const cdCommand = buildCommand<
-  {
-    verbose?: boolean;
-  },
-  [],
-  DotweaveCliContext
->({
+const cdCommand = buildCommand<Record<string, never>, [], DotweaveCliContext>({
   docs: {
     brief: "Launch a shell in the sync directory",
     fullDescription:
@@ -27,9 +18,7 @@ const cdCommand = buildCommand<
     await launchShellInDirectory(syncDirectory);
   },
   parameters: {
-    flags: {
-      verbose: verboseFlag,
-    },
+    flags: {},
   },
 });
 

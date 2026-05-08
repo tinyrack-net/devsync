@@ -1,7 +1,6 @@
 import { execFile, spawn } from "node:child_process";
 import { promisify } from "node:util";
 import { wrapUnknownError } from "#app/lib/error.ts";
-import type { CliLogger } from "#app/services/terminal/logger.ts";
 
 const execFileAsync = promisify(execFile);
 
@@ -43,59 +42,12 @@ const runGitCommand = async (
 
 /**
  * @description
- * Streams git progress lines to the reporter as complete messages arrive.
- */
-const forwardGitProgressChunk = (
-  reporter: CliLogger | undefined,
-  state: { remainder: string },
-  chunk: string,
-) => {
-  if (!((reporter?.level ?? 0) >= 4)) {
-    return;
-  }
-
-  state.remainder += chunk.replaceAll("\r", "\n");
-  const lines = state.remainder.split("\n");
-
-  state.remainder = lines.pop() ?? "";
-
-  for (const line of lines) {
-    const trimmed = line.trim();
-
-    if (trimmed.length > 0) {
-      reporter?.verbose(`git: ${trimmed}`);
-    }
-  }
-};
-
-/**
- * @description
- * Flushes any final buffered git progress line to the reporter.
- */
-const flushGitProgressChunk = (
-  reporter: CliLogger | undefined,
-  state: { remainder: string },
-) => {
-  if (!((reporter?.level ?? 0) >= 4)) {
-    return;
-  }
-
-  const trimmed = state.remainder.trim();
-
-  if (trimmed.length > 0) {
-    reporter?.verbose(`git: ${trimmed}`);
-  }
-};
-
-/**
- * @description
- * Runs a git command while collecting output and forwarding verbose progress.
+ * Runs a git command while collecting output.
  */
 const runStreamingGitCommand = async (
   args: readonly string[],
   options?: Readonly<{
     cwd?: string;
-    reporter?: CliLogger;
   }>,
 ) => {
   return await new Promise<{
@@ -109,8 +61,6 @@ const runStreamingGitCommand = async (
     let settled = false;
     let stdout = "";
     let stderr = "";
-    const stdoutState = { remainder: "" };
-    const stderrState = { remainder: "" };
 
     const finish = (handler: () => void) => {
       if (settled) {
@@ -125,11 +75,9 @@ const runStreamingGitCommand = async (
     child.stderr?.setEncoding("utf8");
     child.stdout?.on("data", (chunk: string) => {
       stdout += chunk;
-      forwardGitProgressChunk(options?.reporter, stdoutState, chunk);
     });
     child.stderr?.on("data", (chunk: string) => {
       stderr += chunk;
-      forwardGitProgressChunk(options?.reporter, stderrState, chunk);
     });
     child.on("error", (error) => {
       finish(() => {
@@ -139,9 +87,6 @@ const runStreamingGitCommand = async (
       });
     });
     child.on("close", (code) => {
-      flushGitProgressChunk(options?.reporter, stdoutState);
-      flushGitProgressChunk(options?.reporter, stderrState);
-
       if (code === 0) {
         finish(() => {
           resolve({ stderr, stdout });
@@ -178,21 +123,16 @@ export const ensureRepository = async (directory: string) => {
 export const initializeRepository = async (
   directory: string,
   source?: string,
-  reporter?: CliLogger,
 ) => {
   if (source === undefined) {
-    await runStreamingGitCommand(["init", "-b", "main", directory], {
-      reporter,
-    });
+    await runStreamingGitCommand(["init", "-b", "main", directory]);
 
     return {
       action: "initialized" as const,
     };
   }
 
-  await runStreamingGitCommand(["clone", source, directory], {
-    reporter,
-  });
+  await runStreamingGitCommand(["clone", source, directory]);
 
   return {
     action: "cloned" as const,

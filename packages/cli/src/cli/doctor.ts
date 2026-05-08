@@ -1,10 +1,7 @@
 import { buildCommand } from "@stricli/core";
 import pc from "picocolors";
 import { type DoctorCheck, runDoctorChecks } from "#app/services/doctor.ts";
-import {
-  type DotweaveCliContext,
-  verboseFlag,
-} from "#app/services/terminal/cli-runtime.ts";
+import { type DotweaveCliContext } from "#app/services/terminal/cli-runtime.ts";
 import { createCliLogger } from "#app/services/terminal/logger.ts";
 
 const normalizeCheckId = (checkId: string) => {
@@ -34,9 +31,7 @@ const formatCheckIcon = (level: DoctorCheck["level"]) => {
 };
 
 const doctorCommand = buildCommand<
-  {
-    verbose?: boolean;
-  },
+  Record<string, never>,
   [],
   DotweaveCliContext
 >({
@@ -46,12 +41,10 @@ const doctorCommand = buildCommand<
     fullDescription:
       "Run health checks for the local sync setup, including repository availability, config validity, age identity configuration, and whether tracked local paths still exist where dotweave expects them.",
   },
-  async func(flags) {
-    const verbose = flags.verbose ?? false;
-    const logger = createCliLogger({ verbose });
-    const reporter = verbose ? logger : undefined;
+  async func() {
+    const logger = createCliLogger();
 
-    const result = await runDoctorChecks(reporter);
+    const result = await runDoctorChecks();
 
     let okCount = 0;
     let warningCount = 0;
@@ -81,13 +74,7 @@ const doctorCommand = buildCommand<
 
     const nonOkChecks = result.checks.filter((check) => check.level !== "ok");
 
-    if (verbose) {
-      for (const check of result.checks) {
-        logger.log(
-          `  ${formatCheckIcon(check.level)} ${normalizeCheckId(check.checkId)} – ${stripTrailingPeriod(check.detail)}`,
-        );
-      }
-    } else if (nonOkChecks.length > 0) {
+    if (nonOkChecks.length > 0) {
       for (const check of nonOkChecks.slice(0, 3)) {
         logger.log(
           `  ${formatCheckIcon(check.level)} ${normalizeCheckId(check.checkId)} – ${stripTrailingPeriod(check.detail)}`,
@@ -98,19 +85,12 @@ const doctorCommand = buildCommand<
       }
     }
 
-    if (verbose) {
-      logger.log(pc.dim(`  sync dir  ${result.syncDirectory}`));
-      logger.log(pc.dim(`  config    ${result.configPath}`));
-    }
-
     if (result.hasFailures) {
       process.exitCode = 1;
     }
   },
   parameters: {
-    flags: {
-      verbose: verboseFlag,
-    },
+    flags: {},
   },
 });
 

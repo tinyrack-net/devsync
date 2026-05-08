@@ -1,6 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { doPathsOverlap } from "#app/lib/path.ts";
-import type { CliLogger } from "#app/services/terminal/logger.ts";
 
 const mocked = vi.hoisted(() => ({
   applyEntryMaterialization: vi.fn(),
@@ -172,7 +171,6 @@ describe("pull planning", () => {
       config.entries[0],
       expect.any(Map),
       config,
-      undefined,
     );
     expect(mocked.countDeletedLocalNodes).toHaveBeenCalledTimes(1);
     expect(mocked.countDeletedLocalNodes).toHaveBeenCalledWith(
@@ -180,7 +178,6 @@ describe("pull planning", () => {
       new Set([".config/app"]),
       config,
       new Set<string>(),
-      undefined,
       new Map<string, string>(),
       new Set<string>(),
     );
@@ -266,7 +263,6 @@ describe("pull planning", () => {
         _desiredKeys,
         _config,
         existingKeys,
-        _reporter,
         keyToLocalPath,
         deletedKeys,
       ) => {
@@ -313,11 +309,6 @@ describe("pull planning", () => {
   });
 
   it("does not apply ignore-mode entries during pull", async () => {
-    const reporter = {
-      level: 3,
-      start: vi.fn(),
-      verbose: vi.fn(),
-    } as unknown as CliLogger;
     const config = {
       age: {
         identityFile: "/tmp/dotweave/keys.txt",
@@ -352,7 +343,7 @@ describe("pull planning", () => {
     mocked.countDeletedLocalNodes.mockResolvedValue(0);
     mocked.collectChangedLocalPaths.mockResolvedValue([]);
 
-    await pullChanges({ dryRun: false }, reporter);
+    await pullChanges({ dryRun: false });
 
     expect(mocked.applyEntryMaterialization).toHaveBeenCalledTimes(1);
     expect(mocked.applyEntryMaterialization).toHaveBeenCalledWith(
@@ -362,11 +353,6 @@ describe("pull planning", () => {
         type: "absent",
       },
       config,
-      reporter,
-    );
-    expect(reporter.start).toHaveBeenCalledWith("Applying .config/app...");
-    expect(reporter.start).not.toHaveBeenCalledWith(
-      "Applying .config/app/node_modules...",
     );
   });
 

@@ -10,7 +10,6 @@ const mockLogger = vi.hoisted(() => ({
   log: vi.fn(),
   start: vi.fn(),
   success: vi.fn(),
-  verbose: vi.fn(),
   warn: vi.fn(),
 }));
 
@@ -113,14 +112,6 @@ vi.mock("#app/lib/prompt.ts", () => ({
   ask: mocked.promptAsk,
 }));
 
-vi.mock("#app/services/terminal/cli-runtime.ts", () => ({
-  verboseFlag: {
-    brief: "verbose",
-    kind: "boolean",
-    optional: true,
-  },
-}));
-
 vi.mock("#app/services/terminal/logger.ts", () => ({
   createCliLogger: vi.fn(() => mockLogger),
 }));
@@ -186,6 +177,27 @@ beforeEach(() => {
     gitSource: "git@example.com:dotfiles.git",
     identityFile: "/tmp/keys.txt",
     recipientCount: 1,
+    syncDirectory: "/tmp/dotweave",
+  });
+  mocked.preparePull.mockResolvedValue({
+    config: {
+      entries: [],
+      version: 7,
+    },
+    plan: {
+      counts: {
+        decryptedFileCount: 2,
+        directoryCount: 1,
+        plainFileCount: 3,
+        symlinkCount: 0,
+      },
+      deletedLocalCount: 1,
+      deletedLocalPaths: ["/tmp/home/.config/app/obsolete.txt"],
+      desiredKeys: new Set([".config/app/config.toml"]),
+      existingKeys: new Set(["obsolete-a"]),
+      materializations: [],
+      updatedLocalPaths: ["/tmp/home/.config/app/config.toml"],
+    },
     syncDirectory: "/tmp/dotweave",
   });
   mocked.trackTarget.mockResolvedValue({
@@ -364,21 +376,17 @@ describe("CLI command modules", () => {
       initCommand,
       {
         key: "  AGE-SECRET-KEY-123  ",
-        verbose: true,
       },
       "git@example.com:dotfiles.git",
     );
 
     expect(mocked.promptAsk).not.toHaveBeenCalled();
-    expect(mocked.initializeSyncDirectory).toHaveBeenCalledWith(
-      {
-        ageIdentity: "AGE-SECRET-KEY-123",
-        generateAgeIdentity: false,
-        recipients: [],
-        repository: "git@example.com:dotfiles.git",
-      },
-      mockLogger,
-    );
+    expect(mocked.initializeSyncDirectory).toHaveBeenCalledWith({
+      ageIdentity: "AGE-SECRET-KEY-123",
+      generateAgeIdentity: false,
+      recipients: [],
+      repository: "git@example.com:dotfiles.git",
+    });
     expect(mockLogger.success).toHaveBeenCalledWith(
       "Sync directory initialized",
     );
@@ -407,7 +415,6 @@ describe("CLI command modules", () => {
         mode: "secret",
         profile: ["work"],
         repoPath: "profiles/work/.gitconfig",
-        verbose: true,
       },
       ".gitconfig",
     );
@@ -436,7 +443,6 @@ describe("CLI command modules", () => {
         {
           mode: "normal",
           repoPath: "profiles/shared/tool",
-          verbose: false,
         },
         ".gitconfig",
         ".zshrc",
@@ -456,7 +462,7 @@ describe("CLI command modules", () => {
 
     await runCommand(
       trackCommand,
-      { mode: "ignore", profile: [""], verbose: false },
+      { mode: "ignore", profile: [""] },
       ".config/nvim",
     );
 
@@ -480,9 +486,9 @@ describe("CLI command modules", () => {
   });
 
   it("lists, uses, and clears profiles", async () => {
-    await runCommand(profileListCommand, { verbose: true });
-    await runCommand(profileUseCommand, { verbose: false }, "work");
-    await runCommand(profileUseCommand, { verbose: true });
+    await runCommand(profileListCommand, {});
+    await runCommand(profileUseCommand, {}, "work");
+    await runCommand(profileUseCommand, {});
 
     expect(mocked.listProfiles).toHaveBeenCalledTimes(1);
     expect(mocked.setActiveProfile).toHaveBeenCalledWith("work");
@@ -500,33 +506,24 @@ describe("CLI command modules", () => {
     await runCommand(pullCommand, {
       dryRun: true,
       profile: "work",
-      verbose: true,
     });
     await runCommand(pushCommand, {
       dryRun: true,
       profile: "work",
-      verbose: false,
     });
-    await runCommand(statusCommand, { profile: "work", verbose: true });
+    await runCommand(statusCommand, { profile: "work" });
 
-    expect(mocked.preparePull).toHaveBeenCalledWith(
-      {
-        dryRun: true,
-        profile: "work",
-      },
-      mockLogger,
-    );
+    expect(mocked.preparePull).toHaveBeenCalledWith({
+      dryRun: true,
+      profile: "work",
+    });
     expect(mocked.applyPullPlan).not.toHaveBeenCalled();
-    expect(mocked.pushChanges).toHaveBeenCalledWith(
-      {
-        dryRun: true,
-        profile: "work",
-      },
-      undefined,
-    );
+    expect(mocked.pushChanges).toHaveBeenCalledWith({
+      dryRun: true,
+      profile: "work",
+    });
     expect(mocked.getStatus).toHaveBeenCalledWith({
       profile: "work",
-      reporter: mockLogger,
     });
     expect(mockLogger.info).toHaveBeenCalledWith("Sync status");
     expect(mockLogger.log).toHaveBeenCalledWith(
@@ -560,7 +557,7 @@ describe("CLI command modules", () => {
       syncDirectory: "/tmp/dotweave",
     });
 
-    await runCommand(pullCommand, { verbose: false });
+    await runCommand(pullCommand, {});
 
     expect(mocked.promptAsk).not.toHaveBeenCalled();
     expect(mocked.applyPullPlan).not.toHaveBeenCalled();
@@ -570,7 +567,7 @@ describe("CLI command modules", () => {
   it("applies pull changes after interactive confirmation", async () => {
     mocked.promptAsk.mockResolvedValueOnce("y");
 
-    await runCommand(pullCommand, { verbose: false });
+    await runCommand(pullCommand, {});
 
     expect(mocked.promptAsk).toHaveBeenCalledWith(
       "Apply these changes? [y/N] ",
@@ -582,14 +579,14 @@ describe("CLI command modules", () => {
   it("cancels pull changes when confirmation is not y", async () => {
     mocked.promptAsk.mockResolvedValueOnce("n");
 
-    await runCommand(pullCommand, { verbose: false });
+    await runCommand(pullCommand, {});
 
     expect(mocked.applyPullPlan).not.toHaveBeenCalled();
     expect(mockLogger.info).toHaveBeenCalledWith("Skipped pull changes");
   });
 
   it("skips prompting when --yes is provided", async () => {
-    await runCommand(pullCommand, { verbose: false, yes: true });
+    await runCommand(pullCommand, { yes: true });
 
     expect(mocked.promptAsk).not.toHaveBeenCalled();
     expect(mocked.applyPullPlan).toHaveBeenCalledTimes(1);
@@ -603,14 +600,14 @@ describe("CLI command modules", () => {
       value: false,
     });
 
-    await expect(runCommand(pullCommand, { verbose: false })).rejects.toThrow(
+    await expect(runCommand(pullCommand, {})).rejects.toThrow(
       "Pull confirmation requires an interactive terminal.",
     );
     expect(mocked.applyPullPlan).not.toHaveBeenCalled();
   });
 
   it("untracks tracked targets relative to the current working directory", async () => {
-    await runCommand(untrackCommand, { verbose: true }, ".ssh/config");
+    await runCommand(untrackCommand, {}, ".ssh/config");
 
     expect(mocked.untrackTarget).toHaveBeenCalledWith(
       {
@@ -638,9 +635,9 @@ describe("CLI command modules", () => {
       syncDirectory: "/tmp/dotweave",
     });
 
-    await runCommand(doctorCommand, { verbose: true });
+    await runCommand(doctorCommand, {});
 
-    expect(mocked.runDoctorChecks).toHaveBeenCalledWith(mockLogger);
+    expect(mocked.runDoctorChecks).toHaveBeenCalled();
     expect(mockLogger.fail).toHaveBeenCalledWith(
       expect.stringContaining("Doctor found issues"),
     );
@@ -648,7 +645,7 @@ describe("CLI command modules", () => {
   });
 
   it("creates the sync directory before launching cd shells", async () => {
-    await runCommand(cdCommand, { verbose: false });
+    await runCommand(cdCommand, {});
 
     expect(mocked.resolveDotweaveSyncDirectory).toHaveBeenCalledTimes(1);
     expect(mocked.mkdir).toHaveBeenCalledWith("/tmp/dotweave", {

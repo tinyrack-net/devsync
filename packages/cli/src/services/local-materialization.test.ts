@@ -14,7 +14,6 @@ import {
   countDeletedLocalNodes,
 } from "#app/services/local-materialization.ts";
 import type { FileLikeSnapshotNode } from "#app/services/local-snapshot.ts";
-import type { CliLogger } from "#app/services/terminal/logger.ts";
 import { createTemporaryDirectory } from "../test/helpers/sync-fixture.ts";
 
 const temporaryDirectories: string[] = [];
@@ -58,19 +57,6 @@ const createConfig = (
   };
 };
 
-const createProgressCapture = () => {
-  const messages: string[] = [];
-  const reporter = {
-    level: 4,
-    start: () => {},
-    verbose: (message: string) => {
-      messages.push(message);
-    },
-  } as unknown as CliLogger;
-
-  return { messages, reporter };
-};
-
 afterEach(async () => {
   while (temporaryDirectories.length > 0) {
     const directory = temporaryDirectories.pop();
@@ -110,7 +96,6 @@ describe("local materialization", () => {
       ),
     ]);
     const existingKeys = new Set<string>();
-    const { messages, reporter } = createProgressCapture();
 
     const deletedLocalCount = await countDeletedLocalNodes(
       rootEntry,
@@ -120,7 +105,6 @@ describe("local materialization", () => {
       ]),
       config,
       existingKeys,
-      reporter,
     );
 
     expect(deletedLocalCount).toBe(0);
@@ -130,18 +114,6 @@ describe("local materialization", () => {
         ".config/opencode/settings.json",
       ]),
     );
-    expect(
-      messages.some((message) => {
-        return message.includes(".config/opencode/node_modules/pkg-a");
-      }),
-    ).toBe(false);
-    expect(
-      messages.some((message) => {
-        return message.includes(
-          ".config/opencode/node_modules/pkg-a/dist/index.js",
-        );
-      }),
-    ).toBe(false);
   });
 
   it("skips ignored directory entries entirely while planning pull", async () => {
@@ -161,7 +133,6 @@ describe("local materialization", () => {
       "ignore",
     );
     const existingKeys = new Set<string>();
-    const { messages, reporter } = createProgressCapture();
 
     const deletedLocalCount = await countDeletedLocalNodes(
       ignoredEntry,
@@ -176,12 +147,10 @@ describe("local materialization", () => {
         ignoredEntry,
       ]),
       existingKeys,
-      reporter,
     );
 
     expect(deletedLocalCount).toBe(0);
     expect(existingKeys.size).toBe(0);
-    expect(messages).toEqual([]);
   });
 
   it("records deleted local paths while planning pull", async () => {
@@ -208,7 +177,6 @@ describe("local materialization", () => {
       new Set([buildDirectoryKey(".config/app"), ".config/app/config.json"]),
       createConfig([entry]),
       existingKeys,
-      undefined,
       keyToLocalPath,
     );
 
@@ -350,7 +318,6 @@ describe("local materialization", () => {
       new Set([buildDirectoryKey(".config/zsh"), ".config/zsh/.zshrc"]),
       createConfig([rootEntry, childEntry]),
       existingKeys,
-      undefined,
       keyToLocalPath,
     );
 

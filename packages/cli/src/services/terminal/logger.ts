@@ -1,7 +1,6 @@
 import pc from "picocolors";
 
 export interface CliLogger {
-  readonly level: number;
   log(message: string): void;
   info(message: string): void;
   success(message: string): void;
@@ -9,7 +8,6 @@ export interface CliLogger {
   warn(message: string): void;
   error(message: string): void;
   start(message: string): void;
-  verbose(message: string): void;
   withTag(tag: string): CliLogger;
 }
 
@@ -19,7 +17,6 @@ const createImpl = (
   stdout: Stream,
   stderr: Stream,
   tag: string | undefined,
-  level: number,
 ): CliLogger => {
   const prefix = tag === undefined ? "" : pc.dim(`[${tag}] `);
 
@@ -28,7 +25,6 @@ const createImpl = (
   };
 
   const logger: CliLogger = {
-    level,
     log: (m) => w(stdout, m),
     info: (m) => w(stdout, pc.cyan(`${pc.bold("i")} ${m}`)),
     success: (m) => w(stdout, pc.green(`${pc.bold("✔")} ${m}`)),
@@ -36,12 +32,7 @@ const createImpl = (
     warn: (m) => w(stderr, pc.yellow(`${pc.bold("⚠")} ${m}`)),
     error: (m) => w(stderr, pc.red(`${pc.bold("✖")} ${m}`)),
     start: (m) => w(stdout, pc.cyan(`${pc.bold("▶")} ${m}`)),
-    verbose(m) {
-      if (level >= 4) {
-        w(stdout, pc.dim(m));
-      }
-    },
-    withTag: (t) => createImpl(stdout, stderr, t, level),
+    withTag: (t) => createImpl(stdout, stderr, t),
   };
 
   return logger;
@@ -52,12 +43,10 @@ export const createCliLogger = (
     stderr?: NodeJS.WriteStream;
     stdout?: NodeJS.WriteStream;
     tag?: string;
-    verbose?: boolean;
   }> = {},
 ): CliLogger =>
   createImpl(
     options.stdout ?? process.stdout,
     options.stderr ?? process.stderr,
     options.tag,
-    options.verbose === true ? 4 : 3,
   );

@@ -1,6 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { DotweaveError } from "#app/lib/error.ts";
-import type { CliLogger } from "#app/services/terminal/logger.ts";
 
 const mocked = vi.hoisted(() => ({
   buildRepositorySnapshot: vi.fn(),
@@ -37,18 +36,6 @@ vi.mock("./runtime.ts", () => ({
 }));
 
 import { runDoctorChecks } from "./doctor.ts";
-
-const createReporter = (verbose = false) => {
-  const raw = {
-    level: verbose ? 4 : 3,
-    start: vi.fn(),
-    verbose: vi.fn(),
-  };
-  return Object.assign(raw as unknown as CliLogger, {
-    start: raw.start,
-    verbose: raw.verbose,
-  });
-};
 
 const createLoadedConfig = (options: {
   activeProfile?: string;
@@ -95,9 +82,8 @@ afterEach(() => {
 describe("sync doctor", () => {
   it("returns an immediate git failure when the sync directory is not a repository", async () => {
     mocked.ensureRepository.mockRejectedValueOnce("not-a-repo");
-    const reporter = createReporter();
 
-    const result = await runDoctorChecks(reporter);
+    const result = await runDoctorChecks();
 
     expect(result).toEqual({
       checks: [
@@ -112,19 +98,14 @@ describe("sync doctor", () => {
       hasWarnings: false,
       syncDirectory: "/tmp/dotweave",
     });
-    expect(reporter.start.mock.calls).toEqual([
-      ["Running doctor checks..."],
-      ["Checking sync directory..."],
-    ]);
     expect(mocked.loadSyncConfig).not.toHaveBeenCalled();
   });
 
   it("returns a configuration failure after a successful repository check", async () => {
     mocked.ensureRepository.mockResolvedValueOnce(undefined);
     mocked.loadSyncConfig.mockRejectedValueOnce(new Error("config is invalid"));
-    const reporter = createReporter();
 
-    const result = await runDoctorChecks(reporter);
+    const result = await runDoctorChecks();
 
     expect(result).toEqual({
       checks: [
@@ -144,11 +125,6 @@ describe("sync doctor", () => {
       hasWarnings: false,
       syncDirectory: "/tmp/dotweave",
     });
-    expect(reporter.start.mock.calls).toEqual([
-      ["Running doctor checks..."],
-      ["Checking sync directory..."],
-      ["Loading sync configuration..."],
-    ]);
   });
 
   it("preserves config failure details and hint text in doctor output", async () => {
@@ -159,7 +135,7 @@ describe("sync doctor", () => {
       }),
     );
 
-    const result = await runDoctorChecks(createReporter());
+    const result = await runDoctorChecks();
 
     expect(result.checks).toContainEqual({
       checkId: "config",
@@ -169,7 +145,7 @@ describe("sync doctor", () => {
     });
   });
 
-  it("reports verbose details and treats missing paths as healthy when they are absent in the current sync state", async () => {
+  it("reports details and treats missing paths as healthy when they are absent in the current sync state", async () => {
     mocked.ensureRepository.mockResolvedValueOnce(undefined);
     mocked.loadSyncConfig.mockResolvedValueOnce(
       createLoadedConfig({
@@ -183,9 +159,8 @@ describe("sync doctor", () => {
         path !== "/tmp/home/.ssh/id_ed25519"
       );
     });
-    const reporter = createReporter(true);
 
-    const result = await runDoctorChecks(reporter);
+    const result = await runDoctorChecks();
 
     expect(result.hasFailures).toBe(true);
     expect(result.hasWarnings).toBe(false);
@@ -222,17 +197,6 @@ describe("sync doctor", () => {
         level: "ok",
       },
     ]);
-    expect(reporter.verbose).toHaveBeenCalledWith(
-      "checked tracked local path /tmp/home/.ssh/id_ed25519",
-    );
-    expect(reporter.start.mock.calls).toEqual([
-      ["Running doctor checks..."],
-      ["Checking sync directory..."],
-      ["Loading sync configuration..."],
-      ["Checking age identity..."],
-      ["Scanning repository artifacts..."],
-      ["Checking tracked local paths..."],
-    ]);
     expect(mocked.pathExists).toHaveBeenCalledWith("/tmp/dotweave/keys.txt");
     expect(mocked.pathExists).toHaveBeenCalledWith("/tmp/home/.ssh/id_ed25519");
   });
@@ -254,9 +218,8 @@ describe("sync doctor", () => {
     mocked.pathExists.mockImplementation(async (path: string) => {
       return path !== "/tmp/missing-a" && path !== "/tmp/missing-b";
     });
-    const reporter = createReporter(false);
 
-    const result = await runDoctorChecks(reporter);
+    const result = await runDoctorChecks();
 
     expect(result.hasFailures).toBe(false);
     expect(result.hasWarnings).toBe(false);
@@ -281,10 +244,6 @@ describe("sync doctor", () => {
         "All missing local paths are healthy for the current sync state (2 entries).",
       level: "ok",
     });
-    expect(reporter.verbose).not.toHaveBeenCalled();
-    expect(reporter.start).toHaveBeenCalledWith(
-      "Checked 100 tracked local paths...",
-    );
   });
 
   it("warns when no entries are configured and still reports healthy local paths", async () => {
@@ -297,7 +256,7 @@ describe("sync doctor", () => {
     mocked.buildRepositorySnapshot.mockResolvedValueOnce(new Map());
     mocked.pathExists.mockResolvedValueOnce(true);
 
-    const result = await runDoctorChecks(createReporter());
+    const result = await runDoctorChecks();
 
     expect(result.hasFailures).toBe(false);
     expect(result.hasWarnings).toBe(true);
@@ -328,7 +287,7 @@ describe("sync doctor", () => {
       return path === "/tmp/dotweave/keys.txt";
     });
 
-    const result = await runDoctorChecks(createReporter());
+    const result = await runDoctorChecks();
 
     expect(result.hasWarnings).toBe(false);
     expect(result.checks).toContainEqual({
@@ -352,7 +311,7 @@ describe("sync doctor", () => {
       return path === "/tmp/dotweave/keys.txt";
     });
 
-    const result = await runDoctorChecks(createReporter());
+    const result = await runDoctorChecks();
 
     expect(result.checks).toContainEqual({
       checkId: "local-paths",
@@ -377,7 +336,7 @@ describe("sync doctor", () => {
       return path === "/tmp/dotweave/keys.txt";
     });
 
-    const result = await runDoctorChecks(createReporter());
+    const result = await runDoctorChecks();
 
     expect(result.hasWarnings).toBe(false);
     expect(result.checks).toContainEqual({
@@ -402,7 +361,7 @@ describe("sync doctor", () => {
       return path === "/tmp/dotweave/keys.txt";
     });
 
-    const result = await runDoctorChecks(createReporter());
+    const result = await runDoctorChecks();
 
     expect(result.hasFailures).toBe(true);
     expect(result.checks).toContainEqual({

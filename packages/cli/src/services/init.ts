@@ -29,7 +29,6 @@ import {
   initializeRepository,
 } from "#app/lib/git.ts";
 import { resolveJsoncConfigPath } from "#app/lib/jsonc.ts";
-import type { CliLogger } from "#app/services/terminal/logger.ts";
 import {
   resolveAgeFromSyncConfig,
   resolveSyncConfigResolutionContext,
@@ -79,10 +78,7 @@ const normalizeRecipients = (recipients: readonly string[]) => {
   });
 };
 
-const resolveInitAgeBootstrap = async (
-  request: InitRequest,
-  reporter?: CliLogger,
-) => {
+const resolveInitAgeBootstrap = async (request: InitRequest) => {
   const identityFile = resolveDefaultIdentityFile(
     readEnvValue("HOME"),
     readEnvValue("XDG_CONFIG_HOME"),
@@ -90,7 +86,6 @@ const resolveInitAgeBootstrap = async (
   const explicitRecipients = normalizeRecipients(request.recipients);
 
   if (request.ageIdentity !== undefined) {
-    reporter?.start("Writing age identity file...");
     const { recipient } = await writeAgeIdentityFile(
       identityFile,
       request.ageIdentity,
@@ -104,7 +99,6 @@ const resolveInitAgeBootstrap = async (
 
   if (explicitRecipients.length === 0) {
     if (await pathExists(identityFile)) {
-      reporter?.start("Loading age recipients from the existing identity...");
       return {
         generatedIdentity: false,
         recipients: normalizeRecipients(
@@ -113,7 +107,6 @@ const resolveInitAgeBootstrap = async (
       };
     }
 
-    reporter?.start("Generating a new age identity...");
     const { recipient } = await createAgeIdentityFile(identityFile);
 
     return {
@@ -123,7 +116,6 @@ const resolveInitAgeBootstrap = async (
   }
 
   if (request.generateAgeIdentity === true) {
-    reporter?.start("Generating a new age identity...");
     const { recipient } = await createAgeIdentityFile(identityFile);
 
     return {
@@ -133,14 +125,12 @@ const resolveInitAgeBootstrap = async (
   }
 
   if (await pathExists(identityFile)) {
-    reporter?.start("Using the existing age identity file...");
     return {
       generatedIdentity: false,
       recipients: explicitRecipients,
     };
   }
 
-  reporter?.start("Generating a new age identity...");
   const { recipient } = await createAgeIdentityFile(identityFile);
 
   return {
@@ -239,9 +229,7 @@ const ensureManagedRepositoryAttributes = async (syncDirectory: string) => {
 
 export const initializeSyncDirectory = async (
   request: InitRequest,
-  reporter?: CliLogger,
 ): Promise<InitResult> => {
-  reporter?.start("Initializing sync directory...");
   const { syncDirectory, configPath, globalConfigPath } = resolveSyncPaths();
   const context = resolveSyncConfigResolutionContext();
   const resolvedConfigPath = await resolveJsoncConfigPath(configPath);
@@ -262,15 +250,13 @@ export const initializeSyncDirectory = async (
   }
 
   if (configExists) {
-    reporter?.start("Checking the existing sync directory...");
     await ensureGitRepository(syncDirectory);
     await ensureManagedRepositoryAttributes(syncDirectory);
 
-    reporter?.start("Loading the existing sync config...");
     const config = await readSyncConfig(syncDirectory, context);
     assertInitRequestMatchesConfig(config.age, request);
 
-    await resolveInitAgeBootstrap(request, reporter);
+    await resolveInitAgeBootstrap(request);
 
     return buildAlreadyInitializedResult(config, {
       configPath,
@@ -282,15 +268,12 @@ export const initializeSyncDirectory = async (
   await mkdir(dirname(syncDirectory), {
     recursive: true,
   });
-  reporter?.start("Preparing the sync directory...");
 
   let gitAction: InitResult["gitAction"] = "existing";
   let gitSource: string | undefined;
 
   try {
-    reporter?.start("Checking for an existing git repository...");
     await ensureRepository(syncDirectory);
-    reporter?.start("Using the existing git repository...");
   } catch {
     const syncDirectoryExists = await pathExists(syncDirectory);
 
@@ -313,16 +296,7 @@ export const initializeSyncDirectory = async (
     let gitResult: Awaited<ReturnType<typeof initializeRepository>>;
 
     try {
-      reporter?.start(
-        gitSourceInput === undefined
-          ? "Initializing a new git repository..."
-          : `Cloning the sync directory from ${gitSourceInput}...`,
-      );
-      gitResult = await initializeRepository(
-        syncDirectory,
-        gitSourceInput,
-        reporter,
-      );
+      gitResult = await initializeRepository(syncDirectory, gitSourceInput);
     } catch (error: unknown) {
       throw wrapUnknownError(
         gitSourceInput === undefined
@@ -352,15 +326,13 @@ export const initializeSyncDirectory = async (
     gitSource = gitResult.source;
   }
 
-  reporter?.start("Preparing the sync artifact directory...");
   await mkdir(syncDirectory, { recursive: true });
   await ensureManagedRepositoryAttributes(syncDirectory);
 
   if (await pathExists(await resolveJsoncConfigPath(configPath))) {
-    reporter?.start("Loading the existing sync config...");
     const config = await readSyncConfig(syncDirectory, context);
 
-    const ageBootstrap = await resolveInitAgeBootstrap(request, reporter);
+    const ageBootstrap = await resolveInitAgeBootstrap(request);
 
     if (configExists) {
       return buildAlreadyInitializedResult(config, {
@@ -371,7 +343,6 @@ export const initializeSyncDirectory = async (
       });
     }
 
-    reporter?.start("Writing global dotweave settings...");
     await writeGlobalSettings(globalConfigPath);
 
     const age =
@@ -397,19 +368,14 @@ export const initializeSyncDirectory = async (
     };
   }
 
-  reporter?.start("Preparing sync encryption settings...");
-  const ageBootstrap = await resolveInitAgeBootstrap(request, reporter);
+  const ageBootstrap = await resolveInitAgeBootstrap(request);
 
-  // Write global settings.jsonc (without age)
-  reporter?.start("Writing global dotweave settings...");
   await writeGlobalSettings(globalConfigPath);
 
-  // Write sync config with age
   const initialConfig = createInitialSyncConfig({
     recipients: [...new Set(ageBootstrap.recipients.map((r) => r.trim()))],
   });
 
-  reporter?.start("Writing sync config...");
   parseSyncConfig(initialConfig, context);
   await writeFile(configPath, formatSyncConfig(initialConfig), "utf8");
 

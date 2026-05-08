@@ -4,7 +4,6 @@ import {
   type SyncMode,
 } from "#app/config/sync.ts";
 import { ensureGitRepository } from "#app/lib/git.ts";
-import type { CliLogger } from "#app/services/terminal/logger.ts";
 import type { PullPlan } from "./pull.ts";
 import {
   buildPullPlan,
@@ -116,35 +115,19 @@ const buildPullChanges = (plan: PullPlan): PullChanges => {
 export const getStatus = async (
   options: Readonly<{
     profile?: string;
-    reporter?: CliLogger;
   }> = {},
 ): Promise<StatusResult> => {
-  const reporter = options.reporter;
-
-  reporter?.start("Analyzing sync status...");
   const { syncDirectory } = resolveSyncPaths();
   const configPath = resolveSyncConfigFilePath(syncDirectory);
 
-  reporter?.start("Checking sync directory...");
   await ensureGitRepository(syncDirectory);
 
-  reporter?.start("Loading sync configuration...");
   const { effectiveConfig, fullConfig } = await loadSyncConfig(
     syncDirectory,
     options,
   );
-  reporter?.start("Building push plan...");
-  const pushPlan = await buildPushPlan(
-    effectiveConfig,
-    syncDirectory,
-    reporter,
-  );
-  reporter?.start("Building pull plan...");
-  const pullPlan = await buildPullPlan(
-    effectiveConfig,
-    syncDirectory,
-    reporter,
-  );
+  const pushPlan = await buildPushPlan(effectiveConfig, syncDirectory);
+  const pullPlan = await buildPullPlan(effectiveConfig, syncDirectory);
   const pushChanges = await buildPushChanges(
     pushPlan,
     syncDirectory,

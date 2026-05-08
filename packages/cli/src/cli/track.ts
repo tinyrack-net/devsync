@@ -4,10 +4,7 @@ import { CONSTANTS } from "#app/config/constants.ts";
 import { DotweaveError } from "#app/lib/error.ts";
 import { assignProfiles } from "#app/services/profile.ts";
 import { setTargetMode } from "#app/services/set.ts";
-import {
-  type DotweaveCliContext,
-  verboseFlag,
-} from "#app/services/terminal/cli-runtime.ts";
+import { type DotweaveCliContext } from "#app/services/terminal/cli-runtime.ts";
 import { createCliLogger } from "#app/services/terminal/logger.ts";
 import { proposePathCompletions } from "#app/services/terminal/path-completion.ts";
 import { trackTarget } from "#app/services/track.ts";
@@ -16,7 +13,6 @@ type TrackFlags = {
   mode: "ignore" | "normal" | "secret";
   profile?: readonly string[];
   repoPath?: string;
-  verbose?: boolean;
 };
 
 const trackCommand = buildCommand<TrackFlags, string[], DotweaveCliContext>({
@@ -26,8 +22,7 @@ const trackCommand = buildCommand<TrackFlags, string[], DotweaveCliContext>({
       "Register one or more files or directories inside your home directory so dotweave can mirror them into the sync directory. If a target is already tracked, its mode is updated. Targets may also be repository paths inside a tracked directory to create child entries with a specific mode.",
   },
   async func(flags, ...targets) {
-    const verbose = flags.verbose ?? false;
-    const logger = createCliLogger({ verbose });
+    const logger = createCliLogger();
     const profiles = [...(flags.profile ?? [])];
     const cwd = process.cwd();
 
@@ -41,17 +36,7 @@ const trackCommand = buildCommand<TrackFlags, string[], DotweaveCliContext>({
       );
     }
 
-    if (verbose) {
-      logger.start(
-        `Processing ${targets.length} sync target${targets.length === 1 ? "" : "s"}...`,
-      );
-    }
-
     for (const target of targets) {
-      if (verbose) {
-        logger.start(`Resolving ${target}...`);
-      }
-
       try {
         const result = await trackTarget(
           {
@@ -80,22 +65,12 @@ const trackCommand = buildCommand<TrackFlags, string[], DotweaveCliContext>({
         logger.log(
           `  ${result.localPath} · mode: ${result.mode}${profileInfo}`,
         );
-
-        if (verbose) {
-          logger.log(pc.dim(`  kind: ${result.kind}`));
-          logger.log(pc.dim(`  sync dir  ${result.syncDirectory}`));
-          logger.log(pc.dim(`  config    ${result.configPath}`));
-        }
       } catch (error: unknown) {
         if (
           flags.repoPath === undefined &&
           error instanceof DotweaveError &&
           error.code === "TARGET_NOT_FOUND"
         ) {
-          if (verbose) {
-            logger.start(`Updating existing target ${target}...`);
-          }
-
           const setResult = await setTargetMode(
             { mode: flags.mode, target },
             cwd,
@@ -119,12 +94,6 @@ const trackCommand = buildCommand<TrackFlags, string[], DotweaveCliContext>({
 
           if (setResult.reason === "already-set") {
             logger.log(pc.dim(`  already ${setResult.mode}`));
-          }
-
-          if (verbose) {
-            logger.log(pc.dim(`  local     ${setResult.localPath}`));
-            logger.log(pc.dim(`  sync dir  ${setResult.syncDirectory}`));
-            logger.log(pc.dim(`  config    ${setResult.configPath}`));
           }
 
           continue;
@@ -157,7 +126,6 @@ const trackCommand = buildCommand<TrackFlags, string[], DotweaveCliContext>({
         parse: String,
         placeholder: "path",
       },
-      verbose: verboseFlag,
     },
     positional: {
       kind: "array",

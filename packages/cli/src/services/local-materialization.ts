@@ -37,32 +37,12 @@ import {
 } from "#app/lib/filesystem.ts";
 import { buildDirectoryKey } from "#app/lib/path.ts";
 import { limitConcurrency } from "#app/lib/promise.ts";
-import type { CliLogger } from "#app/services/terminal/logger.ts";
 import type { FileLikeSnapshotNode, SnapshotNode } from "./local-snapshot.ts";
 
 type MaterializationConfig = ResolvedSyncConfig &
   Readonly<{
     activeProfile?: string;
   }>;
-
-const reportPullPlanningProgress = (
-  reporter: CliLogger | undefined,
-  state: { scannedLocalNodeCount: number },
-  repoPath: string,
-) => {
-  state.scannedLocalNodeCount += 1;
-
-  if ((reporter?.level ?? 0) >= 4) {
-    reporter?.verbose(`scanned local path ${repoPath} while planning pull`);
-    return;
-  }
-
-  if (state.scannedLocalNodeCount % 100 === 0) {
-    reporter?.start(
-      `Scanned ${state.scannedLocalNodeCount} local paths while planning pull...`,
-    );
-  }
-};
 
 export type EntryMaterialization =
   | Readonly<{
@@ -212,10 +192,8 @@ const resolveStagingParentDirectory = (targetPath: string) => {
 const stageAndReplaceFilePath = async (
   targetPath: string,
   node: FileLikeSnapshotNode,
-  reporter?: CliLogger,
   fileMode?: number,
 ) => {
-  reporter?.verbose(`staging local file ${targetPath}`);
   await mkdir(dirname(targetPath), { recursive: true });
   const stagingDirectory = await mkdtemp(
     join(
@@ -317,13 +295,11 @@ export const buildEntryMaterialization = (
   entry: ResolvedSyncConfigEntry,
   snapshot: ReadonlyMap<string, SnapshotNode>,
   config: Pick<ResolvedSyncConfig, "entries">,
-  reporter?: CliLogger,
 ): EntryMaterialization => {
   if (entry.kind === "file") {
     const node = snapshot.get(entry.repoPath);
 
     if (node === undefined) {
-      reporter?.verbose(`planned an absent local file ${entry.repoPath}`);
       return {
         desiredKeys: new Set<string>(),
         type: "absent",
@@ -341,7 +317,6 @@ export const buildEntryMaterialization = (
       );
     }
 
-    reporter?.verbose(`planned a local file ${entry.repoPath}`);
     return {
       desiredKeys: new Set<string>([entry.repoPath]),
       node,
@@ -385,7 +360,6 @@ export const buildEntryMaterialization = (
   }
 
   if (rootNode === undefined && nodes.size === 0) {
-    reporter?.verbose(`planned an absent local directory ${entry.repoPath}`);
     return {
       desiredKeys,
       type: "absent",
@@ -393,7 +367,6 @@ export const buildEntryMaterialization = (
   }
 
   desiredKeys.add(buildDirectoryKey(entry.repoPath));
-  reporter?.verbose(`planned a local directory ${entry.repoPath}`);
 
   return {
     desiredKeys,
@@ -409,10 +382,6 @@ const collectLocalLeafKeys = async (
   keyToLocalPath: Map<string, string> | undefined,
   childEntryPaths: ReadonlySet<string>,
   prefix?: string,
-  reporter?: CliLogger,
-  progressState: { scannedLocalNodeCount: number } = {
-    scannedLocalNodeCount: 0,
-  },
   providedStats?: Awaited<ReturnType<typeof getPathStats>>,
 ) => {
   const stats = providedStats ?? (await getPathStats(targetPath));
@@ -422,7 +391,6 @@ const collectLocalLeafKeys = async (
   }
 
   if (!stats.isDirectory()) {
-    reportPullPlanningProgress(reporter, progressState, repoPathPrefix);
     keys.add(repoPathPrefix);
     keyToLocalPath?.set(repoPathPrefix, targetPath);
 
@@ -452,8 +420,6 @@ const collectLocalLeafKeys = async (
       continue;
     }
 
-    reportPullPlanningProgress(reporter, progressState, repoPath);
-
     if (childStats?.isDirectory()) {
       await collectLocalLeafKeys(
         absolutePath,
@@ -462,8 +428,6 @@ const collectLocalLeafKeys = async (
         keyToLocalPath,
         childEntryPaths,
         relativePath,
-        reporter,
-        progressState,
       );
       continue;
     }
@@ -545,7 +509,6 @@ const reconcileMaterializedDirectoryPath = async (
   desiredKeys: ReadonlySet<string>,
   desiredNodes: ReadonlyMap<string, FileLikeSnapshotNode>,
   config: MaterializationConfig,
-  reporter?: CliLogger,
   fileMode?: number,
 ) => {
   const desiredRootKey = buildDirectoryKey(entry.repoPath);
@@ -577,8 +540,6 @@ const reconcileMaterializedDirectoryPath = async (
     },
   );
 
-  let processedNodeCount = 0;
-
   await limitConcurrency(
     CONSTANTS.SYNC.DEFAULT_CONCURRENCY,
     [...desiredNodes.keys()].sort((left, right) => {
@@ -599,18 +560,7 @@ const reconcileMaterializedDirectoryPath = async (
         return;
       }
 
-      await stageAndReplaceFilePath(targetNodePath, node, reporter, fileMode);
-      processedNodeCount += 1;
-
-      if ((reporter?.level ?? 0) >= 4) {
-        reporter?.verbose(
-          `updated local node ${posix.join(entry.repoPath, relativePath)}`,
-        );
-      } else if (processedNodeCount % 100 === 0) {
-        reporter?.start(
-          `Updated ${processedNodeCount} local nodes for ${entry.repoPath}...`,
-        );
-      }
+      await stageAndReplaceFilePath(targetNodePath, node, fileMode);
     },
   );
 
@@ -621,7 +571,6 @@ const reconcileMaterializedDirectoryPath = async (
     desiredKeys,
     config,
     existingKeys,
-    reporter,
     keyToLocalPath,
   );
 
@@ -639,7 +588,6 @@ const reconcileMaterializedDirectoryPath = async (
     }
 
     await removePathAtomically(localPath);
-    reporter?.verbose(`removed stale local path ${key}`);
   }
 };
 
@@ -648,7 +596,6 @@ export const countDeletedLocalNodes = async (
   desiredKeys: ReadonlySet<string>,
   config: MaterializationConfig,
   existingKeys: Set<string> = new Set<string>(),
-  reporter?: CliLogger,
   keyToLocalPath?: Map<string, string>,
   deletedKeys?: Set<string>,
 ) => {
@@ -658,7 +605,6 @@ export const countDeletedLocalNodes = async (
     return 0;
   }
 
-  const progressState = { scannedLocalNodeCount: 0 };
   const childEntryPaths =
     entry.kind === "directory"
       ? collectChildEntryPaths(config, entry.repoPath)
@@ -676,8 +622,6 @@ export const countDeletedLocalNodes = async (
     keyToLocalPath,
     childEntryPaths,
     undefined,
-    reporter,
-    progressState,
     rootStats,
   );
 
@@ -712,7 +656,6 @@ export const collectChangedLocalPaths = async (
       materialization.desiredKeys,
       config,
       existingKeys,
-      undefined,
       keyToLocalPath,
       deletedKeys,
     );
@@ -783,7 +726,6 @@ export const collectChangedLocalPaths = async (
       materialization.desiredKeys,
       config,
       existingKeys,
-      undefined,
       keyToLocalPath,
       deletedKeys,
     );
@@ -806,7 +748,6 @@ export const applyEntryMaterialization = async (
   entry: ResolvedSyncConfigEntry,
   materialization: EntryMaterialization,
   config: MaterializationConfig,
-  reporter?: CliLogger,
 ) => {
   const rule = resolveSyncRule(config, entry.repoPath, config.activeProfile);
 
@@ -821,7 +762,6 @@ export const applyEntryMaterialization = async (
         materialization.desiredKeys,
         new Map(),
         config,
-        reporter,
         entry.permission,
       );
 
@@ -837,7 +777,6 @@ export const applyEntryMaterialization = async (
     await stageAndReplaceFilePath(
       entry.localPath,
       materialization.node,
-      reporter,
       entry.permission,
     );
 
@@ -849,7 +788,6 @@ export const applyEntryMaterialization = async (
     materialization.desiredKeys,
     materialization.nodes,
     config,
-    reporter,
     entry.permission,
   );
 };

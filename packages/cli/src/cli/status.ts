@@ -5,15 +5,11 @@ import {
   type PullChanges,
   type PushChanges,
 } from "#app/services/status.ts";
-import {
-  type DotweaveCliContext,
-  verboseFlag,
-} from "#app/services/terminal/cli-runtime.ts";
+import { type DotweaveCliContext } from "#app/services/terminal/cli-runtime.ts";
 import { createCliLogger } from "#app/services/terminal/logger.ts";
 
 type StatusFlags = {
   profile?: string;
-  verbose?: boolean;
 };
 
 const MAX_DISPLAY_ITEMS = 10;
@@ -132,13 +128,10 @@ const statusCommand = buildCommand<StatusFlags, [], DotweaveCliContext>({
       "Compare the tracked local files with the sync directory and report what push would write to the repository and what pull would write back locally.",
   },
   async func(flags) {
-    const verbose = flags.verbose ?? false;
-    const logger = createCliLogger({ verbose });
-    const reporter = verbose ? logger : undefined;
+    const logger = createCliLogger();
 
     const result = await getStatus({
       profile: flags.profile,
-      reporter,
     });
 
     logger.info("Sync status");
@@ -153,31 +146,6 @@ const statusCommand = buildCommand<StatusFlags, [], DotweaveCliContext>({
     logger.log("");
     logger.log(`${pc.bold("Pull changes")} ${pc.dim("(local):")}`);
     logPullChanges(logger, result.pull.changes);
-
-    if (verbose) {
-      logger.log("");
-      logger.log(pc.bold("Entries:"));
-
-      if (result.entries.length === 0) {
-        logger.log(pc.dim("  none"));
-      } else {
-        for (const entry of result.entries) {
-          const profiles =
-            entry.profiles.length > 0
-              ? `, profiles: ${entry.profiles.join(", ")}`
-              : "";
-          logger.log(
-            pc.dim(
-              `  ${entry.repoPath} → ${entry.localPath} (${entry.kind}, ${entry.mode}${profiles})`,
-            ),
-          );
-        }
-      }
-
-      logger.log("");
-      logger.log(pc.dim(`  sync dir  ${result.syncDirectory}`));
-      logger.log(pc.dim(`  config    ${result.configPath}`));
-    }
   },
   parameters: {
     flags: {
@@ -188,7 +156,6 @@ const statusCommand = buildCommand<StatusFlags, [], DotweaveCliContext>({
         parse: String,
         placeholder: "profile",
       },
-      verbose: verboseFlag,
     },
   },
 });

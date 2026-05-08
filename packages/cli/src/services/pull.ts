@@ -3,7 +3,6 @@ import { resolveSyncConfigFilePath } from "#app/config/sync.ts";
 import { ensureGitRepository } from "#app/lib/git.ts";
 import { doPathsOverlap, isPathEqualOrNested } from "#app/lib/path.ts";
 import { limitConcurrency } from "#app/lib/promise.ts";
-import type { CliLogger } from "#app/services/terminal/logger.ts";
 import {
   applyEntryMaterialization,
   buildEntryMaterialization,
@@ -120,21 +119,14 @@ const buildUpdatedLocalPaths = async (
 export const buildPullPlan = async (
   config: EffectiveSyncConfig,
   syncDirectory: string,
-  reporter?: CliLogger,
 ): Promise<PullPlan> => {
-  reporter?.start("Scanning repository artifacts...");
-  const snapshot = await buildRepositorySnapshot(
-    syncDirectory,
-    config,
-    reporter,
-  );
-  reporter?.start("Planning local materializations...");
+  const snapshot = await buildRepositorySnapshot(syncDirectory, config);
   const materializations = config.entries.map((entry) => {
     if (entry.mode === "ignore") {
       return undefined;
     }
 
-    return buildEntryMaterialization(entry, snapshot, config, reporter);
+    return buildEntryMaterialization(entry, snapshot, config);
   });
 
   let deletedLocalCount = 0;
@@ -142,7 +134,6 @@ export const buildPullPlan = async (
   const keyToLocalPath = new Map<string, string>();
   const deletedKeys = new Set<string>();
 
-  reporter?.start("Scanning existing local paths...");
   for (let index = 0; index < config.entries.length; index += 1) {
     const entry = config.entries[index];
     const materialization = materializations[index];
@@ -159,7 +150,6 @@ export const buildPullPlan = async (
       materialization.desiredKeys,
       config,
       entryExistingKeys,
-      reporter,
       entryKeyToLocalPath,
       deletedKeys,
     );
@@ -221,12 +211,11 @@ export const buildPullResultFromPlan = (
 
 export const pullChanges = async (
   request: PullRequest,
-  reporter?: CliLogger,
 ): Promise<PullResult> => {
-  const prepared = await preparePull(request, reporter);
+  const prepared = await preparePull(request);
 
   if (!request.dryRun) {
-    await applyPullPlan(prepared.config, prepared.plan, reporter);
+    await applyPullPlan(prepared.config, prepared.plan);
   }
 
   return buildPullResultFromPlan(
@@ -238,19 +227,15 @@ export const pullChanges = async (
 
 export const preparePull = async (
   request: PullRequest,
-  reporter?: CliLogger,
 ): Promise<PreparedPull> => {
-  reporter?.start("Starting pull...");
   const { syncDirectory } = resolveSyncPaths();
 
-  reporter?.start("Checking sync directory...");
   await ensureGitRepository(syncDirectory);
 
-  reporter?.start("Loading sync configuration...");
   const { effectiveConfig: config } = await loadSyncConfig(syncDirectory, {
     ...(request.profile === undefined ? {} : { profile: request.profile }),
   });
-  const plan = await buildPullPlan(config, syncDirectory, reporter);
+  const plan = await buildPullPlan(config, syncDirectory);
 
   return {
     config,
@@ -305,7 +290,6 @@ const buildApplyPullPlanBatches = (
 export const applyPullPlan = async (
   config: EffectiveSyncConfig,
   plan: PullPlan,
-  reporter?: CliLogger,
 ) => {
   for (const batch of buildApplyPullPlanBatches(config, plan)) {
     await limitConcurrency(
@@ -319,13 +303,7 @@ export const applyPullPlan = async (
           return;
         }
 
-        reporter?.start(`Applying ${entry.repoPath}...`);
-        await applyEntryMaterialization(
-          entry,
-          materialization,
-          config,
-          reporter,
-        );
+        await applyEntryMaterialization(entry, materialization, config);
       },
     );
   }

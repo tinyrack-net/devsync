@@ -18,7 +18,6 @@ import { pullChanges } from "#app/services/pull.ts";
 import { pushChanges } from "#app/services/push.ts";
 import { setTargetMode } from "#app/services/set.ts";
 import { getStatus } from "#app/services/status.ts";
-import type { CliLogger } from "#app/services/terminal/logger.ts";
 import { trackTarget } from "#app/services/track.ts";
 import {
   createAgeKeyPair,
@@ -39,26 +38,6 @@ const createWorkspace = async () => {
 const setEnvironment = (homeDirectory: string, xdgConfigHome: string) => {
   mockEnv.HOME = homeDirectory;
   mockEnv.XDG_CONFIG_HOME = xdgConfigHome;
-};
-
-const createProgressCapture = (verbose = false) => {
-  const messages: string[] = [];
-  const reporter = {
-    level: verbose ? 4 : 3,
-    start: (message: string) => {
-      messages.push(message);
-    },
-    verbose: (message: string) => {
-      if (verbose) {
-        messages.push(`detail:${message}`);
-      }
-    },
-  } as unknown as CliLogger;
-
-  return {
-    messages,
-    reporter,
-  };
 };
 
 afterEach(async () => {
@@ -105,27 +84,15 @@ describe("sync dry runs", () => {
       },
       cwd,
     );
-    const { messages, reporter } = createProgressCapture();
 
-    const result = await pushChanges(
-      {
-        dryRun: true,
-      },
-      reporter,
-    );
+    const result = await pushChanges({
+      dryRun: true,
+    });
 
     expect(result.dryRun).toBe(true);
     expect(result.directoryCount).toBe(1);
     expect(result.plainFileCount).toBe(1);
     expect(result.encryptedFileCount).toBe(1);
-    expect(messages[0]).toBe("Starting push...");
-    expect(messages).toEqual(
-      expect.arrayContaining([
-        "Scanning local files...",
-        "Preparing repository artifacts...",
-        "Scanning existing repository artifacts...",
-      ]),
-    );
     await expect(
       readFile(
         join(
@@ -189,26 +156,14 @@ describe("sync dry runs", () => {
 
     await writeFile(plainFile, "changed locally\n", "utf8");
     await writeFile(extraFile, "leave me\n", "utf8");
-    const { messages, reporter } = createProgressCapture();
 
-    const result = await pullChanges(
-      {
-        dryRun: true,
-      },
-      reporter,
-    );
+    const result = await pullChanges({
+      dryRun: true,
+    });
 
     expect(result.dryRun).toBe(true);
     expect(result.plainFileCount).toBe(1);
     expect(result.deletedLocalCount).toBeGreaterThanOrEqual(1);
-    expect(messages[0]).toBe("Starting pull...");
-    expect(messages).toEqual(
-      expect.arrayContaining([
-        "Scanning repository artifacts...",
-        "Planning local materializations...",
-        "Scanning existing local paths...",
-      ]),
-    );
     expect(await readFile(plainFile, "utf8")).toBe("changed locally\n");
     expect(await readFile(extraFile, "utf8")).toBe("leave me\n");
   });
@@ -237,19 +192,8 @@ describe("sync dry runs", () => {
       },
       cwd,
     );
-    const { messages, reporter } = createProgressCapture();
-
-    const result = await getStatus({
-      reporter,
-    });
+    const result = await getStatus();
 
     expect(result.entryCount).toBe(1);
-    expect(messages[0]).toBe("Analyzing sync status...");
-    expect(messages).toEqual(
-      expect.arrayContaining([
-        "Building push plan...",
-        "Building pull plan...",
-      ]),
-    );
   });
 });

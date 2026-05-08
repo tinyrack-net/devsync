@@ -1,16 +1,12 @@
 import { buildCommand } from "@stricli/core";
 import pc from "picocolors";
 import { pushChanges } from "#app/services/push.ts";
-import {
-  type DotweaveCliContext,
-  verboseFlag,
-} from "#app/services/terminal/cli-runtime.ts";
+import { type DotweaveCliContext } from "#app/services/terminal/cli-runtime.ts";
 import { createCliLogger } from "#app/services/terminal/logger.ts";
 
 type PushFlags = {
   dryRun?: boolean;
   profile?: string;
-  verbose?: boolean;
 };
 
 const pushCommand = buildCommand<PushFlags, [], DotweaveCliContext>({
@@ -20,14 +16,12 @@ const pushCommand = buildCommand<PushFlags, [], DotweaveCliContext>({
       "Collect the current state of tracked local files and directories, then update the sync directory artifacts to match. Secret targets are encrypted before they are written into the repository.",
   },
   async func(flags) {
-    const verbose = flags.verbose ?? false;
-    const logger = createCliLogger({ verbose });
-    const reporter = verbose ? logger : undefined;
+    const logger = createCliLogger();
 
-    const result = await pushChanges(
-      { dryRun: flags.dryRun ?? false, profile: flags.profile },
-      reporter,
-    );
+    const result = await pushChanges({
+      dryRun: flags.dryRun ?? false,
+      profile: flags.profile,
+    });
 
     const stats = `${result.plainFileCount} plain · ${result.encryptedFileCount} encrypted · ${result.symlinkCount} symlinks · ${result.directoryCount} dirs`;
 
@@ -41,11 +35,6 @@ const pushCommand = buildCommand<PushFlags, [], DotweaveCliContext>({
     logger.log(
       `  ${result.deletedArtifactCount} stale artifacts ${result.dryRun ? "would be removed" : "removed"}`,
     );
-
-    if (verbose) {
-      logger.log(pc.dim(`  sync dir  ${result.syncDirectory}`));
-      logger.log(pc.dim(`  config    ${result.configPath}`));
-    }
   },
   parameters: {
     flags: {
@@ -61,7 +50,6 @@ const pushCommand = buildCommand<PushFlags, [], DotweaveCliContext>({
         parse: String,
         placeholder: "profile",
       },
-      verbose: verboseFlag,
     },
   },
 });

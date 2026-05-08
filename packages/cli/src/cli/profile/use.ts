@@ -1,15 +1,9 @@
 import { buildCommand } from "@stricli/core";
-import pc from "picocolors";
 import { clearActiveProfile, setActiveProfile } from "#app/services/profile.ts";
-import {
-  type DotweaveCliContext,
-  verboseFlag,
-} from "#app/services/terminal/cli-runtime.ts";
+import { type DotweaveCliContext } from "#app/services/terminal/cli-runtime.ts";
 import { createCliLogger } from "#app/services/terminal/logger.ts";
 
-type ProfileUseFlags = {
-  verbose?: boolean;
-};
+type ProfileUseFlags = Record<string, never>;
 
 const profileUseCommand = buildCommand<
   ProfileUseFlags,
@@ -21,9 +15,8 @@ const profileUseCommand = buildCommand<
     fullDescription:
       "Write ~/.config/dotweave/settings.jsonc so plain push, pull, status, and doctor commands use the selected profile layer by default. Omit the profile name to clear the active profile.",
   },
-  async func(flags, profile) {
-    const verbose = flags.verbose ?? false;
-    const logger = createCliLogger({ verbose });
+  async func(_flags, profile) {
+    const logger = createCliLogger();
 
     const result =
       profile !== undefined
@@ -39,16 +32,9 @@ const profileUseCommand = buildCommand<
     if (result.warning) {
       logger.warn(`  ${result.warning}`);
     }
-
-    if (verbose) {
-      logger.log(pc.dim(`  sync dir  ${result.syncDirectory}`));
-      logger.log(pc.dim(`  config    ${result.globalConfigPath}`));
-    }
   },
   parameters: {
-    flags: {
-      verbose: verboseFlag,
-    },
+    flags: {},
     positional: {
       kind: "tuple",
       parameters: [

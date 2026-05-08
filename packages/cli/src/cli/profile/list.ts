@@ -1,15 +1,9 @@
 import { buildCommand } from "@stricli/core";
-import pc from "picocolors";
 import { listProfiles } from "#app/services/profile.ts";
-import {
-  type DotweaveCliContext,
-  verboseFlag,
-} from "#app/services/terminal/cli-runtime.ts";
+import { type DotweaveCliContext } from "#app/services/terminal/cli-runtime.ts";
 import { createCliLogger } from "#app/services/terminal/logger.ts";
 
-type ProfileListFlags = {
-  verbose?: boolean;
-};
+type ProfileListFlags = Record<string, never>;
 
 const profileListCommand = buildCommand<
   ProfileListFlags,
@@ -21,9 +15,8 @@ const profileListCommand = buildCommand<
     fullDescription:
       "List the profile names referenced by the current sync configuration and show which profile is active through ~/.config/dotweave/settings.jsonc.",
   },
-  async func(flags) {
-    const verbose = flags.verbose ?? false;
-    const logger = createCliLogger({ verbose });
+  async func() {
+    const logger = createCliLogger();
 
     const result = await listProfiles();
 
@@ -36,29 +29,9 @@ const profileListCommand = buildCommand<
     if (result.activeProfile === undefined && result.assignments.length > 0) {
       logger.warn("  restricted entries are skipped until a profile is active");
     }
-
-    if (verbose) {
-      logger.log("  assignments:");
-      if (result.assignments.length === 0) {
-        logger.log(pc.dim("    none"));
-      } else {
-        for (const assignment of result.assignments) {
-          logger.log(
-            pc.dim(
-              `    ${assignment.entryRepoPath} → [${assignment.profiles.join(", ")}]`,
-            ),
-          );
-        }
-      }
-
-      logger.log(pc.dim(`  sync dir  ${result.syncDirectory}`));
-      logger.log(pc.dim(`  config    ${result.globalConfigPath}`));
-    }
   },
   parameters: {
-    flags: {
-      verbose: verboseFlag,
-    },
+    flags: {},
   },
 });
 

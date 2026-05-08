@@ -83,25 +83,4 @@ describe("doctor CLI e2e", () => {
     expect(out).toContain("Doctor passed");
     expect(out).not.toContain("local – 1 tracked local path is missing");
   });
-
-  it("shows detailed check results with --verbose", async () => {
-    const configDir = join(ctx.homeDir, ".config", "myapp");
-    const configFile = join(configDir, "config.toml");
-    const ageKeys = await ctx.createAgeKeyPair();
-
-    await ctx.writeIdentityFile(ageKeys.identity);
-    await mkdir(configDir, { recursive: true });
-    await writeFile(configFile, "key = value\n");
-
-    await ctx.runCli(["init"]);
-    await ctx.runCli(["track", configDir]);
-
-    const result = await ctx.runCli(["doctor", "--verbose"]);
-
-    expect(result.exitCode).toBe(0);
-    const out = stripAnsi(result.stdout);
-    expect(out).toContain("Doctor passed");
-    expect(out).toContain("sync dir");
-    expect(out).toContain("config");
-  });
 });

@@ -1,4 +1,3 @@
-import { spawn } from "node:child_process";
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -26,70 +25,6 @@ beforeEach(async () => {
 afterEach(async () => {
   await ctx.cleanup();
 });
-
-const runCliStreaming = async (
-  args: readonly string[],
-  env?: NodeJS.ProcessEnv,
-) => {
-  const child = spawn(process.execPath, [...cliNodeOptions, ...args], {
-    env: {
-      ...process.env,
-      ...ctx.baseEnv,
-      ...env,
-    },
-    stdio: ["ignore", "pipe", "pipe"],
-  });
-  let stdout = "";
-  let stderr = "";
-
-  child.stdout.setEncoding("utf8");
-  child.stderr.setEncoding("utf8");
-  child.stdout.on("data", (chunk: string) => {
-    stdout += chunk;
-  });
-  child.stderr.on("data", (chunk: string) => {
-    stderr += chunk;
-  });
-
-  const exitCodePromise = new Promise<number>((resolve, reject) => {
-    child.on("close", (code) => {
-      resolve(code ?? -1);
-    });
-    child.on("error", reject);
-  });
-
-  const firstStdout = await new Promise<string>((resolve, reject) => {
-    const onData = (chunk: string) => {
-      cleanup();
-      resolve(chunk);
-    };
-    const onClose = () => {
-      cleanup();
-      reject(new Error("Process exited before emitting progress output."));
-    };
-    const onError = (error: Error) => {
-      cleanup();
-      reject(error);
-    };
-    const cleanup = () => {
-      child.stdout.off("data", onData);
-      child.off("close", onClose);
-      child.off("error", onError);
-    };
-
-    child.stdout.on("data", onData);
-    child.on("close", onClose);
-    child.on("error", onError);
-  });
-  const exitCode = await exitCodePromise;
-
-  return {
-    exitCode,
-    firstStdout,
-    stderr,
-    stdout,
-  };
-};
 
 describe("sync CLI e2e", () => {
   it("generates a default age identity for bare init", async () => {
@@ -547,35 +482,6 @@ describe("sync CLI e2e", () => {
       "Updated tracking for .config/mytool",
     );
     expect(stripAnsi(result.stdout)).toContain("mode: secret");
-  });
-
-  it("streams push progress to stdout before the command exits", async () => {
-    const bundleDirectory = join(ctx.homeDir, ".config", "streaming");
-    const ageKeys = await ctx.createAgeKeyPair();
-
-    await ctx.writeIdentityFile(ageKeys.identity);
-    await mkdir(bundleDirectory, { recursive: true });
-
-    for (let index = 0; index < 150; index += 1) {
-      await writeFile(
-        join(bundleDirectory, `file-${String(index).padStart(3, "0")}.txt`),
-        `value-${index}\n`,
-        "utf8",
-      );
-    }
-
-    await ctx.runCli(["init"]);
-    await ctx.runCli(["track", bundleDirectory]);
-
-    const result = await runCliStreaming(["push", "--verbose"]);
-
-    expect(
-      result.exitCode,
-      `push exited with ${result.exitCode}\nstdout: ${result.stdout}\nstderr: ${result.stderr}`,
-    ).toBe(0);
-    expect(stripAnsi(result.firstStdout)).toContain("Starting push...");
-    expect(stripAnsi(result.stdout)).toContain("Scanning local files...");
-    expect(stripAnsi(result.stdout)).toContain("Push complete");
   });
 
   it("previews push changes without writing artifacts when --dry-run is used", async () => {

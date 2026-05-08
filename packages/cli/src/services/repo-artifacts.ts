@@ -25,7 +25,6 @@ import {
 } from "#app/lib/filesystem.ts";
 import { buildDirectoryKey } from "#app/lib/path.ts";
 import { limitConcurrency } from "#app/lib/promise.ts";
-import type { CliLogger } from "#app/services/terminal/logger.ts";
 import type { SnapshotNode } from "./local-snapshot.ts";
 import type { EffectiveSyncConfig } from "./runtime.ts";
 
@@ -157,11 +156,9 @@ export const parseArtifactRelativePath = (relativePath: string) => {
 export const buildRepoArtifacts = async (
   snapshot: ReadonlyMap<string, SnapshotNode>,
   config: ArtifactConfig,
-  reporter?: CliLogger,
 ) => {
   const artifacts: RepoArtifact[] = [];
   const seenArtifactKeys = new Set<string>();
-  let preparedArtifactCount = 0;
 
   const addArtifact = (artifact: RepoArtifact) => {
     const key = buildArtifactKey(artifact);
@@ -175,17 +172,6 @@ export const buildRepoArtifacts = async (
 
     seenArtifactKeys.add(key);
     artifacts.push(artifact);
-    preparedArtifactCount += 1;
-
-    const relativePath = resolveArtifactRelativePath(artifact);
-
-    if ((reporter?.level ?? 0) >= 4) {
-      reporter?.verbose(`prepared repository artifact ${relativePath}`);
-    } else if (preparedArtifactCount % 100 === 0) {
-      reporter?.start(
-        `Prepared ${preparedArtifactCount} repository artifacts...`,
-      );
-    }
   };
 
   for (const repoPath of [...snapshot.keys()].sort((left, right) => {
@@ -296,24 +282,10 @@ const collectArtifactLeafKeys = async (
 export const collectExistingArtifactKeys = async (
   syncDirectory: string,
   config: ArtifactConfig,
-  reporter?: CliLogger,
 ) => {
   const keys = new Set<string>();
   const artifactsDirectory = syncDirectory;
   const artifactProfiles = collectArtifactProfiles(config.entries);
-  let discoveredArtifactCount = 0;
-
-  const noteDiscoveredArtifact = (key: string) => {
-    discoveredArtifactCount += 1;
-
-    if ((reporter?.level ?? 0) >= 4) {
-      reporter?.verbose(`found repository artifact ${key}`);
-    } else if (discoveredArtifactCount % 100 === 0) {
-      reporter?.start(
-        `Scanned ${discoveredArtifactCount} repository artifacts...`,
-      );
-    }
-  };
 
   await Promise.all(
     [...artifactProfiles].map(async (profile) => {
@@ -321,7 +293,6 @@ export const collectExistingArtifactKeys = async (
         join(artifactsDirectory, profile),
         keys,
         profile,
-        noteDiscoveredArtifact,
       );
     }),
   );
@@ -471,25 +442,8 @@ export const writeArtifactsToDirectory = async (
   rootDirectory: string,
   artifacts: readonly RepoArtifact[],
   ageConfig?: AgeWriteConfig,
-  reporter?: CliLogger,
 ) => {
   await mkdir(rootDirectory, { recursive: true });
-  let processedArtifactCount = 0;
-
-  const noteProcessedArtifact = (relativePath: string, action: string) => {
-    processedArtifactCount += 1;
-
-    if ((reporter?.level ?? 0) >= 4) {
-      reporter?.verbose(`${action} ${relativePath}`);
-      return;
-    }
-
-    if (processedArtifactCount % 100 === 0) {
-      reporter?.start(
-        `Processed ${processedArtifactCount} repository artifacts...`,
-      );
-    }
-  };
 
   await limitConcurrency(
     CONSTANTS.SYNC.DEFAULT_CONCURRENCY,
@@ -507,22 +461,16 @@ export const writeArtifactsToDirectory = async (
             : { identityFile: ageConfig.identityFile },
         )
       ) {
-        noteProcessedArtifact(
-          relativePath,
-          "skipped unchanged repository artifact",
-        );
         return;
       }
 
       if (artifact.kind === "directory") {
         await mkdir(artifactPath, { recursive: true });
-        noteProcessedArtifact(relativePath, "ensured repository directory");
         return;
       }
 
       if (artifact.kind === "symlink") {
         await writeSymlinkNode(artifactPath, artifact.linkTarget);
-        noteProcessedArtifact(relativePath, "wrote repository symlink");
         return;
       }
 
@@ -536,12 +484,10 @@ export const writeArtifactsToDirectory = async (
           contents: encrypted,
           executable: artifact.executable,
         });
-        noteProcessedArtifact(relativePath, "wrote repository secret artifact");
         return;
       }
 
       await writeFileNode(artifactPath, artifact);
-      noteProcessedArtifact(relativePath, "wrote repository file");
     },
   );
 };
