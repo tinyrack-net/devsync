@@ -12,13 +12,4 @@ export const resolveDefaultIdentityFile = (
   );
 };
 
-export const resolveLegacyIdentityFile = (
-  home: string | undefined,
-  xdgConfigHome: string | undefined,
-) => {
-  return resolveConfiguredAbsolutePath(
-    CONSTANTS.INIT.LEGACY_IDENTITY_FILE,
-    home,
-    xdgConfigHome,
-  );
-};
+

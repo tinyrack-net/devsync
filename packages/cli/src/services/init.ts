@@ -52,7 +52,7 @@ export type InitResult = Readonly<{
   recipientCount: number;
 }>;
 
-export const defaultSyncIdentityFile = CONSTANTS.INIT.DEFAULT_IDENTITY_FILE;
+
 
 const managedRepositoryAttributesFileName = ".gitattributes";
 const managedRepositoryAttributesContents = "* -text\n";

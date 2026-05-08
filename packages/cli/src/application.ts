@@ -91,7 +91,7 @@ const application = buildApplication(rootRoute, {
 
 setApplication(application);
 
-export const cliApplication = application;
+const cliApplication = application;
 
 export const runCli = async (inputs: readonly string[]) => {
   await run(cliApplication, inputs, {

@@ -12,10 +12,8 @@ import { normalizeSyncProfileName } from "./sync-schema.ts";
 
 const globalConfigMigrationRegistry = new Map([[2, migrateGlobalConfigV2ToV3]]);
 
-const optionalTrimmedStringSchema = z.string().trim().min(1).optional();
-
 const globalConfigSchema = z.object({
-  activeProfile: optionalTrimmedStringSchema,
+  activeProfile: z.string().trim().min(1).optional(),
   version: z.literal(CONSTANTS.GLOBAL_CONFIG.CURRENT_VERSION),
 });
 
