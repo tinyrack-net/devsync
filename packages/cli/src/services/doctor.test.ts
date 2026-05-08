@@ -363,7 +363,7 @@ describe("sync doctor", () => {
     expect(result.checks).toContainEqual({
       checkId: "local-paths",
       detail:
-        "File sync entry resolves to a directory in the repository.\nRepository path: .config/item-0\nHint: Run 'dotweave push' or fix the repository so this path is stored as a file.",
+        "File sync entry resolves to a directory in the repository.\nRepository path: .config/item-0\n→ Run 'dotweave push' or fix the repository so this path is stored as a file.",
       level: "fail",
     });
   });

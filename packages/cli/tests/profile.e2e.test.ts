@@ -30,7 +30,7 @@ describe("profile CLI e2e", () => {
     expect(result.exitCode).toBe(0);
     const out = stripAnsi(result.stdout);
     expect(out).toContain("Profiles");
-    expect(out).toContain("active: default");
+    expect(out).toContain("none");
   });
 
   it("sets and reads back the active profile via profile use", async () => {

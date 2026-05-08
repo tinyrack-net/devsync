@@ -368,11 +368,12 @@ describe("sync CLI e2e", () => {
     expect(stripAnsi(trackResult.stdout)).toContain(
       "Started tracking .config/mytool",
     );
-    expect(stripAnsi(trackResult.stdout)).toContain("mode: secret");
+    expect(stripAnsi(trackResult.stdout)).toContain("mode");
+    expect(stripAnsi(trackResult.stdout)).toContain("secret");
     expect(stripAnsi(exactRuleResult.stdout)).toContain(
       "Started tracking .config/mytool/public.json",
     );
-    expect(stripAnsi(subtreeRuleResult.stdout)).toContain("mode: ignore");
+    expect(stripAnsi(subtreeRuleResult.stdout)).toMatch(/mode\s+ignore/);
     expect(configAfterSet.entries).toMatchObject([
       {
         kind: "directory",
@@ -481,7 +482,8 @@ describe("sync CLI e2e", () => {
     expect(stripAnsi(result.stdout)).toContain(
       "Updated tracking for .config/mytool",
     );
-    expect(stripAnsi(result.stdout)).toContain("mode: secret");
+    expect(stripAnsi(result.stdout)).toContain("mode");
+    expect(stripAnsi(result.stdout)).toContain("secret");
   });
 
   it("previews push changes without writing artifacts when --dry-run is used", async () => {

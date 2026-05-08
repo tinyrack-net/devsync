@@ -3,12 +3,24 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DotweaveError } from "#app/lib/error.ts";
 
 const mockLogger = vi.hoisted(() => ({
+  debug: vi.fn(),
+  divider: vi.fn(),
   fail: vi.fn(),
   info: vi.fn(),
-  level: 3,
+  kv: vi.fn(),
+  list: vi.fn(),
+  listKeyValue: vi.fn(),
   log: vi.fn(),
+  section: vi.fn(),
+  spinner: vi.fn(() => ({
+    succeed: vi.fn(),
+    fail: vi.fn(),
+    warn: vi.fn(),
+    stop: vi.fn(),
+  })),
   start: vi.fn(),
   success: vi.fn(),
+  verbose: false,
   warn: vi.fn(),
 }));
 
@@ -363,9 +375,8 @@ describe("CLI command modules", () => {
       recipients: [],
       repository: "git@example.com:dotfiles.git",
     });
-    expect(mockLogger.success).toHaveBeenCalledWith(
-      "Sync directory initialized",
-    );
+    const spin = mockLogger.spinner.mock.results[0]?.value;
+    expect(spin.succeed).toHaveBeenCalledWith("Sync directory initialized");
   });
 
   it("rejects a blank prompted key when importing an existing repository", async () => {
@@ -407,8 +418,12 @@ describe("CLI command modules", () => {
     expect(mockLogger.success).toHaveBeenCalledWith(
       "Started tracking profiles/work/.gitconfig",
     );
-    expect(mockLogger.log).toHaveBeenCalledWith(
-      expect.stringContaining("profiles: work"),
+    expect(mockLogger.listKeyValue).toHaveBeenCalledWith(
+      expect.arrayContaining([
+        expect.objectContaining({ key: "path" }),
+        expect.objectContaining({ key: "mode" }),
+        expect.objectContaining({ key: "profiles", value: "work" }),
+      ]),
     );
   });
 
@@ -469,8 +484,9 @@ describe("CLI command modules", () => {
     expect(mocked.listProfiles).toHaveBeenCalledTimes(1);
     expect(mocked.setActiveProfile).toHaveBeenCalledWith("work");
     expect(mocked.clearActiveProfile).toHaveBeenCalledTimes(1);
-    expect(mockLogger.log).toHaveBeenCalledWith(
-      expect.stringContaining("available: personal, work"),
+    expect(mockLogger.list).toHaveBeenCalledWith(
+      expect.arrayContaining(["personal", expect.stringContaining("work")]),
+      expect.any(Object),
     );
     expect(mockLogger.success).toHaveBeenCalledWith(
       "Active profile set to work",
@@ -501,11 +517,13 @@ describe("CLI command modules", () => {
     expect(mocked.getStatus).toHaveBeenCalledWith({
       profile: "work",
     });
-    expect(mockLogger.info).toHaveBeenCalledWith("Sync status");
-    expect(mockLogger.log).toHaveBeenCalledWith(
+    expect(mockLogger.info).toHaveBeenCalledWith(
+      expect.stringContaining("Sync status"),
+    );
+    expect(mockLogger.section).toHaveBeenCalledWith(
       expect.stringContaining("Push changes"),
     );
-    expect(mockLogger.log).toHaveBeenCalledWith(
+    expect(mockLogger.section).toHaveBeenCalledWith(
       expect.stringContaining("Pull changes"),
     );
   });
@@ -549,7 +567,8 @@ describe("CLI command modules", () => {
       "Apply these changes? [y/N] ",
     );
     expect(mocked.applyPullPlan).toHaveBeenCalledTimes(1);
-    expect(mockLogger.success).toHaveBeenCalledWith("Pull complete");
+    const applySpin = mockLogger.spinner.mock.results[1]?.value;
+    expect(applySpin?.succeed).toHaveBeenCalledWith("Pull complete");
   });
 
   it("cancels pull changes when confirmation is not y", async () => {
@@ -566,8 +585,16 @@ describe("CLI command modules", () => {
 
     expect(mocked.promptAsk).not.toHaveBeenCalled();
     expect(mocked.applyPullPlan).toHaveBeenCalledTimes(1);
-    expect(mockLogger.log).toHaveBeenCalledWith("  1 local paths updated");
-    expect(mockLogger.log).toHaveBeenCalledWith("  1 local paths removed");
+    const applySpin = mockLogger.spinner.mock.results[1]?.value;
+    expect(applySpin?.succeed).toHaveBeenCalledWith("Pull complete");
+    expect(mockLogger.kv).toHaveBeenCalledWith(
+      "updated",
+      expect.stringContaining("1 paths"),
+    );
+    expect(mockLogger.kv).toHaveBeenCalledWith(
+      "removed",
+      expect.stringContaining("1 paths"),
+    );
   });
 
   it("fails in non-interactive mode without --yes when changes exist", async () => {

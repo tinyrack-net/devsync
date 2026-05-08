@@ -19,7 +19,7 @@ describe("dotweave error helpers", () => {
     });
 
     expect(formatDotweaveError(error)).toBe(
-      "Unable to sync\nfirst detail\nsecond detail\nHint: Run dotweave doctor.",
+      "Unable to sync\nfirst detail\nsecond detail\n→ Run dotweave doctor.",
     );
   });
 

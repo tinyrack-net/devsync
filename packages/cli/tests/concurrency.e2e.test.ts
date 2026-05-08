@@ -45,7 +45,7 @@ describe("concurrency e2e", () => {
     const pushResult = await ctx.runCli(["push"]);
     expect(pushResult.exitCode).toBe(0);
     expect(pushResult.stdout).toContain("Push complete");
-    expect(pushResult.stdout).toContain(`${fileCount} plain`);
+    expect(pushResult.stdout).toContain(`plain: ${fileCount}`);
 
     // Modify some files locally to trigger updates during pull later
     for (let i = 0; i < 20; i += 1) {
