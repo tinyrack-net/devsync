@@ -1,4 +1,4 @@
-import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { chmod, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
@@ -559,6 +559,93 @@ describe("sync CLI e2e", () => {
     expect(result.exitCode).toBe(0);
     expect(stripAnsi(result.stdout)).toContain("Already up to date");
   });
+
+  it.skipIf(process.platform === "win32")(
+    "ignores repository artifact permission noise when content and executable intent match",
+    async () => {
+      const configDir = join(ctx.homeDir, ".config", "permission-noise");
+      const configFile = join(configDir, "config.toml");
+      const ageKeys = await ctx.createAgeKeyPair();
+
+      await ctx.writeIdentityFile(ageKeys.identity);
+      await mkdir(configDir, { recursive: true });
+      await writeFile(configFile, "version = 1\n");
+
+      await ctx.runCli(["init"]);
+      await ctx.runCli(["track", configDir]);
+      await ctx.runCli(["push"]);
+
+      const artifactFile = join(
+        ctx.xdgDir,
+        "dotweave",
+        "repository",
+        "default",
+        ".config",
+        "permission-noise",
+        "config.toml",
+      );
+
+      await chmod(artifactFile, 0o600);
+
+      const status = await ctx.runCli(["status"]);
+      const statusOutput = stripAnsi(status.stdout);
+
+      expect(statusOutput).toContain("No push changes");
+      expect(statusOutput).toContain("No pull changes");
+
+      const pull = await ctx.runCli(["pull"]);
+
+      expect(stripAnsi(pull.stdout)).toContain("Already up to date");
+    },
+  );
+
+  it.skipIf(process.platform === "win32")(
+    "reports local drift from explicit manifest permission",
+    async () => {
+      const keyFile = join(ctx.homeDir, ".ssh", "id_rsa");
+      const ageKeys = await ctx.createAgeKeyPair();
+
+      await ctx.writeIdentityFile(ageKeys.identity);
+      await mkdir(join(ctx.homeDir, ".ssh"), { recursive: true });
+      await writeFile(keyFile, "key\n");
+      await chmod(keyFile, 0o600);
+
+      await ctx.runCli(["init"]);
+      await writeFile(
+        join(ctx.xdgDir, "dotweave", "repository", "manifest.jsonc"),
+        formatSyncConfig({
+          ...createInitialSyncConfig({
+            recipients: [ageKeys.recipient],
+          }),
+          entries: [
+            {
+              kind: "file",
+              localPath: {
+                default: "~/.ssh/id_rsa",
+              },
+              mode: {
+                default: "normal",
+              },
+              permission: {
+                default: "0600",
+              },
+            },
+          ],
+        }),
+        "utf8",
+      );
+      await ctx.runCli(["push"]);
+      await chmod(keyFile, 0o644);
+
+      const status = await ctx.runCli(["status"]);
+      const pullPreview = await ctx.runCli(["pull", "--dry-run"]);
+
+      expect(stripAnsi(status.stdout)).toContain("No push changes");
+      expect(stripAnsi(status.stdout)).toContain("Changed (1)");
+      expect(stripAnsi(pullPreview.stdout)).toContain("Planned pull changes");
+      expect(stripAnsi(pullPreview.stdout)).toContain(keyFile);
+    },
+  );
 
   it.skipIf(process.platform !== "win32")(
     "treats opposite Windows text line endings as unchanged during pull",
