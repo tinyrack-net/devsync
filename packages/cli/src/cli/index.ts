@@ -1,14 +1,10 @@
-import { type Application, buildRouteMap } from "@stricli/core";
+import { buildRouteMap } from "@stricli/core";
 import { buildAutocompleteRoute } from "#app/cli/autocomplete.ts";
 import { rootCommandRoutes } from "#app/cli/root-commands.ts";
 import { CONSTANTS } from "#app/config/constants.ts";
-import type { DotweaveCliContext } from "#app/services/terminal/cli-runtime.ts";
 
-export const buildRootRoute = (
-  getApplication: () => Application<DotweaveCliContext>,
-) => {
-  const { autocompleteRoute, completeCommand } =
-    buildAutocompleteRoute(getApplication);
+export const buildRootRoute = () => {
+  const { autocompleteRoute, completeCommand } = buildAutocompleteRoute();
 
   return buildRouteMap({
     docs: {

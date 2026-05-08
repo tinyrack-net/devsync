@@ -15,6 +15,12 @@ import type { DotweaveCliContext } from "#app/services/terminal/cli-runtime.ts";
 
 type EmptyFlags = Record<never, never>;
 
+let _application: Application<DotweaveCliContext> | undefined;
+
+export const setApplication = (app: Application<DotweaveCliContext>) => {
+  _application = app;
+};
+
 const buildAutocompleteScriptCommand = (
   shell: "bash" | "zsh" | "powershell",
   script: string,
@@ -44,47 +50,45 @@ const powershellAutocompleteCommand = buildAutocompleteScriptCommand(
   POWERSHELL_AUTOCOMPLETE_SCRIPT,
 );
 
-const buildCompleteCommand = (
-  getApplication: () => Application<DotweaveCliContext>,
-) => {
-  return buildCommand<EmptyFlags, string[], DotweaveCliContext>({
-    docs: {
-      brief: "Internal completion command",
-    },
-    func: async function (_flags, ...inputs) {
-      const completions = await proposeCompletions(
-        getApplication(),
-        resolveCompletionInputs(inputs),
-        this,
-      );
+const completeCommand = buildCommand<EmptyFlags, string[], DotweaveCliContext>({
+  docs: {
+    brief: "Internal completion command",
+  },
+  func: async function (_flags, ...inputs) {
+    if (_application === undefined) {
+      return;
+    }
 
-      if (completions.length === 0) {
-        return;
-      }
+    const completions = await proposeCompletions(
+      _application,
+      resolveCompletionInputs(inputs),
+      this,
+    );
 
-      const lines = completions
-        .map((c) => (c.brief ? `${c.completion}\t${c.brief}` : c.completion))
-        .join("\n");
+    if (completions.length === 0) {
+      return;
+    }
 
-      process.stdout.write(`${lines}\n`);
-    },
-    parameters: {
-      positional: {
-        kind: "array",
-        minimum: 0,
-        parameter: {
-          brief: "Completion input token",
-          parse: String,
-          placeholder: "input",
-        },
+    const lines = completions
+      .map((c) => (c.brief ? `${c.completion}\t${c.brief}` : c.completion))
+      .join("\n");
+
+    process.stdout.write(`${lines}\n`);
+  },
+  parameters: {
+    positional: {
+      kind: "array",
+      minimum: 0,
+      parameter: {
+        brief: "Completion input token",
+        parse: String,
+        placeholder: "input",
       },
     },
-  });
-};
+  },
+});
 
-export const buildAutocompleteRoute = (
-  getApplication: () => Application<DotweaveCliContext>,
-) => {
+export const buildAutocompleteRoute = () => {
   return {
     autocompleteRoute: buildRouteMap({
       docs: {
@@ -98,6 +102,6 @@ export const buildAutocompleteRoute = (
         zsh: zshAutocompleteCommand,
       },
     }),
-    completeCommand: buildCompleteCommand(getApplication),
+    completeCommand,
   };
 };
