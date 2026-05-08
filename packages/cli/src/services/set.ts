@@ -1,32 +1,29 @@
 import { isAbsolute, join, posix, relative, resolve } from "node:path";
 import {
+  buildDefaultPlatformMode,
   findOwningSyncEntry,
+  hasPlatformSpecificModeOverride,
   normalizeSyncRepoPath,
-  type PlatformSyncMode,
+  type ResolvedSyncConfig,
   type ResolvedSyncConfigEntry,
-  readSyncConfig,
   resolveEntryRelativeRepoPath,
   type SyncMode,
 } from "#app/config/sync.ts";
 import { expandHomePath } from "#app/config/xdg.ts";
 import { DotweaveError } from "#app/lib/error.ts";
 import { getPathStats } from "#app/lib/filesystem.ts";
-import { ensureGitRepository } from "#app/lib/git.ts";
 import { isExplicitLocalPath } from "#app/lib/path.ts";
 import {
   buildSyncConfigDocument,
   writeValidatedSyncConfig,
 } from "./config-file.ts";
+import { loadMutableSyncConfig } from "./config-loader.ts";
 import {
   buildConfiguredHomeLocalPath,
   buildRepoPathWithinRoot,
   tryBuildRepoPathWithinRoot,
   tryNormalizeRepoPathInput,
 } from "./paths.ts";
-import {
-  resolveSyncConfigResolutionContext,
-  resolveSyncPaths,
-} from "./runtime.ts";
 
 export type SetModeRequest = Readonly<{
   mode: SyncMode;
@@ -47,22 +44,9 @@ export type SetModeResult = Readonly<{
   syncDirectory: string;
 }>;
 
-const buildDefaultPlatformMode = (mode: SyncMode): PlatformSyncMode => ({
-  default: mode,
-});
-
 const buildDefaultConfiguredRepoPath = (repoPath: string) => ({
   default: normalizeSyncRepoPath(repoPath),
 });
-
-const hasPlatformSpecificModeOverride = (configuredMode: PlatformSyncMode) => {
-  return (
-    configuredMode.win !== undefined ||
-    configuredMode.mac !== undefined ||
-    configuredMode.linux !== undefined ||
-    configuredMode.wsl !== undefined
-  );
-};
 
 const computeLocalPath = (entry: ResolvedSyncConfigEntry, repoPath: string) => {
   const relativePath = resolveEntryRelativeRepoPath(entry, repoPath);
@@ -91,7 +75,7 @@ const resolveRelativeLocalPath = (rootPath: string, targetPath: string) => {
 };
 
 const findOwningLocalEntry = (
-  config: Awaited<ReturnType<typeof readSyncConfig>>,
+  config: ResolvedSyncConfig,
   localPath: string,
 ) => {
   let best: ResolvedSyncConfigEntry | undefined;
@@ -122,7 +106,7 @@ const findOwningLocalEntry = (
 
 export const resolveSetTarget = async (
   target: string,
-  config: Awaited<ReturnType<typeof readSyncConfig>>,
+  config: ResolvedSyncConfig,
   cwd: string,
   homeDirectory: string,
 ) => {
@@ -306,12 +290,8 @@ export const setTargetMode = async (
   request: SetModeRequest,
   cwd: string,
 ): Promise<SetModeResult> => {
-  const { syncDirectory, configPath } = resolveSyncPaths();
-  const context = resolveSyncConfigResolutionContext();
-
-  await ensureGitRepository(syncDirectory);
-
-  const config = await readSyncConfig(syncDirectory, context);
+  const { config, configPath, context, syncDirectory } =
+    await loadMutableSyncConfig();
   const target = await resolveSetTarget(
     request.target,
     config,
@@ -357,7 +337,7 @@ export const setTargetMode = async (
     });
 
     if (action !== "unchanged") {
-      await writeValidatedSyncConfig(syncDirectory, nextConfig, context);
+      await writeValidatedSyncConfig(syncDirectory, nextConfig);
     }
 
     return buildResult(action);
@@ -420,7 +400,7 @@ export const setTargetMode = async (
       }),
     });
 
-    await writeValidatedSyncConfig(syncDirectory, nextConfig, context);
+    await writeValidatedSyncConfig(syncDirectory, nextConfig);
 
     return buildResult("updated");
   }
@@ -454,7 +434,7 @@ export const setTargetMode = async (
     entries: [...config.entries, newEntry],
   });
 
-  await writeValidatedSyncConfig(syncDirectory, nextConfig, context);
+  await writeValidatedSyncConfig(syncDirectory, nextConfig);
 
   return buildResult("added");
 };

@@ -1,5 +1,6 @@
 import { CONSTANTS } from "#app/config/constants.ts";
 import type {
+  PlatformSyncMode,
   ResolvedSyncConfig,
   ResolvedSyncConfigEntry,
   SyncMode,
@@ -162,6 +163,21 @@ export const resolveManagedSyncMode = (
 // ---------------------------------------------------------------------------
 // Profile collection
 // ---------------------------------------------------------------------------
+
+export const buildDefaultPlatformMode = (mode: SyncMode): PlatformSyncMode => ({
+  default: mode,
+});
+
+export const hasPlatformSpecificModeOverride = (
+  configuredMode: PlatformSyncMode,
+) => {
+  return (
+    configuredMode.win !== undefined ||
+    configuredMode.mac !== undefined ||
+    configuredMode.linux !== undefined ||
+    configuredMode.wsl !== undefined
+  );
+};
 
 export const collectAllProfileNames = (
   entries: readonly ResolvedSyncConfigEntry[],

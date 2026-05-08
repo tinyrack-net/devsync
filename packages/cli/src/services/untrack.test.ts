@@ -190,20 +190,12 @@ describe("untrack service", () => {
       entries: [siblingEntry],
       version: 7,
     });
-    expect(mocked.writeValidatedSyncConfig).toHaveBeenCalledWith(
-      workspace,
-      {
-        document: {
-          entries: [siblingEntry],
-          version: 7,
-        },
+    expect(mocked.writeValidatedSyncConfig).toHaveBeenCalledWith(workspace, {
+      document: {
+        entries: [siblingEntry],
+        version: 7,
       },
-      expect.objectContaining({
-        homeDirectory: "/tmp/home",
-        platformKey: "linux",
-        xdgConfigHome: "/tmp/home/.config",
-      }),
-    );
+    });
     await expect(access(defaultPlainPath)).rejects.toThrowError();
     await expect(access(workPlainPath)).rejects.toThrowError();
     await expect(access(defaultSecretPath)).rejects.toThrowError();

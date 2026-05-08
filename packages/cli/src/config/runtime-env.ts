@@ -9,14 +9,7 @@ import {
   resolveXdgConfigHome,
 } from "#app/config/xdg.ts";
 import { ENV } from "#app/lib/env.ts";
-
-const trimConfiguredValue = (value: string | undefined) => {
-  const trimmedValue = value?.trim();
-
-  return trimmedValue === undefined || trimmedValue === ""
-    ? undefined
-    : trimmedValue;
-};
+import { trimConfiguredValue } from "#app/lib/string.ts";
 
 export const readEnvValue = (name: string) => {
   return trimConfiguredValue(ENV[name]);

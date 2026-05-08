@@ -4,31 +4,27 @@ import { resolveDefaultIdentityFile } from "#app/config/identity-file.ts";
 import type { PlatformStringValue } from "#app/config/platform.ts";
 import { readEnvValue } from "#app/config/runtime-env.ts";
 import {
+  buildDefaultPlatformMode,
+  hasPlatformSpecificModeOverride,
   normalizeSyncProfileName,
   normalizeSyncRepoPath,
-  type PlatformSyncMode,
   type ResolvedSyncConfigEntry,
-  readSyncConfig,
   type SyncConfigEntryKind,
   type SyncMode,
 } from "#app/config/sync.ts";
 import { expandHomePath } from "#app/config/xdg.ts";
 import { DotweaveError } from "#app/lib/error.ts";
 import { getPathStats } from "#app/lib/filesystem.ts";
-import { ensureGitRepository } from "#app/lib/git.ts";
 import { doPathsOverlap } from "#app/lib/path.ts";
 import {
   buildSyncConfigDocument,
   writeValidatedSyncConfig,
 } from "./config-file.ts";
+import { loadMutableSyncConfig } from "./config-loader.ts";
 import {
   buildConfiguredHomeLocalPath,
   buildRepoPathWithinRoot,
 } from "./paths.ts";
-import {
-  resolveSyncConfigResolutionContext,
-  resolveSyncPaths,
-} from "./runtime.ts";
 
 export type TrackRequest = Readonly<{
   profiles?: readonly string[];
@@ -48,19 +44,6 @@ export type TrackResult = Readonly<{
   repoPath: string;
   syncDirectory: string;
 }>;
-
-const buildDefaultPlatformMode = (mode: SyncMode): PlatformSyncMode => ({
-  default: mode,
-});
-
-const hasPlatformSpecificModeOverride = (configuredMode: PlatformSyncMode) => {
-  return (
-    configuredMode.win !== undefined ||
-    configuredMode.mac !== undefined ||
-    configuredMode.linux !== undefined ||
-    configuredMode.wsl !== undefined
-  );
-};
 
 const buildDefaultPlatformRepoPath = (
   repoPath: string,
@@ -173,12 +156,8 @@ export const trackTarget = async (
     });
   }
 
-  const { syncDirectory, configPath } = resolveSyncPaths();
-  const context = resolveSyncConfigResolutionContext();
-
-  await ensureGitRepository(syncDirectory);
-
-  const config = await readSyncConfig(syncDirectory, context);
+  const { config, configPath, context, syncDirectory } =
+    await loadMutableSyncConfig();
   const identityFile =
     config.age !== undefined
       ? resolveDefaultIdentityFile(
@@ -261,7 +240,7 @@ export const trackTarget = async (
       entries: [...config.entries, nextEntry],
     });
 
-    await writeValidatedSyncConfig(syncDirectory, nextConfig, context);
+    await writeValidatedSyncConfig(syncDirectory, nextConfig);
 
     return {
       alreadyTracked,
@@ -325,7 +304,7 @@ export const trackTarget = async (
       }),
     });
 
-    await writeValidatedSyncConfig(syncDirectory, nextConfig, context);
+    await writeValidatedSyncConfig(syncDirectory, nextConfig);
   }
 
   return {

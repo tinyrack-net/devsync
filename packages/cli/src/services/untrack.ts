@@ -1,31 +1,24 @@
 import { readdir, rm } from "node:fs/promises";
 import { dirname, join, posix } from "node:path";
-import {
-  type ResolvedSyncConfigEntry,
-  readSyncConfig,
-} from "#app/config/sync.ts";
+import type { ResolvedSyncConfigEntry } from "#app/config/sync.ts";
 import { DotweaveError } from "#app/lib/error.ts";
 import {
   getPathStats,
   listDirectoryEntries,
   removePathAtomically,
 } from "#app/lib/filesystem.ts";
-import { ensureGitRepository } from "#app/lib/git.ts";
 import { isPathEqualOrNested } from "#app/lib/path.ts";
 import {
   buildSyncConfigDocument,
   writeValidatedSyncConfig,
 } from "./config-file.ts";
+import { loadMutableSyncConfig } from "./config-loader.ts";
 import { resolveTrackedEntry } from "./paths.ts";
 import {
   collectArtifactProfiles,
   isSecretArtifactPath,
   resolveArtifactRelativePath,
 } from "./repo-artifacts.ts";
-import {
-  resolveSyncConfigResolutionContext,
-  resolveSyncPaths,
-} from "./runtime.ts";
 
 export type UntrackRequest = Readonly<{
   target: string;
@@ -200,12 +193,8 @@ export const untrackTarget = async (
     throw new DotweaveError("Target path is required.");
   }
 
-  const { syncDirectory, configPath } = resolveSyncPaths();
-  const context = resolveSyncConfigResolutionContext();
-
-  await ensureGitRepository(syncDirectory);
-
-  const config = await readSyncConfig(syncDirectory, context);
+  const { config, configPath, context, syncDirectory } =
+    await loadMutableSyncConfig();
   const entry = resolveTrackedEntry(
     target,
     config.entries,
@@ -226,7 +215,7 @@ export const untrackTarget = async (
     }),
   });
 
-  await writeValidatedSyncConfig(syncDirectory, nextConfig, context);
+  await writeValidatedSyncConfig(syncDirectory, nextConfig);
   await removeTrackedEntryArtifacts(syncDirectory, entry);
 
   return {

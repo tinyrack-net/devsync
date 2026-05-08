@@ -1,4 +1,5 @@
-import { isAbsolute, posix, relative, sep } from "node:path";
+import { readFile } from "node:fs/promises";
+import { isAbsolute, join, posix, relative, sep } from "node:path";
 import { z } from "zod";
 import { CONSTANTS } from "#app/config/constants.ts";
 import {
@@ -9,6 +10,7 @@ import {
 import { resolveConfiguredAbsolutePath } from "#app/config/xdg.ts";
 import { DotweaveError } from "#app/lib/error.ts";
 import { parsePermissionOctal } from "#app/lib/file-mode.ts";
+import { parseJsonc, resolveJsoncConfigPath } from "#app/lib/jsonc.ts";
 import { doPathsOverlap } from "#app/lib/path.ts";
 import { ensureTrailingNewline } from "#app/lib/string.ts";
 import { formatInputIssues } from "#app/lib/validation.ts";
@@ -89,7 +91,7 @@ const syncConfigSchemaV7 = z.object({
   entries: z.array(syncConfigEntrySchema),
 });
 
-const syncConfigSchema = syncConfigSchemaV7;
+export const syncConfigSchema = syncConfigSchemaV7;
 
 // ---------------------------------------------------------------------------
 // Exported types
@@ -604,4 +606,44 @@ export const createInitialSyncConfig = (age: {
 
 export const formatSyncConfig = (config: SyncConfig) => {
   return ensureTrailingNewline(JSON.stringify(config, null, 2));
+};
+
+export const resolveSyncConfigFilePath = (syncDirectory: string) => {
+  return join(syncDirectory, CONSTANTS.SYNC.CONFIG_FILE_NAME);
+};
+
+export const readSyncConfig = async (
+  syncDirectory: string,
+  context: SyncConfigResolutionContext,
+): Promise<ResolvedSyncConfig> => {
+  const filePath = await resolveJsoncConfigPath(
+    resolveSyncConfigFilePath(syncDirectory),
+  );
+  try {
+    const contents = await readFile(filePath, "utf8");
+    const parsed = parseJsonc(contents);
+
+    return parseSyncConfig(parsed, context);
+  } catch (error: unknown) {
+    if (error instanceof DotweaveError) {
+      throw error;
+    }
+
+    if (error instanceof SyntaxError) {
+      throw new DotweaveError("Sync configuration is not valid JSON.", {
+        code: "CONFIG_INVALID_JSON",
+        details: [`Config file: ${filePath}`, error.message],
+        hint: `Fix the JSON syntax in ${CONSTANTS.SYNC.CONFIG_FILE_NAME}, then run the command again.`,
+      });
+    }
+
+    throw new DotweaveError("Failed to read sync configuration.", {
+      code: "CONFIG_READ_FAILED",
+      details: [
+        `Config file: ${filePath}`,
+        ...(error instanceof Error ? [error.message] : []),
+      ],
+      hint: "Run 'dotweave init' if the sync directory has not been initialized yet.",
+    });
+  }
 };

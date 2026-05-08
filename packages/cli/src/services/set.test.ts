@@ -8,6 +8,7 @@ const nativePath = (value: string) =>
   process.platform === "win32" ? `C:${value.replaceAll("/", "\\")}` : value;
 
 const mocked = vi.hoisted(() => ({
+  buildDefaultPlatformMode: vi.fn((mode: string) => ({ default: mode })),
   buildConfiguredHomeLocalPath: vi.fn((repoPath: string) => ({
     default: `~/${repoPath}`,
   })),
@@ -19,6 +20,7 @@ const mocked = vi.hoisted(() => ({
   expandHomePath: vi.fn(),
   findOwningSyncEntry: vi.fn(),
   getPathStats: vi.fn(),
+  hasPlatformSpecificModeOverride: vi.fn(() => false),
   isExplicitLocalPath: vi.fn(),
   normalizeSyncRepoPath: vi.fn((value: string) => value),
   readSyncConfig: vi.fn(),
@@ -43,7 +45,9 @@ const mocked = vi.hoisted(() => ({
 }));
 
 vi.mock("#app/config/sync.ts", () => ({
+  buildDefaultPlatformMode: mocked.buildDefaultPlatformMode,
   findOwningSyncEntry: mocked.findOwningSyncEntry,
+  hasPlatformSpecificModeOverride: mocked.hasPlatformSpecificModeOverride,
   normalizeSyncRepoPath: mocked.normalizeSyncRepoPath,
   readSyncConfig: mocked.readSyncConfig,
   resolveEntryRelativeRepoPath: mocked.resolveEntryRelativeRepoPath,
@@ -384,6 +388,7 @@ describe("sync set service", () => {
     mocked.tryNormalizeRepoPathInput.mockReturnValueOnce(".gitconfig");
     mocked.resolveEntryRelativeRepoPath.mockReturnValueOnce(undefined);
     mocked.getPathStats.mockResolvedValueOnce(fileStats);
+    mocked.hasPlatformSpecificModeOverride.mockReturnValueOnce(true);
 
     const result = await setTargetMode(
       { mode: "secret", target: ".gitconfig" },

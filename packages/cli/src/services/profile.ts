@@ -15,6 +15,7 @@ import {
   buildSyncConfigDocument,
   writeValidatedSyncConfig,
 } from "./config-file.ts";
+import { loadMutableSyncConfig } from "./config-loader.ts";
 import { resolveTrackedEntry } from "./paths.ts";
 import {
   resolveSyncConfigResolutionContext,
@@ -158,12 +159,8 @@ export const assignProfiles = async (
     });
   }
 
-  const { syncDirectory, configPath } = resolveSyncPaths();
-  const context = resolveSyncConfigResolutionContext();
-
-  await ensureGitRepository(syncDirectory);
-
-  const config = await readSyncConfig(syncDirectory, context);
+  const { config, configPath, context, syncDirectory } =
+    await loadMutableSyncConfig();
   const entry = resolveTrackedEntry(
     target,
     config.entries,
@@ -210,7 +207,7 @@ export const assignProfiles = async (
     }),
   });
 
-  await writeValidatedSyncConfig(syncDirectory, nextConfig, context);
+  await writeValidatedSyncConfig(syncDirectory, nextConfig);
 
   return {
     action: "assigned",

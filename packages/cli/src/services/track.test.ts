@@ -12,6 +12,8 @@ const mocked = vi.hoisted(() => ({
   ensureGitRepository: vi.fn(),
   readSyncConfig: vi.fn(),
   writeValidatedSyncConfig: vi.fn(),
+  buildDefaultPlatformMode: vi.fn((mode: string) => ({ default: mode })),
+  hasPlatformSpecificModeOverride: vi.fn(() => false),
   resolveSyncPaths: vi.fn(() => ({
     syncDirectory: "/tmp/dotweave",
     configPath: "/tmp/dotweave/manifest.jsonc",
@@ -48,9 +50,11 @@ vi.mock("#app/lib/git.ts", () => ({
 }));
 
 vi.mock("#app/config/sync.ts", () => ({
-  readSyncConfig: mocked.readSyncConfig,
+  buildDefaultPlatformMode: mocked.buildDefaultPlatformMode,
+  hasPlatformSpecificModeOverride: mocked.hasPlatformSpecificModeOverride,
   normalizeSyncProfileName: vi.fn((s) => s),
   normalizeSyncRepoPath: vi.fn((s) => s),
+  readSyncConfig: mocked.readSyncConfig,
 }));
 
 vi.mock("./config-file.ts", () => ({

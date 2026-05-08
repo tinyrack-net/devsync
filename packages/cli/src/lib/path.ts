@@ -1,20 +1,12 @@
-import { isAbsolute, relative } from "node:path";
+import { dirname, isAbsolute, relative, resolve } from "node:path";
 
 const homePrefix = "~";
 const shellPathSeparator = "/";
 
-/**
- * @description
- * Normalizes repository directory paths into a stable keyed form.
- */
 export const buildDirectoryKey = (repoPath: string) => {
   return `${repoPath}/`;
 };
 
-/**
- * @description
- * Checks whether a path is the same as or contained within a root path.
- */
 export const isPathEqualOrNested = (path: string, rootPath: string) => {
   const rootToPath = relative(rootPath, path);
 
@@ -26,10 +18,6 @@ export const isPathEqualOrNested = (path: string, rootPath: string) => {
   );
 };
 
-/**
- * @description
- * Detects whether two paths cover any shared directory scope.
- */
 export const doPathsOverlap = (leftPath: string, rightPath: string) => {
   return (
     isPathEqualOrNested(leftPath, rightPath) ||
@@ -37,10 +25,6 @@ export const doPathsOverlap = (leftPath: string, rightPath: string) => {
   );
 };
 
-/**
- * @description
- * Identifies path inputs that should be treated as explicit local filesystem targets.
- */
 export const isExplicitLocalPath = (target: string) => {
   const homePathPrefix = `${homePrefix}${shellPathSeparator}`;
 
@@ -53,4 +37,43 @@ export const isExplicitLocalPath = (target: string) => {
     target.startsWith(homePathPrefix) ||
     isAbsolute(target)
   );
+};
+
+export const normalizeLinkTargetForComparison = (
+  target: string,
+  baseDir?: string,
+) => {
+  const absoluteTarget =
+    baseDir !== undefined && !isAbsolute(target)
+      ? resolve(baseDir, target)
+      : target;
+
+  if (process.platform !== "win32") {
+    return absoluteTarget;
+  }
+
+  const normalizeSlashes = (p: string) => p.replaceAll("\\", "/").toLowerCase();
+
+  try {
+    return normalizeSlashes(
+      require("node:fs").realpathSync.native(absoluteTarget),
+    );
+  } catch {
+    if (baseDir !== undefined) {
+      try {
+        const dir = dirname(absoluteTarget);
+        const base = require("node:path").basename(absoluteTarget);
+        return normalizeSlashes(
+          require("node:path").join(
+            require("node:fs").realpathSync.native(dir),
+            base,
+          ),
+        );
+      } catch {
+        return normalizeSlashes(absoluteTarget);
+      }
+    }
+
+    return normalizeSlashes(absoluteTarget);
+  }
 };

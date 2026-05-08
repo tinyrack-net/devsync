@@ -2,21 +2,12 @@ import { homedir } from "node:os";
 import { isAbsolute, resolve } from "node:path";
 
 import { CONSTANTS } from "#app/config/constants.ts";
+import { trimConfiguredValue } from "#app/lib/string.ts";
 
 const xdgConfigHomeToken = "$XDG_CONFIG_HOME";
 const xdgConfigHomeTokenPrefix = `${xdgConfigHomeToken}/`;
 const bracedXdgConfigHomeToken = "${XDG_CONFIG_HOME}";
 const bracedXdgConfigHomePrefix = `${bracedXdgConfigHomeToken}/`;
-
-const trimConfiguredValue = (value: string | undefined) => {
-  if (value === undefined) {
-    return undefined;
-  }
-
-  const trimmedValue = value.trim();
-
-  return trimmedValue === "" ? undefined : trimmedValue;
-};
 
 const readTrimmedEnvironmentValue = (
   readEnv: (name: string) => string | undefined,

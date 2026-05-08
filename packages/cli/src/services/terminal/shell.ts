@@ -4,6 +4,7 @@ import type { PlatformKey } from "#app/config/platform.ts";
 import { resolveCurrentPlatformKey } from "#app/config/runtime-env.ts";
 import { ENV } from "#app/lib/env.ts";
 import { DotweaveError } from "#app/lib/error.ts";
+import { trimConfiguredValue } from "#app/lib/string.ts";
 
 type ShellCommand = Readonly<{
   args: readonly string[];
@@ -51,12 +52,6 @@ const windowsProcessQueryScript = [
   "[Console]::Out.WriteLine((& $encode $process.ExecutablePath))",
   "[Console]::Out.WriteLine((& $encode $process.CommandLine))",
 ].join(";");
-
-const trimConfiguredValue = (value: string | undefined) => {
-  const trimmed = value?.trim();
-
-  return trimmed === undefined || trimmed === "" ? undefined : trimmed;
-};
 
 const decodeWindowsProcessField = (value: string | undefined) => {
   const trimmed = trimConfiguredValue(value);

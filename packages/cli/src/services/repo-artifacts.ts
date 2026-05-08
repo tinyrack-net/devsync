@@ -23,7 +23,10 @@ import {
   writeFileNode,
   writeSymlinkNode,
 } from "#app/lib/filesystem.ts";
-import { buildDirectoryKey } from "#app/lib/path.ts";
+import {
+  buildDirectoryKey,
+  normalizeLinkTargetForComparison,
+} from "#app/lib/path.ts";
 import { limitConcurrency } from "#app/lib/promise.ts";
 import type { SnapshotNode } from "./local-snapshot.ts";
 import type { EffectiveSyncConfig } from "./runtime.ts";
@@ -378,13 +381,6 @@ const isSecretArtifactUnchanged = async (
   } catch {
     return false;
   }
-};
-
-const normalizeLinkTargetForComparison = (target: string) => {
-  const normalized =
-    process.platform === "win32" ? target.replaceAll("\\", "/") : target;
-
-  return process.platform === "win32" ? normalized.toLowerCase() : normalized;
 };
 
 export const isRepoArtifactCurrent = async (

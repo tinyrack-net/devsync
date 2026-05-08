@@ -286,11 +286,6 @@ describe("sync profiles service", () => {
           ],
         },
       },
-      expect.objectContaining({
-        homeDirectory: "/tmp/home",
-        platformKey: "linux",
-        xdgConfigHome: "/tmp/home/.config",
-      }),
     );
   });
 

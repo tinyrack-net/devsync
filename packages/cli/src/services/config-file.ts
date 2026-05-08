@@ -1,11 +1,10 @@
 import { CONSTANTS } from "#app/config/constants.ts";
 import {
   formatSyncConfig,
-  parseSyncConfig,
   type ResolvedSyncConfig,
   resolveSyncConfigFilePath,
   type SyncConfig,
-  type SyncConfigResolutionContext,
+  syncConfigSchema,
 } from "#app/config/sync.ts";
 import { writeTextFileAtomically } from "#app/lib/filesystem.ts";
 
@@ -51,15 +50,13 @@ export const buildSyncConfigDocument = (
 export const writeValidatedSyncConfig = async (
   syncDirectory: string,
   config: SyncConfig,
-  context: SyncConfigResolutionContext,
 ) => {
-  const resolvedConfig = parseSyncConfig(config, context);
-  const nextConfig = buildSyncConfigDocument(resolvedConfig);
+  syncConfigSchema.parse(config);
 
   await writeTextFileAtomically(
     resolveSyncConfigFilePath(syncDirectory),
-    formatSyncConfig(nextConfig),
+    formatSyncConfig(config),
   );
 
-  return nextConfig;
+  return config;
 };
