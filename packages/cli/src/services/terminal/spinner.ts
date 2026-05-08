@@ -1,9 +1,5 @@
+import type { Stream } from "./logger.ts";
 import { c, S } from "./theme.ts";
-
-type Stream = Pick<
-  NodeJS.WriteStream,
-  "write" | "isTTY" | "clearLine" | "cursorTo"
->;
 
 export interface Spinner {
   succeed(text: string): void;

@@ -32,7 +32,7 @@ export interface CliLogger {
   spinner(text: string): Spinner;
 }
 
-type Stream = Pick<
+export type Stream = Pick<
   NodeJS.WriteStream,
   "write" | "isTTY" | "clearLine" | "cursorTo"
 >;
@@ -41,8 +41,8 @@ const INDENT = "  ";
 
 export const createCliLogger = (
   options: Readonly<{
-    stderr?: NodeJS.WriteStream;
-    stdout?: NodeJS.WriteStream;
+    stderr?: Stream;
+    stdout?: Stream;
     tag?: string;
   }> = {},
 ): CliLogger =>
