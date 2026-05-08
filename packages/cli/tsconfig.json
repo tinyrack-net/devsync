@@ -7,7 +7,9 @@
     "baseUrl": ".",
     "paths": {
       "#app/*.js": ["./src/*.ts"],
-      "#app/*.ts": ["./src/*.ts"]
+      "#app/*.ts": ["./src/*.ts"],
+      "#test/*.js": ["./src/test/*.ts"],
+      "#test/*.ts": ["./src/test/*.ts"]
     },
     "moduleDetection": "force",
     "types": ["node"],

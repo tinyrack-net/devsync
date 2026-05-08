@@ -5,6 +5,7 @@ export default defineConfig({
   resolve: {
     alias: {
       "#app": resolve(import.meta.dirname, "src"),
+      "#test": resolve(import.meta.dirname, "src/test"),
     },
   },
   test: {
