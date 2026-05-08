@@ -19,8 +19,3 @@ export const rootCommandRoutes = {
   track: trackCommand,
   untrack: untrackCommand,
 };
-
-export const rootCommandNames = [
-  "autocomplete",
-  ...Object.keys(rootCommandRoutes),
-];

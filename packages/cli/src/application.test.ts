@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import packageJson from "../package.json" with { type: "json" };
 import { runCli } from "./application.ts";
-import { rootCommandNames } from "./cli/root-commands.ts";
+import { rootCommandRoutes } from "./cli/root-commands.ts";
 
 const captureProcessOutput = () => {
   let stdout = "";
@@ -48,7 +48,10 @@ describe("CLI application", () => {
     expect(process.exitCode).toBe(0);
     expect(output.stderr()).toBe("");
 
-    for (const commandName of rootCommandNames) {
+    for (const commandName of [
+      "autocomplete",
+      ...Object.keys(rootCommandRoutes),
+    ]) {
       expect(output.stdout()).toContain(commandName);
     }
 

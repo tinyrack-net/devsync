@@ -4,7 +4,7 @@ import { join } from "node:path";
 
 import { execa } from "execa";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { rootCommandNames } from "../src/cli/root-commands.ts";
+import { rootCommandRoutes } from "../src/cli/root-commands.ts";
 import { cliNodeOptions } from "../src/test/helpers/cli-entry.ts";
 import {
   isBashAvailable,
@@ -12,6 +12,7 @@ import {
 } from "../src/test/helpers/shell-availability.ts";
 
 const COMPLETE_COMMAND = 'env -u COMP_LINE dotweave __complete "${inputs[@]}"';
+const rootCommandNames = ["autocomplete", ...Object.keys(rootCommandRoutes)];
 
 const runCli = async (
   args: readonly string[],
@@ -34,7 +35,10 @@ const runCli = async (
 const completionNames = (stdout: string) =>
   stdout.split("\n").map((line) => line.split("\t")[0] ?? line);
 
-const bashRootCommandNames = rootCommandNames.map((commandName) => {
+const bashRootCommandNames = [
+  "autocomplete",
+  ...Object.keys(rootCommandRoutes),
+].map((commandName) => {
   return `${commandName} `;
 });
 

@@ -1,7 +1,7 @@
 import { execa } from "execa";
 import { describe, expect, it } from "vitest";
 import packageJson from "../package.json" with { type: "json" };
-import { rootCommandNames } from "../src/cli/root-commands.ts";
+import { rootCommandRoutes } from "../src/cli/root-commands.ts";
 import { cliNodeOptions } from "../src/test/helpers/cli-entry.ts";
 
 const runCli = async (
@@ -32,6 +32,10 @@ describe("CLI e2e", () => {
     expect(result.exitCode).toBe(0);
     expect(result.stderr).toBe("");
 
+    const rootCommandNames = [
+      "autocomplete",
+      ...Object.keys(rootCommandRoutes),
+    ];
     for (const commandName of rootCommandNames) {
       expect(result.stdout).toContain(commandName);
     }

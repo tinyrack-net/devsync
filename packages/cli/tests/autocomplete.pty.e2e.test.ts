@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { delimiter, join } from "node:path";
 
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { rootCommandNames } from "../src/cli/root-commands.ts";
+import { rootCommandRoutes } from "../src/cli/root-commands.ts";
 import { cliNodeOptions } from "../src/test/helpers/cli-entry.ts";
 import { createPtySession } from "../src/test/helpers/pty.ts";
 import {
@@ -12,6 +12,7 @@ import {
   zshPath,
 } from "../src/test/helpers/shell-availability.ts";
 
+const rootCommandNames = ["autocomplete", ...Object.keys(rootCommandRoutes)];
 const rootCommandsPattern = new RegExp(rootCommandNames.join("|"), "u");
 
 const shellQuote = (value: string) => {
