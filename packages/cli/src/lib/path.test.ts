@@ -60,8 +60,8 @@ describe("path helpers", () => {
       const expected =
         process.platform === "win32"
           ? resolve("/opt/app/venv", "../bin/python3")
-                .replaceAll("\\", "/")
-                .toLowerCase()
+              .replaceAll("\\", "/")
+              .toLowerCase()
           : "/opt/app/bin/python3";
       expect(normalizeLinkTarget("../bin/python3", "/opt/app/venv")).toBe(
         expected,
@@ -82,8 +82,8 @@ describe("path helpers", () => {
       const expected =
         process.platform === "win32"
           ? resolve("/home/user", "./script.sh")
-                .replaceAll("\\", "/")
-                .toLowerCase()
+              .replaceAll("\\", "/")
+              .toLowerCase()
           : "/home/user/script.sh";
       expect(normalizeLinkTarget("./script.sh", "/home/user")).toBe(expected);
     });

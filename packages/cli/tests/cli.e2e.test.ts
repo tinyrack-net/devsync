@@ -72,7 +72,7 @@ describe("CLI e2e", () => {
   it("rejects removed --verbose flag", async () => {
     const result = await runCli(["pull", "--verbose"], { reject: false });
 
-    expect(result.exitCode & 0xFF).toBe(252);
+    expect((result.exitCode ?? 0) & 0xff).toBe(252);
     expect(result.stderr).toContain("No flag registered for --verbose");
   });
 
