@@ -52,8 +52,6 @@ export type InitResult = Readonly<{
   recipientCount: number;
 }>;
 
-
-
 const managedRepositoryAttributesFileName = ".gitattributes";
 const managedRepositoryAttributesContents = "* -text\n";
 

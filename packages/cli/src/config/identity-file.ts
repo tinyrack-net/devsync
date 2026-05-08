@@ -11,5 +11,3 @@ export const resolveDefaultIdentityFile = (
     xdgConfigHome,
   );
 };
-
-
