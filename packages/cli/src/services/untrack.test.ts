@@ -23,10 +23,10 @@ const mocked = vi.hoisted(() => ({
   writeValidatedSyncConfig: vi.fn(),
 }));
 
-vi.mock("#app/config/sync.ts", async () => {
-  const actual = await vi.importActual<typeof import("#app/config/sync.ts")>(
-    "#app/config/sync.ts",
-  );
+vi.mock("#app/config/sync-schema.ts", async () => {
+  const actual = await vi.importActual<
+    typeof import("#app/config/sync-schema.ts")
+  >("#app/config/sync-schema.ts");
 
   return {
     ...actual,
@@ -179,12 +179,10 @@ describe("untrack service", () => {
     );
 
     expect(result).toEqual({
-      configPath: join(workspace, "manifest.jsonc"),
       localPath: entry.localPath,
       plainArtifactCount: 2,
       repoPath: entry.repoPath,
       secretArtifactCount: 2,
-      syncDirectory: workspace,
     });
     expect(mocked.buildSyncConfigDocument).toHaveBeenCalledWith({
       entries: [siblingEntry],
@@ -240,12 +238,10 @@ describe("untrack service", () => {
     const result = await untrackTarget({ target: "~/.config/app" }, "/tmp/cwd");
 
     expect(result).toEqual({
-      configPath: join(workspace, "manifest.jsonc"),
       localPath: entry.localPath,
       plainArtifactCount: 4,
       repoPath: entry.repoPath,
       secretArtifactCount: 0,
-      syncDirectory: workspace,
     });
     await expect(access(plainRoot)).rejects.toThrowError();
     await expect(access(siblingPath)).resolves.toBeUndefined();

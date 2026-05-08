@@ -49,9 +49,12 @@ vi.mock("#app/lib/git.ts", () => ({
   ensureGitRepository: mocked.ensureGitRepository,
 }));
 
-vi.mock("#app/config/sync.ts", () => ({
+vi.mock("#app/config/sync-entry.ts", () => ({
   buildDefaultPlatformMode: mocked.buildDefaultPlatformMode,
   hasPlatformSpecificModeOverride: mocked.hasPlatformSpecificModeOverride,
+}));
+
+vi.mock("#app/config/sync-schema.ts", () => ({
   normalizeSyncProfileName: vi.fn((s) => s),
   normalizeSyncRepoPath: vi.fn((s) => s),
   readSyncConfig: mocked.readSyncConfig,

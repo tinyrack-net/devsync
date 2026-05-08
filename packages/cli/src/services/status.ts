@@ -1,8 +1,4 @@
-import {
-  resolveSyncConfigFilePath,
-  type SyncConfigEntryKind,
-  type SyncMode,
-} from "#app/config/sync.ts";
+import type { SyncConfigEntryKind, SyncMode } from "#app/config/sync-schema.ts";
 import { ensureGitRepository } from "#app/lib/git.ts";
 import type { PullPlan } from "./pull.ts";
 import {
@@ -44,7 +40,6 @@ export type PullChanges = Readonly<{
 
 export type StatusResult = Readonly<{
   activeProfile?: string;
-  configPath: string;
   entries: readonly StatusEntry[];
   entryCount: number;
   pull: ReturnType<typeof buildPullResultFromPlan> & {
@@ -56,7 +51,6 @@ export type StatusResult = Readonly<{
     preview: readonly string[];
   };
   recipientCount: number;
-  syncDirectory: string;
 }>;
 
 const normalizeArtifactKeyToRepoPath = (artifactKey: string) => {
@@ -118,7 +112,6 @@ export const getStatus = async (
   }> = {},
 ): Promise<StatusResult> => {
   const { syncDirectory } = resolveSyncPaths();
-  const configPath = resolveSyncConfigFilePath(syncDirectory);
 
   await ensureGitRepository(syncDirectory);
 
@@ -138,7 +131,6 @@ export const getStatus = async (
     ...(effectiveConfig.activeProfile === undefined
       ? {}
       : { activeProfile: effectiveConfig.activeProfile }),
-    configPath,
     entries: fullConfig.entries.map((entry) => ({
       kind: entry.kind,
       localPath: entry.localPath,
@@ -148,16 +140,15 @@ export const getStatus = async (
     })),
     entryCount: fullConfig.entries.length,
     pull: {
-      ...buildPullResultFromPlan(pullPlan, syncDirectory, true),
+      ...buildPullResultFromPlan(pullPlan, true),
       changes: buildPullChanges(pullPlan),
       preview: buildPullPlanPreview(pullPlan),
     },
     push: {
-      ...buildPushResultFromPlan(pushPlan, syncDirectory, true),
+      ...buildPushResultFromPlan(pushPlan, true),
       changes: pushChanges,
       preview: buildPushPlanPreview(pushPlan),
     },
     recipientCount: effectiveConfig.age.recipients.length,
-    syncDirectory,
   };
 };

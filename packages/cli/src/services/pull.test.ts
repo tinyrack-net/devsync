@@ -15,19 +15,14 @@ const mocked = vi.hoisted(() => ({
   countDeletedLocalNodes: vi.fn(),
   ensureGitRepository: vi.fn(),
   loadSyncConfig: vi.fn(),
-  resolveSyncConfigFilePath: vi.fn(
-    (syncDirectory: string) => `${syncDirectory}/manifest.jsonc`,
-  ),
   resolveSyncPaths: vi.fn(() => ({
     syncDirectory: "/tmp/dotweave",
   })),
 }));
 
-vi.mock("#app/config/sync.ts", () => ({
-  resolveSyncConfigFilePath: mocked.resolveSyncConfigFilePath,
-}));
+vi.mock("#app/config/sync-schema.ts", () => ({}));
 
-vi.mock("./local-materialization.ts", () => ({
+vi.mock("./materialization.ts", () => ({
   applyEntryMaterialization: mocked.applyEntryMaterialization,
   buildEntryMaterialization: mocked.buildEntryMaterialization,
   buildPullCounts: mocked.buildPullCounts,
@@ -116,18 +111,15 @@ describe("pull helpers", () => {
           materializations: [],
           updatedLocalPaths: [],
         },
-        "/tmp/dotweave",
         true,
       ),
     ).toEqual({
-      configPath: "/tmp/dotweave/manifest.jsonc",
       decryptedFileCount: 3,
       deletedLocalCount: 4,
       directoryCount: 1,
       dryRun: true,
       plainFileCount: 2,
       symlinkCount: 0,
-      syncDirectory: "/tmp/dotweave",
     });
   });
 });

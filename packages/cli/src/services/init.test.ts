@@ -12,7 +12,10 @@ vi.mock("#app/lib/env.ts", () => ({
   ENV: mockEnv,
 }));
 
-import { createInitialSyncConfig, formatSyncConfig } from "#app/config/sync.ts";
+import {
+  createInitialSyncConfig,
+  formatSyncConfig,
+} from "#app/config/sync-schema.ts";
 import { DotweaveError } from "#app/lib/error.ts";
 import { initializeSyncDirectory } from "#app/services/init.ts";
 import {
@@ -59,6 +62,7 @@ describe("init service", () => {
     await runGit(["init", "-b", "main", sourceRepository], workspace);
 
     setEnvironment(homeDirectory, xdgConfigHome);
+    const syncDirectory = join(xdgConfigHome, "dotweave", "repository");
     const result = await initializeSyncDirectory({
       ageIdentity: `  ${ageKeys.identity}  `,
       recipients: [ageKeys.recipient, extraRecipient.recipient],
@@ -73,9 +77,7 @@ describe("init service", () => {
       ),
     ).toBe(`${ageKeys.identity}\n`);
     expect(
-      JSON.parse(
-        await readFile(join(result.syncDirectory, "manifest.jsonc"), "utf8"),
-      ),
+      JSON.parse(await readFile(join(syncDirectory, "manifest.jsonc"), "utf8")),
     ).toMatchObject({
       age: {
         recipients: expect.arrayContaining([
@@ -111,6 +113,7 @@ describe("init service", () => {
     await runGit(["init", "-b", "main", sourceRepository], workspace);
 
     setEnvironment(homeDirectory, xdgConfigHome);
+    const syncDirectory = join(xdgConfigHome, "dotweave", "repository");
     const result = await initializeSyncDirectory({
       recipients: [ageKeys.recipient],
       repository: sourceRepository,
@@ -119,14 +122,14 @@ describe("init service", () => {
     expect(result.gitAction).toBe("cloned");
     expect(result.gitSource).toBe(sourceRepository);
     expect(
-      await readFile(join(result.syncDirectory, "manifest.jsonc"), "utf8"),
+      await readFile(join(syncDirectory, "manifest.jsonc"), "utf8"),
     ).toContain('"version": 7');
     expect(
-      await readFile(join(result.syncDirectory, "manifest.jsonc"), "utf8"),
+      await readFile(join(syncDirectory, "manifest.jsonc"), "utf8"),
     ).not.toContain("identityFile");
-    expect(
-      await readFile(join(result.syncDirectory, ".gitattributes"), "utf8"),
-    ).toBe("* -text\n");
+    expect(await readFile(join(syncDirectory, ".gitattributes"), "utf8")).toBe(
+      "* -text\n",
+    );
   });
 
   it("backfills managed repository attributes for an existing initialized repo", async () => {
@@ -138,12 +141,14 @@ describe("init service", () => {
     await writeIdentityFile(xdgConfigHome, ageKeys.identity);
     setEnvironment(homeDirectory, xdgConfigHome);
 
-    const initialResult = await initializeSyncDirectory({
+    const syncDirectory = join(xdgConfigHome, "dotweave", "repository");
+
+    await initializeSyncDirectory({
       recipients: [ageKeys.recipient],
     });
 
     await writeFile(
-      join(initialResult.syncDirectory, ".gitattributes"),
+      join(syncDirectory, ".gitattributes"),
       "* text=auto\n",
       "utf8",
     );
@@ -153,9 +158,9 @@ describe("init service", () => {
     });
 
     expect(result.alreadyInitialized).toBe(true);
-    expect(
-      await readFile(join(result.syncDirectory, ".gitattributes"), "utf8"),
-    ).toBe("* -text\n");
+    expect(await readFile(join(syncDirectory, ".gitattributes"), "utf8")).toBe(
+      "* -text\n",
+    );
   });
 
   it("rejects non-empty sync directories that are not git repositories", async () => {

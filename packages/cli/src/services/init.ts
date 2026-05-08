@@ -14,8 +14,7 @@ import {
   formatSyncConfig,
   parseSyncConfig,
   readSyncConfig,
-  syncConfigFileName,
-} from "#app/config/sync.ts";
+} from "#app/config/sync-schema.ts";
 import {
   createAgeIdentityFile,
   readAgeRecipientsFromIdentityFile,
@@ -45,14 +44,12 @@ export type InitRequest = Readonly<{
 
 export type InitResult = Readonly<{
   alreadyInitialized: boolean;
-  configPath: string;
   entryCount: number;
   gitAction: "cloned" | "existing" | "initialized";
   gitSource?: string;
   identityFile: string;
   generatedIdentity: boolean;
   recipientCount: number;
-  syncDirectory: string;
 }>;
 
 export const defaultSyncIdentityFile = CONSTANTS.INIT.DEFAULT_IDENTITY_FILE;
@@ -162,7 +159,7 @@ const assertInitRequestMatchesConfig = (
           `Requested recipients: ${recipients.join(", ") || "(none)"}`,
           `Configured recipients: ${normalizeRecipients([...age.recipients]).join(", ")}`,
         ],
-        hint: `Use the existing recipients, or update ${syncConfigFileName} manually if you intend to rotate recipients.`,
+        hint: `Use the existing recipients, or update ${CONSTANTS.SYNC.CONFIG_FILE_NAME} manually if you intend to rotate recipients.`,
       },
     );
   }
@@ -171,10 +168,8 @@ const assertInitRequestMatchesConfig = (
 const buildAlreadyInitializedResult = (
   config: Awaited<ReturnType<typeof readSyncConfig>>,
   base: Readonly<{
-    configPath: string;
     gitAction: InitResult["gitAction"];
     gitSource?: string;
-    syncDirectory: string;
   }>,
 ): InitResult => {
   const age =
@@ -182,14 +177,12 @@ const buildAlreadyInitializedResult = (
 
   return {
     alreadyInitialized: true,
-    configPath: base.configPath,
     entryCount: config.entries.length,
     gitAction: base.gitAction,
     ...(base.gitSource === undefined ? {} : { gitSource: base.gitSource }),
     generatedIdentity: false,
     identityFile: age?.identityFile ?? "",
     recipientCount: age?.recipients.length ?? 0,
-    syncDirectory: base.syncDirectory,
   };
 };
 
@@ -259,9 +252,7 @@ export const initializeSyncDirectory = async (
     await resolveInitAgeBootstrap(request);
 
     return buildAlreadyInitializedResult(config, {
-      configPath,
       gitAction: "existing",
-      syncDirectory,
     });
   }
 
@@ -336,10 +327,8 @@ export const initializeSyncDirectory = async (
 
     if (configExists) {
       return buildAlreadyInitializedResult(config, {
-        configPath,
         gitAction,
         gitSource,
-        syncDirectory,
       });
     }
 
@@ -352,7 +341,6 @@ export const initializeSyncDirectory = async (
 
     return {
       alreadyInitialized: false,
-      configPath,
       entryCount: config.entries.length,
       gitAction,
       ...(gitSource === undefined ? {} : { gitSource }),
@@ -364,7 +352,6 @@ export const initializeSyncDirectory = async (
           readEnvValue("XDG_CONFIG_HOME"),
         ),
       recipientCount: age?.recipients.length ?? 0,
-      syncDirectory,
     };
   }
 
@@ -381,7 +368,6 @@ export const initializeSyncDirectory = async (
 
   return {
     alreadyInitialized: false,
-    configPath,
     entryCount: 0,
     gitAction,
     ...(gitSource === undefined ? {} : { gitSource }),
@@ -391,6 +377,5 @@ export const initializeSyncDirectory = async (
       readEnvValue("XDG_CONFIG_HOME"),
     ),
     recipientCount: ageBootstrap.recipients.length,
-    syncDirectory,
   };
 };

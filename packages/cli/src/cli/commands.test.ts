@@ -131,7 +131,7 @@ import trackCommand from "./track.ts";
 import untrackCommand from "./untrack.ts";
 
 const runCommand = async (
-  command: Command<DotweaveCliContext>,
+  command: Command<ApplicationContext>,
   flags: Record<string, unknown>,
   ...args: string[]
 ) => {
@@ -169,14 +169,12 @@ beforeEach(() => {
   });
   mocked.initializeSyncDirectory.mockResolvedValue({
     alreadyInitialized: false,
-    configPath: "/tmp/config.json",
     entryCount: 0,
     generatedIdentity: false,
     gitAction: "cloned",
     gitSource: "git@example.com:dotfiles.git",
     identityFile: "/tmp/keys.txt",
     recipientCount: 1,
-    syncDirectory: "/tmp/dotweave",
   });
   mocked.preparePull.mockResolvedValue({
     config: {
@@ -202,22 +200,18 @@ beforeEach(() => {
   mocked.trackTarget.mockResolvedValue({
     alreadyTracked: false,
     changed: true,
-    configPath: "/tmp/config.json",
     kind: "file",
     localPath: "/tmp/home/.gitconfig",
     mode: "secret",
     profiles: ["work"],
     repoPath: "profiles/work/.gitconfig",
-    syncDirectory: "/tmp/dotweave",
   });
   mocked.setTargetMode.mockResolvedValue({
     action: "updated",
-    configPath: "/tmp/config.json",
     entryRepoPath: ".config/nvim",
     localPath: "/tmp/home/.config/nvim",
     mode: "ignore",
     repoPath: ".config/nvim",
-    syncDirectory: "/tmp/dotweave",
   });
   mocked.assignProfiles.mockResolvedValue(undefined);
   mocked.listProfiles.mockResolvedValue({
@@ -233,19 +227,16 @@ beforeEach(() => {
     availableProfiles: ["personal", "work"],
     globalConfigExists: true,
     globalConfigPath: "/tmp/global-config.json",
-    syncDirectory: "/tmp/dotweave",
   });
   mocked.setActiveProfile.mockResolvedValue({
     action: "use",
     activeProfile: "work",
     globalConfigPath: "/tmp/global-config.json",
     profile: "work",
-    syncDirectory: "/tmp/dotweave",
   });
   mocked.clearActiveProfile.mockResolvedValue({
     action: "clear",
     globalConfigPath: "/tmp/global-config.json",
-    syncDirectory: "/tmp/dotweave",
   });
   mocked.preparePull.mockResolvedValue({
     config: {
@@ -270,28 +261,23 @@ beforeEach(() => {
   });
   mocked.applyPullPlan.mockResolvedValue(undefined);
   mocked.buildPullResultFromPlan.mockReturnValue({
-    configPath: "/tmp/config.json",
     decryptedFileCount: 2,
     deletedLocalCount: 1,
     directoryCount: 1,
     dryRun: true,
     plainFileCount: 3,
     symlinkCount: 0,
-    syncDirectory: "/tmp/dotweave",
   });
   mocked.pushChanges.mockResolvedValue({
-    configPath: "/tmp/config.json",
     deletedArtifactCount: 2,
     directoryCount: 1,
     dryRun: true,
     encryptedFileCount: 2,
     plainFileCount: 1,
     symlinkCount: 0,
-    syncDirectory: "/tmp/dotweave",
   });
   mocked.getStatus.mockResolvedValue({
     activeProfile: "work",
-    configPath: "/tmp/config.json",
     entries: [
       {
         kind: "file",
@@ -307,7 +293,6 @@ beforeEach(() => {
         updated: ["/tmp/home/.gitconfig"],
         deleted: [],
       },
-      configPath: "/tmp/config.json",
       decryptedFileCount: 2,
       deletedLocalCount: 1,
       directoryCount: 1,
@@ -315,7 +300,6 @@ beforeEach(() => {
       plainFileCount: 3,
       preview: [".gitconfig"],
       symlinkCount: 0,
-      syncDirectory: "/tmp/dotweave",
     },
     push: {
       changes: {
@@ -323,7 +307,6 @@ beforeEach(() => {
         modified: [],
         deleted: [".oldconfig"],
       },
-      configPath: "/tmp/config.json",
       deletedArtifactCount: 2,
       directoryCount: 1,
       dryRun: true,
@@ -331,18 +314,14 @@ beforeEach(() => {
       plainFileCount: 1,
       preview: [".gitconfig"],
       symlinkCount: 0,
-      syncDirectory: "/tmp/dotweave",
     },
     recipientCount: 1,
-    syncDirectory: "/tmp/dotweave",
   });
   mocked.untrackTarget.mockResolvedValue({
-    configPath: "/tmp/config.json",
     localPath: "/tmp/home/.ssh/config",
     plainArtifactCount: 3,
     repoPath: ".ssh/config",
     secretArtifactCount: 0,
-    syncDirectory: "/tmp/dotweave",
   });
   mocked.runDoctorChecks.mockResolvedValue({
     checks: [
@@ -352,10 +331,8 @@ beforeEach(() => {
         level: "ok",
       },
     ],
-    configPath: "/tmp/config.json",
     hasFailures: false,
     hasWarnings: false,
-    syncDirectory: "/tmp/dotweave",
   });
   mocked.mkdir.mockResolvedValue(undefined);
   mocked.launchShellInDirectory.mockResolvedValue(undefined);
@@ -628,10 +605,8 @@ describe("CLI command modules", () => {
           level: "fail",
         },
       ],
-      configPath: "/tmp/config.json",
       hasFailures: true,
       hasWarnings: false,
-      syncDirectory: "/tmp/dotweave",
     });
 
     await expect(runCommand(doctorCommand, {})).rejects.toThrow(

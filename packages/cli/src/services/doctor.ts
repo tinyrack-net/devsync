@@ -1,8 +1,7 @@
-import { resolveSyncConfigFilePath } from "#app/config/sync.ts";
 import { formatDotweaveError } from "#app/lib/error.ts";
 import { pathExists } from "#app/lib/filesystem.ts";
 import { ensureRepository } from "#app/lib/git.ts";
-import { buildEntryMaterialization } from "./local-materialization.ts";
+import { buildEntryMaterialization } from "./materialization.ts";
 import { buildRepositorySnapshot } from "./repo-snapshot.ts";
 import {
   type EffectiveSyncConfig,
@@ -20,10 +19,8 @@ export type DoctorCheck = Readonly<{
 
 export type DoctorResult = Readonly<{
   checks: readonly DoctorCheck[];
-  configPath: string;
   hasFailures: boolean;
   hasWarnings: boolean;
-  syncDirectory: string;
 }>;
 
 const ok = (checkId: string, detail: string): DoctorCheck => ({
@@ -46,7 +43,6 @@ const fail = (checkId: string, detail: string): DoctorCheck => ({
 
 export const runDoctorChecks = async (): Promise<DoctorResult> => {
   const { syncDirectory } = resolveSyncPaths();
-  const configPath = resolveSyncConfigFilePath(syncDirectory);
   const checks: DoctorCheck[] = [];
 
   try {
@@ -62,10 +58,8 @@ export const runDoctorChecks = async (): Promise<DoctorResult> => {
 
     return {
       checks,
-      configPath,
       hasFailures: true,
       hasWarnings: false,
-      syncDirectory,
     };
   }
 
@@ -101,10 +95,8 @@ export const runDoctorChecks = async (): Promise<DoctorResult> => {
 
     return {
       checks,
-      configPath,
       hasFailures: true,
       hasWarnings: false,
-      syncDirectory,
     };
   }
 
@@ -154,10 +146,8 @@ export const runDoctorChecks = async (): Promise<DoctorResult> => {
 
     return {
       checks,
-      configPath,
       hasFailures,
       hasWarnings,
-      syncDirectory,
     };
   }
 
@@ -175,9 +165,7 @@ export const runDoctorChecks = async (): Promise<DoctorResult> => {
 
   return {
     checks,
-    configPath,
     hasFailures,
     hasWarnings,
-    syncDirectory,
   };
 };

@@ -3,11 +3,11 @@ import {
   formatGlobalDotweaveConfig,
   readGlobalDotweaveConfig,
 } from "#app/config/global-config.ts";
+import { collectAllProfileNames } from "#app/config/sync-entry.ts";
 import {
-  collectAllProfileNames,
   normalizeSyncProfileName,
   readSyncConfig,
-} from "#app/config/sync.ts";
+} from "#app/config/sync-schema.ts";
 import { DotweaveError } from "#app/lib/error.ts";
 import { writeTextFileAtomically } from "#app/lib/filesystem.ts";
 import { ensureGitRepository } from "#app/lib/git.ts";
@@ -35,7 +35,6 @@ export type ProfileListResult = Readonly<{
   availableProfiles: readonly string[];
   globalConfigExists: boolean;
   globalConfigPath: string;
-  syncDirectory: string;
 }>;
 
 export type ProfileUpdateResult = Readonly<{
@@ -43,7 +42,6 @@ export type ProfileUpdateResult = Readonly<{
   action: "clear" | "use";
   globalConfigPath: string;
   profile?: string;
-  syncDirectory: string;
   warning?: string;
 }>;
 
@@ -54,10 +52,8 @@ type AssignProfilesRequest = Readonly<{
 
 type AssignProfilesResult = Readonly<{
   action: "assigned" | "unchanged";
-  configPath: string;
   entryRepoPath: string;
   profiles: readonly string[];
-  syncDirectory: string;
 }>;
 
 export const listProfiles = async (): Promise<ProfileListResult> => {
@@ -90,7 +86,6 @@ export const listProfiles = async (): Promise<ProfileListResult> => {
     availableProfiles: collectAllProfileNames(syncConfig.entries),
     globalConfigExists: globalConfig !== undefined,
     globalConfigPath,
-    syncDirectory,
   };
 };
 
@@ -122,7 +117,6 @@ export const setActiveProfile = async (
     globalConfigPath,
     action: "use",
     profile: normalizedProfile,
-    syncDirectory,
     ...(warning !== undefined ? { warning } : {}),
   };
 };
@@ -142,7 +136,6 @@ export const clearActiveProfile = async (): Promise<ProfileUpdateResult> => {
   return {
     globalConfigPath,
     action: "clear",
-    syncDirectory,
   };
 };
 
@@ -159,8 +152,7 @@ export const assignProfiles = async (
     });
   }
 
-  const { config, configPath, context, syncDirectory } =
-    await loadMutableSyncConfig();
+  const { config, context, syncDirectory } = await loadMutableSyncConfig();
   const entry = resolveTrackedEntry(
     target,
     config.entries,
@@ -185,10 +177,8 @@ export const assignProfiles = async (
   ) {
     return {
       action: "unchanged",
-      configPath,
       entryRepoPath: entry.repoPath,
       profiles: normalizedProfiles,
-      syncDirectory,
     };
   }
 
@@ -211,9 +201,7 @@ export const assignProfiles = async (
 
   return {
     action: "assigned",
-    configPath,
     entryRepoPath: entry.repoPath,
     profiles: normalizedProfiles,
-    syncDirectory,
   };
 };

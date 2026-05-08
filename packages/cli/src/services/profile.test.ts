@@ -36,8 +36,11 @@ vi.mock("#app/config/global-config.ts", () => ({
   readGlobalDotweaveConfig: mocked.readGlobalDotweaveConfig,
 }));
 
-vi.mock("#app/config/sync.ts", () => ({
+vi.mock("#app/config/sync-entry.ts", () => ({
   collectAllProfileNames: mocked.collectAllProfileNames,
+}));
+
+vi.mock("#app/config/sync-schema.ts", () => ({
   normalizeSyncProfileName: mocked.normalizeSyncProfileName,
   readSyncConfig: mocked.readSyncConfig,
 }));
@@ -122,7 +125,6 @@ describe("sync profiles service", () => {
       availableProfiles: ["default", "work"],
       globalConfigExists: true,
       globalConfigPath: "/tmp/dotweave/global.json",
-      syncDirectory: "/tmp/dotweave",
     });
     expect(mocked.ensureGitRepository).toHaveBeenCalledWith("/tmp/dotweave");
   });
@@ -153,7 +155,6 @@ describe("sync profiles service", () => {
       activeProfile: "work",
       globalConfigPath: "/tmp/dotweave/global.json",
       profile: "work",
-      syncDirectory: "/tmp/dotweave",
       warning: "Profile 'work' is not referenced by any tracked entry.",
     });
     expect(mocked.formatGlobalDotweaveConfig).toHaveBeenCalledWith({
@@ -181,7 +182,6 @@ describe("sync profiles service", () => {
     await expect(clearActiveProfile()).resolves.toEqual({
       action: "clear",
       globalConfigPath: "/tmp/dotweave/global.json",
-      syncDirectory: "/tmp/dotweave",
     });
     expect(mocked.formatGlobalDotweaveConfig).toHaveBeenCalledWith({
       version: 3,
@@ -228,10 +228,8 @@ describe("sync profiles service", () => {
       ),
     ).resolves.toEqual({
       action: "unchanged",
-      configPath: "/tmp/dotweave/manifest.jsonc",
       entryRepoPath: ".gitconfig",
       profiles: ["work", "default"],
-      syncDirectory: "/tmp/dotweave",
     });
     expect(mocked.writeValidatedSyncConfig).not.toHaveBeenCalled();
   });
@@ -257,10 +255,8 @@ describe("sync profiles service", () => {
 
     expect(result).toEqual({
       action: "assigned",
-      configPath: "/tmp/dotweave/manifest.jsonc",
       entryRepoPath: ".gitconfig",
       profiles: ["work"],
-      syncDirectory: "/tmp/dotweave",
     });
     expect(mocked.buildSyncConfigDocument).toHaveBeenCalledWith({
       ...config,

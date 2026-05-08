@@ -1,5 +1,4 @@
 import { CONSTANTS } from "#app/config/constants.ts";
-import { resolveSyncConfigFilePath } from "#app/config/sync.ts";
 import { ensureGitRepository } from "#app/lib/git.ts";
 import { doPathsOverlap, isPathEqualOrNested } from "#app/lib/path.ts";
 import { limitConcurrency } from "#app/lib/promise.ts";
@@ -10,7 +9,7 @@ import {
   collectChangedLocalPaths,
   countDeletedLocalNodes,
   type EntryMaterialization,
-} from "./local-materialization.ts";
+} from "./materialization.ts";
 import { buildRepositorySnapshot } from "./repo-snapshot.ts";
 import {
   type EffectiveSyncConfig,
@@ -24,14 +23,12 @@ export type PullRequest = Readonly<{
 }>;
 
 export type PullResult = Readonly<{
-  configPath: string;
   decryptedFileCount: number;
   deletedLocalCount: number;
   directoryCount: number;
   dryRun: boolean;
   plainFileCount: number;
   symlinkCount: number;
-  syncDirectory: string;
 }>;
 
 export type PullPlan = Readonly<{
@@ -196,15 +193,11 @@ export const buildPullPlanPreview = (plan: PullPlan) => {
 
 export const buildPullResultFromPlan = (
   plan: PullPlan,
-  syncDirectory: string,
   dryRun: boolean,
 ): PullResult => {
-  const configPath = resolveSyncConfigFilePath(syncDirectory);
   return {
-    configPath,
     deletedLocalCount: plan.deletedLocalCount,
     dryRun,
-    syncDirectory,
     ...plan.counts,
   };
 };
@@ -218,11 +211,7 @@ export const pullChanges = async (
     await applyPullPlan(prepared.config, prepared.plan);
   }
 
-  return buildPullResultFromPlan(
-    prepared.plan,
-    prepared.syncDirectory,
-    request.dryRun,
-  );
+  return buildPullResultFromPlan(prepared.plan, request.dryRun);
 };
 
 export const preparePull = async (

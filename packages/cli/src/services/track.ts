@@ -6,12 +6,14 @@ import { readEnvValue } from "#app/config/runtime-env.ts";
 import {
   buildDefaultPlatformMode,
   hasPlatformSpecificModeOverride,
+} from "#app/config/sync-entry.ts";
+import {
   normalizeSyncProfileName,
   normalizeSyncRepoPath,
   type ResolvedSyncConfigEntry,
   type SyncConfigEntryKind,
   type SyncMode,
-} from "#app/config/sync.ts";
+} from "#app/config/sync-schema.ts";
 import { expandHomePath } from "#app/config/xdg.ts";
 import { DotweaveError } from "#app/lib/error.ts";
 import { getPathStats } from "#app/lib/filesystem.ts";
@@ -36,13 +38,11 @@ export type TrackRequest = Readonly<{
 export type TrackResult = Readonly<{
   alreadyTracked: boolean;
   changed: boolean;
-  configPath: string;
   kind: SyncConfigEntryKind;
   localPath: string;
   profiles: readonly string[];
   mode: SyncMode;
   repoPath: string;
-  syncDirectory: string;
 }>;
 
 const buildDefaultPlatformRepoPath = (
@@ -156,8 +156,7 @@ export const trackTarget = async (
     });
   }
 
-  const { config, configPath, context, syncDirectory } =
-    await loadMutableSyncConfig();
+  const { config, context, syncDirectory } = await loadMutableSyncConfig();
   const identityFile =
     config.age !== undefined
       ? resolveDefaultIdentityFile(
@@ -245,13 +244,11 @@ export const trackTarget = async (
     return {
       alreadyTracked,
       changed: true,
-      configPath,
       kind: nextEntry.kind,
       localPath: nextEntry.localPath,
       profiles: nextEntry.profiles,
       mode: nextEntry.mode,
       repoPath: nextEntry.repoPath,
-      syncDirectory,
     };
   }
 
@@ -310,7 +307,6 @@ export const trackTarget = async (
   return {
     alreadyTracked,
     changed,
-    configPath,
     kind: nextEntry.kind,
     localPath: nextEntry.localPath,
     profiles: profilesChanged
@@ -321,6 +317,5 @@ export const trackTarget = async (
       repoPathChanged || !alreadyTracked
         ? nextEntry.repoPath
         : (existingEntry?.repoPath ?? nextEntry.repoPath),
-    syncDirectory,
   };
 };

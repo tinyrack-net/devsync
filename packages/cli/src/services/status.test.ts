@@ -22,7 +22,7 @@ const mocked = vi.hoisted(() => ({
   buildPullPlanPreview: vi.fn(() => ["pull-preview"]),
 }));
 
-vi.mock("#app/config/sync.ts", () => ({
+vi.mock("#app/config/sync-schema.ts", () => ({
   resolveSyncConfigFilePath: mocked.resolveSyncConfigFilePath,
 }));
 

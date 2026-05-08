@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type {
   ResolvedSyncConfig,
   ResolvedSyncConfigEntry,
-} from "#app/config/sync.ts";
+} from "#app/config/sync-schema.ts";
 
 const nativePath = (value: string) =>
   process.platform === "win32" ? `C:${value.replaceAll("/", "\\")}` : value;
@@ -44,13 +44,16 @@ const mocked = vi.hoisted(() => ({
   writeValidatedSyncConfig: vi.fn(),
 }));
 
-vi.mock("#app/config/sync.ts", () => ({
+vi.mock("#app/config/sync-entry.ts", () => ({
   buildDefaultPlatformMode: mocked.buildDefaultPlatformMode,
   findOwningSyncEntry: mocked.findOwningSyncEntry,
   hasPlatformSpecificModeOverride: mocked.hasPlatformSpecificModeOverride,
+  resolveEntryRelativeRepoPath: mocked.resolveEntryRelativeRepoPath,
+}));
+
+vi.mock("#app/config/sync-schema.ts", () => ({
   normalizeSyncRepoPath: mocked.normalizeSyncRepoPath,
   readSyncConfig: mocked.readSyncConfig,
-  resolveEntryRelativeRepoPath: mocked.resolveEntryRelativeRepoPath,
 }));
 
 vi.mock("#app/lib/path.ts", () => ({
@@ -364,12 +367,10 @@ describe("sync set service", () => {
       ),
     ).resolves.toEqual({
       action: "unchanged",
-      configPath: "/tmp/dotweave/manifest.jsonc",
       entryRepoPath: ".gitconfig",
       localPath: nativePath("/tmp/home/.gitconfig"),
       mode: "secret",
       repoPath: ".gitconfig",
-      syncDirectory: "/tmp/dotweave",
     });
     expect(mocked.writeValidatedSyncConfig).not.toHaveBeenCalled();
   });
@@ -432,12 +433,10 @@ describe("sync set service", () => {
 
     expect(result).toEqual({
       action: "added",
-      configPath: "/tmp/dotweave/manifest.jsonc",
       entryRepoPath: ".config/app",
       localPath: nativePath("/tmp/home/.config/app/private.txt"),
       mode: "secret",
       repoPath: ".config/app/private.txt",
-      syncDirectory: "/tmp/dotweave",
     });
     expect(mocked.buildSyncConfigDocument).toHaveBeenCalledWith({
       ...config,
@@ -482,12 +481,10 @@ describe("sync set service", () => {
       ),
     ).resolves.toEqual({
       action: "unchanged",
-      configPath: "/tmp/dotweave/manifest.jsonc",
       entryRepoPath: ".config/app",
       localPath: nativePath("/tmp/home/.config/app/notes.txt"),
       mode: "normal",
       repoPath: ".config/app/notes.txt",
-      syncDirectory: "/tmp/dotweave",
     });
     expect(mocked.writeValidatedSyncConfig).not.toHaveBeenCalled();
   });

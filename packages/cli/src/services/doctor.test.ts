@@ -14,7 +14,7 @@ const mocked = vi.hoisted(() => ({
   })),
 }));
 
-vi.mock("#app/config/sync.ts", () => ({
+vi.mock("#app/config/sync-schema.ts", () => ({
   resolveSyncConfigFilePath: mocked.resolveSyncConfigFilePath,
 }));
 
@@ -93,10 +93,8 @@ describe("sync doctor", () => {
           level: "fail",
         },
       ],
-      configPath: "/tmp/dotweave/manifest.jsonc",
       hasFailures: true,
       hasWarnings: false,
-      syncDirectory: "/tmp/dotweave",
     });
     expect(mocked.loadSyncConfig).not.toHaveBeenCalled();
   });
@@ -120,10 +118,8 @@ describe("sync doctor", () => {
           level: "fail",
         },
       ],
-      configPath: "/tmp/dotweave/manifest.jsonc",
       hasFailures: true,
       hasWarnings: false,
-      syncDirectory: "/tmp/dotweave",
     });
   });
 

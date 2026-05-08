@@ -1,6 +1,5 @@
 import { join } from "node:path";
 import { CONSTANTS } from "#app/config/constants.ts";
-import { resolveSyncConfigFilePath } from "#app/config/sync.ts";
 import { removePathAtomically } from "#app/lib/filesystem.ts";
 import { ensureGitRepository } from "#app/lib/git.ts";
 import { limitConcurrency } from "#app/lib/promise.ts";
@@ -24,14 +23,12 @@ export type PushRequest = Readonly<{
 }>;
 
 export type PushResult = Readonly<{
-  configPath: string;
   deletedArtifactCount: number;
   directoryCount: number;
   dryRun: boolean;
   encryptedFileCount: number;
   plainFileCount: number;
   symlinkCount: number;
-  syncDirectory: string;
 }>;
 
 export type PushPlan = Readonly<{
@@ -121,15 +118,11 @@ export const buildPushPlanPreview = (plan: PushPlan) => {
 
 export const buildPushResultFromPlan = (
   plan: PushPlan,
-  syncDirectory: string,
   dryRun: boolean,
 ): PushResult => {
-  const configPath = resolveSyncConfigFilePath(syncDirectory);
   return {
-    configPath,
     deletedArtifactCount: plan.deletedArtifactCount,
     dryRun,
-    syncDirectory,
     ...plan.counts,
   };
 };
@@ -173,5 +166,5 @@ export const pushChanges = async (
     );
   }
 
-  return buildPushResultFromPlan(plan, syncDirectory, request.dryRun);
+  return buildPushResultFromPlan(plan, request.dryRun);
 };

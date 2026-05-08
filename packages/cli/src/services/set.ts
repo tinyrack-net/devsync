@@ -3,12 +3,14 @@ import {
   buildDefaultPlatformMode,
   findOwningSyncEntry,
   hasPlatformSpecificModeOverride,
+  resolveEntryRelativeRepoPath,
+} from "#app/config/sync-entry.ts";
+import {
   normalizeSyncRepoPath,
   type ResolvedSyncConfig,
   type ResolvedSyncConfigEntry,
-  resolveEntryRelativeRepoPath,
   type SyncMode,
-} from "#app/config/sync.ts";
+} from "#app/config/sync-schema.ts";
 import { expandHomePath } from "#app/config/xdg.ts";
 import { DotweaveError } from "#app/lib/error.ts";
 import { getPathStats } from "#app/lib/filesystem.ts";
@@ -35,13 +37,11 @@ type SyncSetReason = "already-set";
 
 export type SetModeResult = Readonly<{
   action: SyncSetAction;
-  configPath: string;
   entryRepoPath: string;
   localPath: string;
   mode: SyncMode;
   repoPath: string;
   reason?: SyncSetReason;
-  syncDirectory: string;
 }>;
 
 const buildDefaultConfiguredRepoPath = (repoPath: string) => ({
@@ -290,8 +290,7 @@ export const setTargetMode = async (
   request: SetModeRequest,
   cwd: string,
 ): Promise<SetModeResult> => {
-  const { config, configPath, context, syncDirectory } =
-    await loadMutableSyncConfig();
+  const { config, context, syncDirectory } = await loadMutableSyncConfig();
   const target = await resolveSetTarget(
     request.target,
     config,
@@ -304,12 +303,10 @@ export const setTargetMode = async (
     extras?: Partial<SetModeResult>,
   ): SetModeResult => ({
     action,
-    configPath,
     entryRepoPath: target.entry.repoPath,
     localPath: target.localPath,
     mode: request.mode,
     repoPath: target.repoPath,
-    syncDirectory,
     ...extras,
   });
 

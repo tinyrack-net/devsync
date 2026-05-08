@@ -1,6 +1,6 @@
 import { readdir, rm } from "node:fs/promises";
 import { dirname, join, posix } from "node:path";
-import type { ResolvedSyncConfigEntry } from "#app/config/sync.ts";
+import type { ResolvedSyncConfigEntry } from "#app/config/sync-schema.ts";
 import { DotweaveError } from "#app/lib/error.ts";
 import {
   getPathStats,
@@ -25,12 +25,10 @@ export type UntrackRequest = Readonly<{
 }>;
 
 export type UntrackResult = Readonly<{
-  configPath: string;
   localPath: string;
   plainArtifactCount: number;
   repoPath: string;
   secretArtifactCount: number;
-  syncDirectory: string;
 }>;
 
 const collectRepoArtifactCounts = async (
@@ -193,8 +191,7 @@ export const untrackTarget = async (
     throw new DotweaveError("Target path is required.");
   }
 
-  const { config, configPath, context, syncDirectory } =
-    await loadMutableSyncConfig();
+  const { config, context, syncDirectory } = await loadMutableSyncConfig();
   const entry = resolveTrackedEntry(
     target,
     config.entries,
@@ -219,11 +216,9 @@ export const untrackTarget = async (
   await removeTrackedEntryArtifacts(syncDirectory, entry);
 
   return {
-    configPath,
     localPath: entry.localPath,
     plainArtifactCount,
     repoPath: entry.repoPath,
     secretArtifactCount,
-    syncDirectory,
   };
 };
