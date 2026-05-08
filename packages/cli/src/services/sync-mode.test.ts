@@ -18,7 +18,7 @@ const mocked = vi.hoisted(() => ({
   buildSyncConfigDocument: vi.fn((config: unknown) => ({
     document: config,
   })),
-  ensureGitRepository: vi.fn(),
+  requireGitRepository: vi.fn(),
   expandHomePath: vi.fn(),
   findOwningSyncEntry: vi.fn(),
   getPathStats: vi.fn(),
@@ -46,7 +46,7 @@ const mocked = vi.hoisted(() => ({
   writeValidatedSyncConfig: vi.fn(),
 }));
 
-vi.mock("#app/config/sync-entry.ts", () => ({
+vi.mock("#app/config/sync-queries.ts", () => ({
   buildDefaultPlatformMode: mocked.buildDefaultPlatformMode,
   findOwningSyncEntry: mocked.findOwningSyncEntry,
   hasPlatformSpecificModeOverride: mocked.hasPlatformSpecificModeOverride,
@@ -75,7 +75,7 @@ vi.mock("#app/lib/filesystem.ts", () => ({
   getPathStats: mocked.getPathStats,
 }));
 
-vi.mock("./paths.ts", () => ({
+vi.mock("./sync-paths.ts", () => ({
   buildConfiguredHomeLocalPath: mocked.buildConfiguredHomeLocalPath,
   buildRepoPathWithinRoot: mocked.buildRepoPathWithinRoot,
   tryBuildRepoPathWithinRoot: mocked.tryBuildRepoPathWithinRoot,
@@ -83,15 +83,34 @@ vi.mock("./paths.ts", () => ({
 }));
 
 vi.mock("#app/lib/git.ts", () => ({
-  ensureGitRepository: mocked.ensureGitRepository,
+  requireGitRepository: mocked.requireGitRepository,
 }));
 
-vi.mock("./runtime.ts", () => ({
-  resolveSyncConfigResolutionContext: mocked.resolveSyncConfigResolutionContext,
-  resolveSyncPaths: mocked.resolveSyncPaths,
-}));
+vi.mock("./sync-context.ts", () => {
+  const loadWritableSyncConfig = vi.fn(async () => {
+    const paths = mocked.resolveSyncPaths();
+    await mocked.requireGitRepository(paths.syncDirectory);
+    const config = await mocked.readSyncConfig(
+      paths.syncDirectory,
+      mocked.resolveSyncConfigResolutionContext(),
+    );
+    return {
+      config,
+      configPath: paths.configPath,
+      context: mocked.resolveSyncConfigResolutionContext(),
+      syncDirectory: paths.syncDirectory,
+    };
+  });
 
-import { resolveSetTarget, setTargetMode } from "./set.ts";
+  return {
+    resolveSyncConfigResolutionContext:
+      mocked.resolveSyncConfigResolutionContext,
+    resolveSyncPaths: mocked.resolveSyncPaths,
+    loadWritableSyncConfig,
+  };
+});
+
+import { resolveSetTarget, setTargetMode } from "./sync-mode.ts";
 
 const createConfig = (
   entries: readonly ResolvedSyncConfigEntry[],
@@ -353,7 +372,7 @@ describe("sync set service", () => {
     const entry = fileEntry();
     const config = createConfig([entry]);
 
-    mocked.ensureGitRepository.mockResolvedValueOnce(undefined);
+    mocked.requireGitRepository.mockResolvedValueOnce(undefined);
     mocked.readSyncConfig.mockResolvedValueOnce(config);
     mocked.isExplicitLocalPath.mockReturnValueOnce(false);
     mocked.expandHomePath.mockReturnValueOnce(".gitconfig");
@@ -383,7 +402,7 @@ describe("sync set service", () => {
     });
     const config = createConfig([entry]);
 
-    mocked.ensureGitRepository.mockResolvedValueOnce(undefined);
+    mocked.requireGitRepository.mockResolvedValueOnce(undefined);
     mocked.readSyncConfig.mockResolvedValueOnce(config);
     mocked.isExplicitLocalPath.mockReturnValueOnce(false);
     mocked.expandHomePath.mockReturnValueOnce(".gitconfig");
@@ -416,7 +435,7 @@ describe("sync set service", () => {
     const entry = directoryEntry();
     const config = createConfig([entry]);
 
-    mocked.ensureGitRepository.mockResolvedValueOnce(undefined);
+    mocked.requireGitRepository.mockResolvedValueOnce(undefined);
     mocked.readSyncConfig.mockResolvedValueOnce(config);
     mocked.isExplicitLocalPath.mockReturnValueOnce(false);
     mocked.expandHomePath.mockReturnValueOnce(".config/app/private.txt");
@@ -464,7 +483,7 @@ describe("sync set service", () => {
     const entry = directoryEntry();
     const config = createConfig([entry]);
 
-    mocked.ensureGitRepository.mockResolvedValueOnce(undefined);
+    mocked.requireGitRepository.mockResolvedValueOnce(undefined);
     mocked.readSyncConfig.mockResolvedValueOnce(config);
     mocked.isExplicitLocalPath.mockReturnValueOnce(false);
     mocked.expandHomePath.mockReturnValueOnce(".config/app/notes.txt");

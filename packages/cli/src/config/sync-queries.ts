@@ -1,4 +1,4 @@
-import { CONSTANTS } from "#app/config/constants.ts";
+import { AppConstants } from "#app/config/constants.ts";
 import type {
   PlatformSyncMode,
   ResolvedSyncConfig,
@@ -81,14 +81,14 @@ const resolveProfileForEntry = (
   activeProfile: string | undefined,
 ): string | undefined => {
   if (entry.profiles.length === 0) {
-    return CONSTANTS.SYNC.DEFAULT_PROFILE;
+    return AppConstants.SYNC.DEFAULT_PROFILE;
   }
 
   const effective =
     activeProfile !== undefined &&
-    activeProfile !== CONSTANTS.SYNC.DEFAULT_PROFILE
+    activeProfile !== AppConstants.SYNC.DEFAULT_PROFILE
       ? activeProfile
-      : CONSTANTS.SYNC.DEFAULT_PROFILE;
+      : AppConstants.SYNC.DEFAULT_PROFILE;
 
   return entry.profiles.includes(effective) ? effective : undefined;
 };
@@ -135,7 +135,7 @@ export const isSecretSyncPath = (
   return resolveSyncMode(config, repoPath) === "secret";
 };
 
-export const resolveManagedSyncMode = (
+export const requireManagedSyncMode = (
   config: ResolvedSyncConfig,
   repoPath: string,
   activeProfile?: string,

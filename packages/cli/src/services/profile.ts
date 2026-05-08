@@ -1,26 +1,26 @@
-import { CONSTANTS } from "#app/config/constants.ts";
+import { AppConstants } from "#app/config/constants.ts";
 import {
   formatGlobalDotweaveConfig,
   readGlobalDotweaveConfig,
 } from "#app/config/global-config.ts";
-import { collectAllProfileNames } from "#app/config/sync-entry.ts";
+import { collectAllProfileNames } from "#app/config/sync-queries.ts";
 import {
   normalizeSyncProfileName,
   readSyncConfig,
 } from "#app/config/sync-schema.ts";
 import { DotweaveError } from "#app/lib/error.ts";
 import { writeTextFileAtomically } from "#app/lib/filesystem.ts";
-import { ensureGitRepository } from "#app/lib/git.ts";
+import { requireGitRepository } from "#app/lib/git.ts";
 import {
   buildSyncConfigDocument,
   writeValidatedSyncConfig,
 } from "./config-file.ts";
-import { loadMutableSyncConfig } from "./config-loader.ts";
-import { resolveTrackedEntry } from "./paths.ts";
 import {
+  loadWritableSyncConfig,
   resolveSyncConfigResolutionContext,
   resolveSyncPaths,
-} from "./runtime.ts";
+} from "./sync-context.ts";
+import { resolveTrackedEntry } from "./sync-paths.ts";
 
 export type ProfileAssignment = Readonly<{
   entryLocalPath: string;
@@ -60,7 +60,7 @@ export const listProfiles = async (): Promise<ProfileListResult> => {
   const { syncDirectory, globalConfigPath } = resolveSyncPaths();
   const context = resolveSyncConfigResolutionContext();
 
-  await ensureGitRepository(syncDirectory);
+  await requireGitRepository(syncDirectory);
 
   const [globalConfig, syncConfig] = await Promise.all([
     readGlobalDotweaveConfig(globalConfigPath),
@@ -96,7 +96,7 @@ export const setActiveProfile = async (
   const { syncDirectory, globalConfigPath } = resolveSyncPaths();
   const context = resolveSyncConfigResolutionContext();
 
-  await ensureGitRepository(syncDirectory);
+  await requireGitRepository(syncDirectory);
 
   const syncConfig = await readSyncConfig(syncDirectory, context);
   const knownProfiles = collectAllProfileNames(syncConfig.entries);
@@ -108,7 +108,7 @@ export const setActiveProfile = async (
     globalConfigPath,
     formatGlobalDotweaveConfig({
       activeProfile: normalizedProfile,
-      version: CONSTANTS.GLOBAL_CONFIG.CURRENT_VERSION,
+      version: AppConstants.GLOBAL_CONFIG.CURRENT_VERSION,
     }),
   );
 
@@ -124,12 +124,12 @@ export const setActiveProfile = async (
 export const clearActiveProfile = async (): Promise<ProfileUpdateResult> => {
   const { syncDirectory, globalConfigPath } = resolveSyncPaths();
 
-  await ensureGitRepository(syncDirectory);
+  await requireGitRepository(syncDirectory);
 
   await writeTextFileAtomically(
     globalConfigPath,
     formatGlobalDotweaveConfig({
-      version: CONSTANTS.GLOBAL_CONFIG.CURRENT_VERSION,
+      version: AppConstants.GLOBAL_CONFIG.CURRENT_VERSION,
     }),
   );
 
@@ -152,7 +152,7 @@ export const assignProfiles = async (
     });
   }
 
-  const { config, context, syncDirectory } = await loadMutableSyncConfig();
+  const { config, context, syncDirectory } = await loadWritableSyncConfig();
   const entry = resolveTrackedEntry(
     target,
     config.entries,

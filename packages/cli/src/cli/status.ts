@@ -6,7 +6,7 @@ import {
   type PushChanges,
 } from "#app/services/status.ts";
 import { createCliLogger } from "#app/services/terminal/logger.ts";
-import { c, S } from "#app/services/terminal/theme.ts";
+import { color, SYMBOLS } from "#app/services/terminal/theme.ts";
 import { profileFlag } from "./shared-flags.ts";
 
 type StatusFlags = {
@@ -35,11 +35,11 @@ const logPushChanges = (
     const remainingCount = changes.added.length - displayItems.length;
 
     for (const path of displayItems) {
-      logger.log(`  ${c.action.add(S.add)} ${c.path(path)}`);
+      logger.log(`  ${color.action.add(SYMBOLS.add)} ${color.path(path)}`);
     }
 
     if (remainingCount > 0) {
-      logger.log(c.dim(`  ... and ${remainingCount} more`));
+      logger.log(color.dim(`  ... and ${remainingCount} more`));
     }
   }
 
@@ -49,11 +49,13 @@ const logPushChanges = (
     const remainingCount = changes.modified.length - displayItems.length;
 
     for (const path of displayItems) {
-      logger.log(`  ${c.action.modify(S.modify)} ${c.path(path)}`);
+      logger.log(
+        `  ${color.action.modify(SYMBOLS.modify)} ${color.path(path)}`,
+      );
     }
 
     if (remainingCount > 0) {
-      logger.log(c.dim(`  ... and ${remainingCount} more`));
+      logger.log(color.dim(`  ... and ${remainingCount} more`));
     }
   }
 
@@ -63,11 +65,13 @@ const logPushChanges = (
     const remainingCount = changes.deleted.length - displayItems.length;
 
     for (const path of displayItems) {
-      logger.log(`  ${c.action.delete(S.delete)} ${c.path(path)}`);
+      logger.log(
+        `  ${color.action.delete(SYMBOLS.delete)} ${color.path(path)}`,
+      );
     }
 
     if (remainingCount > 0) {
-      logger.log(c.dim(`  ... and ${remainingCount} more`));
+      logger.log(color.dim(`  ... and ${remainingCount} more`));
     }
   }
 };
@@ -89,11 +93,11 @@ const logPullChanges = (
     const remainingCount = changes.updated.length - displayItems.length;
 
     for (const path of displayItems) {
-      logger.log(`  ${c.action.add(S.add)} ${c.path(path)}`);
+      logger.log(`  ${color.action.add(SYMBOLS.add)} ${color.path(path)}`);
     }
 
     if (remainingCount > 0) {
-      logger.log(c.dim(`  ... and ${remainingCount} more`));
+      logger.log(color.dim(`  ... and ${remainingCount} more`));
     }
   }
 
@@ -103,11 +107,13 @@ const logPullChanges = (
     const remainingCount = changes.deleted.length - displayItems.length;
 
     for (const path of displayItems) {
-      logger.log(`  ${c.action.delete(S.delete)} ${c.path(path)}`);
+      logger.log(
+        `  ${color.action.delete(SYMBOLS.delete)} ${color.path(path)}`,
+      );
     }
 
     if (remainingCount > 0) {
-      logger.log(c.dim(`  ... and ${remainingCount} more`));
+      logger.log(color.dim(`  ... and ${remainingCount} more`));
     }
   }
 };

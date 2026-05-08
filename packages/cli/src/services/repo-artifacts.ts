@@ -1,10 +1,10 @@
 import { lstat, mkdir, readFile, readlink } from "node:fs/promises";
 import { join } from "node:path";
-import { CONSTANTS } from "#app/config/constants.ts";
+import { AppConstants } from "#app/config/constants.ts";
 import {
   findOwningSyncEntry,
   resolveSyncRule,
-} from "#app/config/sync-entry.ts";
+} from "#app/config/sync-queries.ts";
 import {
   hasReservedSyncArtifactSuffixSegment,
   type ResolvedSyncConfigEntry,
@@ -25,13 +25,10 @@ import {
   writeFileNode,
   writeSymlinkNode,
 } from "#app/lib/filesystem.ts";
-import {
-  buildDirectoryKey,
-  normalizeLinkTargetForComparison,
-} from "#app/lib/path.ts";
+import { buildDirectoryKey, normalizeLinkTarget } from "#app/lib/path.ts";
 import { limitConcurrency } from "#app/lib/promise.ts";
 import type { SnapshotNode } from "./local-snapshot.ts";
-import type { EffectiveSyncConfig } from "./runtime.ts";
+import type { EffectiveSyncConfig } from "./sync-context.ts";
 
 type ArtifactConfig = EffectiveSyncConfig;
 
@@ -48,7 +45,7 @@ export const collectArtifactProfiles = (
   entries: readonly Pick<ResolvedSyncConfigEntry, "profiles">[],
 ) => {
   const profiles = new Set<string>();
-  profiles.add(CONSTANTS.SYNC.DEFAULT_PROFILE);
+  profiles.add(AppConstants.SYNC.DEFAULT_PROFILE);
 
   for (const entry of entries) {
     for (const profile of entry.profiles) {
@@ -99,7 +96,7 @@ export const buildArtifactKey = (artifact: RepoArtifact) => {
 };
 
 export const isSecretArtifactPath = (relativePath: string) => {
-  return relativePath.endsWith(CONSTANTS.SYNC.SECRET_ARTIFACT_SUFFIX);
+  return relativePath.endsWith(AppConstants.SYNC.SECRET_ARTIFACT_SUFFIX);
 };
 
 export const stripSecretArtifactSuffix = (relativePath: string) => {
@@ -107,7 +104,10 @@ export const stripSecretArtifactSuffix = (relativePath: string) => {
     return undefined;
   }
 
-  return relativePath.slice(0, -CONSTANTS.SYNC.SECRET_ARTIFACT_SUFFIX.length);
+  return relativePath.slice(
+    0,
+    -AppConstants.SYNC.SECRET_ARTIFACT_SUFFIX.length,
+  );
 };
 
 export const assertStorageSafeRepoPath = (repoPath: string) => {
@@ -116,7 +116,7 @@ export const assertStorageSafeRepoPath = (repoPath: string) => {
   }
 
   throw new DotweaveError(
-    `Tracked sync paths must not use the reserved suffix ${CONSTANTS.SYNC.SECRET_ARTIFACT_SUFFIX}.`,
+    `Tracked sync paths must not use the reserved suffix ${AppConstants.SYNC.SECRET_ARTIFACT_SUFFIX}.`,
     {
       code: "RESERVED_SECRET_SUFFIX",
       details: [`Repository path: ${repoPath}`],
@@ -131,14 +131,16 @@ export const resolveArtifactRelativePath = (
   const profileRelativePath = `${artifact.profile}/${artifact.repoPath}`;
 
   return artifact.category === "secret"
-    ? `${profileRelativePath}${CONSTANTS.SYNC.SECRET_ARTIFACT_SUFFIX}`
+    ? `${profileRelativePath}${AppConstants.SYNC.SECRET_ARTIFACT_SUFFIX}`
     : profileRelativePath;
 };
 
 export const parseArtifactRelativePath = (relativePath: string) => {
-  const secret = relativePath.endsWith(CONSTANTS.SYNC.SECRET_ARTIFACT_SUFFIX);
+  const secret = relativePath.endsWith(
+    AppConstants.SYNC.SECRET_ARTIFACT_SUFFIX,
+  );
   const logicalPath = secret
-    ? relativePath.slice(0, -CONSTANTS.SYNC.SECRET_ARTIFACT_SUFFIX.length)
+    ? relativePath.slice(0, -AppConstants.SYNC.SECRET_ARTIFACT_SUFFIX.length)
     : relativePath;
   const segments = logicalPath.split("/");
 
@@ -289,13 +291,12 @@ export const collectExistingArtifactKeys = async (
   config: ArtifactConfig,
 ) => {
   const keys = new Set<string>();
-  const artifactsDirectory = syncDirectory;
   const artifactProfiles = collectArtifactProfiles(config.entries);
 
   await Promise.all(
     [...artifactProfiles].map(async (profile) => {
       await collectArtifactLeafKeys(
-        join(artifactsDirectory, profile),
+        join(syncDirectory, profile),
         keys,
         profile,
       );
@@ -335,7 +336,7 @@ export const collectExistingArtifactKeys = async (
       profile: rule.profile,
       repoPath: entry.repoPath,
     });
-    const path = join(artifactsDirectory, ...relativePath.split("/"));
+    const path = join(syncDirectory, ...relativePath.split("/"));
 
     if ((await getPathStats(path))?.isDirectory()) {
       keys.add(buildDirectoryKey(relativePath));
@@ -404,8 +405,8 @@ export const isRepoArtifactCurrent = async (
 
     return (
       stats?.isSymbolicLink() === true &&
-      normalizeLinkTargetForComparison(linkTarget) ===
-        normalizeLinkTargetForComparison(artifact.linkTarget)
+      normalizeLinkTarget(linkTarget) ===
+        normalizeLinkTarget(artifact.linkTarget)
     );
   }
 
@@ -444,7 +445,7 @@ export const writeArtifactsToDirectory = async (
   await mkdir(rootDirectory, { recursive: true });
 
   await limitConcurrency(
-    CONSTANTS.SYNC.DEFAULT_CONCURRENCY,
+    AppConstants.SYNC.DEFAULT_CONCURRENCY,
     artifacts,
     async (artifact) => {
       const relativePath = resolveArtifactRelativePath(artifact);

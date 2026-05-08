@@ -18,7 +18,7 @@ const mocked = vi.hoisted(() => ({
   buildRepositorySnapshot: vi.fn(),
   collectChangedLocalPaths: vi.fn(),
   countDeletedLocalNodes: vi.fn(),
-  ensureGitRepository: vi.fn(),
+  requireGitRepository: vi.fn(),
   loadSyncConfig: vi.fn(),
   resolveSyncPaths: vi.fn(() => ({
     syncDirectory: "/tmp/dotweave",
@@ -27,7 +27,7 @@ const mocked = vi.hoisted(() => ({
 
 vi.mock("#app/config/sync-schema.ts", () => ({}));
 
-vi.mock("./materialization.ts", () => ({
+vi.mock("./pull-apply.ts", () => ({
   applyEntryMaterialization: mocked.applyEntryMaterialization,
   buildEntryMaterialization: mocked.buildEntryMaterialization,
   buildPullCounts: mocked.buildPullCounts,
@@ -40,10 +40,10 @@ vi.mock("./repo-snapshot.ts", () => ({
 }));
 
 vi.mock("#app/lib/git.ts", () => ({
-  ensureGitRepository: mocked.ensureGitRepository,
+  requireGitRepository: mocked.requireGitRepository,
 }));
 
-vi.mock("./runtime.ts", () => ({
+vi.mock("./sync-context.ts", () => ({
   loadSyncConfig: mocked.loadSyncConfig,
   resolveSyncPaths: mocked.resolveSyncPaths,
 }));
@@ -56,7 +56,7 @@ import {
   type PullPlan,
   pullChanges,
 } from "./pull.ts";
-import type { EffectiveSyncConfig } from "./runtime.ts";
+import type { EffectiveSyncConfig } from "./sync-context.ts";
 
 afterEach(() => {
   vi.clearAllMocks();
@@ -333,7 +333,7 @@ describe("pull planning", () => {
       ),
     ]);
 
-    mocked.ensureGitRepository.mockResolvedValueOnce(undefined);
+    mocked.requireGitRepository.mockResolvedValueOnce(undefined);
     mocked.loadSyncConfig.mockResolvedValueOnce({
       effectiveConfig: config,
     });

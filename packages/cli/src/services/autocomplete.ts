@@ -1,4 +1,4 @@
-import { CONSTANTS } from "#app/config/constants.ts";
+import { AppConstants } from "#app/config/constants.ts";
 
 const COMPLETION_FUNCTION_NAME = "__dotweave_complete";
 const ENSURE_FUNCTION_NAME = "__dotweave_ensure_completion";
@@ -8,12 +8,12 @@ ${COMPLETION_FUNCTION_NAME}() {
   local -a inputs
   local rawCompletions completion
   inputs=("\${COMP_WORDS[@]}")
-  if [[ \${#inputs[@]} -eq 1 && \${COMP_CWORD:-0} -eq 0 && "\${inputs[0]}" == "${CONSTANTS.AUTOCOMPLETE.CLI_COMMAND_NAME}" ]]; then
+  if [[ \${#inputs[@]} -eq 1 && \${COMP_CWORD:-0} -eq 0 && "\${inputs[0]}" == "${AppConstants.AUTOCOMPLETE.CLI_COMMAND_NAME}" ]]; then
     inputs+=("")
   elif [[ \${COMP_CWORD:-0} -ge \${#inputs[@]} ]]; then
     inputs+=("")
   fi
-  if ! rawCompletions="$(env -u COMP_LINE ${CONSTANTS.AUTOCOMPLETE.COMMAND} "\${inputs[@]}")"; then
+  if ! rawCompletions="$(env -u COMP_LINE ${AppConstants.AUTOCOMPLETE.COMMAND} "\${inputs[@]}")"; then
     return 1
   fi
 
@@ -64,17 +64,17 @@ ${COMPLETION_FUNCTION_NAME}() {
 
   return 0
 }
-complete -o default -o nospace -F ${COMPLETION_FUNCTION_NAME} ${CONSTANTS.AUTOCOMPLETE.CLI_COMMAND_NAME}
+complete -o default -o nospace -F ${COMPLETION_FUNCTION_NAME} ${AppConstants.AUTOCOMPLETE.CLI_COMMAND_NAME}
 `;
 
 export const POWERSHELL_AUTOCOMPLETE_SCRIPT = `\
-Register-ArgumentCompleter -Native -CommandName ${CONSTANTS.AUTOCOMPLETE.CLI_COMMAND_NAME} -ScriptBlock {
+Register-ArgumentCompleter -Native -CommandName ${AppConstants.AUTOCOMPLETE.CLI_COMMAND_NAME} -ScriptBlock {
   param($wordToComplete, $commandAst, $cursorPosition)
   $inputs = $commandAst.ToString().Split(' ', [System.StringSplitOptions]::RemoveEmptyEntries)
   if ($cursorPosition -gt $commandAst.ToString().Length) {
     $inputs += ''
   }
-  $rawCompletions = & ${CONSTANTS.AUTOCOMPLETE.COMMAND.replace(" ", " ")} $inputs 2>$null
+  $rawCompletions = & ${AppConstants.AUTOCOMPLETE.COMMAND.replace(" ", " ")} $inputs 2>$null
   if (-not $rawCompletions) { return }
   foreach ($line in $rawCompletions) {
     $parts = $line.Split([char]9, 2)
@@ -101,12 +101,12 @@ ${COMPLETION_FUNCTION_NAME}() {
   local -a directories inputs plainCompletions
   local rawCompletions
   inputs=("\${words[@]}")
-  if (( CURRENT == 1 && \${#inputs[@]} == 1 )) && [[ "\${inputs[1]}" == "${CONSTANTS.AUTOCOMPLETE.CLI_COMMAND_NAME}" ]]; then
+  if (( CURRENT == 1 && \${#inputs[@]} == 1 )) && [[ "\${inputs[1]}" == "${AppConstants.AUTOCOMPLETE.CLI_COMMAND_NAME}" ]]; then
     inputs+=("")
   elif (( CURRENT > \${#inputs[@]} )); then
     inputs+=("")
   fi
-  if ! rawCompletions="$(env -u COMP_LINE ${CONSTANTS.AUTOCOMPLETE.COMMAND} "\${inputs[@]}")"; then
+  if ! rawCompletions="$(env -u COMP_LINE ${AppConstants.AUTOCOMPLETE.COMMAND} "\${inputs[@]}")"; then
     return 1
   fi
 
@@ -151,11 +151,11 @@ ${COMPLETION_FUNCTION_NAME}() {
     compadd -Q -S "" -l -d dirDisplays -- "\${directories[@]}"
   fi
 }
-compdef ${COMPLETION_FUNCTION_NAME} ${CONSTANTS.AUTOCOMPLETE.CLI_COMMAND_NAME}
+compdef ${COMPLETION_FUNCTION_NAME} ${AppConstants.AUTOCOMPLETE.CLI_COMMAND_NAME}
 
 ${ENSURE_FUNCTION_NAME}() {
-  if (( $+functions[compdef] )) && [[ "\${_comps[${CONSTANTS.AUTOCOMPLETE.CLI_COMMAND_NAME}]}" != ${COMPLETION_FUNCTION_NAME} ]]; then
-    compdef ${COMPLETION_FUNCTION_NAME} ${CONSTANTS.AUTOCOMPLETE.CLI_COMMAND_NAME}
+  if (( $+functions[compdef] )) && [[ "\${_comps[${AppConstants.AUTOCOMPLETE.CLI_COMMAND_NAME}]}" != ${COMPLETION_FUNCTION_NAME} ]]; then
+    compdef ${COMPLETION_FUNCTION_NAME} ${AppConstants.AUTOCOMPLETE.CLI_COMMAND_NAME}
   fi
 }
 autoload -Uz add-zsh-hook
@@ -166,8 +166,8 @@ const isCliCommandToken = (input: string) => {
   const normalizedInput = input.replace(/\\/gu, "/").split("/").pop() ?? input;
 
   return (
-    normalizedInput === CONSTANTS.AUTOCOMPLETE.CLI_COMMAND_NAME ||
-    normalizedInput === `${CONSTANTS.AUTOCOMPLETE.CLI_COMMAND_NAME}.exe`
+    normalizedInput === AppConstants.AUTOCOMPLETE.CLI_COMMAND_NAME ||
+    normalizedInput === `${AppConstants.AUTOCOMPLETE.CLI_COMMAND_NAME}.exe`
   );
 };
 

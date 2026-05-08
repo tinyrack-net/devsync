@@ -4,9 +4,9 @@ import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { DotweaveError } from "#app/lib/error.ts";
 import {
-  ensureGitRepository,
-  ensureRepository,
   initializeRepository,
+  requireGitRepository,
+  verifyIsGitRepository,
 } from "#app/lib/git.ts";
 import {
   createTemporaryDirectory,
@@ -41,7 +41,9 @@ describe("git helpers", () => {
     await expect(initializeRepository(repositoryPath)).resolves.toEqual({
       action: "initialized",
     });
-    await expect(ensureRepository(repositoryPath)).resolves.toBeUndefined();
+    await expect(
+      verifyIsGitRepository(repositoryPath),
+    ).resolves.toBeUndefined();
     await expect(
       runGit(["-C", repositoryPath, "symbolic-ref", "--short", "HEAD"]),
     ).resolves.toMatchObject({
@@ -62,7 +64,7 @@ describe("git helpers", () => {
         source: sourcePath,
       },
     );
-    await expect(ensureRepository(targetPath)).resolves.toBeUndefined();
+    await expect(verifyIsGitRepository(targetPath)).resolves.toBeUndefined();
   });
 
   it("wraps missing git repositories in a DotweaveError", async () => {
@@ -70,13 +72,13 @@ describe("git helpers", () => {
     const missingRepositoryPath = join(workspace, "not-a-repo");
 
     await expect(
-      ensureRepository(missingRepositoryPath),
+      verifyIsGitRepository(missingRepositoryPath),
     ).rejects.toThrowError();
     await expect(
-      ensureGitRepository(missingRepositoryPath),
+      requireGitRepository(missingRepositoryPath),
     ).rejects.toThrowError(DotweaveError);
     await expect(
-      ensureGitRepository(missingRepositoryPath),
+      requireGitRepository(missingRepositoryPath),
     ).rejects.toThrowError(/Sync repository is not initialized/u);
   });
 

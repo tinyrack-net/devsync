@@ -13,8 +13,8 @@ import type { FileLikeSnapshotNode } from "#app/services/local-snapshot.ts";
 import {
   collectChangedLocalPaths,
   countDeletedLocalNodes,
-} from "#app/services/materialization.ts";
-import type { EffectiveSyncConfig } from "#app/services/runtime.ts";
+} from "#app/services/pull-apply.ts";
+import type { EffectiveSyncConfig } from "#app/services/sync-context.ts";
 import { createTemporaryDirectory } from "../test/helpers/sync-fixture.ts";
 
 const temporaryDirectories: string[] = [];

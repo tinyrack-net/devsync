@@ -7,7 +7,7 @@ const mocked = vi.hoisted(() => ({
   buildSyncConfigDocument: vi.fn((config: unknown) => ({
     document: config,
   })),
-  ensureGitRepository: vi.fn(),
+  requireGitRepository: vi.fn(),
   formatGlobalDotweaveConfig: vi.fn((config: unknown) =>
     JSON.stringify(config, null, 2),
   ),
@@ -38,7 +38,7 @@ vi.mock("#app/config/global-config.ts", () => ({
   readGlobalDotweaveConfig: mocked.readGlobalDotweaveConfig,
 }));
 
-vi.mock("#app/config/sync-entry.ts", () => ({
+vi.mock("#app/config/sync-queries.ts", () => ({
   collectAllProfileNames: mocked.collectAllProfileNames,
 }));
 
@@ -56,18 +56,37 @@ vi.mock("#app/lib/filesystem.ts", () => ({
   writeTextFileAtomically: mocked.writeTextFileAtomically,
 }));
 
-vi.mock("./paths.ts", () => ({
+vi.mock("./sync-paths.ts", () => ({
   resolveTrackedEntry: mocked.resolveTrackedEntry,
 }));
 
 vi.mock("#app/lib/git.ts", () => ({
-  ensureGitRepository: mocked.ensureGitRepository,
+  requireGitRepository: mocked.requireGitRepository,
 }));
 
-vi.mock("./runtime.ts", () => ({
-  resolveSyncConfigResolutionContext: mocked.resolveSyncConfigResolutionContext,
-  resolveSyncPaths: mocked.resolveSyncPaths,
-}));
+vi.mock("./sync-context.ts", () => {
+  const loadWritableSyncConfig = vi.fn(async () => {
+    const paths = mocked.resolveSyncPaths();
+    await mocked.requireGitRepository(paths.syncDirectory);
+    const config = await mocked.readSyncConfig(
+      paths.syncDirectory,
+      mocked.resolveSyncConfigResolutionContext(),
+    );
+    return {
+      config,
+      configPath: paths.configPath,
+      context: mocked.resolveSyncConfigResolutionContext(),
+      syncDirectory: paths.syncDirectory,
+    };
+  });
+
+  return {
+    resolveSyncConfigResolutionContext:
+      mocked.resolveSyncConfigResolutionContext,
+    resolveSyncPaths: mocked.resolveSyncPaths,
+    loadWritableSyncConfig,
+  };
+});
 
 import {
   assignProfiles,
@@ -128,7 +147,7 @@ describe("sync profiles service", () => {
       globalConfigExists: true,
       globalConfigPath: "/tmp/dotweave/global.json",
     });
-    expect(mocked.ensureGitRepository).toHaveBeenCalledWith("/tmp/dotweave");
+    expect(mocked.requireGitRepository).toHaveBeenCalledWith("/tmp/dotweave");
   });
 
   it("reports no active profile when the global config is absent", async () => {
@@ -194,7 +213,7 @@ describe("sync profiles service", () => {
     await expect(
       assignProfiles({ profiles: ["work"], target: "   " }, "/tmp/cwd"),
     ).rejects.toThrowError("Target path is required.");
-    expect(mocked.ensureGitRepository).not.toHaveBeenCalled();
+    expect(mocked.requireGitRepository).not.toHaveBeenCalled();
   });
 
   it("rejects assignments for untracked targets", async () => {

@@ -1,15 +1,10 @@
 import type { ApplicationContext } from "@stricli/core";
 import { buildCommand } from "@stricli/core";
+import type { NoFlags } from "#app/cli/shared-flags.ts";
 import { clearActiveProfile, setActiveProfile } from "#app/services/profile.ts";
 import { createCliLogger } from "#app/services/terminal/logger.ts";
 
-type ProfileUseFlags = Record<string, never>;
-
-const profileUseCommand = buildCommand<
-  ProfileUseFlags,
-  [string?],
-  ApplicationContext
->({
+const profileUseCommand = buildCommand<NoFlags, [string?], ApplicationContext>({
   docs: {
     brief: "Set or clear the active sync profile",
     fullDescription:

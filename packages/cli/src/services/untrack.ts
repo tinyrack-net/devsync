@@ -12,13 +12,13 @@ import {
   buildSyncConfigDocument,
   writeValidatedSyncConfig,
 } from "./config-file.ts";
-import { loadMutableSyncConfig } from "./config-loader.ts";
-import { resolveTrackedEntry } from "./paths.ts";
 import {
   collectArtifactProfiles,
   isSecretArtifactPath,
   resolveArtifactRelativePath,
 } from "./repo-artifacts.ts";
+import { loadWritableSyncConfig } from "./sync-context.ts";
+import { resolveTrackedEntry } from "./sync-paths.ts";
 
 export type UntrackRequest = Readonly<{
   target: string;
@@ -191,7 +191,7 @@ export const untrackTarget = async (
     throw new DotweaveError("Target path is required.");
   }
 
-  const { config, context, syncDirectory } = await loadMutableSyncConfig();
+  const { config, context, syncDirectory } = await loadWritableSyncConfig();
   const entry = resolveTrackedEntry(
     target,
     config.entries,

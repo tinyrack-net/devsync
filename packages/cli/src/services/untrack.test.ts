@@ -11,7 +11,7 @@ const mocked = vi.hoisted(() => ({
   buildSyncConfigDocument: vi.fn((config: unknown) => ({
     document: config,
   })),
-  ensureGitRepository: vi.fn(),
+  requireGitRepository: vi.fn(),
   readSyncConfig: vi.fn(),
   resolveSyncConfigResolutionContext: vi.fn(() => ({
     homeDirectory: "/tmp/home",
@@ -40,18 +40,37 @@ vi.mock("./config-file.ts", () => ({
   writeValidatedSyncConfig: mocked.writeValidatedSyncConfig,
 }));
 
-vi.mock("./paths.ts", () => ({
+vi.mock("./sync-paths.ts", () => ({
   resolveTrackedEntry: mocked.resolveTrackedEntry,
 }));
 
 vi.mock("#app/lib/git.ts", () => ({
-  ensureGitRepository: mocked.ensureGitRepository,
+  requireGitRepository: mocked.requireGitRepository,
 }));
 
-vi.mock("./runtime.ts", () => ({
-  resolveSyncConfigResolutionContext: mocked.resolveSyncConfigResolutionContext,
-  resolveSyncPaths: mocked.resolveSyncPaths,
-}));
+vi.mock("./sync-context.ts", () => {
+  const loadWritableSyncConfig = vi.fn(async () => {
+    const paths = mocked.resolveSyncPaths();
+    await mocked.requireGitRepository(paths.syncDirectory);
+    const config = await mocked.readSyncConfig(
+      paths.syncDirectory,
+      mocked.resolveSyncConfigResolutionContext(),
+    );
+    return {
+      config,
+      configPath: paths.configPath,
+      context: mocked.resolveSyncConfigResolutionContext(),
+      syncDirectory: paths.syncDirectory,
+    };
+  });
+
+  return {
+    resolveSyncConfigResolutionContext:
+      mocked.resolveSyncConfigResolutionContext,
+    resolveSyncPaths: mocked.resolveSyncPaths,
+    loadWritableSyncConfig,
+  };
+});
 
 import { untrackTarget } from "./untrack.ts";
 
@@ -87,7 +106,7 @@ describe("untrack service", () => {
     await expect(
       untrackTarget({ target: "   " }, "/tmp/cwd"),
     ).rejects.toThrowError("Target path is required.");
-    expect(mocked.ensureGitRepository).not.toHaveBeenCalled();
+    expect(mocked.requireGitRepository).not.toHaveBeenCalled();
   });
 
   it("rejects targets that are not currently tracked", async () => {
@@ -98,7 +117,7 @@ describe("untrack service", () => {
       homeDirectory: "/tmp/home",
       syncDirectory: workspace,
     });
-    mocked.ensureGitRepository.mockResolvedValueOnce(undefined);
+    mocked.requireGitRepository.mockResolvedValueOnce(undefined);
     mocked.readSyncConfig.mockResolvedValueOnce({
       entries: [],
       version: 7,
@@ -167,7 +186,7 @@ describe("untrack service", () => {
       homeDirectory: "/tmp/home",
       syncDirectory: workspace,
     });
-    mocked.ensureGitRepository.mockResolvedValueOnce(undefined);
+    mocked.requireGitRepository.mockResolvedValueOnce(undefined);
     mocked.readSyncConfig.mockResolvedValueOnce({
       entries: [entry, siblingEntry],
       version: 7,
@@ -229,7 +248,7 @@ describe("untrack service", () => {
       homeDirectory: "/tmp/home",
       syncDirectory: workspace,
     });
-    mocked.ensureGitRepository.mockResolvedValueOnce(undefined);
+    mocked.requireGitRepository.mockResolvedValueOnce(undefined);
     mocked.readSyncConfig.mockResolvedValueOnce({
       entries: [entry],
       version: 7,
@@ -272,7 +291,7 @@ describe("untrack service", () => {
       homeDirectory: "/tmp/home",
       syncDirectory: workspace,
     });
-    mocked.ensureGitRepository.mockResolvedValueOnce(undefined);
+    mocked.requireGitRepository.mockResolvedValueOnce(undefined);
     mocked.readSyncConfig.mockResolvedValueOnce({
       entries: [entry],
       version: 7,
@@ -299,7 +318,7 @@ describe("untrack service", () => {
       homeDirectory: "/tmp/home",
       syncDirectory: workspace,
     });
-    mocked.ensureGitRepository.mockResolvedValueOnce(undefined);
+    mocked.requireGitRepository.mockResolvedValueOnce(undefined);
     mocked.readSyncConfig.mockResolvedValueOnce({
       entries: [entry],
       version: 7,
@@ -356,7 +375,7 @@ describe("untrack service", () => {
       homeDirectory: "/tmp/home",
       syncDirectory: workspace,
     });
-    mocked.ensureGitRepository.mockResolvedValueOnce(undefined);
+    mocked.requireGitRepository.mockResolvedValueOnce(undefined);
     mocked.readSyncConfig.mockResolvedValueOnce({
       entries: [entry],
       version: 7,
@@ -392,7 +411,7 @@ describe("untrack service", () => {
       homeDirectory: "/tmp/home",
       syncDirectory: workspace,
     });
-    mocked.ensureGitRepository.mockResolvedValueOnce(undefined);
+    mocked.requireGitRepository.mockResolvedValueOnce(undefined);
     mocked.readSyncConfig.mockResolvedValueOnce({
       entries: [entry],
       version: 7,

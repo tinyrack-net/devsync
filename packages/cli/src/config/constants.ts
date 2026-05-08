@@ -1,7 +1,7 @@
 const APP_NAME = "dotweave";
 const AUTOCOMPLETE_COMPLETE_SUBCOMMAND = "__complete";
 
-export const CONSTANTS = {
+export const AppConstants = {
   APP: {
     NAME: APP_NAME,
   },

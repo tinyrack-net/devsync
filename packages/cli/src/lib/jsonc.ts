@@ -68,7 +68,7 @@ export const parseJsonc = (input: string): unknown => {
   return JSON.parse(stripJsoncComments(input));
 };
 
-export const resolveJsoncConfigPath = async (
+export const validateJsoncConfigPath = async (
   preferredPath: string,
 ): Promise<string> => {
   if (preferredPath.endsWith(".jsonc")) {

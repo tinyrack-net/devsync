@@ -1,5 +1,5 @@
-import { CONSTANTS } from "#app/config/constants.ts";
-import { ensureGitRepository } from "#app/lib/git.ts";
+import { AppConstants } from "#app/config/constants.ts";
+import { requireGitRepository } from "#app/lib/git.ts";
 import { doPathsOverlap, isPathEqualOrNested } from "#app/lib/path.ts";
 import { limitConcurrency } from "#app/lib/promise.ts";
 import {
@@ -9,13 +9,13 @@ import {
   collectChangedLocalPaths,
   countDeletedLocalNodes,
   type EntryMaterialization,
-} from "./materialization.ts";
+} from "./pull-apply.ts";
 import { buildRepositorySnapshot } from "./repo-snapshot.ts";
 import {
   type EffectiveSyncConfig,
   loadSyncConfig,
   resolveSyncPaths,
-} from "./runtime.ts";
+} from "./sync-context.ts";
 
 export type PullRequest = Readonly<{
   dryRun: boolean;
@@ -219,7 +219,7 @@ export const preparePull = async (
 ): Promise<PreparedPull> => {
   const { syncDirectory } = resolveSyncPaths();
 
-  await ensureGitRepository(syncDirectory);
+  await requireGitRepository(syncDirectory);
 
   const { effectiveConfig: config } = await loadSyncConfig(syncDirectory, {
     ...(request.profile === undefined ? {} : { profile: request.profile }),
@@ -282,7 +282,7 @@ export const applyPullPlan = async (
 ) => {
   for (const batch of buildApplyPullPlanBatches(config, plan)) {
     await limitConcurrency(
-      CONSTANTS.SYNC.DEFAULT_CONCURRENCY,
+      AppConstants.SYNC.DEFAULT_CONCURRENCY,
       batch,
       async (index) => {
         const entry = config.entries[index];

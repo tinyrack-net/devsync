@@ -14,11 +14,11 @@ import {
   hasPlatformSpecificModeOverride,
   isIgnoredSyncPath,
   isSecretSyncPath,
+  requireManagedSyncMode,
   resolveEntryRelativeRepoPath,
-  resolveManagedSyncMode,
   resolveSyncMode,
   resolveSyncRule,
-} from "./sync-entry.ts";
+} from "./sync-queries.ts";
 
 const makeEntry = (
   repoPath: string,
@@ -225,17 +225,17 @@ describe("sync-entry", () => {
     });
   });
 
-  describe("resolveManagedSyncMode", () => {
+  describe("requireManagedSyncMode", () => {
     it("returns mode for a managed path", () => {
       const entry = makeEntry(".bashrc", "file", { mode: "normal" });
-      expect(resolveManagedSyncMode(makeConfig([entry]), ".bashrc")).toBe(
+      expect(requireManagedSyncMode(makeConfig([entry]), ".bashrc")).toBe(
         "normal",
       );
     });
 
     it("throws DotweaveError with UNMANAGED_SYNC_PATH for an unmanaged path", () => {
       expect(() =>
-        resolveManagedSyncMode(makeConfig([]), ".bashrc"),
+        requireManagedSyncMode(makeConfig([]), ".bashrc"),
       ).toThrowErrorMatchingInlineSnapshot(
         `[DotweaveError: Repository path is not managed by the current sync configuration.]`,
       );
@@ -243,7 +243,7 @@ describe("sync-entry", () => {
 
     it("includes context in error details when provided", () => {
       try {
-        resolveManagedSyncMode(makeConfig([]), ".bashrc", undefined, "push");
+        requireManagedSyncMode(makeConfig([]), ".bashrc", undefined, "push");
       } catch (error) {
         expect(error).toHaveProperty("code", "UNMANAGED_SYNC_PATH");
         if (!(error instanceof DotweaveError)) throw error;

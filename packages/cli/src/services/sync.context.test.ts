@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 
 import type { ResolvedSyncConfig } from "#app/config/sync-schema.ts";
-import { buildEffectiveSyncConfig, type RuntimeAgeConfig } from "./runtime.ts";
+import {
+  buildEffectiveSyncConfig,
+  type RuntimeAgeConfig,
+} from "./sync-context.ts";
 
 const testAge: RuntimeAgeConfig = {
   identityFile: "/tmp/keys.txt",

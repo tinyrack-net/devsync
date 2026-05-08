@@ -1,13 +1,13 @@
 import { formatDotweaveError } from "#app/lib/error.ts";
 import { pathExists } from "#app/lib/filesystem.ts";
-import { ensureRepository } from "#app/lib/git.ts";
-import { buildEntryMaterialization } from "./materialization.ts";
+import { verifyIsGitRepository } from "#app/lib/git.ts";
+import { buildEntryMaterialization } from "./pull-apply.ts";
 import { buildRepositorySnapshot } from "./repo-snapshot.ts";
 import {
   type EffectiveSyncConfig,
   loadSyncConfig,
   resolveSyncPaths,
-} from "./runtime.ts";
+} from "./sync-context.ts";
 
 export type DoctorCheckLevel = "fail" | "ok" | "warn";
 
@@ -46,7 +46,7 @@ export const runDoctorChecks = async (): Promise<DoctorResult> => {
   const checks: DoctorCheck[] = [];
 
   try {
-    await ensureRepository(syncDirectory);
+    await verifyIsGitRepository(syncDirectory);
     checks.push(ok("git", "Sync directory is a git repository."));
   } catch (error: unknown) {
     checks.push(

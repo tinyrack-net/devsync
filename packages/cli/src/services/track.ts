@@ -6,7 +6,7 @@ import { readEnvValue } from "#app/config/runtime-env.ts";
 import {
   buildDefaultPlatformMode,
   hasPlatformSpecificModeOverride,
-} from "#app/config/sync-entry.ts";
+} from "#app/config/sync-queries.ts";
 import {
   normalizeSyncProfileName,
   normalizeSyncRepoPath,
@@ -22,11 +22,11 @@ import {
   buildSyncConfigDocument,
   writeValidatedSyncConfig,
 } from "./config-file.ts";
-import { loadMutableSyncConfig } from "./config-loader.ts";
+import { loadWritableSyncConfig } from "./sync-context.ts";
 import {
   buildConfiguredHomeLocalPath,
   buildRepoPathWithinRoot,
-} from "./paths.ts";
+} from "./sync-paths.ts";
 
 export type TrackRequest = Readonly<{
   profiles?: readonly string[];
@@ -156,7 +156,7 @@ export const trackTarget = async (
     });
   }
 
-  const { config, context, syncDirectory } = await loadMutableSyncConfig();
+  const { config, context, syncDirectory } = await loadWritableSyncConfig();
   const identityFile =
     config.age !== undefined
       ? resolveDefaultIdentityFile(

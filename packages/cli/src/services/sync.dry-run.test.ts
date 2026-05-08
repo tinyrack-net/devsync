@@ -12,12 +12,12 @@ vi.mock("#app/lib/env.ts", () => ({
   ENV: mockEnv,
 }));
 
-import { CONSTANTS } from "#app/config/constants.ts";
+import { AppConstants } from "#app/config/constants.ts";
 import { initializeSyncDirectory } from "#app/services/init.ts";
 import { pullChanges } from "#app/services/pull.ts";
 import { pushChanges } from "#app/services/push.ts";
-import { setTargetMode } from "#app/services/set.ts";
 import { getStatus } from "#app/services/status.ts";
+import { setTargetMode } from "#app/services/sync-mode.ts";
 import { trackTarget } from "#app/services/track.ts";
 import {
   createAgeKeyPair,
@@ -116,7 +116,7 @@ describe("sync dry runs", () => {
           "sync",
           "default",
           "bundle",
-          `token.txt${CONSTANTS.SYNC.SECRET_ARTIFACT_SUFFIX}`,
+          `token.txt${AppConstants.SYNC.SECRET_ARTIFACT_SUFFIX}`,
         ),
         "utf8",
       ),

@@ -44,7 +44,7 @@ import {
 } from "./profile.ts";
 import { preparePull, pullChanges } from "./pull.ts";
 import { pushChanges } from "./push.ts";
-import { setTargetMode } from "./set.ts";
+import { setTargetMode } from "./sync-mode.ts";
 import { trackTarget } from "./track.ts";
 
 const temporaryDirectories: string[] = [];

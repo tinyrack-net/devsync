@@ -1,7 +1,7 @@
 import { chmod, mkdir, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { CONSTANTS } from "#app/config/constants.ts";
+import { AppConstants } from "#app/config/constants.ts";
 import type { ResolvedSyncConfigEntry } from "#app/config/sync-schema.ts";
 import { createTemporaryDirectory } from "#app/test/helpers/sync-fixture.ts";
 import {
@@ -41,7 +41,7 @@ describe("repo-artifacts service", () => {
       { profiles: ["profile-b", "profile-c"] },
     ];
     const profiles = collectArtifactProfiles(entries);
-    expect(profiles.has(CONSTANTS.SYNC.DEFAULT_PROFILE)).toBe(true);
+    expect(profiles.has(AppConstants.SYNC.DEFAULT_PROFILE)).toBe(true);
     expect(profiles.has("profile-a")).toBe(true);
     expect(profiles.has("profile-b")).toBe(true);
     expect(profiles.has("profile-c")).toBe(true);
@@ -72,13 +72,15 @@ describe("repo-artifacts service", () => {
 
   it("identifies secret artifact paths", () => {
     expect(
-      isSecretArtifactPath(`file.txt${CONSTANTS.SYNC.SECRET_ARTIFACT_SUFFIX}`),
+      isSecretArtifactPath(
+        `file.txt${AppConstants.SYNC.SECRET_ARTIFACT_SUFFIX}`,
+      ),
     ).toBe(true);
     expect(isSecretArtifactPath("file.txt")).toBe(false);
   });
 
   it("strips secret artifact suffix", () => {
-    const path = `file.txt${CONSTANTS.SYNC.SECRET_ARTIFACT_SUFFIX}`;
+    const path = `file.txt${AppConstants.SYNC.SECRET_ARTIFACT_SUFFIX}`;
     expect(stripSecretArtifactSuffix(path)).toBe("file.txt");
     expect(stripSecretArtifactSuffix("file.txt")).toBeUndefined();
   });
@@ -98,7 +100,7 @@ describe("repo-artifacts service", () => {
         profile: "work",
         repoPath: "secrets.json",
       }),
-    ).toBe(`work/secrets.json${CONSTANTS.SYNC.SECRET_ARTIFACT_SUFFIX}`);
+    ).toBe(`work/secrets.json${AppConstants.SYNC.SECRET_ARTIFACT_SUFFIX}`);
   });
 
   it("parses artifact relative paths", () => {
@@ -108,7 +110,7 @@ describe("repo-artifacts service", () => {
     expect(parsed.repoPath).toBe(".bashrc");
     expect(parsed.secret).toBe(false);
 
-    const secretPath = `work/token${CONSTANTS.SYNC.SECRET_ARTIFACT_SUFFIX}`;
+    const secretPath = `work/token${AppConstants.SYNC.SECRET_ARTIFACT_SUFFIX}`;
     const parsedSecret = parseArtifactRelativePath(secretPath);
     expect(parsedSecret.profile).toBe("work");
     expect(parsedSecret.repoPath).toBe("token");

@@ -9,7 +9,7 @@ import {
   resolveTrackedEntry,
   tryBuildRepoPathWithinRoot,
   tryNormalizeRepoPathInput,
-} from "#app/services/paths.ts";
+} from "#app/services/sync-paths.ts";
 
 const trackedEntry = (
   overrides: Partial<ResolvedSyncConfigEntry> = {},

@@ -7,10 +7,11 @@ import {
 } from "#app/config/sync-schema.ts";
 import { expandHomePath } from "#app/config/xdg.ts";
 import { DotweaveError } from "#app/lib/error.ts";
-import { isExplicitLocalPath } from "#app/lib/path.ts";
-
-const homePrefix = "~";
-const shellPathSeparator = "/";
+import {
+  homeSymbol as homePrefix,
+  isExplicitLocalPath,
+  pathSeparator,
+} from "#app/lib/path.ts";
 
 export const buildRepoPathWithinRoot = (
   absolutePath: string,
@@ -52,7 +53,7 @@ export const buildConfiguredHomeLocalPath = (
   repoPath: string,
 ): PlatformStringValue => {
   return {
-    default: `${homePrefix}${shellPathSeparator}${repoPath}`,
+    default: `${homePrefix}${pathSeparator}${repoPath}`,
   };
 };
 

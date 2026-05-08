@@ -1,13 +1,12 @@
 import type { ApplicationContext } from "@stricli/core";
 import { buildCommand } from "@stricli/core";
+import type { NoFlags } from "#app/cli/shared-flags.ts";
 import { DotweaveError } from "#app/lib/error.ts";
 import { type DoctorCheck, runDoctorChecks } from "#app/services/doctor.ts";
 import { createCliLogger } from "#app/services/terminal/logger.ts";
-import { c, S } from "#app/services/terminal/theme.ts";
+import { color, SYMBOLS } from "#app/services/terminal/theme.ts";
 
-type DoctorFlags = Record<string, never>;
-
-const normalizeCheckId = (checkId: string) => {
+const remapCheckIdForDisplay = (checkId: string) => {
   switch (checkId) {
     case "age":
       return "identity";
@@ -25,15 +24,15 @@ const stripTrailingPeriod = (value: string) => {
 const formatCheckIcon = (level: DoctorCheck["level"]) => {
   switch (level) {
     case "ok":
-      return c.success(S.success);
+      return color.success(SYMBOLS.success);
     case "warn":
-      return c.warn(S.warn);
+      return color.warn(SYMBOLS.warn);
     case "fail":
-      return c.error(S.error);
+      return color.error(SYMBOLS.error);
   }
 };
 
-const doctorCommand = buildCommand<DoctorFlags, [], ApplicationContext>({
+const doctorCommand = buildCommand<NoFlags, [], ApplicationContext>({
   docs: {
     brief:
       "Check sync directory, config, age identity, and tracked local paths",
@@ -61,7 +60,7 @@ const doctorCommand = buildCommand<DoctorFlags, [], ApplicationContext>({
       }
     }
 
-    const summary = c.dim(
+    const summary = color.dim(
       `(${okCount} ok · ${warningCount} warnings · ${failureCount} failures)`,
     );
 
@@ -78,11 +77,11 @@ const doctorCommand = buildCommand<DoctorFlags, [], ApplicationContext>({
     if (nonOkChecks.length > 0) {
       for (const check of nonOkChecks.slice(0, 3)) {
         logger.log(
-          `  ${formatCheckIcon(check.level)} ${normalizeCheckId(check.checkId)} — ${stripTrailingPeriod(check.detail)}`,
+          `  ${formatCheckIcon(check.level)} ${remapCheckIdForDisplay(check.checkId)} — ${stripTrailingPeriod(check.detail)}`,
         );
       }
       if (nonOkChecks.length > 3) {
-        logger.log(c.dim(`  ... ${nonOkChecks.length - 3} more issues`));
+        logger.log(color.dim(`  ... ${nonOkChecks.length - 3} more issues`));
       }
     }
 

@@ -1,7 +1,7 @@
 import { join } from "node:path";
-import { CONSTANTS } from "#app/config/constants.ts";
+import { AppConstants } from "#app/config/constants.ts";
 import { removePathAtomically } from "#app/lib/filesystem.ts";
-import { ensureGitRepository } from "#app/lib/git.ts";
+import { requireGitRepository } from "#app/lib/git.ts";
 import { limitConcurrency } from "#app/lib/promise.ts";
 import { buildLocalSnapshot, type SnapshotNode } from "./local-snapshot.ts";
 import {
@@ -15,7 +15,7 @@ import {
   type EffectiveSyncConfig,
   loadSyncConfig,
   resolveSyncPaths,
-} from "./runtime.ts";
+} from "./sync-context.ts";
 
 export type PushRequest = Readonly<{
   dryRun: boolean;
@@ -132,7 +132,7 @@ export const pushChanges = async (
 ): Promise<PushResult> => {
   const { syncDirectory } = resolveSyncPaths();
 
-  await ensureGitRepository(syncDirectory);
+  await requireGitRepository(syncDirectory);
 
   const { effectiveConfig: config } = await loadSyncConfig(syncDirectory, {
     ...(request.profile === undefined ? {} : { profile: request.profile }),
@@ -140,13 +140,12 @@ export const pushChanges = async (
   const plan = await buildPushPlan(config, syncDirectory);
 
   if (!request.dryRun) {
-    const artifactsDirectory = syncDirectory;
     const staleArtifactKeys = [...plan.existingArtifactKeys].filter((key) => {
       return !plan.desiredArtifactKeys.has(key);
     });
 
     await limitConcurrency(
-      CONSTANTS.SYNC.DEFAULT_CONCURRENCY,
+      AppConstants.SYNC.DEFAULT_CONCURRENCY,
       staleArtifactKeys,
       async (staleKey) => {
         const relativePath = staleKey.endsWith("/")
@@ -154,16 +153,12 @@ export const pushChanges = async (
           : staleKey;
 
         await removePathAtomically(
-          join(artifactsDirectory, ...relativePath.split("/")),
+          join(syncDirectory, ...relativePath.split("/")),
         );
       },
     );
 
-    await writeArtifactsToDirectory(
-      artifactsDirectory,
-      plan.artifacts,
-      config.age,
-    );
+    await writeArtifactsToDirectory(syncDirectory, plan.artifacts, config.age);
   }
 
   return buildPushResultFromPlan(plan, request.dryRun);

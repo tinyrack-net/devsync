@@ -112,7 +112,7 @@ const runStreamingGitCommand = async (
  * @description
  * Verifies that a directory is already a git working tree.
  */
-export const ensureRepository = async (directory: string) => {
+export const verifyIsGitRepository = async (directory: string) => {
   await runGitCommand(["-C", directory, "rev-parse", "--is-inside-work-tree"]);
 };
 
@@ -144,9 +144,9 @@ export const initializeRepository = async (
  * @description
  * Ensures the sync directory is a usable git repository for dotweave commands.
  */
-export const ensureGitRepository = async (syncDirectory: string) => {
+export const requireGitRepository = async (syncDirectory: string) => {
   try {
-    await ensureRepository(syncDirectory);
+    await verifyIsGitRepository(syncDirectory);
   } catch (error: unknown) {
     throw wrapUnknownError("Sync repository is not initialized.", error, {
       code: "SYNC_REPO_INVALID",

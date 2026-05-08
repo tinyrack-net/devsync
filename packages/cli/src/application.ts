@@ -6,7 +6,7 @@ import {
 } from "@stricli/core";
 import { setApplication } from "#app/cli/autocomplete.ts";
 import { buildRootRoute } from "#app/cli/index.ts";
-import { CONSTANTS } from "#app/config/constants.ts";
+import { AppConstants } from "#app/config/constants.ts";
 import { formatDotweaveError } from "#app/lib/error.ts";
 import { currentVersion } from "#app/lib/version.ts";
 import { createCliLogger } from "#app/services/terminal/logger.ts";
@@ -80,7 +80,7 @@ const application = buildApplication(rootRoute, {
     defaultLocale: "en",
     loadText: () => dotweaveText,
   },
-  name: CONSTANTS.APP.NAME,
+  name: AppConstants.APP.NAME,
   scanner: {
     caseStyle: "allow-kebab-for-camel",
   },
@@ -91,10 +91,8 @@ const application = buildApplication(rootRoute, {
 
 setApplication(application);
 
-const cliApplication = application;
-
 export const runCli = async (inputs: readonly string[]) => {
-  await run(cliApplication, inputs, {
+  await run(application, inputs, {
     process: {
       stdout: process.stdout,
       stderr: process.stderr,

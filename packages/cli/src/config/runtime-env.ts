@@ -9,10 +9,10 @@ import {
   resolveXdgConfigHome,
 } from "#app/config/xdg.ts";
 import { ENV } from "#app/lib/env.ts";
-import { trimConfiguredValue } from "#app/lib/string.ts";
+import { normalizeConfiguredValue } from "#app/lib/string.ts";
 
 export const readEnvValue = (name: string) => {
-  return trimConfiguredValue(ENV[name]);
+  return normalizeConfiguredValue(ENV[name]);
 };
 
 export const resolveHomeDirectoryFromEnv = () => {

@@ -109,7 +109,7 @@ vi.mock("#app/services/push.ts", () => ({
   pushChanges: mocked.pushChanges,
 }));
 
-vi.mock("#app/services/set.ts", () => ({
+vi.mock("#app/services/sync-mode.ts", () => ({
   setTargetMode: mocked.setTargetMode,
 }));
 

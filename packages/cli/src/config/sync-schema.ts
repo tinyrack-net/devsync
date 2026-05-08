@@ -1,7 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { isAbsolute, join, posix, relative, sep } from "node:path";
 import { z } from "zod";
-import { CONSTANTS } from "#app/config/constants.ts";
+import { AppConstants } from "#app/config/constants.ts";
 import {
   type PlatformKey,
   type PlatformStringValue,
@@ -10,7 +10,7 @@ import {
 import { resolveConfiguredAbsolutePath } from "#app/config/xdg.ts";
 import { DotweaveError } from "#app/lib/error.ts";
 import { parsePermissionOctal } from "#app/lib/file-mode.ts";
-import { parseJsonc, resolveJsoncConfigPath } from "#app/lib/jsonc.ts";
+import { parseJsonc, validateJsoncConfigPath } from "#app/lib/jsonc.ts";
 import { doPathsOverlap } from "#app/lib/path.ts";
 import { ensureTrailingNewline } from "#app/lib/string.ts";
 import { formatInputIssues } from "#app/lib/validation.ts";
@@ -48,11 +48,11 @@ const platformRepoPathSchema = z.object({
 const repoPathSchema = platformRepoPathSchema;
 
 const platformSyncModeSchema = z.object({
-  default: z.enum(CONSTANTS.SYNC.MODES),
-  win: z.enum(CONSTANTS.SYNC.MODES).optional(),
-  mac: z.enum(CONSTANTS.SYNC.MODES).optional(),
-  linux: z.enum(CONSTANTS.SYNC.MODES).optional(),
-  wsl: z.enum(CONSTANTS.SYNC.MODES).optional(),
+  default: z.enum(AppConstants.SYNC.MODES),
+  win: z.enum(AppConstants.SYNC.MODES).optional(),
+  mac: z.enum(AppConstants.SYNC.MODES).optional(),
+  linux: z.enum(AppConstants.SYNC.MODES).optional(),
+  wsl: z.enum(AppConstants.SYNC.MODES).optional(),
 });
 
 const permissionOctalSchema = z
@@ -86,7 +86,7 @@ const syncConfigAgeSchema = z.object({
 });
 
 const syncConfigSchemaV7 = z.object({
-  version: z.literal(CONSTANTS.SYNC.CONFIG_VERSION),
+  version: z.literal(AppConstants.SYNC.CONFIG_VERSION),
   age: syncConfigAgeSchema.optional(),
   entries: z.array(syncConfigEntrySchema),
 });
@@ -100,11 +100,11 @@ export const syncConfigSchema = syncConfigSchemaV7;
 const syncEntryKinds = ["file", "directory"] as const;
 
 export type SyncConfigEntryKind = (typeof syncEntryKinds)[number];
-export type SyncMode = (typeof CONSTANTS.SYNC.MODES)[number];
+export type SyncMode = (typeof AppConstants.SYNC.MODES)[number];
 export type ConfiguredSyncRepoPath = PlatformStringValue;
 export type PlatformSyncMode = z.infer<typeof platformSyncModeSchema>;
 export type PlatformPermission = z.infer<typeof platformPermissionSchema>;
-export type SyncConfig = z.infer<typeof syncConfigSchema>;
+export type RawSyncConfig = z.infer<typeof syncConfigSchema>;
 
 export type SyncConfigResolutionContext = Readonly<{
   homeDirectory: string;
@@ -136,7 +136,7 @@ export type AgeConfig = Readonly<{
 export type ResolvedSyncConfig = Readonly<{
   age?: AgeConfig;
   entries: readonly ResolvedSyncConfigEntry[];
-  version: typeof CONSTANTS.SYNC.CONFIG_VERSION;
+  version: typeof AppConstants.SYNC.CONFIG_VERSION;
 }>;
 
 // ---------------------------------------------------------------------------
@@ -165,7 +165,7 @@ export const normalizeSyncRepoPath = (value: string) => {
 
   if (hasReservedSyncArtifactSuffixSegment(normalizedValue)) {
     throw new DotweaveError(
-      `Repository path must not use the reserved suffix ${CONSTANTS.SYNC.SECRET_ARTIFACT_SUFFIX}.`,
+      `Repository path must not use the reserved suffix ${AppConstants.SYNC.SECRET_ARTIFACT_SUFFIX}.`,
       {
         code: "RESERVED_SECRET_SUFFIX",
         details: [`Repository path: ${value}`],
@@ -221,7 +221,9 @@ export const hasReservedSyncArtifactSuffixSegment = (value: string) => {
   return value
     .replaceAll("\\", "/")
     .split("/")
-    .some((segment) => segment.endsWith(CONSTANTS.SYNC.SECRET_ARTIFACT_SUFFIX));
+    .some((segment) =>
+      segment.endsWith(AppConstants.SYNC.SECRET_ARTIFACT_SUFFIX),
+    );
 };
 
 export const deriveRepoPathFromLocalPath = (
@@ -273,8 +275,8 @@ const validatePathOverlaps = (
 
         throw new DotweaveError(
           isRepoPath
-            ? `Multiple entries target the same repository path in ${CONSTANTS.SYNC.CONFIG_FILE_NAME}.`
-            : `Duplicate ${description.toLowerCase()} paths in ${CONSTANTS.SYNC.CONFIG_FILE_NAME}.`,
+            ? `Multiple entries target the same repository path in ${AppConstants.SYNC.CONFIG_FILE_NAME}.`
+            : `Duplicate ${description.toLowerCase()} paths in ${AppConstants.SYNC.CONFIG_FILE_NAME}.`,
           {
             code: "DUPLICATE_PATHS",
             details: isRepoPath
@@ -288,7 +290,7 @@ const validatePathOverlaps = (
                 ],
             hint: isRepoPath
               ? "Each entry must use a unique repoPath. Change or remove one of the conflicting entries."
-              : `Remove the duplicate entry from ${CONSTANTS.SYNC.CONFIG_FILE_NAME}.`,
+              : `Remove the duplicate entry from ${AppConstants.SYNC.CONFIG_FILE_NAME}.`,
           },
         );
       }
@@ -310,7 +312,7 @@ const validatePathOverlaps = (
 
       if (overlaps) {
         throw new DotweaveError(
-          `${description} paths must not overlap in ${CONSTANTS.SYNC.CONFIG_FILE_NAME}.`,
+          `${description} paths must not overlap in ${AppConstants.SYNC.CONFIG_FILE_NAME}.`,
           {
             code: "OVERLAPPING_PATHS",
             details: [
@@ -336,7 +338,9 @@ export const validateResolvedSyncConfigEntries = (
 // Internal parsing helpers
 // ---------------------------------------------------------------------------
 
-const defaultSyncMode: PlatformSyncMode = { default: CONSTANTS.SYNC.MODES[0] };
+const defaultSyncMode: PlatformSyncMode = {
+  default: AppConstants.SYNC.MODES[0],
+};
 
 const resolveSyncModeForPlatform = (
   configuredMode: PlatformSyncMode,
@@ -525,7 +529,7 @@ export const parseSyncConfig = (
     throw new DotweaveError("Sync configuration is invalid.", {
       code: "CONFIG_VALIDATION_FAILED",
       details: formatInputIssues(result.error.issues).split("\n"),
-      hint: `Fix the invalid fields in ${CONSTANTS.SYNC.CONFIG_FILE_NAME}, then run the command again.`,
+      hint: `Fix the invalid fields in ${AppConstants.SYNC.CONFIG_FILE_NAME}, then run the command again.`,
     });
   }
 
@@ -596,27 +600,27 @@ export const parseSyncConfig = (
 
 export const createInitialSyncConfig = (age: {
   recipients: string[];
-}): SyncConfig => {
+}): RawSyncConfig => {
   return {
-    version: CONSTANTS.SYNC.CONFIG_VERSION,
+    version: AppConstants.SYNC.CONFIG_VERSION,
     age,
     entries: [],
   };
 };
 
-export const formatSyncConfig = (config: SyncConfig) => {
+export const formatSyncConfig = (config: RawSyncConfig) => {
   return ensureTrailingNewline(JSON.stringify(config, null, 2));
 };
 
 export const resolveSyncConfigFilePath = (syncDirectory: string) => {
-  return join(syncDirectory, CONSTANTS.SYNC.CONFIG_FILE_NAME);
+  return join(syncDirectory, AppConstants.SYNC.CONFIG_FILE_NAME);
 };
 
 export const readSyncConfig = async (
   syncDirectory: string,
   context: SyncConfigResolutionContext,
 ): Promise<ResolvedSyncConfig> => {
-  const filePath = await resolveJsoncConfigPath(
+  const filePath = await validateJsoncConfigPath(
     resolveSyncConfigFilePath(syncDirectory),
   );
   try {
@@ -633,7 +637,7 @@ export const readSyncConfig = async (
       throw new DotweaveError("Sync configuration is not valid JSON.", {
         code: "CONFIG_INVALID_JSON",
         details: [`Config file: ${filePath}`, error.message],
-        hint: `Fix the JSON syntax in ${CONSTANTS.SYNC.CONFIG_FILE_NAME}, then run the command again.`,
+        hint: `Fix the JSON syntax in ${AppConstants.SYNC.CONFIG_FILE_NAME}, then run the command again.`,
       });
     }
 

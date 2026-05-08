@@ -1,10 +1,10 @@
 import { readFile } from "node:fs/promises";
 
 import { z } from "zod";
-import { CONSTANTS } from "#app/config/constants.ts";
+import { AppConstants } from "#app/config/constants.ts";
 import { runConfigMigrations } from "#app/config/migration.ts";
 import { DotweaveError } from "#app/lib/error.ts";
-import { parseJsonc, resolveJsoncConfigPath } from "#app/lib/jsonc.ts";
+import { parseJsonc, validateJsoncConfigPath } from "#app/lib/jsonc.ts";
 import { ensureTrailingNewline } from "#app/lib/string.ts";
 import { formatInputIssues } from "#app/lib/validation.ts";
 import { migrateGlobalConfigV2ToV3 } from "#app/migrations/global-v3.ts";
@@ -14,12 +14,12 @@ const globalConfigMigrationRegistry = new Map([[2, migrateGlobalConfigV2ToV3]]);
 
 const globalConfigSchema = z.object({
   activeProfile: z.string().trim().min(1).optional(),
-  version: z.literal(CONSTANTS.GLOBAL_CONFIG.CURRENT_VERSION),
+  version: z.literal(AppConstants.GLOBAL_CONFIG.CURRENT_VERSION),
 });
 
 export type GlobalDotweaveConfig = Readonly<{
   activeProfile?: string;
-  version: typeof CONSTANTS.GLOBAL_CONFIG.CURRENT_VERSION;
+  version: typeof AppConstants.GLOBAL_CONFIG.CURRENT_VERSION;
 }>;
 
 export type ActiveProfileSelection = Readonly<
@@ -61,14 +61,14 @@ export const formatGlobalDotweaveConfig = (config: GlobalDotweaveConfig) => {
 };
 
 export const readGlobalDotweaveConfig = async (filePath: string) => {
-  const resolvedPath = await resolveJsoncConfigPath(filePath);
+  const resolvedPath = await validateJsoncConfigPath(filePath);
   try {
     const contents = await readFile(resolvedPath, "utf8");
     const parsed = parseJsonc(contents);
     const migrated = await runConfigMigrations(
       parsed,
       globalConfigMigrationRegistry,
-      CONSTANTS.GLOBAL_CONFIG.CURRENT_VERSION,
+      AppConstants.GLOBAL_CONFIG.CURRENT_VERSION,
       resolvedPath,
     );
 

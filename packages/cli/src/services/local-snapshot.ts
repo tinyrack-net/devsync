@@ -3,13 +3,13 @@ import { join, posix } from "node:path";
 import {
   collectChildEntryPaths,
   findOwningSyncEntry,
-  resolveManagedSyncMode,
-} from "#app/config/sync-entry.ts";
+  requireManagedSyncMode,
+} from "#app/config/sync-queries.ts";
 import { DotweaveError } from "#app/lib/error.ts";
 import { isExecutableMode } from "#app/lib/file-mode.ts";
 import { getPathStats, listDirectoryEntries } from "#app/lib/filesystem.ts";
 import { assertStorageSafeRepoPath } from "./repo-artifacts.ts";
-import type { EffectiveSyncConfig } from "./runtime.ts";
+import type { EffectiveSyncConfig } from "./sync-context.ts";
 
 export type SnapshotNode =
   | Readonly<{
@@ -66,7 +66,7 @@ const addLocalNode = async (
   stats: Awaited<ReturnType<typeof lstat>>,
 ) => {
   assertStorageSafeRepoPath(repoPath);
-  const mode = resolveManagedSyncMode(config, repoPath, config.activeProfile);
+  const mode = requireManagedSyncMode(config, repoPath, config.activeProfile);
 
   if (mode === "ignore") {
     return;
@@ -150,7 +150,7 @@ export const buildLocalSnapshot = async (config: EffectiveSyncConfig) => {
       continue;
     }
 
-    const entryMode = resolveManagedSyncMode(
+    const entryMode = requireManagedSyncMode(
       config,
       entry.repoPath,
       config.activeProfile,

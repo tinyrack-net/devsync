@@ -11,8 +11,7 @@ import {
   resolveCompletionInputs,
   ZSH_AUTOCOMPLETE_SCRIPT,
 } from "#app/services/autocomplete.ts";
-
-type EmptyFlags = Record<never, never>;
+import type { NoFlags } from "./shared-flags.ts";
 
 let _application: Application<ApplicationContext> | undefined;
 
@@ -24,7 +23,7 @@ const buildAutocompleteScriptCommand = (
   shell: "bash" | "zsh" | "powershell",
   script: string,
 ) => {
-  return buildCommand<EmptyFlags, [], ApplicationContext>({
+  return buildCommand<NoFlags, [], ApplicationContext>({
     docs: {
       brief: `Print ${shell} autocomplete script`,
       fullDescription: `Emit a ${shell} autocomplete script for use with \`eval "$(dotweave autocomplete ${shell})"\`.`,
@@ -49,7 +48,7 @@ const powershellAutocompleteCommand = buildAutocompleteScriptCommand(
   POWERSHELL_AUTOCOMPLETE_SCRIPT,
 );
 
-const completeCommand = buildCommand<EmptyFlags, string[], ApplicationContext>({
+const completeCommand = buildCommand<NoFlags, string[], ApplicationContext>({
   docs: {
     brief: "Internal completion command",
   },

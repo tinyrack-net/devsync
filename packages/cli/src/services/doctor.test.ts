@@ -3,7 +3,7 @@ import { DotweaveError } from "#app/lib/error.ts";
 
 const mocked = vi.hoisted(() => ({
   buildRepositorySnapshot: vi.fn(),
-  ensureRepository: vi.fn(),
+  verifyIsGitRepository: vi.fn(),
   loadSyncConfig: vi.fn(),
   pathExists: vi.fn(),
   resolveSyncConfigFilePath: vi.fn(
@@ -23,14 +23,14 @@ vi.mock("#app/lib/filesystem.ts", () => ({
 }));
 
 vi.mock("#app/lib/git.ts", () => ({
-  ensureRepository: mocked.ensureRepository,
+  verifyIsGitRepository: mocked.verifyIsGitRepository,
 }));
 
 vi.mock("./repo-snapshot.ts", () => ({
   buildRepositorySnapshot: mocked.buildRepositorySnapshot,
 }));
 
-vi.mock("./runtime.ts", () => ({
+vi.mock("./sync-context.ts", () => ({
   loadSyncConfig: mocked.loadSyncConfig,
   resolveSyncPaths: mocked.resolveSyncPaths,
 }));
@@ -81,7 +81,7 @@ afterEach(() => {
 
 describe("sync doctor", () => {
   it("returns an immediate git failure when the sync directory is not a repository", async () => {
-    mocked.ensureRepository.mockRejectedValueOnce("not-a-repo");
+    mocked.verifyIsGitRepository.mockRejectedValueOnce("not-a-repo");
 
     const result = await runDoctorChecks();
 
@@ -100,7 +100,7 @@ describe("sync doctor", () => {
   });
 
   it("returns a configuration failure after a successful repository check", async () => {
-    mocked.ensureRepository.mockResolvedValueOnce(undefined);
+    mocked.verifyIsGitRepository.mockResolvedValueOnce(undefined);
     mocked.loadSyncConfig.mockRejectedValueOnce(new Error("config is invalid"));
 
     const result = await runDoctorChecks();
@@ -124,7 +124,7 @@ describe("sync doctor", () => {
   });
 
   it("preserves config failure details and hint text in doctor output", async () => {
-    mocked.ensureRepository.mockResolvedValueOnce(undefined);
+    mocked.verifyIsGitRepository.mockResolvedValueOnce(undefined);
     mocked.loadSyncConfig.mockRejectedValueOnce(
       new DotweaveError("Sync configuration is invalid.", {
         details: ['age: Unrecognized key(s) in object: "identityFile"'],
@@ -142,7 +142,7 @@ describe("sync doctor", () => {
   });
 
   it("reports details and treats missing paths as healthy when they are absent in the current sync state", async () => {
-    mocked.ensureRepository.mockResolvedValueOnce(undefined);
+    mocked.verifyIsGitRepository.mockResolvedValueOnce(undefined);
     mocked.loadSyncConfig.mockResolvedValueOnce(
       createLoadedConfig({
         entryLocalPaths: ["/tmp/home/.ssh/id_ed25519"],
@@ -198,7 +198,7 @@ describe("sync doctor", () => {
   });
 
   it("reports batch progress while treating multiple missing paths as healthy when nothing should be materialized", async () => {
-    mocked.ensureRepository.mockResolvedValueOnce(undefined);
+    mocked.verifyIsGitRepository.mockResolvedValueOnce(undefined);
     mocked.loadSyncConfig.mockResolvedValueOnce(
       createLoadedConfig({
         activeProfile: "work",
@@ -243,7 +243,7 @@ describe("sync doctor", () => {
   });
 
   it("warns when no entries are configured and still reports healthy local paths", async () => {
-    mocked.ensureRepository.mockResolvedValueOnce(undefined);
+    mocked.verifyIsGitRepository.mockResolvedValueOnce(undefined);
     mocked.loadSyncConfig.mockResolvedValueOnce(
       createLoadedConfig({
         entryLocalPaths: [],
@@ -270,7 +270,7 @@ describe("sync doctor", () => {
   });
 
   it("does not warn when missing local paths are already materializable from the sync state", async () => {
-    mocked.ensureRepository.mockResolvedValueOnce(undefined);
+    mocked.verifyIsGitRepository.mockResolvedValueOnce(undefined);
     mocked.loadSyncConfig.mockResolvedValueOnce(
       createLoadedConfig({
         entryLocalPaths: ["/tmp/home/.gitconfig"],
@@ -295,7 +295,7 @@ describe("sync doctor", () => {
   });
 
   it("skips ignore-mode entries when checking missing local paths", async () => {
-    mocked.ensureRepository.mockResolvedValueOnce(undefined);
+    mocked.verifyIsGitRepository.mockResolvedValueOnce(undefined);
     mocked.loadSyncConfig.mockResolvedValueOnce(
       createLoadedConfig({
         entryLocalPaths: ["/tmp/missing-ignore", "/tmp/missing-normal"],
@@ -320,7 +320,7 @@ describe("sync doctor", () => {
   });
 
   it("treats missing directory entries as healthy when the current sync state materializes nothing", async () => {
-    mocked.ensureRepository.mockResolvedValueOnce(undefined);
+    mocked.verifyIsGitRepository.mockResolvedValueOnce(undefined);
     mocked.loadSyncConfig.mockResolvedValueOnce(
       createLoadedConfig({
         entryKinds: ["directory"],
@@ -344,7 +344,7 @@ describe("sync doctor", () => {
   });
 
   it("fails the local-paths check when repository materialization is inconsistent", async () => {
-    mocked.ensureRepository.mockResolvedValueOnce(undefined);
+    mocked.verifyIsGitRepository.mockResolvedValueOnce(undefined);
     mocked.loadSyncConfig.mockResolvedValueOnce(
       createLoadedConfig({
         entryLocalPaths: ["/tmp/home/.gitconfig"],

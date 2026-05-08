@@ -1,4 +1,4 @@
-export const trimConfiguredValue = (value: string | undefined) => {
+export const normalizeConfiguredValue = (value: string | undefined) => {
   const trimmedValue = value?.trim();
 
   return trimmedValue === undefined || trimmedValue === ""

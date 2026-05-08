@@ -1,9 +1,9 @@
 import type { ApplicationContext } from "@stricli/core";
 import { buildCommand } from "@stricli/core";
-import { CONSTANTS } from "#app/config/constants.ts";
+import { AppConstants } from "#app/config/constants.ts";
 import { DotweaveError } from "#app/lib/error.ts";
 import { assignProfiles } from "#app/services/profile.ts";
-import { setTargetMode } from "#app/services/set.ts";
+import { setTargetMode } from "#app/services/sync-mode.ts";
 import { createCliLogger } from "#app/services/terminal/logger.ts";
 import { proposePathCompletions } from "#app/services/terminal/path-completion.ts";
 import { trackTarget } from "#app/services/track.ts";
@@ -107,9 +107,9 @@ const trackCommand = buildCommand<TrackFlags, string[], ApplicationContext>({
     flags: {
       mode: {
         brief: "Sync mode for the tracked targets",
-        default: CONSTANTS.SYNC.MODES[0],
+        default: AppConstants.SYNC.MODES[0],
         kind: "enum",
-        values: CONSTANTS.SYNC.MODES,
+        values: AppConstants.SYNC.MODES,
       },
       profile: {
         brief: "Restrict syncing to specific profiles",

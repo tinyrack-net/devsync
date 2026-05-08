@@ -4,7 +4,7 @@ import {
   findOwningSyncEntry,
   hasPlatformSpecificModeOverride,
   resolveEntryRelativeRepoPath,
-} from "#app/config/sync-entry.ts";
+} from "#app/config/sync-queries.ts";
 import {
   normalizeSyncRepoPath,
   type ResolvedSyncConfig,
@@ -19,13 +19,13 @@ import {
   buildSyncConfigDocument,
   writeValidatedSyncConfig,
 } from "./config-file.ts";
-import { loadMutableSyncConfig } from "./config-loader.ts";
+import { loadWritableSyncConfig } from "./sync-context.ts";
 import {
   buildConfiguredHomeLocalPath,
   buildRepoPathWithinRoot,
   tryBuildRepoPathWithinRoot,
   tryNormalizeRepoPathInput,
-} from "./paths.ts";
+} from "./sync-paths.ts";
 
 export type SetModeRequest = Readonly<{
   mode: SyncMode;
@@ -290,7 +290,7 @@ export const setTargetMode = async (
   request: SetModeRequest,
   cwd: string,
 ): Promise<SetModeResult> => {
-  const { config, context, syncDirectory } = await loadMutableSyncConfig();
+  const { config, context, syncDirectory } = await loadWritableSyncConfig();
   const target = await resolveSetTarget(
     request.target,
     config,

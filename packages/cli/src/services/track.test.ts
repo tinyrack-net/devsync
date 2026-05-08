@@ -10,7 +10,7 @@ const mocked = vi.hoisted(() => ({
       : "/home/user/.bashrc",
   homeDirectory: process.platform === "win32" ? "C:\\home\\user" : "/home/user",
   getPathStats: vi.fn(),
-  ensureGitRepository: vi.fn(),
+  requireGitRepository: vi.fn(),
   readSyncConfig: vi.fn(),
   writeValidatedSyncConfig: vi.fn(),
   buildDefaultPlatformMode: vi.fn((mode: string) => ({ default: mode })),
@@ -47,10 +47,10 @@ vi.mock("#app/lib/filesystem.ts", () => ({
 }));
 
 vi.mock("#app/lib/git.ts", () => ({
-  ensureGitRepository: mocked.ensureGitRepository,
+  requireGitRepository: mocked.requireGitRepository,
 }));
 
-vi.mock("#app/config/sync-entry.ts", () => ({
+vi.mock("#app/config/sync-queries.ts", () => ({
   buildDefaultPlatformMode: mocked.buildDefaultPlatformMode,
   hasPlatformSpecificModeOverride: mocked.hasPlatformSpecificModeOverride,
 }));
@@ -66,10 +66,29 @@ vi.mock("./config-file.ts", () => ({
   writeValidatedSyncConfig: mocked.writeValidatedSyncConfig,
 }));
 
-vi.mock("./runtime.ts", () => ({
-  resolveSyncConfigResolutionContext: mocked.resolveSyncConfigResolutionContext,
-  resolveSyncPaths: mocked.resolveSyncPaths,
-}));
+vi.mock("./sync-context.ts", () => {
+  const loadWritableSyncConfig = vi.fn(async () => {
+    const paths = mocked.resolveSyncPaths();
+    await mocked.requireGitRepository(paths.syncDirectory);
+    const config = await mocked.readSyncConfig(
+      paths.syncDirectory,
+      mocked.resolveSyncConfigResolutionContext(),
+    );
+    return {
+      config,
+      configPath: paths.configPath,
+      context: mocked.resolveSyncConfigResolutionContext(),
+      syncDirectory: paths.syncDirectory,
+    };
+  });
+
+  return {
+    resolveSyncConfigResolutionContext:
+      mocked.resolveSyncConfigResolutionContext,
+    resolveSyncPaths: mocked.resolveSyncPaths,
+    loadWritableSyncConfig,
+  };
+});
 
 vi.mock("#app/config/identity-file.ts", () => ({
   resolveDefaultIdentityFile: mocked.resolveDefaultIdentityFile,
@@ -83,7 +102,7 @@ vi.mock("#app/lib/path.ts", () => ({
   doPathsOverlap: vi.fn(),
 }));
 
-vi.mock("./paths.ts", () => ({
+vi.mock("./sync-paths.ts", () => ({
   buildRepoPathWithinRoot: vi.fn((target, homeDirectory) =>
     target.slice(homeDirectory.length + 1).replaceAll("\\", "/"),
   ),

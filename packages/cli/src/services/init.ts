@@ -1,6 +1,6 @@
 import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
-import { CONSTANTS } from "#app/config/constants.ts";
+import { AppConstants } from "#app/config/constants.ts";
 import {
   formatGlobalDotweaveConfig,
   type GlobalDotweaveConfig,
@@ -23,16 +23,16 @@ import {
 import { DotweaveError, wrapUnknownError } from "#app/lib/error.ts";
 import { pathExists, writeTextFileAtomically } from "#app/lib/filesystem.ts";
 import {
-  ensureGitRepository,
-  ensureRepository,
   initializeRepository,
+  requireGitRepository,
+  verifyIsGitRepository,
 } from "#app/lib/git.ts";
-import { resolveJsoncConfigPath } from "#app/lib/jsonc.ts";
+import { validateJsoncConfigPath } from "#app/lib/jsonc.ts";
 import {
   resolveAgeFromSyncConfig,
   resolveSyncConfigResolutionContext,
   resolveSyncPaths,
-} from "./runtime.ts";
+} from "./sync-context.ts";
 
 export type InitRequest = Readonly<{
   ageIdentity?: string;
@@ -52,8 +52,8 @@ export type InitResult = Readonly<{
   recipientCount: number;
 }>;
 
-const managedRepositoryAttributesFileName = ".gitattributes";
-const managedRepositoryAttributesContents = "* -text\n";
+const gitAttributesFileName = ".gitattributes";
+const gitAttributesContents = "* -text\n";
 
 export const createMissingRepositoryAgeKeyError = () => {
   return new DotweaveError(
@@ -134,7 +134,7 @@ const resolveInitAgeBootstrap = async (request: InitRequest) => {
   };
 };
 
-const assertInitRequestMatchesConfig = (
+const assertRecipientMatch = (
   age: AgeConfig | undefined,
   request: InitRequest,
 ) => {
@@ -157,7 +157,7 @@ const assertInitRequestMatchesConfig = (
           `Requested recipients: ${recipients.join(", ") || "(none)"}`,
           `Configured recipients: ${normalizeRecipients([...age.recipients]).join(", ")}`,
         ],
-        hint: `Use the existing recipients, or update ${CONSTANTS.SYNC.CONFIG_FILE_NAME} manually if you intend to rotate recipients.`,
+        hint: `Use the existing recipients, or update ${AppConstants.SYNC.CONFIG_FILE_NAME} manually if you intend to rotate recipients.`,
       },
     );
   }
@@ -188,8 +188,8 @@ const writeGlobalSettings = async (globalConfigPath: string) => {
   const existingGlobalConfig = await readGlobalDotweaveConfig(globalConfigPath);
   const globalConfigToWrite: GlobalDotweaveConfig = {
     activeProfile:
-      existingGlobalConfig?.activeProfile ?? CONSTANTS.SYNC.DEFAULT_PROFILE,
-    version: CONSTANTS.GLOBAL_CONFIG.CURRENT_VERSION,
+      existingGlobalConfig?.activeProfile ?? AppConstants.SYNC.DEFAULT_PROFILE,
+    version: AppConstants.GLOBAL_CONFIG.CURRENT_VERSION,
   };
   await mkdir(dirname(globalConfigPath), { recursive: true });
   await writeTextFileAtomically(
@@ -199,23 +199,17 @@ const writeGlobalSettings = async (globalConfigPath: string) => {
 };
 
 const ensureManagedRepositoryAttributes = async (syncDirectory: string) => {
-  const attributesPath = join(
-    syncDirectory,
-    managedRepositoryAttributesFileName,
-  );
+  const attributesPath = join(syncDirectory, gitAttributesFileName);
 
   if (await pathExists(attributesPath)) {
     const existingContents = await readFile(attributesPath, "utf8");
 
-    if (existingContents === managedRepositoryAttributesContents) {
+    if (existingContents === gitAttributesContents) {
       return;
     }
   }
 
-  await writeTextFileAtomically(
-    attributesPath,
-    managedRepositoryAttributesContents,
-  );
+  await writeTextFileAtomically(attributesPath, gitAttributesContents);
 };
 
 export const initializeSyncDirectory = async (
@@ -223,7 +217,7 @@ export const initializeSyncDirectory = async (
 ): Promise<InitResult> => {
   const { syncDirectory, configPath, globalConfigPath } = resolveSyncPaths();
   const context = resolveSyncConfigResolutionContext();
-  const resolvedConfigPath = await resolveJsoncConfigPath(configPath);
+  const resolvedConfigPath = await validateJsoncConfigPath(configPath);
   const configExists = await pathExists(resolvedConfigPath);
   const identityFile = resolveDefaultIdentityFile(
     readEnvValue("HOME"),
@@ -241,11 +235,11 @@ export const initializeSyncDirectory = async (
   }
 
   if (configExists) {
-    await ensureGitRepository(syncDirectory);
+    await requireGitRepository(syncDirectory);
     await ensureManagedRepositoryAttributes(syncDirectory);
 
     const config = await readSyncConfig(syncDirectory, context);
-    assertInitRequestMatchesConfig(config.age, request);
+    assertRecipientMatch(config.age, request);
 
     await resolveInitAgeBootstrap(request);
 
@@ -262,7 +256,7 @@ export const initializeSyncDirectory = async (
   let gitSource: string | undefined;
 
   try {
-    await ensureRepository(syncDirectory);
+    await verifyIsGitRepository(syncDirectory);
   } catch {
     const syncDirectoryExists = await pathExists(syncDirectory);
 
@@ -318,7 +312,7 @@ export const initializeSyncDirectory = async (
   await mkdir(syncDirectory, { recursive: true });
   await ensureManagedRepositoryAttributes(syncDirectory);
 
-  if (await pathExists(await resolveJsoncConfigPath(configPath))) {
+  if (await pathExists(await validateJsoncConfigPath(configPath))) {
     const config = await readSyncConfig(syncDirectory, context);
 
     const ageBootstrap = await resolveInitAgeBootstrap(request);

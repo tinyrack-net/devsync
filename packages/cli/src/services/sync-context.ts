@@ -1,4 +1,4 @@
-import { CONSTANTS } from "#app/config/constants.ts";
+import { AppConstants } from "#app/config/constants.ts";
 import {
   type ActiveProfileSelection,
   type GlobalDotweaveConfig,
@@ -22,6 +22,7 @@ import {
   type SyncConfigResolutionContext,
 } from "#app/config/sync-schema.ts";
 import { DotweaveError } from "#app/lib/error.ts";
+import { requireGitRepository } from "#app/lib/git.ts";
 
 export type RuntimeAgeConfig = Readonly<{
   identityFile: string;
@@ -29,7 +30,6 @@ export type RuntimeAgeConfig = Readonly<{
 }>;
 
 export type SyncPaths = Readonly<{
-  artifactsDirectory: string;
   configPath: string;
   globalConfigPath: string;
   homeDirectory: string;
@@ -62,7 +62,6 @@ export const resolveSyncPaths = (): SyncPaths => {
   const syncDirectory = resolveDotweaveSyncDirectoryFromEnv();
 
   return {
-    artifactsDirectory: syncDirectory,
     configPath: resolveSyncConfigFilePath(syncDirectory),
     globalConfigPath: resolveDotweaveGlobalConfigFilePathFromEnv(),
     homeDirectory: resolveHomeDirectoryFromEnv(),
@@ -90,9 +89,9 @@ export const buildEffectiveSyncConfig = (
 
   const effectiveProfile =
     activeProfile !== undefined &&
-    activeProfile !== CONSTANTS.SYNC.DEFAULT_PROFILE
+    activeProfile !== AppConstants.SYNC.DEFAULT_PROFILE
       ? activeProfile
-      : CONSTANTS.SYNC.DEFAULT_PROFILE;
+      : AppConstants.SYNC.DEFAULT_PROFILE;
 
   const entries = fullConfig.entries.filter(
     (entry) =>
@@ -131,7 +130,7 @@ export const loadSyncConfig = async (
   if (rawAge === undefined) {
     const configPath = resolveSyncConfigFilePath(syncDirectory);
     throw new DotweaveError(
-      `Age configuration is missing from ${CONSTANTS.SYNC.CONFIG_FILE_NAME}.`,
+      `Age configuration is missing from ${AppConstants.SYNC.CONFIG_FILE_NAME}.`,
       {
         code: "AGE_CONFIG_MISSING",
         details: [`Config file: ${configPath}`],
@@ -147,4 +146,19 @@ export const loadSyncConfig = async (
     fullConfig,
     ...(globalConfig === undefined ? {} : { globalConfig }),
   };
+};
+
+export type WritableSyncConfig = Readonly<{
+  config: ResolvedSyncConfig;
+  configPath: string;
+  context: SyncConfigResolutionContext;
+  syncDirectory: string;
+}>;
+
+export const loadWritableSyncConfig = async (): Promise<WritableSyncConfig> => {
+  const { syncDirectory, configPath } = resolveSyncPaths();
+  const context = resolveSyncConfigResolutionContext();
+  await requireGitRepository(syncDirectory);
+  const config = await readSyncConfig(syncDirectory, context);
+  return { config, configPath, context, syncDirectory };
 };

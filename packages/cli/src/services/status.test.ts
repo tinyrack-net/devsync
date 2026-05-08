@@ -1,11 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { CONSTANTS } from "#app/config/constants.ts";
-import type { LoadedSyncConfig } from "./runtime.ts";
+import { AppConstants } from "#app/config/constants.ts";
 import { getStatus } from "./status.ts";
+import type { LoadedSyncConfig } from "./sync-context.ts";
 
 const mocked = vi.hoisted(() => ({
   resolveSyncConfigFilePath: vi.fn(() => "/tmp/dotweave/manifest.jsonc"),
-  ensureGitRepository: vi.fn(),
+  requireGitRepository: vi.fn(),
   loadSyncConfig: vi.fn(),
   resolveSyncPaths: vi.fn(() => ({
     syncDirectory: "/tmp/dotweave",
@@ -27,10 +27,10 @@ vi.mock("#app/config/sync-schema.ts", () => ({
 }));
 
 vi.mock("#app/lib/git.ts", () => ({
-  ensureGitRepository: mocked.ensureGitRepository,
+  requireGitRepository: mocked.requireGitRepository,
 }));
 
-vi.mock("./runtime.ts", () => ({
+vi.mock("./sync-context.ts", () => ({
   loadSyncConfig: mocked.loadSyncConfig,
   resolveSyncPaths: mocked.resolveSyncPaths,
 }));
@@ -61,13 +61,13 @@ describe("status service", () => {
   it("successfully returns status result", async () => {
     const mockConfig: LoadedSyncConfig = {
       effectiveConfig: {
-        version: CONSTANTS.SYNC.CONFIG_VERSION,
+        version: AppConstants.SYNC.CONFIG_VERSION,
         activeProfile: "default",
         age: { identityFile: "key.txt", recipients: ["recip"] },
         entries: [],
       },
       fullConfig: {
-        version: CONSTANTS.SYNC.CONFIG_VERSION,
+        version: AppConstants.SYNC.CONFIG_VERSION,
         entries: [
           {
             kind: "file",
@@ -103,18 +103,18 @@ describe("status service", () => {
     expect(result.entryCount).toBe(1);
     expect(result.push.changes.added).toContain(".bashrc");
     expect(result.pull.changes.updated).toContain("/home/user/.bashrc");
-    expect(mocked.ensureGitRepository).toHaveBeenCalledWith("/tmp/dotweave");
+    expect(mocked.requireGitRepository).toHaveBeenCalledWith("/tmp/dotweave");
   });
 
   it("handles empty active profile", async () => {
     const mockConfig: LoadedSyncConfig = {
       effectiveConfig: {
-        version: CONSTANTS.SYNC.CONFIG_VERSION,
+        version: AppConstants.SYNC.CONFIG_VERSION,
         age: { identityFile: "key.txt", recipients: [] },
         entries: [],
       },
       fullConfig: {
-        version: CONSTANTS.SYNC.CONFIG_VERSION,
+        version: AppConstants.SYNC.CONFIG_VERSION,
         entries: [],
       },
     };
@@ -139,13 +139,13 @@ describe("status service", () => {
   it("reports push changes with modified artifacts when artifacts are not current", async () => {
     const mockConfig: LoadedSyncConfig = {
       effectiveConfig: {
-        version: CONSTANTS.SYNC.CONFIG_VERSION,
+        version: AppConstants.SYNC.CONFIG_VERSION,
         activeProfile: "default",
         age: { identityFile: "key.txt", recipients: ["recip"] },
         entries: [],
       },
       fullConfig: {
-        version: CONSTANTS.SYNC.CONFIG_VERSION,
+        version: AppConstants.SYNC.CONFIG_VERSION,
         entries: [
           {
             kind: "file",
@@ -184,13 +184,13 @@ describe("status service", () => {
   it("reports push changes with deleted artifacts for stale keys", async () => {
     const mockConfig: LoadedSyncConfig = {
       effectiveConfig: {
-        version: CONSTANTS.SYNC.CONFIG_VERSION,
+        version: AppConstants.SYNC.CONFIG_VERSION,
         activeProfile: "default",
         age: { identityFile: "key.txt", recipients: ["recip"] },
         entries: [],
       },
       fullConfig: {
-        version: CONSTANTS.SYNC.CONFIG_VERSION,
+        version: AppConstants.SYNC.CONFIG_VERSION,
         entries: [],
       },
     };
@@ -218,13 +218,13 @@ describe("status service", () => {
   it("reports pull changes including deleted local paths", async () => {
     const mockConfig: LoadedSyncConfig = {
       effectiveConfig: {
-        version: CONSTANTS.SYNC.CONFIG_VERSION,
+        version: AppConstants.SYNC.CONFIG_VERSION,
         activeProfile: "default",
         age: { identityFile: "key.txt", recipients: ["recip"] },
         entries: [],
       },
       fullConfig: {
-        version: CONSTANTS.SYNC.CONFIG_VERSION,
+        version: AppConstants.SYNC.CONFIG_VERSION,
         entries: [],
       },
     };
@@ -249,13 +249,13 @@ describe("status service", () => {
   it("includes recipientCount from effective config age", async () => {
     const mockConfig: LoadedSyncConfig = {
       effectiveConfig: {
-        version: CONSTANTS.SYNC.CONFIG_VERSION,
+        version: AppConstants.SYNC.CONFIG_VERSION,
         activeProfile: "default",
         age: { identityFile: "key.txt", recipients: ["recip1", "recip2"] },
         entries: [],
       },
       fullConfig: {
-        version: CONSTANTS.SYNC.CONFIG_VERSION,
+        version: AppConstants.SYNC.CONFIG_VERSION,
         entries: [],
       },
     };
@@ -279,13 +279,13 @@ describe("status service", () => {
   it("returns full config entry metadata (kind, mode, profiles)", async () => {
     const mockConfig: LoadedSyncConfig = {
       effectiveConfig: {
-        version: CONSTANTS.SYNC.CONFIG_VERSION,
+        version: AppConstants.SYNC.CONFIG_VERSION,
         activeProfile: "default",
         age: { identityFile: "key.txt", recipients: ["recip"] },
         entries: [],
       },
       fullConfig: {
-        version: CONSTANTS.SYNC.CONFIG_VERSION,
+        version: AppConstants.SYNC.CONFIG_VERSION,
         entries: [
           {
             kind: "file",

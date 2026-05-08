@@ -1,15 +1,15 @@
-import { CONSTANTS } from "#app/config/constants.ts";
+import { AppConstants } from "#app/config/constants.ts";
 import {
   formatSyncConfig,
+  type RawSyncConfig,
   type ResolvedSyncConfig,
   resolveSyncConfigFilePath,
-  type SyncConfig,
   syncConfigSchema,
 } from "#app/config/sync-schema.ts";
 import { writeTextFileAtomically } from "#app/lib/filesystem.ts";
 
 export const sortSyncConfigEntries = (
-  entries: readonly SyncConfig["entries"][number][],
+  entries: readonly RawSyncConfig["entries"][number][],
 ) => {
   return [...entries].sort((left, right) => {
     return left.localPath.default.localeCompare(right.localPath.default);
@@ -18,9 +18,9 @@ export const sortSyncConfigEntries = (
 
 export const buildSyncConfigDocument = (
   config: ResolvedSyncConfig,
-): SyncConfig => {
+): RawSyncConfig => {
   const entries = sortSyncConfigEntries(
-    config.entries.map((entry): SyncConfig["entries"][number] => ({
+    config.entries.map((entry): RawSyncConfig["entries"][number] => ({
       kind: entry.kind,
       localPath: entry.configuredLocalPath,
       ...(entry.configuredRepoPath === undefined
@@ -35,7 +35,7 @@ export const buildSyncConfigDocument = (
   );
 
   return {
-    version: CONSTANTS.SYNC.CONFIG_VERSION,
+    version: AppConstants.SYNC.CONFIG_VERSION,
     ...(config.age === undefined
       ? {}
       : {
@@ -44,12 +44,12 @@ export const buildSyncConfigDocument = (
           },
         }),
     entries,
-  } as SyncConfig;
+  } as RawSyncConfig;
 };
 
 export const writeValidatedSyncConfig = async (
   syncDirectory: string,
-  config: SyncConfig,
+  config: RawSyncConfig,
 ) => {
   syncConfigSchema.parse(config);
 

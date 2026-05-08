@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { CONSTANTS } from "#app/config/constants.ts";
+import { AppConstants } from "#app/config/constants.ts";
 import { buildRepositorySnapshot } from "./repo-snapshot.ts";
-import type { EffectiveSyncConfig } from "./runtime.ts";
+import type { EffectiveSyncConfig } from "./sync-context.ts";
 
 const mocked = vi.hoisted(() => ({
   getPathStats: vi.fn(),
@@ -15,7 +15,7 @@ const mocked = vi.hoisted(() => ({
     return (Number(mode) & 0o111) !== 0;
   }),
   resolveSyncRule: vi.fn(),
-  resolveManagedSyncMode: vi.fn(() => "normal"),
+  requireManagedSyncMode: vi.fn(() => "normal"),
   collectArtifactProfiles: vi.fn(() => new Set(["work"])),
   parseArtifactRelativePath: vi.fn((p) => {
     const segments = p.split("/");
@@ -39,10 +39,10 @@ vi.mock("#app/lib/filesystem.ts", () => ({
   listDirectoryEntries: mocked.listDirectoryEntries,
 }));
 
-vi.mock("#app/config/sync-entry.ts", () => ({
+vi.mock("#app/config/sync-queries.ts", () => ({
   findOwningSyncEntry: mocked.findOwningSyncEntry,
   resolveSyncRule: mocked.resolveSyncRule,
-  resolveManagedSyncMode: mocked.resolveManagedSyncMode,
+  requireManagedSyncMode: mocked.requireManagedSyncMode,
 }));
 
 vi.mock("#app/lib/crypto.ts", () => ({
@@ -69,7 +69,7 @@ describe("repo-snapshot service", () => {
 
   it("scans repository and builds snapshot", async () => {
     const config: EffectiveSyncConfig = {
-      version: CONSTANTS.SYNC.CONFIG_VERSION,
+      version: AppConstants.SYNC.CONFIG_VERSION,
       activeProfile: "work",
       entries: [
         {
@@ -122,7 +122,7 @@ describe("repo-snapshot service", () => {
       configuredPermission: { default: "0600" },
     } as const;
     const config: EffectiveSyncConfig = {
-      version: CONSTANTS.SYNC.CONFIG_VERSION,
+      version: AppConstants.SYNC.CONFIG_VERSION,
       activeProfile: "work",
       entries: [entry],
       age: { identityFile: "id.txt", recipients: ["key1"] },
@@ -151,7 +151,7 @@ describe("repo-snapshot service", () => {
 
   it("handles directory entries", async () => {
     const config: EffectiveSyncConfig = {
-      version: CONSTANTS.SYNC.CONFIG_VERSION,
+      version: AppConstants.SYNC.CONFIG_VERSION,
       activeProfile: "work",
       entries: [
         {
@@ -181,7 +181,7 @@ describe("repo-snapshot service", () => {
 
   it("reads symlink entries from the repository", async () => {
     const config: EffectiveSyncConfig = {
-      version: CONSTANTS.SYNC.CONFIG_VERSION,
+      version: AppConstants.SYNC.CONFIG_VERSION,
       activeProfile: "work",
       entries: [
         {
@@ -210,7 +210,7 @@ describe("repo-snapshot service", () => {
     });
     mocked.readlink.mockResolvedValue("/target/path");
     mocked.resolveSyncRule.mockReturnValue({ profile: "work", mode: "normal" });
-    mocked.resolveManagedSyncMode.mockReturnValue("normal");
+    mocked.requireManagedSyncMode.mockReturnValue("normal");
 
     const snapshot = await buildRepositorySnapshot("/tmp/repo", config);
 
@@ -222,7 +222,7 @@ describe("repo-snapshot service", () => {
 
   it("reads encrypted secret file entries", async () => {
     const config: EffectiveSyncConfig = {
-      version: CONSTANTS.SYNC.CONFIG_VERSION,
+      version: AppConstants.SYNC.CONFIG_VERSION,
       activeProfile: "work",
       entries: [
         {
@@ -271,7 +271,7 @@ describe("repo-snapshot service", () => {
 
   it("skips entries when resolveSyncRule returns undefined (profile mismatch)", async () => {
     const config: EffectiveSyncConfig = {
-      version: CONSTANTS.SYNC.CONFIG_VERSION,
+      version: AppConstants.SYNC.CONFIG_VERSION,
       activeProfile: "work",
       entries: [
         {
@@ -308,7 +308,7 @@ describe("repo-snapshot service", () => {
 
   it("handles multiple profile directories in the repository", async () => {
     const config: EffectiveSyncConfig = {
-      version: CONSTANTS.SYNC.CONFIG_VERSION,
+      version: AppConstants.SYNC.CONFIG_VERSION,
       activeProfile: "work",
       entries: [
         {
@@ -395,7 +395,7 @@ describe("repo-snapshot service", () => {
       configuredLocalPath: { default: "~/script.sh" },
     } as const;
     const config: EffectiveSyncConfig = {
-      version: CONSTANTS.SYNC.CONFIG_VERSION,
+      version: AppConstants.SYNC.CONFIG_VERSION,
       activeProfile: "work",
       entries: [entry],
       age: { identityFile: "id.txt", recipients: ["key1"] },
@@ -424,7 +424,7 @@ describe("repo-snapshot service", () => {
 
   it("handles empty repository directory gracefully", async () => {
     const config: EffectiveSyncConfig = {
-      version: CONSTANTS.SYNC.CONFIG_VERSION,
+      version: AppConstants.SYNC.CONFIG_VERSION,
       activeProfile: "work",
       entries: [],
       age: { identityFile: "id.txt", recipients: ["key1"] },
@@ -441,7 +441,7 @@ describe("repo-snapshot service", () => {
 
   it("detects SECRET_STORED_PLAIN for a file marked secret but stored as plain", async () => {
     const config: EffectiveSyncConfig = {
-      version: CONSTANTS.SYNC.CONFIG_VERSION,
+      version: AppConstants.SYNC.CONFIG_VERSION,
       activeProfile: "work",
       entries: [
         {
@@ -469,7 +469,7 @@ describe("repo-snapshot service", () => {
       mode: 0o644,
     });
     mocked.resolveSyncRule.mockReturnValue({ profile: "work", mode: "secret" });
-    mocked.resolveManagedSyncMode.mockReturnValue("secret");
+    mocked.requireManagedSyncMode.mockReturnValue("secret");
     mocked.parseArtifactRelativePath.mockReturnValue({
       profile: "work",
       repoPath: "secret.conf",

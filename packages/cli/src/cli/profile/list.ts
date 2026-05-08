@@ -1,15 +1,10 @@
 import type { ApplicationContext } from "@stricli/core";
 import { buildCommand } from "@stricli/core";
+import type { NoFlags } from "#app/cli/shared-flags.ts";
 import { listProfiles } from "#app/services/profile.ts";
 import { createCliLogger } from "#app/services/terminal/logger.ts";
 
-type ProfileListFlags = Record<string, never>;
-
-const profileListCommand = buildCommand<
-  ProfileListFlags,
-  [],
-  ApplicationContext
->({
+const profileListCommand = buildCommand<NoFlags, [], ApplicationContext>({
   docs: {
     brief: "Show configured and active sync profiles",
     fullDescription:

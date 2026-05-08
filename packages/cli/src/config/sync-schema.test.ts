@@ -4,7 +4,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { PlatformKey } from "#app/config/platform.ts";
 import { createTemporaryDirectory } from "#app/test/helpers/sync-fixture.ts";
-import { resolveSyncRule } from "./sync-entry.ts";
+import { resolveSyncRule } from "./sync-queries.ts";
 import {
   normalizeSyncProfileName,
   parseSyncConfig as parseSyncConfigBase,

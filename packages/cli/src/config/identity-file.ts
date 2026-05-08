@@ -1,4 +1,4 @@
-import { CONSTANTS } from "#app/config/constants.ts";
+import { AppConstants } from "#app/config/constants.ts";
 import { resolveConfiguredAbsolutePath } from "#app/config/xdg.ts";
 
 export const resolveDefaultIdentityFile = (
@@ -6,7 +6,7 @@ export const resolveDefaultIdentityFile = (
   xdgConfigHome: string | undefined,
 ) => {
   return resolveConfiguredAbsolutePath(
-    CONSTANTS.INIT.DEFAULT_IDENTITY_FILE,
+    AppConstants.INIT.DEFAULT_IDENTITY_FILE,
     home,
     xdgConfigHome,
   );

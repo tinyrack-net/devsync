@@ -8,12 +8,12 @@ import {
   rm,
 } from "node:fs/promises";
 import { basename, dirname, join, posix } from "node:path";
-import { CONSTANTS } from "#app/config/constants.ts";
+import { AppConstants } from "#app/config/constants.ts";
 import {
   collectChildEntryPaths,
   findOwningSyncEntry,
   resolveSyncRule,
-} from "#app/config/sync-entry.ts";
+} from "#app/config/sync-queries.ts";
 import type {
   ResolvedSyncConfig,
   ResolvedSyncConfigEntry,
@@ -37,13 +37,10 @@ import {
   replacePathAtomically,
   writeFileNode,
 } from "#app/lib/filesystem.ts";
-import {
-  buildDirectoryKey,
-  normalizeLinkTargetForComparison,
-} from "#app/lib/path.ts";
+import { buildDirectoryKey, normalizeLinkTarget } from "#app/lib/path.ts";
 import { limitConcurrency } from "#app/lib/promise.ts";
 import type { FileLikeSnapshotNode, SnapshotNode } from "./local-snapshot.ts";
-import type { EffectiveSyncConfig } from "./runtime.ts";
+import type { EffectiveSyncConfig } from "./sync-context.ts";
 
 export type EntryMaterialization =
   | Readonly<{
@@ -222,11 +219,8 @@ const isMaterializedFileLikeNodeCurrent = async (
     const currentLinkTarget = await readlink(targetPath);
 
     return (
-      normalizeLinkTargetForComparison(
-        currentLinkTarget,
-        dirname(targetPath),
-      ) ===
-      normalizeLinkTargetForComparison(node.linkTarget, dirname(targetPath))
+      normalizeLinkTarget(currentLinkTarget, dirname(targetPath)) ===
+      normalizeLinkTarget(node.linkTarget, dirname(targetPath))
     );
   }
 
@@ -257,7 +251,7 @@ const resolveStagingParentDirectory = (targetPath: string) => {
   }
 };
 
-const stageAndReplaceFilePath = async (
+const stageAndReplacePath = async (
   targetPath: string,
   node: FileLikeSnapshotNode,
   fileMode?: number,
@@ -687,7 +681,7 @@ const reconcileMaterializedDirectoryPath = async (
     : new Set<string>();
 
   await limitConcurrency(
-    CONSTANTS.SYNC.DEFAULT_CONCURRENCY,
+    AppConstants.SYNC.DEFAULT_CONCURRENCY,
     [...desiredDirectoryKeys].sort((left, right) => {
       return left.localeCompare(right);
     }),
@@ -705,7 +699,7 @@ const reconcileMaterializedDirectoryPath = async (
   );
 
   await limitConcurrency(
-    CONSTANTS.SYNC.DEFAULT_CONCURRENCY,
+    AppConstants.SYNC.DEFAULT_CONCURRENCY,
     [...desiredNodes.keys()].sort((left, right) => {
       return left.localeCompare(right);
     }),
@@ -724,7 +718,7 @@ const reconcileMaterializedDirectoryPath = async (
         return;
       }
 
-      await stageAndReplaceFilePath(targetNodePath, node, fileMode);
+      await stageAndReplacePath(targetNodePath, node, fileMode);
     },
   );
 
@@ -785,7 +779,7 @@ export const applyEntryMaterialization = async (
   }
 
   if (materialization.type === "file") {
-    await stageAndReplaceFilePath(
+    await stageAndReplacePath(
       entry.localPath,
       materialization.node,
       entry.permission,

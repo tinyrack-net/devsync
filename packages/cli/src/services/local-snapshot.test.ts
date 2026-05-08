@@ -8,7 +8,7 @@ import type {
 } from "#app/config/sync-schema.ts";
 import { formatPermissionOctal } from "#app/lib/file-mode.ts";
 import { buildLocalSnapshot } from "#app/services/local-snapshot.ts";
-import type { EffectiveSyncConfig } from "#app/services/runtime.ts";
+import type { EffectiveSyncConfig } from "#app/services/sync-context.ts";
 import { createTemporaryDirectory } from "../test/helpers/sync-fixture.ts";
 
 const temporaryDirectories: string[] = [];

@@ -5,7 +5,7 @@ import {
   doPathsOverlap,
   isExplicitLocalPath,
   isPathEqualOrNested,
-  normalizeLinkTargetForComparison,
+  normalizeLinkTarget,
 } from "#app/lib/path.ts";
 
 describe("path helpers", () => {
@@ -49,35 +49,31 @@ describe("path helpers", () => {
     expect(isExplicitLocalPath("bundle/file.txt")).toBe(false);
   });
 
-  describe("normalizeLinkTargetForComparison", () => {
+  describe("normalizeLinkTarget", () => {
     it("returns absolute target as-is on non-windows", () => {
-      expect(normalizeLinkTargetForComparison("/usr/bin/python3")).toBe(
+      expect(normalizeLinkTarget("/usr/bin/python3")).toBe("/usr/bin/python3");
+    });
+
+    it("resolves relative target against baseDir", () => {
+      expect(normalizeLinkTarget("../bin/python3", "/opt/app/venv")).toBe(
+        "/opt/app/bin/python3",
+      );
+    });
+
+    it("ignores baseDir for absolute target", () => {
+      expect(normalizeLinkTarget("/usr/bin/python3", "/opt/app")).toBe(
         "/usr/bin/python3",
       );
     });
 
-    it("resolves relative target against baseDir", () => {
-      expect(
-        normalizeLinkTargetForComparison("../bin/python3", "/opt/app/venv"),
-      ).toBe("/opt/app/bin/python3");
-    });
-
-    it("ignores baseDir for absolute target", () => {
-      expect(
-        normalizeLinkTargetForComparison("/usr/bin/python3", "/opt/app"),
-      ).toBe("/usr/bin/python3");
-    });
-
     it("returns target unchanged when no baseDir is given", () => {
-      expect(normalizeLinkTargetForComparison("relative/path")).toBe(
-        "relative/path",
-      );
+      expect(normalizeLinkTarget("relative/path")).toBe("relative/path");
     });
 
     it("resolves dot-slash relative target against baseDir", () => {
-      expect(
-        normalizeLinkTargetForComparison("./script.sh", "/home/user"),
-      ).toBe("/home/user/script.sh");
+      expect(normalizeLinkTarget("./script.sh", "/home/user")).toBe(
+        "/home/user/script.sh",
+      );
     });
   });
 });

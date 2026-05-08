@@ -1,5 +1,5 @@
 import type { SyncConfigEntryKind, SyncMode } from "#app/config/sync-schema.ts";
-import { ensureGitRepository } from "#app/lib/git.ts";
+import { requireGitRepository } from "#app/lib/git.ts";
 import type { PullPlan } from "./pull.ts";
 import {
   buildPullPlan,
@@ -17,7 +17,7 @@ import {
   isRepoArtifactCurrent,
   parseArtifactRelativePath,
 } from "./repo-artifacts.ts";
-import { loadSyncConfig, resolveSyncPaths } from "./runtime.ts";
+import { loadSyncConfig, resolveSyncPaths } from "./sync-context.ts";
 
 export type StatusEntry = Readonly<{
   kind: SyncConfigEntryKind;
@@ -113,7 +113,7 @@ export const getStatus = async (
 ): Promise<StatusResult> => {
   const { syncDirectory } = resolveSyncPaths();
 
-  await ensureGitRepository(syncDirectory);
+  await requireGitRepository(syncDirectory);
 
   const { effectiveConfig, fullConfig } = await loadSyncConfig(
     syncDirectory,

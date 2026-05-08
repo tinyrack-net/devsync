@@ -2,9 +2,9 @@ import { lstat, readFile, readlink } from "node:fs/promises";
 import { join } from "node:path";
 import {
   findOwningSyncEntry,
-  resolveManagedSyncMode,
+  requireManagedSyncMode,
   resolveSyncRule,
-} from "#app/config/sync-entry.ts";
+} from "#app/config/sync-queries.ts";
 import { decryptSecretFile } from "#app/lib/crypto.ts";
 import { DotweaveError, wrapUnknownError } from "#app/lib/error.ts";
 import { isExecutableMode } from "#app/lib/file-mode.ts";
@@ -15,7 +15,7 @@ import {
   collectArtifactProfiles,
   parseArtifactRelativePath,
 } from "./repo-artifacts.ts";
-import type { EffectiveSyncConfig } from "./runtime.ts";
+import type { EffectiveSyncConfig } from "./sync-context.ts";
 
 type RepositorySnapshotConfig = EffectiveSyncConfig;
 
@@ -148,7 +148,7 @@ const readArtifactLeaf = async (
     return;
   }
 
-  const mode = resolveManagedSyncMode(
+  const mode = requireManagedSyncMode(
     config,
     artifact.repoPath,
     config.activeProfile,
@@ -234,12 +234,11 @@ export const buildRepositorySnapshot = async (
   config: RepositorySnapshotConfig,
 ) => {
   const snapshot = new Map<string, SnapshotNode>();
-  const artifactsDirectory = syncDirectory;
   const artifactProfiles = collectArtifactProfiles(config.entries);
 
   await Promise.all(
     [...artifactProfiles].map(async (profile) => {
-      const profileDirectory = join(artifactsDirectory, profile);
+      const profileDirectory = join(syncDirectory, profile);
       const profileStats = await getPathStats(profileDirectory);
 
       if (profileStats?.isDirectory()) {
@@ -263,7 +262,7 @@ export const buildRepositorySnapshot = async (
       return repoPath.startsWith(`${entry.repoPath}/`);
     });
     const expectedPath = join(
-      artifactsDirectory,
+      syncDirectory,
       rule.profile,
       ...entry.repoPath.split("/"),
     );

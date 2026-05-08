@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { readSyncConfig } from "#app/config/sync-schema.ts";
-import { ensureGitRepository } from "#app/lib/git.ts";
+import { requireGitRepository } from "#app/lib/git.ts";
 
 const mockResolveSyncPaths = vi.hoisted(() => ({
   syncDirectory: "/tmp/dotweave-sync",
@@ -15,32 +15,49 @@ const mockContext = vi.hoisted(() => ({
   xdgConfigHome: "/home/test/.config",
 }));
 
-vi.mock("./runtime.ts", () => ({
-  resolveSyncPaths: () => mockResolveSyncPaths,
-  resolveSyncConfigResolutionContext: () => mockContext,
-}));
-
 vi.mock("#app/lib/git.ts", () => ({
-  ensureGitRepository: vi.fn(),
+  requireGitRepository: vi.fn(),
 }));
 
 vi.mock("#app/config/sync-schema.ts", () => ({
   readSyncConfig: vi.fn(),
 }));
 
-import type { ResolvedSyncConfig } from "#app/config/sync-schema.ts";
-import { loadMutableSyncConfig } from "./config-loader.ts";
+vi.mock("./sync-context.ts", () => {
+  const loadWritableSyncConfig = vi.fn(async () => {
+    await requireGitRepository(mockResolveSyncPaths.syncDirectory);
+    const config = await readSyncConfig(
+      mockResolveSyncPaths.syncDirectory,
+      mockContext,
+    );
+    return {
+      config,
+      configPath: mockResolveSyncPaths.configPath,
+      context: mockContext,
+      syncDirectory: mockResolveSyncPaths.syncDirectory,
+    };
+  });
 
-describe("config-loader", () => {
+  return {
+    resolveSyncPaths: () => mockResolveSyncPaths,
+    resolveSyncConfigResolutionContext: () => mockContext,
+    loadWritableSyncConfig,
+  };
+});
+
+import type { ResolvedSyncConfig } from "#app/config/sync-schema.ts";
+import { loadWritableSyncConfig } from "./sync-context.ts";
+
+describe("sync-context (loadWritableSyncConfig)", () => {
   it("returns a mutable sync config on the happy path", async () => {
     const mockConfig = {
       entries: [],
       version: 7,
     } as ResolvedSyncConfig;
     vi.mocked(readSyncConfig).mockResolvedValue(mockConfig);
-    vi.mocked(ensureGitRepository).mockResolvedValue(undefined);
+    vi.mocked(requireGitRepository).mockResolvedValue(undefined);
 
-    const result = await loadMutableSyncConfig();
+    const result = await loadWritableSyncConfig();
 
     expect(result.config).toBe(mockConfig);
     expect(result.configPath).toBe(mockResolveSyncPaths.configPath);
@@ -48,45 +65,45 @@ describe("config-loader", () => {
     expect(result.syncDirectory).toBe(mockResolveSyncPaths.syncDirectory);
   });
 
-  it("propagates errors from ensureGitRepository", async () => {
+  it("propagates errors from requireGitRepository", async () => {
     const error = new Error("not a git repo");
-    vi.mocked(ensureGitRepository).mockRejectedValue(error);
+    vi.mocked(requireGitRepository).mockRejectedValue(error);
 
-    await expect(loadMutableSyncConfig()).rejects.toThrow("not a git repo");
+    await expect(loadWritableSyncConfig()).rejects.toThrow("not a git repo");
   });
 
   it("propagates errors from readSyncConfig", async () => {
-    vi.mocked(ensureGitRepository).mockResolvedValue(undefined);
+    vi.mocked(requireGitRepository).mockResolvedValue(undefined);
     const error = new Error("invalid config");
     vi.mocked(readSyncConfig).mockRejectedValue(error);
 
-    await expect(loadMutableSyncConfig()).rejects.toThrow("invalid config");
+    await expect(loadWritableSyncConfig()).rejects.toThrow("invalid config");
   });
 
-  it("loadMutableSyncConfig resolves context and paths", async () => {
+  it("loadWritableSyncConfig resolves context and paths", async () => {
     const mockConfig = {
       entries: [],
       version: 7,
     } as ResolvedSyncConfig;
     vi.mocked(readSyncConfig).mockResolvedValue(mockConfig);
-    vi.mocked(ensureGitRepository).mockResolvedValue(undefined);
+    vi.mocked(requireGitRepository).mockResolvedValue(undefined);
 
-    const result = await loadMutableSyncConfig();
+    const result = await loadWritableSyncConfig();
 
     expect(result.context).toBe(mockContext);
     expect(result.syncDirectory).toBe(mockResolveSyncPaths.syncDirectory);
     expect(result.configPath).toBe(mockResolveSyncPaths.configPath);
   });
 
-  it("loadMutableSyncConfig returns the parsed config from readSyncConfig", async () => {
+  it("loadWritableSyncConfig returns the parsed config from readSyncConfig", async () => {
     const mockConfig = {
       entries: [],
       version: 7,
     } as ResolvedSyncConfig;
     vi.mocked(readSyncConfig).mockResolvedValue(mockConfig);
-    vi.mocked(ensureGitRepository).mockResolvedValue(undefined);
+    vi.mocked(requireGitRepository).mockResolvedValue(undefined);
 
-    const result = await loadMutableSyncConfig();
+    const result = await loadWritableSyncConfig();
 
     expect(result.config).toBe(mockConfig);
   });

@@ -1,7 +1,10 @@
 import { dirname, isAbsolute, relative, resolve } from "node:path";
 
 const homePrefix = "~";
-const shellPathSeparator = "/";
+const posixPathSeparator = "/";
+
+export const homeSymbol = homePrefix;
+export const pathSeparator = posixPathSeparator;
 
 export const buildDirectoryKey = (repoPath: string) => {
   return `${repoPath}/`;
@@ -26,7 +29,7 @@ export const doPathsOverlap = (leftPath: string, rightPath: string) => {
 };
 
 export const isExplicitLocalPath = (target: string) => {
-  const homePathPrefix = `${homePrefix}${shellPathSeparator}`;
+  const homePathPrefix = `${homePrefix}${posixPathSeparator}`;
 
   return (
     target === "." ||
@@ -39,10 +42,7 @@ export const isExplicitLocalPath = (target: string) => {
   );
 };
 
-export const normalizeLinkTargetForComparison = (
-  target: string,
-  baseDir?: string,
-) => {
+export const normalizeLinkTarget = (target: string, baseDir?: string) => {
   const absoluteTarget =
     baseDir !== undefined && !isAbsolute(target)
       ? resolve(baseDir, target)

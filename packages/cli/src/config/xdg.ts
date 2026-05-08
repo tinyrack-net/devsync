@@ -1,11 +1,11 @@
 import { homedir } from "node:os";
 import { isAbsolute, resolve } from "node:path";
 
-import { CONSTANTS } from "#app/config/constants.ts";
-import { trimConfiguredValue } from "#app/lib/string.ts";
+import { AppConstants } from "#app/config/constants.ts";
+import { normalizeConfiguredValue } from "#app/lib/string.ts";
 
 export const resolveHomeDirectory = (home: string | undefined) => {
-  const configuredValue = trimConfiguredValue(home);
+  const configuredValue = normalizeConfiguredValue(home);
 
   if (configuredValue !== undefined) {
     return resolve(configuredValue);
@@ -18,7 +18,7 @@ export const resolveXdgConfigHome = (
   home: string | undefined,
   xdgConfigHome: string | undefined,
 ) => {
-  const configuredValue = trimConfiguredValue(xdgConfigHome);
+  const configuredValue = normalizeConfiguredValue(xdgConfigHome);
 
   if (configuredValue !== undefined) {
     return resolve(configuredValue);
@@ -28,19 +28,19 @@ export const resolveXdgConfigHome = (
 };
 
 export const resolveDotweaveConfigDirectory = (xdgConfigHome: string) => {
-  return resolve(xdgConfigHome, CONSTANTS.XDG.APP_DIRECTORY_NAME);
+  return resolve(xdgConfigHome, AppConstants.XDG.APP_DIRECTORY_NAME);
 };
 
 export const resolveDotweaveGlobalConfigFilePath = (
   dotweaveConfigDirectory: string,
 ) => {
-  return resolve(dotweaveConfigDirectory, CONSTANTS.GLOBAL_CONFIG.FILE_NAME);
+  return resolve(dotweaveConfigDirectory, AppConstants.GLOBAL_CONFIG.FILE_NAME);
 };
 
 export const resolveDotweaveSyncDirectory = (
   dotweaveConfigDirectory: string,
 ) => {
-  return resolve(dotweaveConfigDirectory, CONSTANTS.XDG.SYNC_DIRECTORY_NAME);
+  return resolve(dotweaveConfigDirectory, AppConstants.XDG.SYNC_DIRECTORY_NAME);
 };
 
 export const expandHomePath = (value: string, home: string | undefined) => {
@@ -111,7 +111,7 @@ export const expandWindowsEnvVars = (
   readEnv: (name: string) => string | undefined,
 ): string => {
   return value.replace(/%([^%]+)%/g, (_match, varName: string) => {
-    const envValue = trimConfiguredValue(readEnv(varName));
+    const envValue = normalizeConfiguredValue(readEnv(varName));
 
     if (envValue === undefined) {
       throw new Error(`Environment variable %${varName}% is not defined.`);

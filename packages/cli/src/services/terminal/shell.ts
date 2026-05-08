@@ -4,7 +4,7 @@ import type { PlatformKey } from "#app/config/platform.ts";
 import { resolveCurrentPlatformKey } from "#app/config/runtime-env.ts";
 import { ENV } from "#app/lib/env.ts";
 import { DotweaveError } from "#app/lib/error.ts";
-import { trimConfiguredValue } from "#app/lib/string.ts";
+import { normalizeConfiguredValue } from "#app/lib/string.ts";
 
 type ShellCommand = Readonly<{
   args: readonly string[];
@@ -15,10 +15,16 @@ export const resolveShellCommandForPlatform = async (
   platformKey: PlatformKey,
 ): Promise<ShellCommand> => {
   if (platformKey === "win") {
-    return { args: [], command: trimConfiguredValue(ENV.COMSPEC) ?? "cmd.exe" };
+    return {
+      args: [],
+      command: normalizeConfiguredValue(ENV.COMSPEC) ?? "cmd.exe",
+    };
   }
 
-  return { args: [], command: trimConfiguredValue(ENV.SHELL) ?? "/bin/sh" };
+  return {
+    args: [],
+    command: normalizeConfiguredValue(ENV.SHELL) ?? "/bin/sh",
+  };
 };
 
 export const resolveShellCommand = async () => {

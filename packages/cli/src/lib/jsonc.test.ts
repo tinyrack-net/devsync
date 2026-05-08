@@ -4,8 +4,8 @@ import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
   parseJsonc,
-  resolveJsoncConfigPath,
   stripJsoncComments,
+  validateJsoncConfigPath,
 } from "./jsonc.ts";
 
 describe("stripJsoncComments", () => {
@@ -65,7 +65,7 @@ describe("parseJsonc", () => {
   });
 });
 
-describe("resolveJsoncConfigPath", () => {
+describe("validateJsoncConfigPath", () => {
   let dir: string;
 
   beforeEach(async () => {
@@ -80,14 +80,14 @@ describe("resolveJsoncConfigPath", () => {
   it("returns the .jsonc path when only .jsonc exists", async () => {
     const jsoncPath = join(dir, "config.jsonc");
     await writeFile(jsoncPath, "{}");
-    expect(await resolveJsoncConfigPath(jsoncPath)).toBe(jsoncPath);
+    expect(await validateJsoncConfigPath(jsoncPath)).toBe(jsoncPath);
   });
 
   it("rejects .json when only .json exists", async () => {
     const jsoncPath = join(dir, "config.jsonc");
     const jsonPath = join(dir, "config.json");
     await writeFile(jsonPath, "{}");
-    await expect(resolveJsoncConfigPath(jsoncPath)).rejects.toThrow(
+    await expect(validateJsoncConfigPath(jsoncPath)).rejects.toThrow(
       /Unsupported dotweave config file/u,
     );
   });
@@ -97,13 +97,13 @@ describe("resolveJsoncConfigPath", () => {
     const jsonPath = join(dir, "config.json");
     await writeFile(jsoncPath, "{}");
     await writeFile(jsonPath, "{}");
-    await expect(resolveJsoncConfigPath(jsoncPath)).rejects.toThrow(
+    await expect(validateJsoncConfigPath(jsoncPath)).rejects.toThrow(
       /Unsupported dotweave config file/u,
     );
   });
 
   it("returns the preferred path when neither exists", async () => {
     const jsoncPath = join(dir, "config.jsonc");
-    expect(await resolveJsoncConfigPath(jsoncPath)).toBe(jsoncPath);
+    expect(await validateJsoncConfigPath(jsoncPath)).toBe(jsoncPath);
   });
 });

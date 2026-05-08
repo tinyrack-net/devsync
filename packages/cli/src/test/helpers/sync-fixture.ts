@@ -5,7 +5,7 @@ import { basename, dirname, join } from "node:path";
 import { promisify } from "node:util";
 
 import { generateIdentity, identityToRecipient } from "age-encryption";
-import { CONSTANTS } from "#app/config/constants.ts";
+import { AppConstants } from "#app/config/constants.ts";
 
 const identityFileName = "keys.txt";
 
@@ -47,7 +47,7 @@ export const writeIdentityFile = async (
   const identityFile = join(
     homeDirectory,
     ".config",
-    CONSTANTS.XDG.APP_DIRECTORY_NAME,
+    AppConstants.XDG.APP_DIRECTORY_NAME,
     identityFileName,
   );
 

@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { CONSTANTS } from "#app/config/constants.ts";
+import { AppConstants } from "#app/config/constants.ts";
 import { buildPullPlan } from "./pull.ts";
 import { buildPushPlan } from "./push.ts";
-import type { EffectiveSyncConfig } from "./runtime.ts";
+import type { EffectiveSyncConfig } from "./sync-context.ts";
 
 const mocked = vi.hoisted(() => ({
   buildRepositorySnapshot: vi.fn(),
@@ -34,7 +34,7 @@ describe("sync scenarios (unit)", () => {
 
   it("handles multi-profile configuration in pull plan", async () => {
     const config: EffectiveSyncConfig = {
-      version: CONSTANTS.SYNC.CONFIG_VERSION,
+      version: AppConstants.SYNC.CONFIG_VERSION,
       activeProfile: "work",
       entries: [
         {
@@ -77,7 +77,7 @@ describe("sync scenarios (unit)", () => {
 
   it("handles directory with ignored sub-entry in push plan", async () => {
     const config: EffectiveSyncConfig = {
-      version: CONSTANTS.SYNC.CONFIG_VERSION,
+      version: AppConstants.SYNC.CONFIG_VERSION,
       activeProfile: "default",
       entries: [
         {
