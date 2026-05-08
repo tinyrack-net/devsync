@@ -116,4 +116,31 @@ describe("CLI application", () => {
       "Expected argument for target",
     );
   });
+
+  it("reports unknown commands without suggestion when no close match exists", async () => {
+    const output = captureProcessOutput();
+
+    await runCli(["zzzzzzz"]);
+
+    expect(Number(process.exitCode)).not.toBe(0);
+    expect(output.stderr()).toContain('Command "zzzzzzz" not found.');
+  });
+
+  it("handles invalid flag on a root command", async () => {
+    const output = captureProcessOutput();
+
+    await runCli(["--invalid-flag"]);
+
+    expect(Number(process.exitCode)).not.toBe(0);
+    expect(output.stderr().length).toBeGreaterThan(0);
+  });
+
+  it("handles command execution errors from track on invalid target", async () => {
+    const output = captureProcessOutput();
+
+    await runCli(["track", "/nonexistent/path/that/does/not/exist"]);
+
+    expect(Number(process.exitCode)).not.toBe(0);
+    expect(output.stderr().length).toBeGreaterThan(0);
+  });
 });

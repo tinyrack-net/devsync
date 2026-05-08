@@ -157,6 +157,22 @@ describe("filesystem helpers", () => {
     expect(await readFile(targetPath, "utf8")).toBe("second\n");
   });
 
+  it("throws for unsupported filesystem entry types in copyFilesystemNode", async () => {
+    const workspace = await createWorkspace();
+    const sourcePath = join(workspace, "source");
+    const targetPath = join(workspace, "target");
+
+    const mockStats = {
+      isDirectory: () => false,
+      isSymbolicLink: () => false,
+      isFile: () => false,
+    } as unknown as Awaited<ReturnType<typeof lstat>>;
+
+    await expect(
+      copyFilesystemNode(sourcePath, targetPath, mockStats),
+    ).rejects.toThrow("Unsupported filesystem entry");
+  });
+
   it("applies explicit fileMode when provided to writeFileNode", async () => {
     if (process.platform === "win32") {
       return;
