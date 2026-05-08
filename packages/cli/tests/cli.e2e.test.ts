@@ -57,6 +57,13 @@ describe("CLI e2e", () => {
     expect(profileHelp.stdout).toContain("Profile name to activate");
   });
 
+  it("rejects removed --verbose flag", async () => {
+    const result = await runCli(["pull", "--verbose"], { reject: false });
+
+    expect(result.exitCode).toBe(252);
+    expect(result.stderr).toContain("No flag registered for --verbose");
+  });
+
   it("returns a non-zero exit code for removed command surfaces", async () => {
     const [addResult, removeResult, modeResult, listResult, dirResult] =
       await Promise.all([

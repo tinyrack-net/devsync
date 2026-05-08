@@ -14,7 +14,6 @@ import { createCliLogger } from "#app/services/terminal/logger.ts";
 type InitFlags = {
   key?: string;
   promptKey?: boolean;
-  verbose?: boolean;
 };
 
 const formatGitSummary = (result: InitResult) => {
@@ -41,7 +40,7 @@ const initCommand = buildCommand<InitFlags, [string?], ApplicationContext>({
       "Create or connect the local dotweave repository under your XDG config directory, then store the sync settings used by later pull and push operations. If you omit the repository argument, dotweave initializes a local git repository in the sync directory.",
   },
   async func(flags, repository) {
-    const logger = createCliLogger({ verbose: flags.verbose ?? false });
+    const logger = createCliLogger();
     const requestedKey = flags.key?.trim();
     const identityFile = resolveDefaultIdentityFile(
       readEnvValue("HOME"),
@@ -117,11 +116,6 @@ const initCommand = buildCommand<InitFlags, [string?], ApplicationContext>({
       promptKey: {
         brief:
           "Prompt to enter an age private key instead of generating one automatically",
-        kind: "boolean",
-        optional: true,
-      },
-      verbose: {
-        brief: "Show detailed debug output",
         kind: "boolean",
         optional: true,
       },

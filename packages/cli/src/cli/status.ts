@@ -7,11 +7,10 @@ import {
 } from "#app/services/status.ts";
 import { createCliLogger } from "#app/services/terminal/logger.ts";
 import { c, S } from "#app/services/terminal/theme.ts";
-import { profileFlag, verboseFlag } from "./shared-flags.ts";
+import { profileFlag } from "./shared-flags.ts";
 
 type StatusFlags = {
   profile?: string;
-  verbose?: boolean;
 };
 
 const MAX_DISPLAY_ITEMS = 10;
@@ -120,7 +119,7 @@ const statusCommand = buildCommand<StatusFlags, [], ApplicationContext>({
       "Compare the tracked local files with the sync directory and report what push would write to the repository and what pull would write back locally.",
   },
   async func(flags) {
-    const logger = createCliLogger({ verbose: flags.verbose ?? false });
+    const logger = createCliLogger();
 
     const spin = logger.spinner("Checking sync status...");
     const result = await getStatus({
@@ -141,7 +140,6 @@ const statusCommand = buildCommand<StatusFlags, [], ApplicationContext>({
   parameters: {
     flags: {
       profile: profileFlag,
-      verbose: verboseFlag,
     },
   },
 });

@@ -2,12 +2,11 @@ import type { ApplicationContext } from "@stricli/core";
 import { buildCommand } from "@stricli/core";
 import { pushChanges } from "#app/services/push.ts";
 import { createCliLogger } from "#app/services/terminal/logger.ts";
-import { profileFlag, verboseFlag } from "./shared-flags.ts";
+import { profileFlag } from "./shared-flags.ts";
 
 type PushFlags = {
   dryRun?: boolean;
   profile?: string;
-  verbose?: boolean;
 };
 
 const pushCommand = buildCommand<PushFlags, [], ApplicationContext>({
@@ -17,7 +16,7 @@ const pushCommand = buildCommand<PushFlags, [], ApplicationContext>({
       "Collect the current state of tracked local files and directories, then update the sync directory artifacts to match. Secret targets are encrypted before they are written into the repository.",
   },
   async func(flags) {
-    const logger = createCliLogger({ verbose: flags.verbose ?? false });
+    const logger = createCliLogger();
 
     const spin = logger.spinner("Pushing changes...");
 
@@ -51,7 +50,6 @@ const pushCommand = buildCommand<PushFlags, [], ApplicationContext>({
         optional: true,
       },
       profile: profileFlag,
-      verbose: verboseFlag,
     },
   },
 });

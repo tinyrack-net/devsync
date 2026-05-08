@@ -4,12 +4,11 @@ import { DotweaveError } from "#app/lib/error.ts";
 import { ask } from "#app/lib/prompt.ts";
 import { applyPullPlan, preparePull } from "#app/services/pull.ts";
 import { createCliLogger } from "#app/services/terminal/logger.ts";
-import { profileFlag, verboseFlag } from "./shared-flags.ts";
+import { profileFlag } from "./shared-flags.ts";
 
 type PullFlags = {
   dryRun?: boolean;
   profile?: string;
-  verbose?: boolean;
   yes?: boolean;
 };
 
@@ -37,7 +36,7 @@ const pullCommand = buildCommand<PullFlags, [], ApplicationContext>({
   },
   async func(flags) {
     const dryRun = flags.dryRun ?? false;
-    const logger = createCliLogger({ verbose: flags.verbose ?? false });
+    const logger = createCliLogger();
 
     const spin = logger.spinner("Preparing pull...");
     const prepared = await preparePull({ dryRun, profile: flags.profile });
@@ -103,7 +102,6 @@ const pullCommand = buildCommand<PullFlags, [], ApplicationContext>({
         optional: true,
       },
       profile: profileFlag,
-      verbose: verboseFlag,
       yes: {
         brief: "Apply pull changes without prompting",
         kind: "boolean",

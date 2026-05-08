@@ -5,9 +5,7 @@ import { type DoctorCheck, runDoctorChecks } from "#app/services/doctor.ts";
 import { createCliLogger } from "#app/services/terminal/logger.ts";
 import { c, S } from "#app/services/terminal/theme.ts";
 
-type DoctorFlags = {
-  verbose?: boolean;
-};
+type DoctorFlags = Record<string, never>;
 
 const normalizeCheckId = (checkId: string) => {
   switch (checkId) {
@@ -42,8 +40,8 @@ const doctorCommand = buildCommand<DoctorFlags, [], ApplicationContext>({
     fullDescription:
       "Run health checks for the local sync setup, including repository availability, config validity, age identity configuration, and whether tracked local paths still exist where dotweave expects them.",
   },
-  async func(flags) {
-    const logger = createCliLogger({ verbose: flags.verbose ?? false });
+  async func() {
+    const logger = createCliLogger();
 
     const spin = logger.spinner("Running checks...");
     const result = await runDoctorChecks();
@@ -97,13 +95,7 @@ const doctorCommand = buildCommand<DoctorFlags, [], ApplicationContext>({
     }
   },
   parameters: {
-    flags: {
-      verbose: {
-        brief: "Show detailed debug output",
-        kind: "boolean",
-        optional: true,
-      },
-    },
+    flags: {},
   },
 });
 

@@ -3,7 +3,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DotweaveError } from "#app/lib/error.ts";
 
 const mockLogger = vi.hoisted(() => ({
-  debug: vi.fn(),
   divider: vi.fn(),
   fail: vi.fn(),
   info: vi.fn(),
@@ -20,7 +19,6 @@ const mockLogger = vi.hoisted(() => ({
   })),
   start: vi.fn(),
   success: vi.fn(),
-  verbose: false,
   warn: vi.fn(),
 }));
 

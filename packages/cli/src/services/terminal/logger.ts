@@ -12,9 +12,6 @@ export interface CliLogger {
   start(message: string): void;
   withTag(tag: string): CliLogger;
 
-  debug(message: string): void;
-  verbose: boolean;
-
   section(title: string): void;
   kv(key: string, value: string): void;
   list(
@@ -38,7 +35,6 @@ const createImpl = (
   stdout: Stream,
   stderr: Stream,
   tag: string | undefined,
-  verbose: boolean,
 ): CliLogger => {
   const prefix = tag === undefined ? "" : pc.dim(`[${tag}] `);
 
@@ -54,14 +50,6 @@ const createImpl = (
     warn: (m) => w(stderr, `${c.warn(S.warn)} ${m}`),
     error: (m) => w(stderr, `${c.error(S.error)} ${m}`),
     start: (m) => w(stdout, `${c.info(S.bullet)} ${c.dim(m)}`),
-
-    verbose,
-
-    debug: (m) => {
-      if (verbose) {
-        w(stdout, c.dim(`${INDENT}${m}`));
-      }
-    },
 
     section: (title) => {
       w(stdout, "");
@@ -102,7 +90,7 @@ const createImpl = (
       return createSpinner(stdout, text);
     },
 
-    withTag: (t) => createImpl(stdout, stderr, t, verbose),
+    withTag: (t) => createImpl(stdout, stderr, t),
   };
 
   return logger;
@@ -113,12 +101,10 @@ export const createCliLogger = (
     stderr?: NodeJS.WriteStream;
     stdout?: NodeJS.WriteStream;
     tag?: string;
-    verbose?: boolean;
   }> = {},
 ): CliLogger =>
   createImpl(
     options.stdout ?? process.stdout,
     options.stderr ?? process.stderr,
     options.tag,
-    options.verbose ?? false,
   );

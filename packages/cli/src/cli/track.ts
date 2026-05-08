@@ -12,7 +12,6 @@ type TrackFlags = {
   mode: "ignore" | "normal" | "secret";
   profile?: readonly string[];
   repoPath?: string;
-  verbose?: boolean;
 };
 
 const trackCommand = buildCommand<TrackFlags, string[], ApplicationContext>({
@@ -22,7 +21,7 @@ const trackCommand = buildCommand<TrackFlags, string[], ApplicationContext>({
       "Register one or more files or directories inside your home directory so dotweave can mirror them into the sync directory. If a target is already tracked, its mode is updated. Targets may also be repository paths inside a tracked directory to create child entries with a specific mode.",
   },
   async func(flags, ...targets) {
-    const logger = createCliLogger({ verbose: flags.verbose ?? false });
+    const logger = createCliLogger();
     const profiles = [...(flags.profile ?? [])];
     const cwd = process.cwd();
 
@@ -126,11 +125,6 @@ const trackCommand = buildCommand<TrackFlags, string[], ApplicationContext>({
         optional: true,
         parse: String,
         placeholder: "path",
-      },
-      verbose: {
-        brief: "Show detailed debug output",
-        kind: "boolean",
-        optional: true,
       },
     },
     positional: {

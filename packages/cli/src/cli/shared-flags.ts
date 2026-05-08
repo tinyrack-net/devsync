@@ -5,9 +5,3 @@ export const profileFlag = {
   parse: String,
   placeholder: "profile",
 } as const;
-
-export const verboseFlag = {
-  brief: "Show detailed debug output",
-  kind: "boolean",
-  optional: true,
-} as const;
