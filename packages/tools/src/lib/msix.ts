@@ -160,7 +160,8 @@ export const buildMsixManifest = (options: {
       Executable="${APP_EXECUTABLE_NAME}"
       EntryPoint="Windows.FullTrustApplication"
       uap10:RuntimeBehavior="packagedClassicApp"
-      uap10:TrustLevel="mediumIL">
+      uap10:TrustLevel="mediumIL"
+      desktop4:SupportsMultipleInstances="true">
       <uap:VisualElements
         DisplayName="${escapeXml(displayName)}"
         Description="${escapeXml(APP_DESCRIPTION)}"
