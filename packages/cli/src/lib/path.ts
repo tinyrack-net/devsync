@@ -54,6 +54,13 @@ export const normalizeLinkTarget = (target: string, baseDir?: string) => {
 
   const normalizeSlashes = (p: string) => p.replaceAll("\\", "/").toLowerCase();
 
+  const resolveIfWindowsRootRelative = (p: string) => {
+    if (p.startsWith("\\") && !p.startsWith("\\\\")) {
+      return resolve(p);
+    }
+    return p;
+  };
+
   try {
     return normalizeSlashes(
       require("node:fs").realpathSync.native(absoluteTarget),
@@ -70,10 +77,10 @@ export const normalizeLinkTarget = (target: string, baseDir?: string) => {
           ),
         );
       } catch {
-        return normalizeSlashes(absoluteTarget);
+        return normalizeSlashes(resolveIfWindowsRootRelative(absoluteTarget));
       }
     }
 
-    return normalizeSlashes(absoluteTarget);
+    return normalizeSlashes(resolveIfWindowsRootRelative(absoluteTarget));
   }
 };
