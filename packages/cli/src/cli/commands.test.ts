@@ -493,6 +493,12 @@ describe("CLI command modules", () => {
       expect.arrayContaining(["personal", expect.stringContaining("work")]),
       expect.any(Object),
     );
+    expect(mockLogger.log).not.toHaveBeenCalledWith(
+      expect.stringContaining("restricted entries"),
+    );
+    expect(mockLogger.warn).not.toHaveBeenCalledWith(
+      expect.stringContaining("restricted entries"),
+    );
     expect(mockLogger.success).toHaveBeenCalledWith(
       "Active profile set to work",
     );

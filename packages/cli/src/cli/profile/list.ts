@@ -28,13 +28,6 @@ const profileListCommand = buildCommand<NoFlags, [], ApplicationContext>({
         { highlightLast: false },
       );
     }
-
-    if (result.assignments.length > 0) {
-      logger.log(`  ${result.assignments.length} restricted entries`);
-      if (result.activeProfile === undefined) {
-        logger.warn("restricted entries are skipped until a profile is active");
-      }
-    }
   },
   parameters: {
     flags: {},
