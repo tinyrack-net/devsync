@@ -121,9 +121,9 @@ describe("captureCommand", () => {
     captureCommand("echo", ["hello"], { env: { FOO: "bar" } });
 
     const callOptions = mockSpawnSync.mock.calls[0]?.[2] as {
-      env: Record<string, string>;
+      env: Record<string, string> & { FOO: string };
     };
 
-    expect(callOptions.env["FOO"]).toBe("bar");
+    expect(callOptions.env.FOO).toBe("bar");
   });
 });
