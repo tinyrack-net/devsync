@@ -29,8 +29,8 @@ export const createMockReadEnv = (
 
 export const readManifestJson = (text: string) => {
   const raw = JSON.parse(text);
-  const entries = Array.isArray(raw?.["entries"]) ? raw["entries"] : [];
-  const version = typeof raw?.["version"] === "number" ? raw["version"] : 0;
+  const entries = Array.isArray(raw?.entries) ? raw.entries : [];
+  const version = typeof raw?.version === "number" ? raw.version : 0;
   return { entries, version };
 };
 
@@ -57,7 +57,7 @@ export const parseManifestEntries = (text: string) => {
     if (!isObject(entry)) return {};
     return {
       get kind() {
-        return typeof entry["kind"] === "string" ? entry["kind"] : undefined;
+        return typeof entry.kind === "string" ? entry.kind : undefined;
       },
       get localPath() {
         return getStringRecord(entry, "localPath");
@@ -72,8 +72,8 @@ export const parseManifestEntries = (text: string) => {
         return getStringRecord(entry, "permission");
       },
       get profiles() {
-        return Array.isArray(entry["profiles"])
-          ? entry["profiles"].filter((p: unknown) => typeof p === "string")
+        return Array.isArray(entry.profiles)
+          ? entry.profiles.filter((p: unknown) => typeof p === "string")
           : undefined;
       },
     };
@@ -83,11 +83,8 @@ export const parseManifestEntries = (text: string) => {
 export const readSettingsJson = (text: string) => {
   const raw = JSON.parse(text);
   const activeProfile =
-    typeof raw?.["activeProfile"] === "string"
-      ? raw["activeProfile"]
-      : undefined;
-  const version =
-    typeof raw?.["version"] === "number" ? raw["version"] : undefined;
+    typeof raw?.activeProfile === "string" ? raw.activeProfile : undefined;
+  const version = typeof raw?.version === "number" ? raw.version : undefined;
   return {
     ...(activeProfile !== undefined ? { activeProfile } : {}),
     ...(version !== undefined ? { version } : {}),

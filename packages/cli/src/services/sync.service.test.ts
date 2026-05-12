@@ -659,7 +659,7 @@ describe("sync service", () => {
       ),
     );
     const secretEntry = entriesAfterModeChange.find(
-      (entry) => entry.localPath?.["default"] === "~/.config/zsh/secrets.zsh",
+      (entry) => entry.localPath?.default === "~/.config/zsh/secrets.zsh",
     );
 
     expect(secretEntry?.mode).toEqual({ default: "normal" });
