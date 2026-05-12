@@ -27,15 +27,30 @@ export const createMockReadEnv = (
   return (name: string): string | undefined => env[name];
 };
 
-export const readManifestJson = (text: string) => {
-  const raw = JSON.parse(text);
-  const entries = Array.isArray(raw?.entries) ? raw.entries : [];
-  const version = typeof raw?.version === "number" ? raw.version : 0;
-  return { entries, version };
-};
-
 const isObject = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
+
+type RawManifest = {
+  entries?: unknown;
+  version?: unknown;
+};
+
+type RawManifestEntry = {
+  kind?: unknown;
+  profiles?: unknown;
+};
+
+export const readManifestJson = (text: string) => {
+  const raw: unknown = JSON.parse(text);
+  const manifest = isObject(raw) ? (raw as RawManifest) : {};
+  const entries =
+    isObject(raw) && Array.isArray(manifest.entries) ? manifest.entries : [];
+  const version =
+    isObject(raw) && typeof manifest.version === "number"
+      ? manifest.version
+      : 0;
+  return { entries, version };
+};
 
 const getStringRecord = (
   value: unknown,
@@ -51,13 +66,25 @@ const getStringRecord = (
   return result;
 };
 
-export const parseManifestEntries = (text: string) => {
+type ParsedManifestEntry = {
+  readonly kind?: string;
+  readonly localPath?: Record<string, string> & { default?: string };
+  readonly mode?: Record<string, string> & { default?: string };
+  readonly repoPath?: Record<string, string> & { default?: string };
+  readonly permission?: Record<string, string> & { default?: string };
+  readonly profiles?: string[];
+};
+
+export const parseManifestEntries = (text: string): ParsedManifestEntry[] => {
   const { entries } = readManifestJson(text);
   return entries.map((entry: unknown) => {
     if (!isObject(entry)) return {};
+    const manifestEntry = entry as RawManifestEntry;
     return {
       get kind() {
-        return typeof entry.kind === "string" ? entry.kind : undefined;
+        return typeof manifestEntry.kind === "string"
+          ? manifestEntry.kind
+          : undefined;
       },
       get localPath() {
         return getStringRecord(entry, "localPath");
@@ -72,8 +99,8 @@ export const parseManifestEntries = (text: string) => {
         return getStringRecord(entry, "permission");
       },
       get profiles() {
-        return Array.isArray(entry.profiles)
-          ? entry.profiles.filter((p: unknown) => typeof p === "string")
+        return Array.isArray(manifestEntry.profiles)
+          ? manifestEntry.profiles.filter((p: unknown) => typeof p === "string")
           : undefined;
       },
     };
