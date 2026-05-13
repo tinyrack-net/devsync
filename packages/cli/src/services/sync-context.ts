@@ -16,6 +16,7 @@ import {
 } from "#app/config/runtime-env.ts";
 import {
   type AgeConfig,
+  normalizeSyncProfileName,
   type ResolvedSyncConfig,
   readSyncConfig,
   resolveSyncConfigFilePath,
@@ -85,13 +86,25 @@ export const buildEffectiveSyncConfig = (
   age: RuntimeAgeConfig,
 ): EffectiveSyncConfig => {
   const activeProfile =
-    selection.mode === "single" ? selection.profile : undefined;
+    selection.mode === "single"
+      ? normalizeSyncProfileName(selection.profile)
+      : undefined;
 
   const effectiveProfile =
     activeProfile !== undefined &&
     activeProfile !== AppConstants.SYNC.DEFAULT_PROFILE
       ? activeProfile
       : AppConstants.SYNC.DEFAULT_PROFILE;
+
+  if (
+    effectiveProfile !== AppConstants.SYNC.DEFAULT_PROFILE &&
+    !(fullConfig.profiles ?? []).includes(effectiveProfile)
+  ) {
+    throw new DotweaveError(`Unknown profile '${effectiveProfile}'.`, {
+      code: "UNKNOWN_PROFILE",
+      hint: `Add it with 'dotweave profile add ${effectiveProfile}', or choose an existing profile.`,
+    });
+  }
 
   const entries = fullConfig.entries.filter(
     (entry) =>

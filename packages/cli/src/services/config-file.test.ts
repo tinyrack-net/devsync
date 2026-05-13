@@ -1,12 +1,16 @@
+import { readFile } from "node:fs/promises";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
+import { createTemporaryDirectory } from "#app/test/helpers/sync-fixture.ts";
 
 import {
   buildSyncConfigDocument,
   sortSyncConfigEntries,
+  writeValidatedSyncConfig,
 } from "./config-file.ts";
 
 describe("config-file", () => {
-  it("writes v7 directory entries", () => {
+  it("writes v8 directory entries", () => {
     expect(
       buildSyncConfigDocument({
         entries: [
@@ -23,7 +27,8 @@ describe("config-file", () => {
             repoPath: ".config/zsh",
           },
         ],
-        version: 7,
+        profiles: [],
+        version: 8,
       }),
     ).toEqual({
       entries: [
@@ -32,11 +37,12 @@ describe("config-file", () => {
           localPath: { default: "~/.config/zsh" },
         },
       ],
-      version: 7,
+      profiles: [],
+      version: 8,
     });
   });
 
-  it("writes v7 file entries with mode and profiles", () => {
+  it("writes v8 file entries with mode and profiles", () => {
     expect(
       buildSyncConfigDocument({
         entries: [
@@ -53,7 +59,8 @@ describe("config-file", () => {
             repoPath: ".gitconfig",
           },
         ],
-        version: 7,
+        profiles: ["work"],
+        version: 8,
       }),
     ).toEqual({
       entries: [
@@ -64,7 +71,8 @@ describe("config-file", () => {
           mode: { default: "secret" },
         },
       ],
-      version: 7,
+      profiles: ["work"],
+      version: 8,
     });
   });
 
@@ -85,7 +93,8 @@ describe("config-file", () => {
             repoPath: ".bashrc",
           },
         ],
-        version: 7,
+        profiles: [],
+        version: 8,
       }),
     ).toEqual({
       entries: [
@@ -94,7 +103,8 @@ describe("config-file", () => {
           localPath: { default: "~/.bashrc" },
         },
       ],
-      version: 7,
+      profiles: [],
+      version: 8,
     });
   });
 
@@ -117,7 +127,8 @@ describe("config-file", () => {
             repoPath: ".ssh/id_rsa",
           },
         ],
-        version: 7,
+        profiles: [],
+        version: 8,
       }),
     ).toEqual({
       entries: [
@@ -127,7 +138,8 @@ describe("config-file", () => {
           permission: { default: "0600", linux: "0400" },
         },
       ],
-      version: 7,
+      profiles: [],
+      version: 8,
     });
   });
 
@@ -165,7 +177,8 @@ describe("config-file", () => {
             repoPath: ".bashrc",
           },
         ],
-        version: 7,
+        profiles: [],
+        version: 8,
       }),
     ).toEqual({
       entries: [
@@ -175,7 +188,8 @@ describe("config-file", () => {
           mode: { default: "normal" },
         },
       ],
-      version: 7,
+      profiles: [],
+      version: 8,
     });
   });
 
@@ -206,7 +220,8 @@ describe("config-file", () => {
             repoPath: ".gitconfig",
           },
         ],
-        version: 7,
+        profiles: [],
+        version: 8,
       }),
     ).toEqual({
       entries: [
@@ -226,7 +241,8 @@ describe("config-file", () => {
           },
         },
       ],
-      version: 7,
+      profiles: [],
+      version: 8,
     });
   });
 
@@ -252,7 +268,8 @@ describe("config-file", () => {
             repoPath: ".gnupg/gpg-agent.linux.conf",
           },
         ],
-        version: 7,
+        profiles: [],
+        version: 8,
       }),
     ).toEqual({
       entries: [
@@ -266,7 +283,62 @@ describe("config-file", () => {
           },
         },
       ],
-      version: 7,
+      profiles: [],
+      version: 8,
     });
+  });
+
+  it("rejects top-level default profile without writing", async () => {
+    const syncDirectory = await createTemporaryDirectory(
+      "dotweave-config-file-",
+    );
+    const manifestPath = join(syncDirectory, "manifest.jsonc");
+
+    await expect(
+      writeValidatedSyncConfig(syncDirectory, {
+        version: 8,
+        profiles: ["default"],
+        entries: [],
+      }),
+    ).rejects.toThrowError("default");
+    await expect(readFile(manifestPath, "utf8")).rejects.toThrow();
+  });
+
+  it("rejects duplicate normalized profile registry values without writing", async () => {
+    const syncDirectory = await createTemporaryDirectory(
+      "dotweave-config-file-",
+    );
+    const manifestPath = join(syncDirectory, "manifest.jsonc");
+
+    await expect(
+      writeValidatedSyncConfig(syncDirectory, {
+        version: 8,
+        profiles: ["work", " work "],
+        entries: [],
+      }),
+    ).rejects.toThrowError("Duplicate profile");
+    await expect(readFile(manifestPath, "utf8")).rejects.toThrow();
+  });
+
+  it("rejects unknown entry profile references without writing", async () => {
+    const syncDirectory = await createTemporaryDirectory(
+      "dotweave-config-file-",
+    );
+    const manifestPath = join(syncDirectory, "manifest.jsonc");
+
+    await expect(
+      writeValidatedSyncConfig(syncDirectory, {
+        version: 8,
+        profiles: ["work"],
+        entries: [
+          {
+            kind: "file",
+            localPath: { default: "~/.gitconfig" },
+            profiles: ["ghost"],
+          },
+        ],
+      }),
+    ).rejects.toThrowError("Unknown profile 'ghost'");
+    await expect(readFile(manifestPath, "utf8")).rejects.toThrow();
   });
 });

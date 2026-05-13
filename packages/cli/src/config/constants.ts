@@ -20,7 +20,7 @@ export const AppConstants = {
   },
   SYNC: {
     CONFIG_FILE_NAME: "manifest.jsonc",
-    CONFIG_VERSION: 7,
+    CONFIG_VERSION: 8,
     DEFAULT_CONCURRENCY: 20,
     DEFAULT_PROFILE: "default",
     MODES: ["normal", "secret", "ignore"],

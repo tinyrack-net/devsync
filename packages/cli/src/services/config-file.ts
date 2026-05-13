@@ -5,6 +5,7 @@ import {
   type ResolvedSyncConfig,
   resolveSyncConfigFilePath,
   syncConfigSchema,
+  validateRawSyncConfigProfileRegistry,
 } from "#app/config/sync-schema.ts";
 import { writeTextFileAtomically } from "#app/lib/filesystem.ts";
 
@@ -43,6 +44,7 @@ export const buildSyncConfigDocument = (
             recipients: [...config.age.recipients],
           },
         }),
+    profiles: [...(config.profiles ?? [])],
     entries,
   } as RawSyncConfig;
 };
@@ -51,7 +53,8 @@ export const writeValidatedSyncConfig = async (
   syncDirectory: string,
   config: RawSyncConfig,
 ) => {
-  syncConfigSchema.parse(config);
+  const parsed = syncConfigSchema.parse(config);
+  validateRawSyncConfigProfileRegistry(parsed);
 
   await writeTextFileAtomically(
     resolveSyncConfigFilePath(syncDirectory),

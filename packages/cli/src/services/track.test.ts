@@ -124,6 +124,7 @@ describe("track service", () => {
     mocked.readSyncConfig.mockResolvedValue({
       entries: [],
       age: {},
+      profiles: ["work", "personal"],
     });
 
     const result = await trackTarget(
@@ -226,6 +227,7 @@ describe("track service", () => {
     mocked.readSyncConfig.mockResolvedValue({
       entries: [],
       age: {},
+      profiles: ["work", "personal"],
     });
 
     const result = await trackTarget(
@@ -364,6 +366,7 @@ describe("track service", () => {
     mocked.readSyncConfig.mockResolvedValue({
       entries: [],
       age: {},
+      profiles: ["work", "personal"],
     });
 
     const result = await trackTarget(

@@ -11,23 +11,40 @@ export type ConfigMigrationFn = (
 
 export type ConfigMigrationRegistry = ReadonlyMap<number, ConfigMigrationFn>;
 
-/**
- * Applies sequential config migrations from the detected version up to targetVersion.
- * Creates a backup file before the first migration step, then saves the result.
- * Returns the migrated config (or the original if no migration was needed).
- */
-export const runConfigMigrations = async (
+export type ConfigMigrationResult = Readonly<{
+  config: unknown;
+  migrated: boolean;
+  originalVersion?: number;
+}>;
+
+const withMigrationContext = (
+  error: DotweaveError,
+  filePath: string,
+  fromVersion: number,
+) => {
+  return new DotweaveError(error.message, {
+    code: error.code,
+    details: [
+      ...error.details,
+      `Config file: ${filePath}`,
+      `Migration: ${fromVersion} → ${fromVersion + 1}`,
+    ],
+    hint: error.hint,
+  });
+};
+
+export const applyConfigMigrations = (
   rawConfig: unknown,
   registry: ConfigMigrationRegistry,
   targetVersion: number,
   filePath: string,
-): Promise<unknown> => {
+): ConfigMigrationResult => {
   if (
     typeof rawConfig !== "object" ||
     rawConfig === null ||
     Array.isArray(rawConfig)
   ) {
-    return rawConfig;
+    return { config: rawConfig, migrated: false };
   }
 
   const configObject = rawConfig as Record<string, unknown>;
@@ -35,11 +52,11 @@ export const runConfigMigrations = async (
   const version = configObject["version"];
 
   if (typeof version !== "number") {
-    return rawConfig;
+    return { config: rawConfig, migrated: false };
   }
 
   if (version === targetVersion) {
-    return rawConfig;
+    return { config: rawConfig, migrated: false, originalVersion: version };
   }
 
   if (version > targetVersion) {
@@ -52,16 +69,6 @@ export const runConfigMigrations = async (
       },
     );
   }
-
-  const backupPath = join(
-    dirname(filePath),
-    `${basename(filePath)}.v${version}.bak`,
-  );
-  await writeFile(
-    backupPath,
-    ensureTrailingNewline(JSON.stringify(configObject, null, 2)),
-    "utf8",
-  );
 
   let current = configObject;
 
@@ -82,12 +89,17 @@ export const runConfigMigrations = async (
     try {
       current = migrateFn(current);
     } catch (error: unknown) {
+      if (error instanceof DotweaveError) {
+        throw withMigrationContext(error, filePath, v);
+      }
+
       throw new DotweaveError(
         `Failed to migrate config from version ${v} to ${v + 1}.`,
         {
           code: "CONFIG_MIGRATION_FAILED",
           details: [
             `Config file: ${filePath}`,
+            `Migration: ${v} → ${v + 1}`,
             ...(error instanceof Error ? [error.message] : []),
           ],
         },
@@ -95,10 +107,45 @@ export const runConfigMigrations = async (
     }
   }
 
-  await writeTextFileAtomically(
+  return { config: current, migrated: true, originalVersion: version };
+};
+
+/**
+ * Applies sequential config migrations from the detected version up to targetVersion.
+ * Creates a backup file before the first migration step, then saves the result.
+ * Returns the migrated config (or the original if no migration was needed).
+ */
+export const runConfigMigrations = async (
+  rawConfig: unknown,
+  registry: ConfigMigrationRegistry,
+  targetVersion: number,
+  filePath: string,
+): Promise<unknown> => {
+  const { config, migrated, originalVersion } = applyConfigMigrations(
+    rawConfig,
+    registry,
+    targetVersion,
     filePath,
-    ensureTrailingNewline(JSON.stringify(current, null, 2)),
   );
 
-  return current;
+  if (!migrated || originalVersion === undefined) {
+    return config;
+  }
+
+  const backupPath = join(
+    dirname(filePath),
+    `${basename(filePath)}.v${originalVersion}.bak`,
+  );
+  await writeFile(
+    backupPath,
+    ensureTrailingNewline(JSON.stringify(rawConfig, null, 2)),
+    "utf8",
+  );
+
+  await writeTextFileAtomically(
+    filePath,
+    ensureTrailingNewline(JSON.stringify(config, null, 2)),
+  );
+
+  return config;
 };

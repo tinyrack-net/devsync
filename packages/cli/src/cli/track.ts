@@ -2,7 +2,10 @@ import type { ApplicationContext } from "@stricli/core";
 import { buildCommand } from "@stricli/core";
 import { AppConstants } from "#app/config/constants.ts";
 import { DotweaveError } from "#app/lib/error.ts";
-import { assignProfiles } from "#app/services/profile.ts";
+import {
+  assignProfiles,
+  validateProfilesExist,
+} from "#app/services/profile.ts";
 import { setTargetMode } from "#app/services/sync-mode.ts";
 import { createCliLogger } from "#app/services/terminal/logger.ts";
 import { proposePathCompletions } from "#app/services/terminal/path-completion.ts";
@@ -71,13 +74,18 @@ const trackCommand = buildCommand<TrackFlags, string[], ApplicationContext>({
           error instanceof DotweaveError &&
           error.code === "TARGET_NOT_FOUND"
         ) {
+          const isProfileClear = profiles.length === 1 && profiles[0] === "";
+
+          if (profiles.length > 0 && !isProfileClear) {
+            await validateProfilesExist(profiles);
+          }
+
           const setResult = await setTargetMode(
             { mode: flags.mode, target },
             cwd,
           );
 
           if (profiles.length > 0) {
-            const isProfileClear = profiles.length === 1 && profiles[0] === "";
             await assignProfiles(
               { profiles: isProfileClear ? [] : profiles, target },
               cwd,
@@ -112,7 +120,8 @@ const trackCommand = buildCommand<TrackFlags, string[], ApplicationContext>({
         values: AppConstants.SYNC.MODES,
       },
       profile: {
-        brief: "Restrict syncing to specific profiles",
+        brief:
+          "Restrict syncing to registered profiles (add non-default profiles with 'dotweave profile add')",
         kind: "parsed",
         optional: true,
         parse: String,

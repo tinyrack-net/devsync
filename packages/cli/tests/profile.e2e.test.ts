@@ -7,7 +7,10 @@ import {
   createSyncE2EContext,
   type SyncE2EContext,
 } from "../src/test/helpers/e2e-context.ts";
-import { readSettingsJson } from "../src/test/helpers/mock-factories.ts";
+import {
+  readManifestJson,
+  readSettingsJson,
+} from "../src/test/helpers/mock-factories.ts";
 import { stripAnsi } from "../src/test/helpers/sync-fixture.ts";
 
 let ctx: SyncE2EContext;
@@ -31,13 +34,14 @@ describe("profile CLI e2e", () => {
     expect(result.exitCode).toBe(0);
     const out = stripAnsi(result.stdout);
     expect(out).toContain("Profiles");
-    expect(out).toContain("none");
+    expect(out).toContain("default");
   });
 
   it("sets and reads back the active profile via profile use", async () => {
     const ageKeys = await ctx.createAgeKeyPair();
     await ctx.writeIdentityFile(ageKeys.identity);
     await ctx.runCli(["init"]);
+    await ctx.runCli(["profile", "add", "work"]);
 
     const setResult = await ctx.runCli(["profile", "use", "work"]);
 
@@ -55,6 +59,7 @@ describe("profile CLI e2e", () => {
     const ageKeys = await ctx.createAgeKeyPair();
     await ctx.writeIdentityFile(ageKeys.identity);
     await ctx.runCli(["init"]);
+    await ctx.runCli(["profile", "add", "work"]);
     await ctx.runCli(["profile", "use", "work"]);
 
     const clearResult = await ctx.runCli(["profile", "use"]);
@@ -79,6 +84,7 @@ describe("profile CLI e2e", () => {
     await writeFile(configFile, "token = secret\n");
 
     await ctx.runCli(["init"]);
+    await ctx.runCli(["profile", "add", "work"]);
     await ctx.runCli(["track", configDir, "--profile", "work"]);
 
     const result = await ctx.runCli(["profile", "list"]);
@@ -100,6 +106,8 @@ describe("profile CLI e2e", () => {
     await writeFile(personalFile, "home = true\n");
 
     await ctx.runCli(["init"]);
+    await ctx.runCli(["profile", "add", "work"]);
+    await ctx.runCli(["profile", "add", "home"]);
     await ctx.runCli(["track", workDir, "--profile", "work"]);
     await ctx.runCli(["track", homeDir2, "--profile", "home"]);
 
@@ -155,21 +163,20 @@ describe("profile CLI e2e", () => {
     expect(slashResult.stderr).toContain("unsupported characters");
   });
 
-  it("handles profile use for a non-existent profile gracefully", async () => {
+  it("rejects profile use for a non-existent profile", async () => {
     const ageKeys = await ctx.createAgeKeyPair();
     await ctx.writeIdentityFile(ageKeys.identity);
     await ctx.runCli(["init"]);
 
-    const result = await ctx.runCli(["profile", "use", "ghost"]);
+    const result = await ctx.runCli(["profile", "use", "ghost"], {
+      reject: false,
+    });
 
-    expect(result.exitCode).toBe(0);
-    expect(stripAnsi(result.stdout)).toContain("Active profile set to ghost");
-    expect(stripAnsi(result.stderr)).toContain(
-      "not referenced by any tracked entry",
-    );
+    expect(result.exitCode).not.toBe(0);
+    expect(stripAnsi(result.stderr)).toContain("Unknown profile 'ghost'");
   });
 
-  it("lists no profiles when no entries have explicit profiles", async () => {
+  it("lists default when no entries have explicit profiles", async () => {
     const configDir = join(ctx.homeDir, ".config", "myapp");
     const ageKeys = await ctx.createAgeKeyPair();
 
@@ -185,6 +192,78 @@ describe("profile CLI e2e", () => {
     expect(result.exitCode).toBe(0);
     const out = stripAnsi(result.stdout);
     expect(out).toContain("Profiles");
-    expect(out).toContain("none");
+    expect(out).toContain("default");
+  });
+
+  it("adds and removes unused profiles in the manifest registry", async () => {
+    const ageKeys = await ctx.createAgeKeyPair();
+
+    await ctx.writeIdentityFile(ageKeys.identity);
+    await ctx.runCli(["init"]);
+    await ctx.runCli(["profile", "add", "work"]);
+
+    const manifestPath = join(
+      ctx.xdgDir,
+      "dotweave",
+      "repository",
+      "manifest.jsonc",
+    );
+    let manifest = readManifestJson(await readFile(manifestPath, "utf8"));
+    expect(manifest.profiles).toEqual(["work"]);
+
+    const removeResult = await ctx.runCli(["profile", "remove", "work"]);
+
+    expect(removeResult.exitCode).toBe(0);
+    manifest = readManifestJson(await readFile(manifestPath, "utf8"));
+    expect(manifest.profiles).toEqual([]);
+  });
+
+  it("rejects removing profiles that are still referenced by entries", async () => {
+    const configDir = join(ctx.homeDir, ".config", "workapp");
+    const ageKeys = await ctx.createAgeKeyPair();
+
+    await ctx.writeIdentityFile(ageKeys.identity);
+    await mkdir(configDir, { recursive: true });
+    await writeFile(join(configDir, "config.toml"), "token = secret\n");
+
+    await ctx.runCli(["init"]);
+    await ctx.runCli(["profile", "add", "work"]);
+    await ctx.runCli(["track", configDir, "--profile", "work"]);
+
+    const result = await ctx.runCli(["profile", "remove", "work"], {
+      reject: false,
+    });
+
+    expect(result.exitCode).not.toBe(0);
+    expect(stripAnsi(result.stderr)).toContain(
+      "Cannot remove profile 'work' because it is still referenced by 1 sync entry.",
+    );
+
+    const manifestPath = join(
+      ctx.xdgDir,
+      "dotweave",
+      "repository",
+      "manifest.jsonc",
+    );
+    const manifest = readManifestJson(await readFile(manifestPath, "utf8"));
+    expect(manifest.profiles).toEqual(["work"]);
+    expect(manifest.entries[0]?.profiles).toEqual(["work"]);
+  });
+
+  it("rejects removing the active profile", async () => {
+    const ageKeys = await ctx.createAgeKeyPair();
+    await ctx.writeIdentityFile(ageKeys.identity);
+    await ctx.runCli(["init"]);
+    await ctx.runCli(["profile", "add", "work"]);
+    await ctx.runCli(["profile", "use", "work"]);
+
+    const result = await ctx.runCli(["profile", "remove", "work"], {
+      reject: false,
+    });
+
+    expect(result.exitCode).not.toBe(0);
+    expect(stripAnsi(result.stderr)).toContain(
+      "Cannot remove active profile 'work'",
+    );
   });
 });

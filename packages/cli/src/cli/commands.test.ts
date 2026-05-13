@@ -23,6 +23,7 @@ const mockLogger = vi.hoisted(() => ({
 }));
 
 const mocked = vi.hoisted(() => ({
+  addProfile: vi.fn(),
   applyPullPlan: vi.fn(),
   assignProfiles: vi.fn(),
   buildPullResultFromPlan: vi.fn(),
@@ -43,10 +44,12 @@ const mocked = vi.hoisted(() => ({
   resolveDotweaveConfigDirectory: vi.fn(),
   resolveDotweaveSyncDirectory: vi.fn(),
   runDoctorChecks: vi.fn(),
+  removeProfile: vi.fn(),
   setActiveProfile: vi.fn(),
   setTargetMode: vi.fn(),
   trackTarget: vi.fn(),
   untrackTarget: vi.fn(),
+  validateProfilesExist: vi.fn(),
 }));
 
 vi.mock("node:fs/promises", () => ({
@@ -93,10 +96,13 @@ vi.mock("#app/services/init.ts", () => ({
 }));
 
 vi.mock("#app/services/profile.ts", () => ({
+  addProfile: mocked.addProfile,
   assignProfiles: mocked.assignProfiles,
   clearActiveProfile: mocked.clearActiveProfile,
   listProfiles: mocked.listProfiles,
+  removeProfile: mocked.removeProfile,
   setActiveProfile: mocked.setActiveProfile,
+  validateProfilesExist: mocked.validateProfilesExist,
 }));
 
 vi.mock("#app/services/pull.ts", () => ({
@@ -132,7 +138,9 @@ vi.mock("#app/services/terminal/shell.ts", () => ({
 import cdCommand from "./cd.ts";
 import doctorCommand from "./doctor.ts";
 import initCommand from "./init.ts";
+import profileAddCommand from "./profile/add.ts";
 import profileListCommand from "./profile/list.ts";
+import profileRemoveCommand from "./profile/remove.ts";
 import profileUseCommand from "./profile/use.ts";
 import pullCommand from "./pull.ts";
 import pushCommand from "./push.ts";
@@ -231,6 +239,15 @@ beforeEach(() => {
     repoPath: ".config/nvim",
   });
   mocked.assignProfiles.mockResolvedValue(undefined);
+  mocked.validateProfilesExist.mockResolvedValue(["work"]);
+  mocked.addProfile.mockResolvedValue({
+    action: "added",
+    profile: "work",
+  });
+  mocked.removeProfile.mockResolvedValue({
+    action: "removed",
+    profile: "work",
+  });
   mocked.listProfiles.mockResolvedValue({
     activeProfile: "work",
     activeProfileMode: "single",
@@ -241,7 +258,7 @@ beforeEach(() => {
         profiles: ["work"],
       },
     ],
-    availableProfiles: ["personal", "work"],
+    availableProfiles: ["default", "personal", "work"],
     globalConfigExists: true,
     globalConfigPath: "/tmp/global-config.json",
   });
@@ -481,12 +498,41 @@ describe("CLI command modules", () => {
     );
   });
 
-  it("lists, uses, and clears profiles", async () => {
+  it("validates fallback track profiles before writing mode updates", async () => {
+    mocked.trackTarget.mockRejectedValue(
+      new DotweaveError("existing target", {
+        code: "TARGET_NOT_FOUND",
+      }),
+    );
+    mocked.validateProfilesExist.mockRejectedValue(
+      new DotweaveError("Unknown profile 'ghost'.", {
+        code: "UNKNOWN_PROFILE",
+      }),
+    );
+
+    await expect(
+      runCommand(
+        trackCommand,
+        { mode: "ignore", profile: ["ghost"] },
+        ".config/nvim",
+      ),
+    ).rejects.toThrowError("Unknown profile 'ghost'.");
+
+    expect(mocked.validateProfilesExist).toHaveBeenCalledWith(["ghost"]);
+    expect(mocked.setTargetMode).not.toHaveBeenCalled();
+    expect(mocked.assignProfiles).not.toHaveBeenCalled();
+  });
+
+  it("lists, adds, removes, uses, and clears profiles", async () => {
     await runCommand(profileListCommand, {});
+    await runCommand(profileAddCommand, {}, "work");
+    await runCommand(profileRemoveCommand, {}, "work");
     await runCommand(profileUseCommand, {}, "work");
     await runCommand(profileUseCommand, {});
 
     expect(mocked.listProfiles).toHaveBeenCalledTimes(1);
+    expect(mocked.addProfile).toHaveBeenCalledWith("work");
+    expect(mocked.removeProfile).toHaveBeenCalledWith("work");
     expect(mocked.setActiveProfile).toHaveBeenCalledWith("work");
     expect(mocked.clearActiveProfile).toHaveBeenCalledTimes(1);
     expect(mockLogger.list).toHaveBeenCalledWith(
@@ -499,10 +545,31 @@ describe("CLI command modules", () => {
     expect(mockLogger.warn).not.toHaveBeenCalledWith(
       expect.stringContaining("restricted entries"),
     );
+    expect(mockLogger.success).toHaveBeenCalledWith("Added profile work");
+    expect(mockLogger.success).toHaveBeenCalledWith("Removed profile work");
     expect(mockLogger.success).toHaveBeenCalledWith(
       "Active profile set to work",
     );
     expect(mockLogger.success).toHaveBeenCalledWith("Active profile cleared");
+  });
+
+  it("warns when listing profiles with an unregistered active profile", async () => {
+    mocked.listProfiles.mockResolvedValueOnce({
+      activeProfile: "ghost",
+      activeProfileMode: "single",
+      activeProfileWarning:
+        "Active profile 'ghost' is not registered in manifest.jsonc.",
+      assignments: [],
+      availableProfiles: ["default", "work"],
+      globalConfigExists: true,
+      globalConfigPath: "/tmp/global-config.json",
+    });
+
+    await runCommand(profileListCommand, {});
+
+    expect(mockLogger.warn).toHaveBeenCalledWith(
+      "Active profile 'ghost' is not registered in manifest.jsonc.",
+    );
   });
 
   it("passes pull, push, and status flags through with a shared reporter", async () => {

@@ -3,7 +3,6 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { createMockReadEnv } from "#test/helpers/mock-factories.ts";
 
 const mocked = vi.hoisted(() => ({
-  collectAllProfileNames: vi.fn(),
   buildSyncConfigDocument: vi.fn((config: unknown) => ({
     document: config,
   })),
@@ -11,10 +10,18 @@ const mocked = vi.hoisted(() => ({
   formatGlobalDotweaveConfig: vi.fn((config: unknown) =>
     JSON.stringify(config, null, 2),
   ),
-  normalizeSyncProfileName: vi.fn((profile: string) =>
-    profile.trim().toLowerCase(),
-  ),
+  normalizeSyncProfileName: vi.fn((profile: string) => profile.trim()),
   readGlobalDotweaveConfig: vi.fn(),
+  resolveActiveProfileSelection: vi.fn((config) =>
+    config?.activeProfile === undefined
+      ? { mode: "none" }
+      : { mode: "single", profile: config.activeProfile },
+  ),
+  isProfileActive: vi.fn((selection, profile) =>
+    selection.mode === "single" && profile !== undefined
+      ? selection.profile === profile
+      : false,
+  ),
   readSyncConfig: vi.fn(),
   resolveSyncConfigResolutionContext: vi.fn(() => ({
     homeDirectory: "/tmp/home",
@@ -35,11 +42,9 @@ const mocked = vi.hoisted(() => ({
 
 vi.mock("#app/config/global-config.ts", () => ({
   formatGlobalDotweaveConfig: mocked.formatGlobalDotweaveConfig,
+  isProfileActive: mocked.isProfileActive,
   readGlobalDotweaveConfig: mocked.readGlobalDotweaveConfig,
-}));
-
-vi.mock("#app/config/sync-queries.ts", () => ({
-  collectAllProfileNames: mocked.collectAllProfileNames,
+  resolveActiveProfileSelection: mocked.resolveActiveProfileSelection,
 }));
 
 vi.mock("#app/config/sync-schema.ts", () => ({
@@ -89,10 +94,13 @@ vi.mock("./sync-context.ts", () => {
 });
 
 import {
+  addProfile,
   assignProfiles,
   clearActiveProfile,
   listProfiles,
+  removeProfile,
   setActiveProfile,
+  validateProfilesExist,
 } from "./profile.ts";
 
 afterEach(() => {
@@ -105,6 +113,7 @@ describe("sync profiles service", () => {
       activeProfile: "work",
     });
     mocked.readSyncConfig.mockResolvedValueOnce({
+      profiles: ["work"],
       entries: [
         {
           localPath: "/tmp/home/.zshrc",
@@ -126,7 +135,6 @@ describe("sync profiles service", () => {
         },
       ],
     });
-    mocked.collectAllProfileNames.mockReturnValueOnce(["default", "work"]);
 
     await expect(listProfiles()).resolves.toEqual({
       activeProfile: "work",
@@ -153,9 +161,9 @@ describe("sync profiles service", () => {
   it("reports no active profile when the global config is absent", async () => {
     mocked.readGlobalDotweaveConfig.mockResolvedValueOnce(undefined);
     mocked.readSyncConfig.mockResolvedValueOnce({
+      profiles: [],
       entries: [],
     });
-    mocked.collectAllProfileNames.mockReturnValueOnce([]);
 
     const result = await listProfiles();
 
@@ -165,38 +173,214 @@ describe("sync profiles service", () => {
     expect(result.assignments).toEqual([]);
   });
 
-  it("writes a normalized active profile and warns when it is not referenced", async () => {
+  it("warns when the active profile is not registered", async () => {
+    mocked.readGlobalDotweaveConfig.mockResolvedValueOnce({
+      activeProfile: "ghost",
+    });
     mocked.readSyncConfig.mockResolvedValueOnce({
+      profiles: ["work"],
       entries: [],
     });
-    mocked.collectAllProfileNames.mockReturnValueOnce(["default"]);
+
+    await expect(listProfiles()).resolves.toMatchObject({
+      activeProfile: "ghost",
+      activeProfileWarning:
+        "Active profile 'ghost' is not registered in manifest.jsonc.",
+    });
+  });
+
+  it("writes a trimmed active profile without changing case when it exists", async () => {
+    mocked.readSyncConfig.mockResolvedValueOnce({
+      profiles: ["Work"],
+      entries: [],
+    });
 
     await expect(setActiveProfile(" Work ")).resolves.toEqual({
       action: "use",
-      activeProfile: "work",
+      activeProfile: "Work",
       globalConfigPath: "/tmp/dotweave/global.json",
-      profile: "work",
-      warning: "Profile 'work' is not referenced by any tracked entry.",
+      profile: "Work",
     });
     expect(mocked.formatGlobalDotweaveConfig).toHaveBeenCalledWith({
-      activeProfile: "work",
+      activeProfile: "Work",
       version: 3,
     });
     expect(mocked.writeTextFileAtomically).toHaveBeenCalledWith(
       "/tmp/dotweave/global.json",
-      JSON.stringify({ activeProfile: "work", version: 3 }, null, 2),
+      JSON.stringify({ activeProfile: "Work", version: 3 }, null, 2),
     );
   });
 
-  it("omits the warning when activating a known profile", async () => {
+  it("rejects activating an unknown profile", async () => {
     mocked.readSyncConfig.mockResolvedValueOnce({
+      profiles: [],
       entries: [],
     });
-    mocked.collectAllProfileNames.mockReturnValueOnce(["work"]);
 
-    const result = await setActiveProfile("work");
+    await expect(setActiveProfile("work")).rejects.toThrowError(
+      "Unknown profile 'work'.",
+    );
+  });
 
-    expect(result.warning).toBeUndefined();
+  it("adds a trimmed profile to the manifest registry without changing case", async () => {
+    const config = {
+      profiles: [],
+      entries: [],
+      version: 8,
+    };
+    mocked.readSyncConfig.mockResolvedValueOnce(config);
+
+    await expect(addProfile(" Work ")).resolves.toEqual({
+      action: "added",
+      profile: "Work",
+    });
+    expect(mocked.buildSyncConfigDocument).toHaveBeenCalledWith({
+      ...config,
+      profiles: ["Work"],
+    });
+  });
+
+  it("sorts the manifest registry when adding a profile", async () => {
+    const config = {
+      profiles: ["work"],
+      entries: [],
+      version: 8,
+    };
+    mocked.readSyncConfig.mockResolvedValueOnce(config);
+
+    await expect(addProfile("alpha")).resolves.toEqual({
+      action: "added",
+      profile: "alpha",
+    });
+    expect(mocked.buildSyncConfigDocument).toHaveBeenCalledWith({
+      ...config,
+      profiles: ["alpha", "work"],
+    });
+  });
+
+  it("rejects duplicate profile additions", async () => {
+    mocked.readSyncConfig.mockResolvedValueOnce({
+      profiles: ["work"],
+      entries: [],
+      version: 8,
+    });
+
+    await expect(addProfile("work")).rejects.toThrowError(
+      "Profile 'work' already exists.",
+    );
+  });
+
+  it("rejects removing the active profile", async () => {
+    mocked.readSyncConfig.mockResolvedValueOnce({
+      profiles: ["work"],
+      entries: [],
+      version: 8,
+    });
+    mocked.readGlobalDotweaveConfig.mockResolvedValueOnce({
+      activeProfile: "work",
+      version: 3,
+    });
+
+    await expect(removeProfile("work")).rejects.toThrowError(
+      "Cannot remove active profile 'work'.",
+    );
+  });
+
+  it("removes an unused profile from the manifest registry", async () => {
+    const entry = {
+      profiles: ["personal"],
+      profilesExplicit: true,
+      repoPath: ".gitconfig",
+    };
+    const config = {
+      profiles: ["work", "personal"],
+      entries: [entry],
+      version: 8,
+    };
+    mocked.readSyncConfig.mockResolvedValueOnce(config);
+    mocked.readGlobalDotweaveConfig.mockResolvedValueOnce(undefined);
+
+    await expect(removeProfile("work")).resolves.toEqual({
+      action: "removed",
+      profile: "work",
+    });
+    expect(mocked.buildSyncConfigDocument).toHaveBeenCalledWith({
+      ...config,
+      profiles: ["personal"],
+    });
+  });
+
+  it("rejects removing a profile that is still referenced by entries", async () => {
+    const config = {
+      profiles: ["work", "personal"],
+      entries: [
+        {
+          profiles: ["work"],
+          profilesExplicit: true,
+          repoPath: ".config/workapp",
+        },
+        {
+          profiles: ["personal"],
+          profilesExplicit: true,
+          repoPath: ".gitconfig",
+        },
+      ],
+      version: 8,
+    };
+    mocked.readSyncConfig.mockResolvedValueOnce(config);
+    mocked.readGlobalDotweaveConfig.mockResolvedValueOnce(undefined);
+
+    await expect(removeProfile("work")).rejects.toThrowError(
+      "Cannot remove profile 'work' because it is still referenced by 1 sync entry.",
+    );
+    expect(mocked.buildSyncConfigDocument).not.toHaveBeenCalled();
+  });
+
+  it("rejects removing a profile inherited by child entries", async () => {
+    const config = {
+      profiles: ["work"],
+      entries: [
+        {
+          profiles: ["work"],
+          profilesExplicit: false,
+          repoPath: ".config/workapp/config.toml",
+        },
+      ],
+      version: 8,
+    };
+    mocked.readSyncConfig.mockResolvedValueOnce(config);
+    mocked.readGlobalDotweaveConfig.mockResolvedValueOnce(undefined);
+
+    await expect(removeProfile("work")).rejects.toThrowError(
+      "Cannot remove profile 'work' because it is still referenced by 1 sync entry.",
+    );
+    expect(mocked.buildSyncConfigDocument).not.toHaveBeenCalled();
+  });
+
+  it("validates requested profiles without writing assignments", async () => {
+    mocked.readSyncConfig.mockResolvedValueOnce({
+      profiles: ["Work"],
+      entries: [],
+      version: 8,
+    });
+
+    await expect(validateProfilesExist([" Work "])).resolves.toEqual(["Work"]);
+    expect(mocked.buildSyncConfigDocument).not.toHaveBeenCalled();
+    expect(mocked.writeValidatedSyncConfig).not.toHaveBeenCalled();
+  });
+
+  it("rejects unknown profiles during validation without writing assignments", async () => {
+    mocked.readSyncConfig.mockResolvedValueOnce({
+      profiles: [],
+      entries: [],
+      version: 8,
+    });
+
+    await expect(validateProfilesExist(["ghost"])).rejects.toThrowError(
+      "Unknown profile 'ghost'.",
+    );
+    expect(mocked.buildSyncConfigDocument).not.toHaveBeenCalled();
+    expect(mocked.writeValidatedSyncConfig).not.toHaveBeenCalled();
   });
 
   it("clears the active profile from the global config", async () => {
@@ -218,6 +402,7 @@ describe("sync profiles service", () => {
 
   it("rejects assignments for untracked targets", async () => {
     mocked.readSyncConfig.mockResolvedValueOnce({
+      profiles: [],
       entries: [],
     });
     mocked.resolveTrackedEntry.mockReturnValueOnce(undefined);
@@ -230,21 +415,22 @@ describe("sync profiles service", () => {
     ).rejects.toThrowError("No tracked sync entry matches: ~/.gitconfig");
   });
 
-  it("returns unchanged when the normalized profiles already match", async () => {
+  it("returns unchanged when the trimmed profiles already match", async () => {
     const entry = {
       profiles: ["default", "work"],
       repoPath: ".gitconfig",
     };
 
     mocked.readSyncConfig.mockResolvedValueOnce({
+      profiles: ["work"],
       entries: [entry],
-      version: 7,
+      version: 8,
     });
     mocked.resolveTrackedEntry.mockReturnValueOnce(entry);
 
     await expect(
       assignProfiles(
-        { profiles: [" WORK ", "default"], target: "~/.gitconfig" },
+        { profiles: [" work ", "default"], target: "~/.gitconfig" },
         "/tmp/cwd",
       ),
     ).resolves.toEqual({
@@ -262,8 +448,9 @@ describe("sync profiles service", () => {
       repoPath: ".gitconfig",
     };
     const config = {
+      profiles: ["work"],
       entries: [entry],
-      version: 7,
+      version: 8,
     };
 
     mocked.readSyncConfig.mockResolvedValueOnce(config);
@@ -313,8 +500,9 @@ describe("sync profiles service", () => {
       repoPath: ".gitconfig",
     };
     const config = {
+      profiles: ["work"],
       entries: [entry],
-      version: 7,
+      version: 8,
     };
 
     mocked.readSyncConfig.mockResolvedValueOnce(config);

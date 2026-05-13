@@ -1,3 +1,4 @@
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -8,6 +9,7 @@ import { resolveSyncRule } from "./sync-queries.ts";
 import {
   normalizeSyncProfileName,
   parseSyncConfig as parseSyncConfigBase,
+  readSyncConfig,
 } from "./sync-schema.ts";
 
 afterEach(() => {
@@ -39,6 +41,36 @@ const parseSyncConfig = (input: unknown, environment: ConfigEnvironment) => {
 };
 
 describe("sync config", () => {
+  it("does not write migrated v8 config when migrated v7 config fails semantic validation", async () => {
+    const workspace = await createTemporaryDirectory("dotweave-sync-config-");
+    const syncDirectory = join(workspace, "sync");
+    const manifestPath = join(syncDirectory, "manifest.jsonc");
+
+    const manifest = {
+      version: 7,
+      entries: [
+        { kind: "file", localPath: { default: "~/.gitconfig" } },
+        { kind: "file", localPath: { default: "~/.gitconfig" } },
+      ],
+    };
+
+    await mkdir(syncDirectory);
+    await writeFile(manifestPath, JSON.stringify(manifest, null, 2), "utf8");
+
+    await expect(
+      readSyncConfig(syncDirectory, {
+        homeDirectory: join(workspace, "home"),
+        platformKey: "linux",
+        readEnv: () => undefined,
+        xdgConfigHome: join(workspace, "home", ".config"),
+      }),
+    ).rejects.toThrowError("same repository path");
+
+    const saved = await readFile(manifestPath, "utf8");
+    expect(saved).toContain('"version": 7');
+    expect(saved).not.toContain('"profiles"');
+  });
+
   it("allows all alphanumeric profile names", () => {
     expect(normalizeSyncProfileName("work")).toBe("work");
     expect(normalizeSyncProfileName("default")).toBe("default");
