@@ -8,7 +8,7 @@ const profileUseCommand = buildCommand<NoFlags, [string?], ApplicationContext>({
   docs: {
     brief: "Set or clear the active sync profile",
     fullDescription:
-      "Write ~/.config/dotweave/settings.jsonc so plain push, pull, status, and doctor commands use the selected profile layer by default. Omit the profile name to clear the active profile.",
+      "Write ~/.config/dotweave/settings.jsonc so plain push, pull, status, and doctor commands use the selected registered profile by default. Omit the profile name to clear the active profile.",
   },
   async func(_flags, profile) {
     const logger = createCliLogger();

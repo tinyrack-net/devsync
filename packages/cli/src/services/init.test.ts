@@ -123,7 +123,7 @@ describe("init service", () => {
     expect(result.gitSource).toBe(sourceRepository);
     expect(
       await readFile(join(syncDirectory, "manifest.jsonc"), "utf8"),
-    ).toContain('"version": 7');
+    ).toContain('"version": 8');
     expect(
       await readFile(join(syncDirectory, "manifest.jsonc"), "utf8"),
     ).not.toContain("identityFile");

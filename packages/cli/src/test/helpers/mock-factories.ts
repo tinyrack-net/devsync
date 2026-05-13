@@ -32,6 +32,7 @@ const isObject = (value: unknown): value is Record<string, unknown> =>
 
 type RawManifest = {
   entries?: unknown;
+  profiles?: unknown;
   version?: unknown;
 };
 
@@ -45,11 +46,13 @@ export const readManifestJson = (text: string) => {
   const manifest = isObject(raw) ? (raw as RawManifest) : {};
   const entries =
     isObject(raw) && Array.isArray(manifest.entries) ? manifest.entries : [];
+  const profiles =
+    isObject(raw) && Array.isArray(manifest.profiles) ? manifest.profiles : [];
   const version =
     isObject(raw) && typeof manifest.version === "number"
       ? manifest.version
       : 0;
-  return { entries, version };
+  return { entries, profiles, version };
 };
 
 const getStringRecord = (
@@ -66,14 +69,14 @@ const getStringRecord = (
   return result;
 };
 
-type ParsedManifestEntry = {
-  readonly kind?: string;
-  readonly localPath?: Record<string, string> & { default?: string };
-  readonly mode?: Record<string, string> & { default?: string };
-  readonly repoPath?: Record<string, string> & { default?: string };
-  readonly permission?: Record<string, string> & { default?: string };
-  readonly profiles?: string[];
-};
+export type ParsedManifestEntry = Readonly<{
+  kind?: string;
+  localPath?: Record<string, string> & { default?: string };
+  mode?: Record<string, string> & { default?: string };
+  permission?: Record<string, string> & { default?: string };
+  profiles?: string[];
+  repoPath?: Record<string, string> & { default?: string };
+}>;
 
 export const parseManifestEntries = (text: string): ParsedManifestEntry[] => {
   const { entries } = readManifestJson(text);

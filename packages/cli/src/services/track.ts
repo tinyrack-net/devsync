@@ -1,5 +1,6 @@
 import { resolve } from "node:path";
 
+import { AppConstants } from "#app/config/constants.ts";
 import { resolveDefaultIdentityFile } from "#app/config/identity-file.ts";
 import type { PlatformStringValue } from "#app/config/platform.ts";
 import { readEnvValue } from "#app/config/runtime-env.ts";
@@ -143,6 +144,31 @@ const buildTrackEntryCandidate = async (
   } satisfies ResolvedSyncConfigEntry;
 };
 
+const validateRequestedProfiles = (
+  requestedProfiles: readonly string[] | undefined,
+  availableProfiles: readonly string[] = [],
+) => {
+  if (requestedProfiles === undefined) {
+    return;
+  }
+
+  const knownProfiles = new Set([
+    AppConstants.SYNC.DEFAULT_PROFILE,
+    ...availableProfiles,
+  ]);
+
+  for (const profile of requestedProfiles) {
+    const normalizedProfile = normalizeSyncProfileName(profile);
+
+    if (!knownProfiles.has(normalizedProfile)) {
+      throw new DotweaveError(`Unknown profile '${normalizedProfile}'.`, {
+        code: "UNKNOWN_PROFILE",
+        hint: `Add it with 'dotweave profile add ${normalizedProfile}', or choose an existing profile.`,
+      });
+    }
+  }
+};
+
 export const trackTarget = async (
   request: TrackRequest,
   cwd: string,
@@ -169,6 +195,7 @@ export const trackTarget = async (
     request.profiles.length === 1 &&
     request.profiles[0] === "";
   const effectiveProfiles = isProfileClear ? [] : request.profiles;
+  validateRequestedProfiles(effectiveProfiles, config.profiles);
 
   const candidate = await buildTrackEntryCandidate(
     resolve(cwd, expandHomePath(target, context.homeDirectory)),

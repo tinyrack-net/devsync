@@ -37,6 +37,7 @@ import {
 } from "../test/helpers/sync-fixture.ts";
 import { initializeSyncDirectory } from "./init.ts";
 import {
+  addProfile,
   assignProfiles,
   clearActiveProfile,
   listProfiles,
@@ -123,7 +124,7 @@ describe("sync service", () => {
     );
     const config = readManifestJson(manifestText);
 
-    expect(config.version).toBe(7);
+    expect(config.version).toBe(8);
     expect(JSON.parse(manifestText)).toHaveProperty("age");
     expect(config.entries).toEqual([
       {
@@ -413,6 +414,7 @@ describe("sync service", () => {
       },
       cwd,
     );
+    await addProfile("work");
 
     expect(await setActiveProfile("work")).toMatchObject({
       action: "use",
@@ -1217,6 +1219,7 @@ describe("sync service", () => {
       recipients: [ageKeys.recipient],
     });
     await trackTarget({ mode: "normal", target: gitconfig }, cwd);
+    await addProfile("work");
 
     const assignResult = await assignProfiles(
       {

@@ -68,7 +68,7 @@ describe("sync CLI e2e", () => {
         recipients: [expect.stringMatching(/^age1/u)],
       },
       entries: [],
-      version: 7,
+      version: 8,
     });
     expect(
       await readFile(

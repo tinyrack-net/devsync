@@ -28,6 +28,7 @@ describe("sync runtime", () => {
           repoPath: ".config/zsh",
         },
       ],
+      profiles: ["work"],
       version: 7 as const,
     } satisfies ResolvedSyncConfig;
 
@@ -66,6 +67,7 @@ describe("sync runtime", () => {
           repoPath: ".gitconfig",
         },
       ],
+      profiles: ["work"],
       version: 7 as const,
     } satisfies ResolvedSyncConfig;
 
@@ -119,6 +121,7 @@ describe("sync runtime", () => {
           repoPath: ".config/personal-app",
         },
       ],
+      profiles: ["work", "personal"],
       version: 7 as const,
     } satisfies ResolvedSyncConfig;
 
@@ -148,6 +151,7 @@ describe("sync runtime", () => {
           repoPath: ".bashrc",
         },
       ],
+      profiles: ["work"],
       version: 7 as const,
     } satisfies ResolvedSyncConfig;
 
@@ -164,6 +168,7 @@ describe("sync runtime", () => {
   it("sets activeProfile to undefined when selection mode is 'none'", () => {
     const config = {
       entries: [],
+      profiles: [],
       version: 7 as const,
     } satisfies ResolvedSyncConfig;
 
@@ -179,6 +184,7 @@ describe("sync runtime", () => {
   it("propagates age config through to the effective config", () => {
     const config = {
       entries: [],
+      profiles: [],
       version: 7 as const,
     } satisfies ResolvedSyncConfig;
 
@@ -236,6 +242,7 @@ describe("sync runtime", () => {
           repoPath: ".config/personal-tool",
         },
       ],
+      profiles: ["work", "personal"],
       version: 7 as const,
     } satisfies ResolvedSyncConfig;
 
@@ -250,5 +257,35 @@ describe("sync runtime", () => {
       ".config/work-tool",
       ".vimrc",
     ]);
+  });
+
+  it("normalizes explicit runtime profile selections before validation", () => {
+    const config = {
+      entries: [
+        {
+          configuredMode: { default: "normal" },
+          configuredLocalPath: { default: "~/.config/work-tool" },
+          kind: "directory",
+          localPath: "/tmp/home/.config/work-tool",
+          profiles: ["Work"],
+          profilesExplicit: true,
+          mode: "normal",
+          modeExplicit: false,
+          permissionExplicit: false,
+          repoPath: ".config/work-tool",
+        },
+      ],
+      profiles: ["Work"],
+      version: 7 as const,
+    } satisfies ResolvedSyncConfig;
+
+    const effective = buildEffectiveSyncConfig(
+      config,
+      { profile: " Work ", mode: "single" },
+      testAge,
+    );
+
+    expect(effective.activeProfile).toBe("Work");
+    expect(effective.entries).toHaveLength(1);
   });
 });

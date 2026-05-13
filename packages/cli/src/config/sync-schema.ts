@@ -1,7 +1,16 @@
-import { readFile } from "node:fs/promises";
-import { isAbsolute, join, posix, relative, sep } from "node:path";
+import { readFile, writeFile } from "node:fs/promises";
+import {
+  basename,
+  dirname,
+  isAbsolute,
+  join,
+  posix,
+  relative,
+  sep,
+} from "node:path";
 import { z } from "zod";
 import { AppConstants } from "#app/config/constants.ts";
+import { applyConfigMigrations } from "#app/config/migration.ts";
 import {
   type PlatformKey,
   type PlatformStringValue,
@@ -10,10 +19,14 @@ import {
 import { resolveConfiguredAbsolutePath } from "#app/config/xdg.ts";
 import { DotweaveError } from "#app/lib/error.ts";
 import { parsePermissionOctal } from "#app/lib/file-mode.ts";
+import { writeTextFileAtomically } from "#app/lib/filesystem.ts";
 import { parseJsonc, validateJsoncConfigPath } from "#app/lib/jsonc.ts";
 import { doPathsOverlap } from "#app/lib/path.ts";
 import { ensureTrailingNewline } from "#app/lib/string.ts";
 import { formatInputIssues } from "#app/lib/validation.ts";
+import { migrateSyncConfigV7ToV8 } from "#app/migrations/sync-v8.ts";
+
+const syncConfigMigrationRegistry = new Map([[7, migrateSyncConfigV7ToV8]]);
 
 // ---------------------------------------------------------------------------
 // Zod schemas
@@ -27,6 +40,10 @@ const requiredTrimmedStringSchema = z
 const syncProfileNameArraySchema = z
   .array(requiredTrimmedStringSchema)
   .min(1, "At least one profile must be specified.");
+
+const syncProfileRegistrySchema = z
+  .array(requiredTrimmedStringSchema)
+  .default([]);
 
 const platformLocalPathSchema = z.object({
   default: requiredTrimmedStringSchema,
@@ -86,8 +103,9 @@ const syncConfigAgeSchema = z.object({
 });
 
 const syncConfigSchemaV7 = z.object({
-  version: z.literal(AppConstants.SYNC.CONFIG_VERSION),
+  version: z.union([z.literal(7), z.literal(AppConstants.SYNC.CONFIG_VERSION)]),
   age: syncConfigAgeSchema.optional(),
+  profiles: syncProfileRegistrySchema,
   entries: z.array(syncConfigEntrySchema),
 });
 
@@ -136,7 +154,8 @@ export type AgeConfig = Readonly<{
 export type ResolvedSyncConfig = Readonly<{
   age?: AgeConfig;
   entries: readonly ResolvedSyncConfigEntry[];
-  version: typeof AppConstants.SYNC.CONFIG_VERSION;
+  profiles?: readonly string[];
+  version: 7 | typeof AppConstants.SYNC.CONFIG_VERSION;
 }>;
 
 // ---------------------------------------------------------------------------
@@ -332,6 +351,110 @@ export const validateResolvedSyncConfigEntries = (
 ) => {
   validatePathOverlaps(entries, "repoPath", "Repository");
   validatePathOverlaps(entries, "localPath", "Local");
+};
+
+const normalizeProfileRegistry = (profiles: readonly string[]) => {
+  const normalizedProfiles = profiles.map((profile) =>
+    normalizeSyncProfileName(profile),
+  );
+  const seenProfiles = new Set<string>();
+
+  for (const profile of normalizedProfiles) {
+    if (profile === AppConstants.SYNC.DEFAULT_PROFILE) {
+      throw new DotweaveError(
+        `Profile '${AppConstants.SYNC.DEFAULT_PROFILE}' is implicit and must not be listed in manifest profiles.`,
+        {
+          code: "INVALID_PROFILE_REGISTRY",
+          hint: `Remove '${AppConstants.SYNC.DEFAULT_PROFILE}' from profiles in ${AppConstants.SYNC.CONFIG_FILE_NAME}.`,
+        },
+      );
+    }
+
+    if (seenProfiles.has(profile)) {
+      throw new DotweaveError(`Duplicate profile '${profile}' in manifest.`, {
+        code: "DUPLICATE_PROFILE",
+        hint: `Remove duplicate profile names from profiles in ${AppConstants.SYNC.CONFIG_FILE_NAME}.`,
+      });
+    }
+
+    seenProfiles.add(profile);
+  }
+
+  return normalizedProfiles;
+};
+
+const validateProfileReferences = (
+  references: Iterable<readonly [string, readonly string[]]>,
+  profiles: readonly string[],
+) => {
+  const availableProfiles = new Set([
+    AppConstants.SYNC.DEFAULT_PROFILE,
+    ...profiles,
+  ]);
+
+  for (const [entryLabel, entryProfiles] of references) {
+    for (const profile of entryProfiles) {
+      const normalizedProfile = normalizeSyncProfileName(profile);
+
+      if (!availableProfiles.has(normalizedProfile)) {
+        throw new DotweaveError(`Unknown profile '${normalizedProfile}'.`, {
+          code: "UNKNOWN_PROFILE",
+          details: [`Entry: ${entryLabel}`],
+          hint: `Add it with 'dotweave profile add ${normalizedProfile}', or remove it from the entry profiles.`,
+        });
+      }
+    }
+  }
+};
+
+const validateEntryProfileReferences = (
+  entries: readonly ResolvedSyncConfigEntry[],
+  profiles: readonly string[],
+) => {
+  validateProfileReferences(
+    entries.map((entry) => [entry.repoPath, entry.profiles] as const),
+    profiles,
+  );
+};
+
+export const validateRawSyncConfigProfileRegistry = (
+  config: Pick<RawSyncConfig, "entries" | "profiles">,
+) => {
+  const profiles = normalizeProfileRegistry(config.profiles ?? []);
+
+  validateProfileReferences(
+    config.entries.map(
+      (entry, index) =>
+        [
+          entry.repoPath?.default ?? entry.localPath.default ?? `#${index}`,
+          entry.profiles ?? [],
+        ] as const,
+    ),
+    profiles,
+  );
+
+  return profiles;
+};
+
+const collectLegacyProfileRegistry = (
+  entries: readonly { profiles?: readonly string[] }[],
+) => {
+  const profiles = new Set<string>();
+
+  for (const entry of entries) {
+    if (entry.profiles === undefined) {
+      continue;
+    }
+
+    for (const profile of entry.profiles) {
+      const normalizedProfile = normalizeSyncProfileName(profile);
+      if (normalizedProfile !== AppConstants.SYNC.DEFAULT_PROFILE) {
+        profiles.add(normalizedProfile);
+      }
+    }
+  }
+
+  return [...profiles].sort((left, right) => left.localeCompare(right));
 };
 
 // ---------------------------------------------------------------------------
@@ -533,6 +656,12 @@ export const parseSyncConfig = (
     });
   }
 
+  const profiles = normalizeProfileRegistry(
+    result.data.version === 7
+      ? collectLegacyProfileRegistry(result.data.entries)
+      : result.data.profiles,
+  );
+
   const rawEntries = result.data.entries.map((entry) => {
     const resolvedLocalPath = resolveSyncEntryLocalPath(
       entry.localPath,
@@ -583,6 +712,7 @@ export const parseSyncConfig = (
   validateResolvedSyncConfigEntries(rawEntries);
 
   const entries = applyEntryInheritance(rawEntries, platformKey);
+  validateEntryProfileReferences(entries, profiles);
 
   const age =
     result.data.age === undefined
@@ -594,6 +724,7 @@ export const parseSyncConfig = (
   return {
     ...(age === undefined ? {} : { age }),
     entries,
+    profiles,
     version: result.data.version,
   };
 };
@@ -604,6 +735,7 @@ export const createInitialSyncConfig = (age: {
   return {
     version: AppConstants.SYNC.CONFIG_VERSION,
     age,
+    profiles: [],
     entries: [],
   };
 };
@@ -626,8 +758,31 @@ export const readSyncConfig = async (
   try {
     const contents = await readFile(filePath, "utf8");
     const parsed = parseJsonc(contents);
+    const migration = applyConfigMigrations(
+      parsed,
+      syncConfigMigrationRegistry,
+      AppConstants.SYNC.CONFIG_VERSION,
+      filePath,
+    );
+    const resolved = parseSyncConfig(migration.config, context);
 
-    return parseSyncConfig(parsed, context);
+    if (migration.migrated && migration.originalVersion !== undefined) {
+      const backupPath = join(
+        dirname(filePath),
+        `${basename(filePath)}.v${migration.originalVersion}.bak`,
+      );
+      await writeFile(
+        backupPath,
+        ensureTrailingNewline(JSON.stringify(parsed, null, 2)),
+        "utf8",
+      );
+      await writeTextFileAtomically(
+        filePath,
+        ensureTrailingNewline(JSON.stringify(migration.config, null, 2)),
+      );
+    }
+
+    return resolved;
   } catch (error: unknown) {
     if (error instanceof DotweaveError) {
       throw error;

@@ -200,6 +200,34 @@ describe("runConfigMigrations", () => {
     });
   });
 
+  it("preserves DotweaveError details thrown by migration functions", async () => {
+    const config = { version: 2 };
+    const filePath = await createTempFile(config);
+
+    const brokenFn: ConfigMigrationFn = () => {
+      throw new DotweaveError("Profile name must be a string.", {
+        code: "INVALID_PROFILE_NAME",
+        hint: "Fix the profile value.",
+      });
+    };
+
+    const error = await runConfigMigrations(
+      config,
+      makeRegistry([[2, brokenFn]]),
+      3,
+      filePath,
+    ).catch((e: unknown) => e);
+
+    expect(error).toMatchObject({
+      code: "INVALID_PROFILE_NAME",
+      hint: "Fix the profile value.",
+    });
+    expect(error).toBeInstanceOf(DotweaveError);
+    expect((error as DotweaveError).details).toEqual(
+      expect.arrayContaining([`Config file: ${filePath}`, "Migration: 2 → 3"]),
+    );
+  });
+
   it("throws a DotweaveError instance for all error cases", async () => {
     const config = { version: 9 };
     const filePath = await createTempFile(config);
