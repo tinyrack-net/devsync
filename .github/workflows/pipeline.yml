@@ -470,6 +470,37 @@ jobs:
           git commit -m "Update dotweave to ${GITHUB_REF_NAME}" || echo "No changes to commit"
           git push
 
+  publish-winget:
+    name: Publish WinGet
+    needs: publish-release
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: windows-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - name: Submit WinGet manifest update
+        shell: powershell
+        env:
+          WINGET_CREATE_GITHUB_TOKEN: ${{ secrets.WINGET_TOKEN }}
+        run: |
+          $ErrorActionPreference = "Stop"
+          if ([string]::IsNullOrWhiteSpace($env:WINGET_CREATE_GITHUB_TOKEN)) {
+            throw "WINGET_TOKEN repository secret is required for WinGet publishing."
+          }
+
+          $version = $env:GITHUB_REF_NAME -replace '^v', ''
+          $downloadUrl = "https://github.com/${{ github.repository }}/releases/download/$env:GITHUB_REF_NAME"
+          $releaseNotesUrl = "https://github.com/${{ github.repository }}/releases/tag/$env:GITHUB_REF_NAME"
+
+          Invoke-WebRequest https://aka.ms/wingetcreate/latest -OutFile wingetcreate.exe
+          .\wingetcreate.exe update tinyrack.dotweave `
+            --version $version `
+            --urls "$downloadUrl/dotweave-win-x64.exe|x64" "$downloadUrl/dotweave-win-arm64.exe|arm64" `
+            --release-notes-url "$releaseNotesUrl" `
+            --submit `
+            --no-open
+
   publish-store:
     name: Publish to Microsoft Store
     needs: publish-release
