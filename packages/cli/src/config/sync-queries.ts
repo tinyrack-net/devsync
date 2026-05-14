@@ -185,6 +185,11 @@ export const collectAllProfileNames = (
   const profiles = new Set<string>();
 
   for (const entry of entries) {
+    if (entry.profiles.length === 0) {
+      profiles.add(AppConstants.SYNC.DEFAULT_PROFILE);
+      continue;
+    }
+
     for (const profile of entry.profiles) {
       profiles.add(profile);
     }

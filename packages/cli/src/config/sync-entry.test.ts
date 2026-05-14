@@ -311,9 +311,19 @@ describe("sync-entry", () => {
       ]);
     });
 
-    it("returns empty array for entries with no profiles", () => {
+    it("includes the default profile for entries with no explicit profiles", () => {
       const entries = [makeEntry("a", "file", { profiles: [] })];
-      expect(collectAllProfileNames(entries)).toEqual([]);
+      expect(collectAllProfileNames(entries)).toEqual(["default"]);
+    });
+
+    it("deduplicates implicit and explicit default profiles", () => {
+      const entries = [
+        makeEntry("a", "file", { profiles: [] }),
+        makeEntry("b", "file", { profiles: ["work"] }),
+        makeEntry("c", "file", { profiles: ["default"] }),
+      ];
+
+      expect(collectAllProfileNames(entries)).toEqual(["default", "work"]);
     });
   });
 });
