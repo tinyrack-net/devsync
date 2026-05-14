@@ -324,7 +324,7 @@ export const buildRepoArtifacts = async (
   return artifacts;
 };
 
-const collectArtifactLeafKeys = async (
+export const collectArtifactLeafKeys = async (
   rootDirectory: string,
   keys: Set<string>,
   prefix?: string,

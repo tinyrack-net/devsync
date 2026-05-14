@@ -1570,6 +1570,281 @@ describe("sync service", () => {
     expect(await readFile(artifactPath, "utf8")).toBe('{"child":true}\n');
   });
 
+  it("replaces a stale repository directory root with a file artifact during push", async () => {
+    const workspace = await createWorkspace();
+    const homeDirectory = join(workspace, "home");
+    const xdgConfigHome = join(workspace, "xdg");
+    const appDirectory = join(homeDirectory, ".config", "transition-app");
+    const childFile = join(appDirectory, "settings.json");
+    const replacementFile = join(homeDirectory, ".transition-app-file");
+    const ageKeys = await createAgeKeyPair();
+    setEnvironment(homeDirectory, xdgConfigHome);
+
+    await writeIdentityFile(xdgConfigHome, ageKeys.identity);
+    await mkdir(appDirectory, { recursive: true });
+    await writeFile(childFile, '{"stale":true}\n');
+    await writeFile(replacementFile, "replacement file\n");
+
+    await initializeSyncDirectory({
+      identityFile: "$XDG_CONFIG_HOME/dotweave/keys.txt",
+      recipients: [ageKeys.recipient],
+    });
+
+    const manifestPath = join(
+      xdgConfigHome,
+      "dotweave",
+      "repository",
+      "manifest.jsonc",
+    );
+
+    await writeFile(
+      manifestPath,
+      JSON.stringify(
+        {
+          version: 8,
+          age: { recipients: [ageKeys.recipient] },
+          entries: [
+            {
+              kind: "directory",
+              localPath: { default: "~/.config/transition-app" },
+              repoPath: { default: ".config/transition-app" },
+              mode: { default: "normal" },
+            },
+          ],
+        },
+        null,
+        2,
+      ),
+      "utf8",
+    );
+
+    await pushChanges({ dryRun: false });
+
+    const artifactPath = join(
+      xdgConfigHome,
+      "dotweave",
+      "repository",
+      "default",
+      ".config",
+      "transition-app",
+    );
+    expect(await readFile(join(artifactPath, "settings.json"), "utf8")).toBe(
+      '{"stale":true}\n',
+    );
+
+    await writeFile(
+      manifestPath,
+      JSON.stringify(
+        {
+          version: 8,
+          age: { recipients: [ageKeys.recipient] },
+          entries: [
+            {
+              kind: "file",
+              localPath: { default: "~/.transition-app-file" },
+              repoPath: { default: ".config/transition-app" },
+              mode: { default: "normal" },
+            },
+          ],
+        },
+        null,
+        2,
+      ),
+      "utf8",
+    );
+
+    const result = await pushChanges({ dryRun: false });
+
+    expect(result.deletedArtifactCount).toBe(1);
+    expect((await lstat(artifactPath)).isFile()).toBe(true);
+    expect(await readFile(artifactPath, "utf8")).toBe("replacement file\n");
+  });
+
+  it("reports an empty repository directory root replacement consistently", async () => {
+    const workspace = await createWorkspace();
+    const homeDirectory = join(workspace, "home");
+    const xdgConfigHome = join(workspace, "xdg");
+    const emptyDirectory = join(homeDirectory, ".config", "empty-transition");
+    const replacementFile = join(homeDirectory, ".empty-transition-file");
+    const ageKeys = await createAgeKeyPair();
+    setEnvironment(homeDirectory, xdgConfigHome);
+
+    await writeIdentityFile(xdgConfigHome, ageKeys.identity);
+    await mkdir(emptyDirectory, { recursive: true });
+    await writeFile(replacementFile, "replacement file\n");
+
+    await initializeSyncDirectory({
+      identityFile: "$XDG_CONFIG_HOME/dotweave/keys.txt",
+      recipients: [ageKeys.recipient],
+    });
+
+    const manifestPath = join(
+      xdgConfigHome,
+      "dotweave",
+      "repository",
+      "manifest.jsonc",
+    );
+
+    await writeFile(
+      manifestPath,
+      JSON.stringify(
+        {
+          version: 8,
+          age: { recipients: [ageKeys.recipient] },
+          entries: [
+            {
+              kind: "directory",
+              localPath: { default: "~/.config/empty-transition" },
+              repoPath: { default: ".config/empty-transition" },
+              mode: { default: "normal" },
+            },
+          ],
+        },
+        null,
+        2,
+      ),
+      "utf8",
+    );
+
+    await pushChanges({ dryRun: false });
+
+    const artifactPath = join(
+      xdgConfigHome,
+      "dotweave",
+      "repository",
+      "default",
+      ".config",
+      "empty-transition",
+    );
+    expect((await lstat(artifactPath)).isDirectory()).toBe(true);
+
+    await writeFile(
+      manifestPath,
+      JSON.stringify(
+        {
+          version: 8,
+          age: { recipients: [ageKeys.recipient] },
+          entries: [
+            {
+              kind: "file",
+              localPath: { default: "~/.empty-transition-file" },
+              repoPath: { default: ".config/empty-transition" },
+              mode: { default: "normal" },
+            },
+          ],
+        },
+        null,
+        2,
+      ),
+      "utf8",
+    );
+
+    const dryRunResult = await pushChanges({ dryRun: true });
+    const status = await getStatus();
+    const result = await pushChanges({ dryRun: false });
+
+    expect(dryRunResult.deletedArtifactCount).toBe(1);
+    expect(status.push.deletedArtifactCount).toBe(1);
+    expect(status.push.changes.deleted).toEqual([
+      "default/.config/empty-transition",
+    ]);
+    expect(result.deletedArtifactCount).toBe(1);
+    expect((await lstat(artifactPath)).isFile()).toBe(true);
+    expect(await readFile(artifactPath, "utf8")).toBe("replacement file\n");
+  });
+
+  it("replaces a stale repository directory root with a symlink artifact during push", async () => {
+    const workspace = await createWorkspace();
+    const homeDirectory = join(workspace, "home");
+    const xdgConfigHome = join(workspace, "xdg");
+    const appDirectory = join(homeDirectory, ".config", "transition-link");
+    const childFile = join(appDirectory, "settings.json");
+    const linkTarget = join(homeDirectory, ".transition-link-target");
+    const replacementLink = join(homeDirectory, ".transition-link");
+    const ageKeys = await createAgeKeyPair();
+    setEnvironment(homeDirectory, xdgConfigHome);
+
+    await writeIdentityFile(xdgConfigHome, ageKeys.identity);
+    await mkdir(appDirectory, { recursive: true });
+    await writeFile(childFile, '{"stale":true}\n');
+    await writeFile(linkTarget, "replacement link target\n");
+    await createSymlink(".transition-link-target", replacementLink);
+
+    await initializeSyncDirectory({
+      identityFile: "$XDG_CONFIG_HOME/dotweave/keys.txt",
+      recipients: [ageKeys.recipient],
+    });
+
+    const manifestPath = join(
+      xdgConfigHome,
+      "dotweave",
+      "repository",
+      "manifest.jsonc",
+    );
+
+    await writeFile(
+      manifestPath,
+      JSON.stringify(
+        {
+          version: 8,
+          age: { recipients: [ageKeys.recipient] },
+          entries: [
+            {
+              kind: "directory",
+              localPath: { default: "~/.config/transition-link" },
+              repoPath: { default: ".config/transition-link" },
+              mode: { default: "normal" },
+            },
+          ],
+        },
+        null,
+        2,
+      ),
+      "utf8",
+    );
+
+    await pushChanges({ dryRun: false });
+
+    const artifactPath = join(
+      xdgConfigHome,
+      "dotweave",
+      "repository",
+      "default",
+      ".config",
+      "transition-link",
+    );
+    expect(await readFile(join(artifactPath, "settings.json"), "utf8")).toBe(
+      '{"stale":true}\n',
+    );
+
+    await writeFile(
+      manifestPath,
+      JSON.stringify(
+        {
+          version: 8,
+          age: { recipients: [ageKeys.recipient] },
+          entries: [
+            {
+              kind: "file",
+              localPath: { default: "~/.transition-link" },
+              repoPath: { default: ".config/transition-link" },
+              mode: { default: "normal" },
+            },
+          ],
+        },
+        null,
+        2,
+      ),
+      "utf8",
+    );
+
+    const result = await pushChanges({ dryRun: false });
+
+    expect(result.deletedArtifactCount).toBe(1);
+    expect((await lstat(artifactPath)).isSymbolicLink()).toBe(true);
+    expect(await readlink(artifactPath)).toBe(".transition-link-target");
+  });
+
   it("preserves inactive profile artifacts when pushing the default profile", async () => {
     const workspace = await createWorkspace();
     const homeDirectory = join(workspace, "home");
@@ -1628,6 +1903,104 @@ describe("sync service", () => {
     expect(await readFile(artifactPath, "utf8")).toBe(
       "[user]\n  name = Work\n",
     );
+  });
+
+  it("preserves still-owned inactive empty directory roots", async () => {
+    const workspace = await createWorkspace();
+    const homeDirectory = join(workspace, "home");
+    const xdgConfigHome = join(workspace, "xdg");
+    const emptyDirectory = join(homeDirectory, ".config", "inactive-empty");
+    const workFile = join(homeDirectory, ".work-profile-file");
+    const ageKeys = await createAgeKeyPair();
+    setEnvironment(homeDirectory, xdgConfigHome);
+
+    await writeIdentityFile(xdgConfigHome, ageKeys.identity);
+    await mkdir(emptyDirectory, { recursive: true });
+    await writeFile(workFile, "work profile\n");
+
+    await initializeSyncDirectory({
+      identityFile: "$XDG_CONFIG_HOME/dotweave/keys.txt",
+      recipients: [ageKeys.recipient],
+    });
+
+    const manifestPath = join(
+      xdgConfigHome,
+      "dotweave",
+      "repository",
+      "manifest.jsonc",
+    );
+
+    await writeFile(
+      manifestPath,
+      JSON.stringify(
+        {
+          version: 8,
+          age: { recipients: [ageKeys.recipient] },
+          profiles: ["work"],
+          entries: [
+            {
+              kind: "directory",
+              localPath: { default: "~/.config/inactive-empty" },
+              repoPath: { default: ".config/inactive-empty" },
+              mode: { default: "normal" },
+              profiles: ["default"],
+            },
+          ],
+        },
+        null,
+        2,
+      ),
+      "utf8",
+    );
+
+    await pushChanges({ dryRun: false });
+
+    const artifactPath = join(
+      xdgConfigHome,
+      "dotweave",
+      "repository",
+      "default",
+      ".config",
+      "inactive-empty",
+    );
+    expect((await lstat(artifactPath)).isDirectory()).toBe(true);
+
+    await writeFile(
+      manifestPath,
+      JSON.stringify(
+        {
+          version: 8,
+          age: { recipients: [ageKeys.recipient] },
+          profiles: ["work"],
+          entries: [
+            {
+              kind: "directory",
+              localPath: { default: "~/.config/inactive-empty" },
+              repoPath: { default: ".config/inactive-empty" },
+              mode: { default: "normal" },
+              profiles: ["default"],
+            },
+            {
+              kind: "file",
+              localPath: { default: "~/.work-profile-file" },
+              repoPath: { default: ".work-profile-file" },
+              mode: { default: "normal" },
+              profiles: ["work"],
+            },
+          ],
+        },
+        null,
+        2,
+      ),
+      "utf8",
+    );
+
+    const dryRunResult = await pushChanges({ dryRun: true, profile: "work" });
+    const result = await pushChanges({ dryRun: false, profile: "work" });
+
+    expect(dryRunResult.deletedArtifactCount).toBe(0);
+    expect(result.deletedArtifactCount).toBe(0);
+    expect((await lstat(artifactPath)).isDirectory()).toBe(true);
   });
 
   it("prunes registered profile artifacts when no entries own them", async () => {

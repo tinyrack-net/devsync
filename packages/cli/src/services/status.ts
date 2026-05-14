@@ -75,9 +75,14 @@ const buildPushChanges = async (
     }
   }
 
-  const deleted = [...plan.existingArtifactKeys]
-    .filter((key) => !plan.desiredArtifactKeys.has(key))
-    .sort((a, b) => a.localeCompare(b));
+  const deletedKeys =
+    plan.deletedArtifactKeys ??
+    new Set(
+      [...plan.existingArtifactKeys].filter(
+        (key) => !plan.desiredArtifactKeys.has(key),
+      ),
+    );
+  const deleted = [...deletedKeys].sort((a, b) => a.localeCompare(b));
 
   return {
     added: added.sort((a, b) => a.localeCompare(b)),
