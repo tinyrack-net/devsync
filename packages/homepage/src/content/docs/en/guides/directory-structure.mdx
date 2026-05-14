@@ -5,14 +5,14 @@ description: Where dotweave stores your config and how files are organized.
 
 import { Aside, FileTree } from "@astrojs/starlight/components";
 
-Everything dotweave creates lives under a single directory: `~/.config/dotweave/`. When you run `dotweave init`, this structure is set up for you automatically.
+Everything dotweave creates lives under a single app-data directory. On Linux, macOS, and WSL this defaults to `$XDG_CONFIG_HOME/dotweave`, or `~/.config/dotweave` when `XDG_CONFIG_HOME` is unset. On Windows it defaults to `%APPDATA%\dotweave`, then falls back to `%LOCALAPPDATA%\dotweave`, `%USERPROFILE%\AppData\Roaming\dotweave`, and finally the OS home directory's `AppData\Roaming\dotweave`.
 
 ---
 
 ## The Full Picture
 
 <FileTree>
-- ~/.config/dotweave/
+- &lt;dotweave-home&gt;/
   - settings.jsonc
   - keys.txt
   - repository/
@@ -30,6 +30,18 @@ Everything dotweave creates lives under a single directory: `~/.config/dotweave/
       - .ssh/
         - config.dotweave.secret
 </FileTree>
+
+---
+
+## DOTWEAVE_HOME
+
+Set `DOTWEAVE_HOME` to override the app-data directory for dotweave only:
+
+```bash
+DOTWEAVE_HOME=/path/to/dotweave dotweave sync
+```
+
+The sync repository is stored under `$DOTWEAVE_HOME/repository`.
 
 ---
 

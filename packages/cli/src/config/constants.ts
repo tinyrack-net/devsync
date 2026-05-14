@@ -15,7 +15,7 @@ export const AppConstants = {
     FILE_NAME: "settings.jsonc",
   },
   INIT: {
-    DEFAULT_IDENTITY_FILE: `~/.config/${APP_NAME}/keys.txt`,
+    DEFAULT_IDENTITY_FILE_NAME: "keys.txt",
     LEGACY_IDENTITY_FILE: `~/.config/${APP_NAME}/age/keys.txt`,
   },
   SYNC: {

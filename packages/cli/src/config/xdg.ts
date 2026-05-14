@@ -31,6 +31,72 @@ export const resolveDotweaveConfigDirectory = (xdgConfigHome: string) => {
   return resolve(xdgConfigHome, AppConstants.XDG.APP_DIRECTORY_NAME);
 };
 
+type DotweaveHomePlatform = NodeJS.Platform;
+
+type DotweaveHomeDirectoryOptions = {
+  appData?: string;
+  dotweaveHome?: string;
+  home?: string;
+  localAppData?: string;
+  osHomeDirectory?: string;
+  platform: DotweaveHomePlatform;
+  userProfile?: string;
+  xdgConfigHome?: string;
+};
+
+export const resolveDotweaveHomeDirectory = ({
+  appData,
+  dotweaveHome,
+  home,
+  localAppData,
+  osHomeDirectory,
+  platform,
+  userProfile,
+  xdgConfigHome,
+}: DotweaveHomeDirectoryOptions) => {
+  const configuredDotweaveHome = normalizeConfiguredValue(dotweaveHome);
+
+  if (configuredDotweaveHome !== undefined) {
+    return resolve(configuredDotweaveHome);
+  }
+
+  if (platform === "win32") {
+    const configuredAppData = normalizeConfiguredValue(appData);
+    if (configuredAppData !== undefined) {
+      return resolve(configuredAppData, AppConstants.XDG.APP_DIRECTORY_NAME);
+    }
+
+    const configuredLocalAppData = normalizeConfiguredValue(localAppData);
+    if (configuredLocalAppData !== undefined) {
+      return resolve(
+        configuredLocalAppData,
+        AppConstants.XDG.APP_DIRECTORY_NAME,
+      );
+    }
+
+    const configuredUserProfile = normalizeConfiguredValue(userProfile);
+    if (configuredUserProfile !== undefined) {
+      return resolve(
+        configuredUserProfile,
+        "AppData",
+        "Roaming",
+        AppConstants.XDG.APP_DIRECTORY_NAME,
+      );
+    }
+
+    return resolve(
+      normalizeConfiguredValue(osHomeDirectory) ?? homedir(),
+      "AppData",
+      "Roaming",
+      AppConstants.XDG.APP_DIRECTORY_NAME,
+    );
+  }
+
+  return resolveDotweaveConfigDirectory(
+    resolveXdgConfigHome(home, xdgConfigHome),
+  );
+};
+
 export const resolveDotweaveGlobalConfigFilePath = (
   dotweaveConfigDirectory: string,
 ) => {

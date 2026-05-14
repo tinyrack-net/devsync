@@ -10,6 +10,7 @@ import {
   readEnvValue,
   resolveCurrentPlatformKey,
   resolveDotweaveGlobalConfigFilePathFromEnv,
+  resolveDotweaveHomeDirectoryFromEnv,
   resolveDotweaveSyncDirectoryFromEnv,
   resolveHomeDirectoryFromEnv,
   resolveXdgConfigHomeFromEnv,
@@ -73,8 +74,7 @@ export const resolveSyncPaths = (): SyncPaths => {
 export const resolveAgeFromSyncConfig = (age: AgeConfig): RuntimeAgeConfig => {
   return {
     identityFile: resolveDefaultIdentityFile(
-      readEnvValue("HOME"),
-      readEnvValue("XDG_CONFIG_HOME"),
+      resolveDotweaveHomeDirectoryFromEnv(),
     ),
     recipients: age.recipients,
   };

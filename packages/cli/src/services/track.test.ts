@@ -40,6 +40,7 @@ const mocked = vi.hoisted(() => ({
     }
     return undefined;
   }),
+  resolveDotweaveHomeDirectory: vi.fn(() => "/home/user/.config/dotweave"),
 }));
 
 vi.mock("#app/lib/filesystem.ts", () => ({
@@ -96,6 +97,7 @@ vi.mock("#app/config/identity-file.ts", () => ({
 
 vi.mock("#app/config/runtime-env.ts", () => ({
   readEnvValue: mocked.readEnvValue,
+  resolveDotweaveHomeDirectoryFromEnv: mocked.resolveDotweaveHomeDirectory,
 }));
 
 vi.mock("#app/lib/path.ts", () => ({

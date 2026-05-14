@@ -22,14 +22,18 @@ export const createSyncE2EContext = async () => {
   const workspace = await mkdtemp(join(tmpdir(), "dotweave-e2e-"));
   const homeDir = join(workspace, "home");
   const xdgDir = join(workspace, "xdg");
+  const localAppDataDir = join(workspace, "local-appdata");
 
   await mkdir(homeDir, { recursive: true });
 
   const baseEnv: NodeJS.ProcessEnv = {
+    APPDATA: xdgDir,
     FORCE_COLOR: "0",
     HOME: homeDir,
+    LOCALAPPDATA: localAppDataDir,
     NODE_NO_WARNINGS: "1",
     NO_COLOR: "1",
+    USERPROFILE: homeDir,
     XDG_CONFIG_HOME: xdgDir,
     ...gitTestEnvironment,
   };

@@ -1,9 +1,9 @@
-import { platform, release } from "node:os";
+import { homedir, platform, release } from "node:os";
 
 import { detectCurrentPlatformKey } from "#app/config/platform.ts";
 import {
-  resolveDotweaveConfigDirectory,
   resolveDotweaveGlobalConfigFilePath,
+  resolveDotweaveHomeDirectory,
   resolveDotweaveSyncDirectory,
   resolveHomeDirectory,
   resolveXdgConfigHome,
@@ -26,18 +26,27 @@ export const resolveXdgConfigHomeFromEnv = () => {
   );
 };
 
+export const resolveDotweaveHomeDirectoryFromEnv = () => {
+  return resolveDotweaveHomeDirectory({
+    appData: readEnvValue("APPDATA"),
+    dotweaveHome: readEnvValue("DOTWEAVE_HOME"),
+    home: readEnvValue("HOME"),
+    localAppData: readEnvValue("LOCALAPPDATA"),
+    osHomeDirectory: homedir(),
+    platform: platform(),
+    userProfile: readEnvValue("USERPROFILE"),
+    xdgConfigHome: readEnvValue("XDG_CONFIG_HOME"),
+  });
+};
+
 export const resolveDotweaveGlobalConfigFilePathFromEnv = () => {
-  const configDirectory = resolveDotweaveConfigDirectory(
-    resolveXdgConfigHomeFromEnv(),
+  return resolveDotweaveGlobalConfigFilePath(
+    resolveDotweaveHomeDirectoryFromEnv(),
   );
-  return resolveDotweaveGlobalConfigFilePath(configDirectory);
 };
 
 export const resolveDotweaveSyncDirectoryFromEnv = () => {
-  const configDirectory = resolveDotweaveConfigDirectory(
-    resolveXdgConfigHomeFromEnv(),
-  );
-  return resolveDotweaveSyncDirectory(configDirectory);
+  return resolveDotweaveSyncDirectory(resolveDotweaveHomeDirectoryFromEnv());
 };
 
 export const resolveCurrentPlatformKey = () => {

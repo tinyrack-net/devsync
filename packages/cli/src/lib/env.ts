@@ -4,11 +4,26 @@ const EnvSchema = z
   .object({
     /**
      * @description
+     * Windows roaming application data directory. Used as the default dotweave
+     * app-data parent on Windows, producing `%APPDATA%\\dotweave`.
+     */
+    APPDATA: z.string().optional(),
+
+    /**
+     * @description
      * Windows only. Path to the default command interpreter (usually `cmd.exe`).
      * Used as the fallback shell command when no explicit override is configured
      * and no parent PowerShell process is detected on the Windows platform.
      */
     COMSPEC: z.string().optional(),
+
+    /**
+     * @description
+     * Dotweave-specific app-data root override. When set, this replaces the
+     * platform default root that contains `settings.jsonc`, `repository`, and
+     * identity key material.
+     */
+    DOTWEAVE_HOME: z.string().optional(),
 
     /**
      * @description
@@ -20,11 +35,25 @@ const EnvSchema = z
 
     /**
      * @description
+     * Windows local application data directory. Used as the Windows fallback when
+     * `APPDATA` is not set.
+     */
+    LOCALAPPDATA: z.string().optional(),
+
+    /**
+     * @description
      * Unix/macOS/WSL. Absolute path to the user's preferred login shell (e.g.
      * `/bin/zsh` or `/usr/bin/fish`). Read by the `dotweave cd` command to select
      * the shell to launch when no explicit override is configured.
      */
     SHELL: z.string().optional(),
+
+    /**
+     * @description
+     * Windows user profile directory. Used as the final Windows fallback for
+     * `%USERPROFILE%\\AppData\\Roaming\\dotweave` when AppData variables are unset.
+     */
+    USERPROFILE: z.string().optional(),
 
     /**
      * @description

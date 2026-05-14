@@ -7,7 +7,7 @@ import {
   readGlobalDotweaveConfig,
 } from "#app/config/global-config.ts";
 import { resolveDefaultIdentityFile } from "#app/config/identity-file.ts";
-import { readEnvValue } from "#app/config/runtime-env.ts";
+import { resolveDotweaveHomeDirectoryFromEnv } from "#app/config/runtime-env.ts";
 import {
   type AgeConfig,
   createInitialSyncConfig,
@@ -75,8 +75,7 @@ const normalizeRecipients = (recipients: readonly string[]) => {
 
 const resolveInitAgeBootstrap = async (request: InitRequest) => {
   const identityFile = resolveDefaultIdentityFile(
-    readEnvValue("HOME"),
-    readEnvValue("XDG_CONFIG_HOME"),
+    resolveDotweaveHomeDirectoryFromEnv(),
   );
   const explicitRecipients = normalizeRecipients(request.recipients);
 
@@ -220,8 +219,7 @@ export const initializeSyncDirectory = async (
   const resolvedConfigPath = await validateJsoncConfigPath(configPath);
   const configExists = await pathExists(resolvedConfigPath);
   const identityFile = resolveDefaultIdentityFile(
-    readEnvValue("HOME"),
-    readEnvValue("XDG_CONFIG_HOME"),
+    resolveDotweaveHomeDirectoryFromEnv(),
   );
   const importingRepository =
     request.repository !== undefined && request.repository.trim() !== "";
@@ -339,10 +337,7 @@ export const initializeSyncDirectory = async (
       generatedIdentity: ageBootstrap.generatedIdentity,
       identityFile:
         age?.identityFile ??
-        resolveDefaultIdentityFile(
-          readEnvValue("HOME"),
-          readEnvValue("XDG_CONFIG_HOME"),
-        ),
+        resolveDefaultIdentityFile(resolveDotweaveHomeDirectoryFromEnv()),
       recipientCount: age?.recipients.length ?? 0,
     };
   }
@@ -365,8 +360,7 @@ export const initializeSyncDirectory = async (
     ...(gitSource === undefined ? {} : { gitSource }),
     generatedIdentity: ageBootstrap.generatedIdentity,
     identityFile: resolveDefaultIdentityFile(
-      readEnvValue("HOME"),
-      readEnvValue("XDG_CONFIG_HOME"),
+      resolveDotweaveHomeDirectoryFromEnv(),
     ),
     recipientCount: ageBootstrap.recipients.length,
   };

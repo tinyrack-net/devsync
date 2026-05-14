@@ -3,7 +3,11 @@ import { resolve } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 const mockEnv = vi.hoisted(() => ({
+  APPDATA: undefined as string | undefined,
+  DOTWEAVE_HOME: undefined as string | undefined,
   HOME: undefined as string | undefined,
+  LOCALAPPDATA: undefined as string | undefined,
+  USERPROFILE: undefined as string | undefined,
   WSL_DISTRO_NAME: undefined as string | undefined,
   WSL_INTEROP: undefined as string | undefined,
   XDG_CONFIG_HOME: undefined as string | undefined,
@@ -17,16 +21,18 @@ vi.mock("node:os", async (importOriginal) => {
   const actual = await importOriginal<typeof import("node:os")>();
   return {
     ...actual,
+    homedir: vi.fn(actual.homedir),
     platform: vi.fn(actual.platform),
     release: vi.fn(actual.release),
   };
 });
 
-import { platform, release } from "node:os";
+import { homedir, platform, release } from "node:os";
 import {
   readEnvValue,
   resolveCurrentPlatformKey,
   resolveDotweaveGlobalConfigFilePathFromEnv,
+  resolveDotweaveHomeDirectoryFromEnv,
   resolveDotweaveSyncDirectoryFromEnv,
   resolveHomeDirectoryFromEnv,
   resolveXdgConfigHomeFromEnv,
@@ -35,7 +41,11 @@ import {
 afterEach(() => {
   vi.restoreAllMocks();
 
+  mockEnv.APPDATA = undefined;
+  mockEnv.DOTWEAVE_HOME = undefined;
   mockEnv.HOME = undefined;
+  mockEnv.LOCALAPPDATA = undefined;
+  mockEnv.USERPROFILE = undefined;
   mockEnv.WSL_DISTRO_NAME = undefined;
   mockEnv.WSL_INTEROP = undefined;
   mockEnv.XDG_CONFIG_HOME = undefined;
@@ -79,12 +89,74 @@ describe("runtime-env", () => {
     });
   });
 
+  describe("resolveDotweaveHomeDirectoryFromEnv", () => {
+    it("uses DOTWEAVE_HOME when set", () => {
+      mockEnv.DOTWEAVE_HOME = "/custom/dotweave";
+      mockEnv.HOME = "/home/test";
+      vi.mocked(platform).mockReturnValue("linux");
+
+      expect(resolveDotweaveHomeDirectoryFromEnv()).toBe(
+        resolve("/custom/dotweave"),
+      );
+    });
+
+    it("uses APPDATA/dotweave by default on Windows", () => {
+      mockEnv.APPDATA = "C:\\Users\\test\\AppData\\Roaming";
+      mockEnv.HOME = "C:\\Users\\test";
+      vi.mocked(platform).mockReturnValue("win32");
+
+      expect(resolveDotweaveHomeDirectoryFromEnv()).toBe(
+        resolve("C:\\Users\\test\\AppData\\Roaming", "dotweave"),
+      );
+    });
+
+    it("falls back to LOCALAPPDATA/dotweave on Windows", () => {
+      mockEnv.LOCALAPPDATA = "C:\\Users\\test\\AppData\\Local";
+      mockEnv.HOME = "C:\\Users\\test";
+      vi.mocked(platform).mockReturnValue("win32");
+
+      expect(resolveDotweaveHomeDirectoryFromEnv()).toBe(
+        resolve("C:\\Users\\test\\AppData\\Local", "dotweave"),
+      );
+    });
+
+    it("falls back to USERPROFILE/AppData/Roaming/dotweave on Windows", () => {
+      mockEnv.USERPROFILE = "C:\\Users\\test";
+      vi.mocked(platform).mockReturnValue("win32");
+
+      expect(resolveDotweaveHomeDirectoryFromEnv()).toBe(
+        resolve("C:\\Users\\test", "AppData", "Roaming", "dotweave"),
+      );
+    });
+
+    it("falls back to os homedir on Windows instead of HOME", () => {
+      mockEnv.HOME = "C:\\msys64\\home\\test";
+      vi.mocked(homedir).mockReturnValue("C:\\Users\\test");
+      vi.mocked(platform).mockReturnValue("win32");
+
+      expect(resolveDotweaveHomeDirectoryFromEnv()).toBe(
+        resolve("C:\\Users\\test", "AppData", "Roaming", "dotweave"),
+      );
+    });
+  });
+
   describe("resolveDotweaveGlobalConfigFilePathFromEnv", () => {
     it("composes the dotweave global config path", () => {
       mockEnv.HOME = "/home/test";
       mockEnv.XDG_CONFIG_HOME = "/home/test/.config";
+      vi.mocked(platform).mockReturnValue("linux");
+
       expect(resolveDotweaveGlobalConfigFilePathFromEnv()).toBe(
         resolve("/home/test/.config/dotweave/settings.jsonc"),
+      );
+    });
+
+    it("uses DOTWEAVE_HOME for the global config path", () => {
+      mockEnv.DOTWEAVE_HOME = "/custom/dotweave";
+      vi.mocked(platform).mockReturnValue("linux");
+
+      expect(resolveDotweaveGlobalConfigFilePathFromEnv()).toBe(
+        resolve("/custom/dotweave", "settings.jsonc"),
       );
     });
   });
@@ -93,8 +165,19 @@ describe("runtime-env", () => {
     it("composes the dotweave sync directory path", () => {
       mockEnv.HOME = "/home/test";
       mockEnv.XDG_CONFIG_HOME = "/home/test/.config";
+      vi.mocked(platform).mockReturnValue("linux");
+
       expect(resolveDotweaveSyncDirectoryFromEnv()).toBe(
         resolve("/home/test/.config/dotweave/repository"),
+      );
+    });
+
+    it("uses Windows APPDATA for the sync directory by default", () => {
+      mockEnv.APPDATA = "C:\\Users\\test\\AppData\\Roaming";
+      vi.mocked(platform).mockReturnValue("win32");
+
+      expect(resolveDotweaveSyncDirectoryFromEnv()).toBe(
+        resolve("C:\\Users\\test\\AppData\\Roaming", "dotweave", "repository"),
       );
     });
   });

@@ -4,7 +4,10 @@ import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 const mockEnv = vi.hoisted(() => ({
+  APPDATA: "",
   HOME: "",
+  LOCALAPPDATA: "",
+  USERPROFILE: "",
   XDG_CONFIG_HOME: "",
 }));
 
@@ -36,11 +39,20 @@ const createWorkspace = async () => {
 };
 
 const setEnvironment = (homeDirectory: string, xdgConfigHome: string) => {
+  mockEnv.APPDATA = xdgConfigHome;
   mockEnv.HOME = homeDirectory;
+  mockEnv.LOCALAPPDATA = join(homeDirectory, "AppData", "Local");
+  mockEnv.USERPROFILE = homeDirectory;
   mockEnv.XDG_CONFIG_HOME = xdgConfigHome;
 };
 
 afterEach(async () => {
+  mockEnv.APPDATA = "";
+  mockEnv.HOME = "";
+  mockEnv.LOCALAPPDATA = "";
+  mockEnv.USERPROFILE = "";
+  mockEnv.XDG_CONFIG_HOME = "";
+
   while (temporaryDirectories.length > 0) {
     const directory = temporaryDirectories.pop();
 
