@@ -3,7 +3,7 @@ title: 시작하기
 description: dotweave를 설치하고 첫 동기화를 설정해 보세요.
 ---
 
-import { Aside, Steps } from "@astrojs/starlight/components";
+import { Aside, Steps, TabItem, Tabs } from "@astrojs/starlight/components";
 
 ## 사전 준비
 
@@ -13,15 +13,31 @@ import { Aside, Steps } from "@astrojs/starlight/components";
 
 ## 설치
 
-Windows에서는 Microsoft Store 등록이 공개된 뒤 Store에서 설치하세요. 수동으로
-사용할 수 있는 portable Windows `.exe` 파일은 GitHub Releases에 계속
-첨부돼요.
+<Tabs>
+  <TabItem label="Windows">
 
-macOS, Linux, WSL 또는 cross-platform fallback으로는 npm을 사용할 수 있어요:
+    ```powershell
+    winget install tinyrack.dotweave
+    ```
 
-```bash
-npm install -g @tinyrack/dotweave
-```
+  </TabItem>
+  <TabItem label="macOS / Linux">
+
+    ```bash
+    brew install tinyrack-net/tap/dotweave
+    ```
+
+  </TabItem>
+  <TabItem label="npm">
+
+    npm은 모든 플랫폼에서 사용할 수 있고, cross-platform fallback으로도 사용할 수 있어요.
+
+    ```bash
+    npm install -g @tinyrack/dotweave
+    ```
+
+  </TabItem>
+</Tabs>
 
 ---
 

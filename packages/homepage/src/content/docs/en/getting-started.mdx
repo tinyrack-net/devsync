@@ -3,7 +3,7 @@ title: Getting Started
 description: Install dotweave and set up your first sync in a few minutes.
 ---
 
-import { Aside, Steps } from "@astrojs/starlight/components";
+import { Aside, Steps, TabItem, Tabs } from "@astrojs/starlight/components";
 
 ## Prerequisites
 
@@ -13,15 +13,31 @@ import { Aside, Steps } from "@astrojs/starlight/components";
 
 ## Installation
 
-On Windows, install dotweave from the Microsoft Store once the listing is live.
-Portable Windows `.exe` files remain available from GitHub Releases for manual
-use.
+<Tabs>
+  <TabItem label="Windows">
 
-On macOS, Linux, WSL, or as a cross-platform fallback:
+    ```powershell
+    winget install tinyrack.dotweave
+    ```
 
-```bash
-npm install -g @tinyrack/dotweave
-```
+  </TabItem>
+  <TabItem label="macOS / Linux">
+
+    ```bash
+    brew install tinyrack-net/tap/dotweave
+    ```
+
+  </TabItem>
+  <TabItem label="npm">
+
+    npm works on every platform and can be used as a cross-platform fallback.
+
+    ```bash
+    npm install -g @tinyrack/dotweave
+    ```
+
+  </TabItem>
+</Tabs>
 
 ---
 
