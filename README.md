@@ -27,12 +27,31 @@ Most dotfiles tools start from the repository and ask you to shape your local sy
 - **Platform-specific paths** across Windows, macOS, Linux, and WSL
 - **Dry-run previews** for both push and pull directions
 
+## Installation
+
+### Windows
+
+```powershell
+winget install tinyrack.dotweave
+```
+
+### macOS / Linux
+
+```bash
+brew install tinyrack-net/tap/dotweave
+```
+
+### npm
+
+Use npm on any platform, or as a cross-platform fallback.
+
+```bash
+npm install -g @tinyrack/dotweave
+```
+
 ## Quick Start
 
 ```bash
-# Install with npm on macOS, Linux, WSL, or as a cross-platform fallback
-npm install -g @tinyrack/dotweave
-
 # Initialize
 dotweave init
 
@@ -44,10 +63,6 @@ dotweave track ~/.ssh/config --mode secret
 # Push local state to sync repo
 dotweave push
 ```
-
-On Windows, install dotweave from the Microsoft Store once the listing is live.
-Portable Windows `.exe` files remain attached to GitHub Releases for manual
-use.
 
 ## Documentation
 
