@@ -118,16 +118,17 @@ export const listProfiles = async (): Promise<ProfileListResult> => {
     readSyncConfig(syncDirectory, context),
   ]);
   const availableProfiles = availableProfilesForConfig(syncConfig);
-  const activeProfile = globalConfig?.activeProfile;
-  const activeProfileWarning =
-    activeProfile !== undefined && !availableProfiles.includes(activeProfile)
-      ? `Active profile '${activeProfile}' is not registered in ${AppConstants.SYNC.CONFIG_FILE_NAME}.`
-      : undefined;
+  const activeProfile =
+    globalConfig?.activeProfile ?? AppConstants.SYNC.DEFAULT_PROFILE;
+  const activeProfileWarning = !availableProfiles.includes(activeProfile)
+    ? `Active profile '${activeProfile}' is not registered in ${AppConstants.SYNC.CONFIG_FILE_NAME}.`
+    : undefined;
 
   return {
-    ...(activeProfile === undefined ? {} : { activeProfile }),
+    activeProfile,
     ...(activeProfileWarning === undefined ? {} : { activeProfileWarning }),
-    activeProfileMode: activeProfile === undefined ? "none" : "single",
+    activeProfileMode:
+      globalConfig?.activeProfile === undefined ? "none" : "single",
     assignments: syncConfig.entries
       .filter((entry) => entry.profilesExplicit && entry.profiles.length > 0)
       .map((entry) => ({

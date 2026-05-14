@@ -572,6 +572,23 @@ describe("CLI command modules", () => {
     );
   });
 
+  it("marks default active when listing profiles without an explicit active profile", async () => {
+    mocked.listProfiles.mockResolvedValueOnce({
+      activeProfile: "default",
+      activeProfileMode: "none",
+      assignments: [],
+      availableProfiles: ["default", "work"],
+      globalConfigExists: false,
+      globalConfigPath: "/tmp/global-config.json",
+    });
+
+    await runCommand(profileListCommand, {});
+
+    expect(mockLogger.list).toHaveBeenCalledWith(["default (active)", "work"], {
+      highlightLast: false,
+    });
+  });
+
   it("passes pull, push, and status flags through with a shared reporter", async () => {
     await runCommand(pullCommand, {
       dryRun: true,

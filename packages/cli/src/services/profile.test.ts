@@ -158,8 +158,31 @@ describe("sync profiles service", () => {
     expect(mocked.requireGitRepository).toHaveBeenCalledWith("/tmp/dotweave");
   });
 
-  it("reports no active profile when the global config is absent", async () => {
+  it("uses default as the effective active profile when the global config is absent", async () => {
     mocked.readGlobalDotweaveConfig.mockResolvedValueOnce(undefined);
+    mocked.readSyncConfig.mockResolvedValueOnce({
+      profiles: [],
+      entries: [
+        {
+          localPath: "/tmp/home/.bashrc",
+          profiles: [],
+          profilesExplicit: false,
+          repoPath: ".bashrc",
+        },
+      ],
+    });
+
+    const result = await listProfiles();
+
+    expect(result.activeProfile).toBe("default");
+    expect(result.activeProfileMode).toBe("none");
+    expect(result.availableProfiles).toEqual(["default"]);
+    expect(result.globalConfigExists).toBe(false);
+    expect(result.assignments).toEqual([]);
+  });
+
+  it("uses default as the effective active profile when activeProfile is omitted", async () => {
+    mocked.readGlobalDotweaveConfig.mockResolvedValueOnce({ version: 3 });
     mocked.readSyncConfig.mockResolvedValueOnce({
       profiles: [],
       entries: [],
@@ -167,10 +190,9 @@ describe("sync profiles service", () => {
 
     const result = await listProfiles();
 
-    expect(result.activeProfile).toBeUndefined();
+    expect(result.activeProfile).toBe("default");
     expect(result.activeProfileMode).toBe("none");
-    expect(result.globalConfigExists).toBe(false);
-    expect(result.assignments).toEqual([]);
+    expect(result.globalConfigExists).toBe(true);
   });
 
   it("warns when the active profile is not registered", async () => {
