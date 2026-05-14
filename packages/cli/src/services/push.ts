@@ -10,7 +10,7 @@ import {
   buildRepoArtifacts,
   collectArtifactLeafKeys,
   collectExistingArtifactKeys,
-  entryOwnsArtifact,
+  nearestEntryOwnsArtifact,
   parseArtifactRelativePath,
   type RepoArtifact,
   resolveArtifactRelativePath,
@@ -189,9 +189,11 @@ const collectStaleReplacementDirectoryRoots = async (
     }
 
     const parsedRoot = parseArtifactRelativePath(relativePath);
-    const inactiveDirectoryOwner = ownershipConfig.entries.some((entry) => {
-      return entry.kind === "directory" && entryOwnsArtifact(entry, parsedRoot);
-    });
+    const inactiveDirectoryOwner = nearestEntryOwnsArtifact(
+      ownershipConfig.entries,
+      parsedRoot,
+      "directory",
+    );
 
     if (inactiveDirectoryOwner) {
       protectedArtifactKeys.add(buildArtifactKey(artifact));

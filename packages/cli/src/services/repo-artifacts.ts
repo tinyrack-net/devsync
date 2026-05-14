@@ -1,5 +1,7 @@
+import { execFile } from "node:child_process";
 import { lstat, mkdir, readFile, readlink } from "node:fs/promises";
 import { join } from "node:path";
+import { promisify } from "node:util";
 import { AppConstants } from "#app/config/constants.ts";
 import {
   findOwningSyncEntry,
@@ -7,6 +9,7 @@ import {
 } from "#app/config/sync-queries.ts";
 import {
   hasReservedSyncArtifactSuffixSegment,
+  normalizeSyncProfileName,
   normalizeSyncRepoPath,
   type ResolvedSyncConfig,
   type ResolvedSyncConfigEntry,
@@ -27,6 +30,7 @@ import {
   writeFileNode,
   writeSymlinkNode,
 } from "#app/lib/filesystem.ts";
+import { parseJsonc } from "#app/lib/jsonc.ts";
 import {
   buildDirectoryKey,
   isPathEqualOrNested,
@@ -37,6 +41,7 @@ import type { SnapshotNode } from "./local-snapshot.ts";
 import type { EffectiveSyncConfig } from "./sync-context.ts";
 
 type ArtifactConfig = EffectiveSyncConfig;
+const execFileAsync = promisify(execFile);
 
 const entryOwnsArtifactProfile = (
   entry: Pick<ResolvedSyncConfigEntry, "profiles">,
@@ -94,6 +99,84 @@ export const collectArtifactProfiles = (
   return profiles;
 };
 
+const isRecord = (value: unknown): value is Record<string, unknown> => {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+};
+
+const isRawCommittedProfileName = (profile: string) => {
+  try {
+    return normalizeSyncProfileName(profile) === profile;
+  } catch {
+    return false;
+  }
+};
+
+const collectRawManifestProfiles = (manifest: unknown) => {
+  const profiles = new Set<string>();
+
+  if (!isRecord(manifest)) {
+    return profiles;
+  }
+
+  const manifestRecord = manifest as {
+    entries?: unknown;
+    profiles?: unknown;
+  };
+  const registeredProfiles = manifestRecord.profiles;
+
+  if (Array.isArray(registeredProfiles)) {
+    for (const profile of registeredProfiles) {
+      if (typeof profile === "string" && isRawCommittedProfileName(profile)) {
+        profiles.add(profile);
+      }
+    }
+  }
+
+  const entries = manifestRecord.entries;
+
+  if (Array.isArray(entries)) {
+    for (const entry of entries) {
+      if (!isRecord(entry)) {
+        continue;
+      }
+
+      const entryRecord = entry as { profiles?: unknown };
+
+      if (!Array.isArray(entryRecord.profiles)) {
+        continue;
+      }
+
+      for (const profile of entryRecord.profiles) {
+        if (typeof profile === "string" && isRawCommittedProfileName(profile)) {
+          profiles.add(profile);
+        }
+      }
+    }
+  }
+
+  profiles.add(AppConstants.SYNC.DEFAULT_PROFILE);
+
+  return profiles;
+};
+
+const readCommittedProfileRegistry = async (syncDirectory: string) => {
+  try {
+    const { stdout } = await execFileAsync(
+      "git",
+      ["show", `HEAD:${AppConstants.SYNC.CONFIG_FILE_NAME}`],
+      {
+        cwd: syncDirectory,
+        encoding: "utf8",
+        maxBuffer: 10_000_000,
+      },
+    );
+
+    return collectRawManifestProfiles(parseJsonc(stdout));
+  } catch {
+    return undefined;
+  }
+};
+
 const collectConfiguredRepoPathVariants = (
   entry: Pick<ResolvedSyncConfigEntry, "configuredRepoPath" | "repoPath">,
 ) => {
@@ -118,6 +201,70 @@ const entryOwnsArtifactPath = (
       ? isPathEqualOrNested(repoPath, candidate)
       : repoPath === candidate;
   });
+};
+
+const collectEntryRepoPathVariants = (
+  entry: Pick<ResolvedSyncConfigEntry, "configuredRepoPath" | "repoPath">,
+) => {
+  return collectConfiguredRepoPathVariants(entry).map((repoPath) => ({
+    depth: repoPath.split("/").length,
+    repoPath,
+  }));
+};
+
+const entryCompatibleWithArtifact = (
+  entry: Pick<
+    ResolvedSyncConfigEntry,
+    "configuredRepoPath" | "kind" | "repoPath"
+  >,
+  artifact: ReturnType<typeof parseArtifactRelativePath>,
+  artifactKind: "directory" | "file",
+) => {
+  return collectConfiguredRepoPathVariants(entry).some((candidate) => {
+    if (entry.kind === "directory") {
+      return isPathEqualOrNested(artifact.repoPath, candidate);
+    }
+
+    return artifactKind === "file" && artifact.repoPath === candidate;
+  });
+};
+
+export const nearestEntryOwnsArtifact = (
+  entries: readonly Pick<
+    ResolvedSyncConfigEntry,
+    "configuredRepoPath" | "kind" | "profiles" | "repoPath"
+  >[],
+  artifact: ReturnType<typeof parseArtifactRelativePath>,
+  artifactKind: "directory" | "file",
+) => {
+  let nearestEntry:
+    | Pick<
+        ResolvedSyncConfigEntry,
+        "configuredRepoPath" | "kind" | "profiles" | "repoPath"
+      >
+    | undefined;
+  let nearestDepth = -1;
+
+  for (const entry of entries) {
+    if (!entryOwnsArtifactProfile(entry, artifact.profile)) {
+      continue;
+    }
+
+    for (const variant of collectEntryRepoPathVariants(entry)) {
+      if (!isPathEqualOrNested(artifact.repoPath, variant.repoPath)) {
+        continue;
+      }
+
+      if (variant.depth > nearestDepth) {
+        nearestDepth = variant.depth;
+        nearestEntry = entry;
+      }
+    }
+  }
+
+  return nearestEntry === undefined
+    ? false
+    : entryCompatibleWithArtifact(nearestEntry, artifact, artifactKind);
 };
 
 export const entryOwnsArtifact = (
@@ -385,6 +532,14 @@ export const collectExistingArtifactKeys = async (
   const keys = new Set<string>();
   const artifactProfiles = collectArtifactProfiles(ownershipConfig);
 
+  const committedProfiles = await readCommittedProfileRegistry(syncDirectory);
+
+  if (committedProfiles !== undefined) {
+    for (const profile of committedProfiles) {
+      artifactProfiles.add(profile);
+    }
+  }
+
   await Promise.all(
     [...artifactProfiles].map(async (profile) => {
       await collectArtifactLeafKeys(
@@ -410,9 +565,7 @@ export const collectExistingArtifactKeys = async (
 
     if (
       isDirectoryKey &&
-      ownershipConfig.entries.some((entry) => {
-        return entry.kind === "directory" && entryOwnsArtifact(entry, artifact);
-      })
+      nearestEntryOwnsArtifact(ownershipConfig.entries, artifact, "directory")
     ) {
       keys.delete(key);
       continue;
@@ -430,9 +583,7 @@ export const collectExistingArtifactKeys = async (
 
     if (
       !isDirectoryKey &&
-      ownershipConfig.entries.some((entry) => {
-        return entryOwnsArtifact(entry, artifact);
-      })
+      nearestEntryOwnsArtifact(ownershipConfig.entries, artifact, "file")
     ) {
       keys.delete(key);
     }

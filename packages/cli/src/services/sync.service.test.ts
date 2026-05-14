@@ -2457,6 +2457,599 @@ describe("sync service", () => {
     await expect(lstat(artifactPath)).rejects.toThrow();
   });
 
+  it("status and push prune artifacts from profile namespaces removed from the manifest", async () => {
+    const workspace = await createWorkspace();
+    const homeDirectory = join(workspace, "home");
+    const xdgConfigHome = join(workspace, "xdg");
+    const gitconfig = join(homeDirectory, ".gitconfig");
+    const emptyDirectory = join(
+      homeDirectory,
+      ".config",
+      "removed-profile-empty",
+    );
+    const ageKeys = await createAgeKeyPair();
+    setEnvironment(homeDirectory, xdgConfigHome);
+
+    await writeIdentityFile(xdgConfigHome, ageKeys.identity);
+    await mkdir(emptyDirectory, { recursive: true });
+    await writeFile(gitconfig, "[user]\n  name = Removed\n");
+
+    await initializeSyncDirectory({
+      identityFile: "$XDG_CONFIG_HOME/dotweave/keys.txt",
+      recipients: [ageKeys.recipient],
+    });
+
+    const manifestPath = join(
+      xdgConfigHome,
+      "dotweave",
+      "repository",
+      "manifest.jsonc",
+    );
+
+    await writeFile(
+      manifestPath,
+      JSON.stringify(
+        {
+          version: 8,
+          age: { recipients: [ageKeys.recipient] },
+          profiles: ["work"],
+          entries: [
+            {
+              kind: "file",
+              localPath: { default: "~/.gitconfig" },
+              mode: { default: "normal" },
+              profiles: ["work"],
+            },
+            {
+              kind: "directory",
+              localPath: { default: "~/.config/removed-profile-empty" },
+              repoPath: { default: ".config/removed-profile-empty" },
+              mode: { default: "normal" },
+              profiles: ["work"],
+            },
+          ],
+        },
+        null,
+        2,
+      ),
+      "utf8",
+    );
+
+    await pushChanges({ dryRun: false, profile: "work" });
+
+    const fileArtifactPath = join(
+      xdgConfigHome,
+      "dotweave",
+      "repository",
+      "work",
+      ".gitconfig",
+    );
+    const emptyDirectoryArtifactPath = join(
+      xdgConfigHome,
+      "dotweave",
+      "repository",
+      "work",
+      ".config",
+      "removed-profile-empty",
+    );
+    expect(await readFile(fileArtifactPath, "utf8")).toBe(
+      "[user]\n  name = Removed\n",
+    );
+    expect((await lstat(emptyDirectoryArtifactPath)).isDirectory()).toBe(true);
+
+    const syncDirectory = join(xdgConfigHome, "dotweave", "repository");
+
+    await runGit(["add", "."], syncDirectory);
+    await runGit(
+      ["commit", "-m", "store work profile artifacts"],
+      syncDirectory,
+    );
+
+    await writeFile(
+      manifestPath,
+      JSON.stringify(
+        {
+          version: 8,
+          age: { recipients: [ageKeys.recipient] },
+          profiles: [],
+          entries: [],
+        },
+        null,
+        2,
+      ),
+      "utf8",
+    );
+
+    const status = await getStatus();
+    const dryRunResult = await pushChanges({ dryRun: true });
+    const result = await pushChanges({ dryRun: false });
+
+    expect(status.push.changes.deleted).toEqual([
+      "work/.config/removed-profile-empty/",
+      "work/.gitconfig",
+    ]);
+    expect(status.push.deletedArtifactCount).toBe(2);
+    expect(status.push.preview).toEqual([
+      "work/.config/removed-profile-empty/",
+      "work/.gitconfig",
+    ]);
+    expect(dryRunResult.deletedArtifactCount).toBe(2);
+    expect(result.deletedArtifactCount).toBe(2);
+    await expect(lstat(fileArtifactPath)).rejects.toThrow();
+    await expect(lstat(emptyDirectoryArtifactPath)).rejects.toThrow();
+  });
+
+  it("ignores repository support directories when pruning removed profile namespaces", async () => {
+    const workspace = await createWorkspace();
+    const homeDirectory = join(workspace, "home");
+    const xdgConfigHome = join(workspace, "xdg");
+    const gitconfig = join(homeDirectory, ".gitconfig");
+    const ageKeys = await createAgeKeyPair();
+    setEnvironment(homeDirectory, xdgConfigHome);
+
+    await writeIdentityFile(xdgConfigHome, ageKeys.identity);
+    await mkdir(homeDirectory, { recursive: true });
+    await writeFile(gitconfig, "[user]\n  name = Removed\n");
+
+    await initializeSyncDirectory({
+      identityFile: "$XDG_CONFIG_HOME/dotweave/keys.txt",
+      recipients: [ageKeys.recipient],
+    });
+
+    const manifestPath = join(
+      xdgConfigHome,
+      "dotweave",
+      "repository",
+      "manifest.jsonc",
+    );
+
+    await writeFile(
+      manifestPath,
+      JSON.stringify(
+        {
+          version: 8,
+          age: { recipients: [ageKeys.recipient] },
+          profiles: ["work"],
+          entries: [
+            {
+              kind: "file",
+              localPath: { default: "~/.gitconfig" },
+              mode: { default: "normal" },
+              profiles: ["work"],
+            },
+          ],
+        },
+        null,
+        2,
+      ),
+      "utf8",
+    );
+
+    await pushChanges({ dryRun: false, profile: "work" });
+
+    const syncDirectory = join(xdgConfigHome, "dotweave", "repository");
+
+    await runGit(["add", "."], syncDirectory);
+    await runGit(
+      ["commit", "-m", "store work profile artifacts"],
+      syncDirectory,
+    );
+
+    const workflowPath = join(
+      xdgConfigHome,
+      "dotweave",
+      "repository",
+      ".github",
+      "workflows",
+      "ci.yml",
+    );
+    await mkdir(join(workflowPath, ".."), { recursive: true });
+    await writeFile(workflowPath, "name: CI\n");
+
+    const docsPath = join(
+      xdgConfigHome,
+      "dotweave",
+      "repository",
+      "docs",
+      "index.md",
+    );
+    const scriptPath = join(
+      xdgConfigHome,
+      "dotweave",
+      "repository",
+      "scripts",
+      "bootstrap.sh",
+    );
+    const removedProfileArtifactPath = join(
+      xdgConfigHome,
+      "dotweave",
+      "repository",
+      "work",
+      ".gitconfig",
+    );
+
+    await mkdir(join(docsPath, ".."), { recursive: true });
+    await mkdir(join(scriptPath, ".."), { recursive: true });
+    await writeFile(docsPath, "# Docs\n");
+    await writeFile(scriptPath, "#!/usr/bin/env sh\n");
+
+    await writeFile(
+      manifestPath,
+      JSON.stringify(
+        {
+          version: 8,
+          age: { recipients: [ageKeys.recipient] },
+          profiles: [],
+          entries: [],
+        },
+        null,
+        2,
+      ),
+      "utf8",
+    );
+
+    const status = await getStatus();
+    const dryRunResult = await pushChanges({ dryRun: true });
+    const result = await pushChanges({ dryRun: false });
+
+    expect(status.push.changes.deleted).toEqual(["work/.gitconfig"]);
+    expect(status.push.changes.deleted).not.toContain("docs/index.md");
+    expect(status.push.changes.deleted).not.toContain("scripts/bootstrap.sh");
+    expect(status.push.deletedArtifactCount).toBe(1);
+    expect(status.push.preview).toEqual(["work/.gitconfig"]);
+    expect(dryRunResult.deletedArtifactCount).toBe(1);
+    expect(result.deletedArtifactCount).toBe(1);
+    await expect(readFile(workflowPath, "utf8")).resolves.toBe("name: CI\n");
+    await expect(readFile(docsPath, "utf8")).resolves.toBe("# Docs\n");
+    await expect(readFile(scriptPath, "utf8")).resolves.toBe(
+      "#!/usr/bin/env sh\n",
+    );
+    await expect(lstat(removedProfileArtifactPath)).rejects.toThrow();
+  });
+
+  it("ignores invalid committed profile namespaces when pruning removed profile artifacts", async () => {
+    const workspace = await createWorkspace();
+    const homeDirectory = join(workspace, "home");
+    const xdgConfigHome = join(workspace, "xdg");
+    const gitconfig = join(homeDirectory, ".gitconfig");
+    const ageKeys = await createAgeKeyPair();
+    setEnvironment(homeDirectory, xdgConfigHome);
+
+    await writeIdentityFile(xdgConfigHome, ageKeys.identity);
+    await mkdir(homeDirectory, { recursive: true });
+    await writeFile(gitconfig, "[user]\n  name = Removed\n");
+
+    await initializeSyncDirectory({
+      identityFile: "$XDG_CONFIG_HOME/dotweave/keys.txt",
+      recipients: [ageKeys.recipient],
+    });
+
+    const syncDirectory = join(xdgConfigHome, "dotweave", "repository");
+    const manifestPath = join(syncDirectory, "manifest.jsonc");
+
+    await writeFile(
+      manifestPath,
+      JSON.stringify(
+        {
+          version: 8,
+          age: { recipients: [ageKeys.recipient] },
+          profiles: ["work"],
+          entries: [
+            {
+              kind: "file",
+              localPath: { default: "~/.gitconfig" },
+              mode: { default: "normal" },
+              profiles: ["work"],
+            },
+          ],
+        },
+        null,
+        2,
+      ),
+      "utf8",
+    );
+
+    await pushChanges({ dryRun: false, profile: "work" });
+
+    const removedProfileArtifactPath = join(
+      syncDirectory,
+      "work",
+      ".gitconfig",
+    );
+    const outsideDocsPath = join(syncDirectory, "..", "docs", "index.md");
+    const workflowPath = join(syncDirectory, ".github", "workflows", "ci.yml");
+
+    await mkdir(join(outsideDocsPath, ".."), { recursive: true });
+    await mkdir(join(workflowPath, ".."), { recursive: true });
+    await writeFile(outsideDocsPath, "# Outside docs\n");
+    await writeFile(workflowPath, "name: CI\n");
+    await writeFile(
+      manifestPath,
+      JSON.stringify(
+        {
+          version: 8,
+          age: { recipients: [ageKeys.recipient] },
+          profiles: ["work", "..", "../docs", ".github"],
+          entries: [
+            {
+              kind: "file",
+              localPath: { default: "~/.gitconfig" },
+              mode: { default: "normal" },
+              profiles: ["work"],
+            },
+            {
+              kind: "file",
+              localPath: { default: "~/.ignored" },
+              mode: { default: "normal" },
+              profiles: ["../docs"],
+            },
+          ],
+        },
+        null,
+        2,
+      ),
+      "utf8",
+    );
+
+    await runGit(["add", "."], syncDirectory);
+    await runGit(
+      ["commit", "-m", "store invalid committed profiles"],
+      syncDirectory,
+    );
+
+    await writeFile(
+      manifestPath,
+      JSON.stringify(
+        {
+          version: 8,
+          age: { recipients: [ageKeys.recipient] },
+          profiles: [],
+          entries: [],
+        },
+        null,
+        2,
+      ),
+      "utf8",
+    );
+
+    const status = await getStatus();
+    const dryRunResult = await pushChanges({ dryRun: true });
+    const result = await pushChanges({ dryRun: false });
+
+    expect(status.push.changes.deleted).toEqual(["work/.gitconfig"]);
+    expect(status.push.deletedArtifactCount).toBe(1);
+    expect(status.push.preview).toEqual(["work/.gitconfig"]);
+    expect(dryRunResult.deletedArtifactCount).toBe(1);
+    expect(result.deletedArtifactCount).toBe(1);
+    await expect(lstat(removedProfileArtifactPath)).rejects.toThrow();
+    await expect(readFile(outsideDocsPath, "utf8")).resolves.toBe(
+      "# Outside docs\n",
+    );
+    await expect(readFile(workflowPath, "utf8")).resolves.toBe("name: CI\n");
+  });
+
+  it("replaces a stale child directory with a file while the parent directory remains configured", async () => {
+    const workspace = await createWorkspace();
+    const homeDirectory = join(workspace, "home");
+    const xdgConfigHome = join(workspace, "xdg");
+    const parentDirectory = join(homeDirectory, ".config", "overlap-file");
+    const childDirectory = join(parentDirectory, "child");
+    const replacementFile = join(homeDirectory, ".overlap-file-child");
+    const ageKeys = await createAgeKeyPair();
+    setEnvironment(homeDirectory, xdgConfigHome);
+
+    await writeIdentityFile(xdgConfigHome, ageKeys.identity);
+    await mkdir(childDirectory, { recursive: true });
+    await writeFile(join(childDirectory, "settings.json"), '{"stale":true}\n');
+    await writeFile(replacementFile, "replacement file\n");
+
+    await initializeSyncDirectory({
+      identityFile: "$XDG_CONFIG_HOME/dotweave/keys.txt",
+      recipients: [ageKeys.recipient],
+    });
+
+    const manifestPath = join(
+      xdgConfigHome,
+      "dotweave",
+      "repository",
+      "manifest.jsonc",
+    );
+
+    await writeFile(
+      manifestPath,
+      JSON.stringify(
+        {
+          version: 8,
+          age: { recipients: [ageKeys.recipient] },
+          entries: [
+            {
+              kind: "directory",
+              localPath: { default: "~/.config/overlap-file" },
+              repoPath: { default: "apps/overlap-file" },
+              mode: { default: "normal" },
+            },
+            {
+              kind: "directory",
+              localPath: { default: "~/.config/overlap-file/child" },
+              repoPath: { default: "apps/overlap-file/child" },
+              mode: { default: "normal" },
+            },
+          ],
+        },
+        null,
+        2,
+      ),
+      "utf8",
+    );
+
+    await pushChanges({ dryRun: false });
+
+    const artifactPath = join(
+      xdgConfigHome,
+      "dotweave",
+      "repository",
+      "default",
+      "apps",
+      "overlap-file",
+      "child",
+    );
+    expect(await readFile(join(artifactPath, "settings.json"), "utf8")).toBe(
+      '{"stale":true}\n',
+    );
+
+    await rm(childDirectory, { recursive: true });
+    await writeFile(
+      manifestPath,
+      JSON.stringify(
+        {
+          version: 8,
+          age: { recipients: [ageKeys.recipient] },
+          entries: [
+            {
+              kind: "directory",
+              localPath: { default: "~/.config/overlap-file" },
+              repoPath: { default: "apps/overlap-file" },
+              mode: { default: "normal" },
+            },
+            {
+              kind: "file",
+              localPath: { default: "~/.overlap-file-child" },
+              repoPath: { default: "apps/overlap-file/child" },
+              mode: { default: "normal" },
+            },
+          ],
+        },
+        null,
+        2,
+      ),
+      "utf8",
+    );
+
+    const status = await getStatus();
+    const dryRunResult = await pushChanges({ dryRun: true });
+    const result = await pushChanges({ dryRun: false });
+
+    expect(status.push.changes.deleted).toContain(
+      "default/apps/overlap-file/child/settings.json",
+    );
+    expect(dryRunResult.deletedArtifactCount).toBe(1);
+    expect(result.deletedArtifactCount).toBe(1);
+    expect((await lstat(artifactPath)).isFile()).toBe(true);
+    expect(await readFile(artifactPath, "utf8")).toBe("replacement file\n");
+  });
+
+  it("replaces a stale child directory with a symlink while the parent directory remains configured", async () => {
+    const workspace = await createWorkspace();
+    const homeDirectory = join(workspace, "home");
+    const xdgConfigHome = join(workspace, "xdg");
+    const parentDirectory = join(homeDirectory, ".config", "overlap-link");
+    const childDirectory = join(parentDirectory, "child");
+    const linkTarget = join(homeDirectory, ".overlap-link-target");
+    const replacementLink = join(homeDirectory, ".overlap-link-child");
+    const ageKeys = await createAgeKeyPair();
+    setEnvironment(homeDirectory, xdgConfigHome);
+
+    await writeIdentityFile(xdgConfigHome, ageKeys.identity);
+    await mkdir(childDirectory, { recursive: true });
+    await writeFile(join(childDirectory, "settings.json"), '{"stale":true}\n');
+    await writeFile(linkTarget, "replacement link target\n");
+    await createSymlink(".overlap-link-target", replacementLink);
+
+    await initializeSyncDirectory({
+      identityFile: "$XDG_CONFIG_HOME/dotweave/keys.txt",
+      recipients: [ageKeys.recipient],
+    });
+
+    const manifestPath = join(
+      xdgConfigHome,
+      "dotweave",
+      "repository",
+      "manifest.jsonc",
+    );
+
+    await writeFile(
+      manifestPath,
+      JSON.stringify(
+        {
+          version: 8,
+          age: { recipients: [ageKeys.recipient] },
+          entries: [
+            {
+              kind: "directory",
+              localPath: { default: "~/.config/overlap-link" },
+              repoPath: { default: "apps/overlap-link" },
+              mode: { default: "normal" },
+            },
+            {
+              kind: "directory",
+              localPath: { default: "~/.config/overlap-link/child" },
+              repoPath: { default: "apps/overlap-link/child" },
+              mode: { default: "normal" },
+            },
+          ],
+        },
+        null,
+        2,
+      ),
+      "utf8",
+    );
+
+    await pushChanges({ dryRun: false });
+
+    const artifactPath = join(
+      xdgConfigHome,
+      "dotweave",
+      "repository",
+      "default",
+      "apps",
+      "overlap-link",
+      "child",
+    );
+    expect(await readFile(join(artifactPath, "settings.json"), "utf8")).toBe(
+      '{"stale":true}\n',
+    );
+
+    await rm(childDirectory, { recursive: true });
+    await writeFile(
+      manifestPath,
+      JSON.stringify(
+        {
+          version: 8,
+          age: { recipients: [ageKeys.recipient] },
+          entries: [
+            {
+              kind: "directory",
+              localPath: { default: "~/.config/overlap-link" },
+              repoPath: { default: "apps/overlap-link" },
+              mode: { default: "normal" },
+            },
+            {
+              kind: "file",
+              localPath: { default: "~/.overlap-link-child" },
+              repoPath: { default: "apps/overlap-link/child" },
+              mode: { default: "normal" },
+            },
+          ],
+        },
+        null,
+        2,
+      ),
+      "utf8",
+    );
+
+    const status = await getStatus();
+    const dryRunResult = await pushChanges({ dryRun: true });
+    const result = await pushChanges({ dryRun: false });
+
+    expect(status.push.changes.deleted).toContain(
+      "default/apps/overlap-link/child/settings.json",
+    );
+    expect(dryRunResult.deletedArtifactCount).toBe(1);
+    expect(result.deletedArtifactCount).toBe(1);
+    expect((await lstat(artifactPath)).isSymbolicLink()).toBe(true);
+    expect(await readlink(artifactPath)).toBe(".overlap-link-target");
+  });
+
   it("restores file permission from entry permission on pull", async () => {
     if (process.platform === "win32") {
       return;
