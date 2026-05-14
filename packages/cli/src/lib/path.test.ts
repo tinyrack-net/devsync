@@ -8,6 +8,7 @@ import {
   isExplicitLocalPath,
   isPathEqualOrNested,
   normalizeLinkTarget,
+  normalizeLinkTargetWithDependencies,
 } from "#app/lib/path.ts";
 
 describe("path helpers", () => {
@@ -86,6 +87,103 @@ describe("path helpers", () => {
               .toLowerCase()
           : "/home/user/script.sh";
       expect(normalizeLinkTarget("./script.sh", "/home/user")).toBe(expected);
+    });
+
+    it("returns resolved targets unchanged for non-windows platforms", () => {
+      expect(
+        normalizeLinkTargetWithDependencies("../bin/python3", "/opt/app/venv", {
+          platform: "linux",
+          isAbsolutePath: (path) => path.startsWith("/"),
+          resolvePath: (...paths) => paths.join("/").replace("venv/../", ""),
+        }),
+      ).toBe("/opt/app/bin/python3");
+    });
+
+    it("normalizes windows realpath results", () => {
+      expect(
+        normalizeLinkTargetWithDependencies(
+          "C:\\Users\\Me\\File.txt",
+          undefined,
+          {
+            platform: "win32",
+            isAbsolutePath: (path) => /^[a-z]:/i.test(path),
+            realpathSyncNative: () => "C:\\Users\\ME\\File.txt",
+          },
+        ),
+      ).toBe("c:/users/me/file.txt");
+    });
+
+    it("falls back to parent realpath plus basename for missing windows targets with baseDir", () => {
+      const realpathSyncNative = (path: string) => {
+        if (path === "C:\\Users\\Me\\missing.txt") {
+          throw new Error("missing target");
+        }
+
+        expect(path).toBe("C:\\Users\\Me");
+        return "C:\\USERS\\Me";
+      };
+
+      expect(
+        normalizeLinkTargetWithDependencies("missing.txt", "C:\\Users\\Me", {
+          platform: "win32",
+          isAbsolutePath: (path) => /^[a-z]:/i.test(path),
+          resolvePath: (...paths) => paths.join("\\"),
+          dirnamePath: (path) => path.slice(0, path.lastIndexOf("\\")),
+          basenamePath: (path) => path.slice(path.lastIndexOf("\\") + 1),
+          joinPath: (...paths) => paths.join("\\"),
+          realpathSyncNative,
+        }),
+      ).toBe("c:/users/me/missing.txt");
+    });
+
+    it("resolves windows root-relative targets before normalization", () => {
+      expect(
+        normalizeLinkTargetWithDependencies("\\Foo\\Bar", undefined, {
+          platform: "win32",
+          isAbsolutePath: (path) => path.startsWith("\\"),
+          resolvePath: (path) => `C:\\Current${path}`,
+          realpathSyncNative: () => {
+            throw new Error("missing target");
+          },
+        }),
+      ).toBe("c:/current/foo/bar");
+    });
+
+    it("does not resolve windows UNC targets as root-relative", () => {
+      expect(
+        normalizeLinkTargetWithDependencies(
+          "\\\\Server\\Share\\File",
+          undefined,
+          {
+            platform: "win32",
+            isAbsolutePath: (path) => path.startsWith("\\\\"),
+            resolvePath: () => {
+              throw new Error(
+                "UNC paths should not be resolved as root-relative",
+              );
+            },
+            realpathSyncNative: () => {
+              throw new Error("missing target");
+            },
+          },
+        ),
+      ).toBe("//server/share/file");
+    });
+
+    it("normalizes missing windows targets without baseDir", () => {
+      expect(
+        normalizeLinkTargetWithDependencies(
+          "C:\\Users\\ME\\Missing.txt",
+          undefined,
+          {
+            platform: "win32",
+            isAbsolutePath: (path) => /^[a-z]:/i.test(path),
+            realpathSyncNative: () => {
+              throw new Error("missing target");
+            },
+          },
+        ),
+      ).toBe("c:/users/me/missing.txt");
     });
   });
 });

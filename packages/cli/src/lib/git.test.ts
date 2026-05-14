@@ -1,3 +1,4 @@
+import { EventEmitter } from "node:events";
 import { rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
@@ -6,6 +7,8 @@ import { DotweaveError } from "#app/lib/error.ts";
 import {
   initializeRepository,
   requireGitRepository,
+  runGitCommandWithDependencies,
+  runStreamingGitCommandWithDependencies,
   verifyIsGitRepository,
 } from "#app/lib/git.ts";
 import {
@@ -23,6 +26,39 @@ const createWorkspace = async () => {
   return directory;
 };
 
+const createGitError = (
+  message: string,
+  output: Readonly<{ stderr?: string; stdout?: string }> = {},
+) => {
+  const error = new Error(message) as Error & {
+    stderr?: string;
+    stdout?: string;
+  };
+
+  error.stderr = output.stderr;
+  error.stdout = output.stdout;
+
+  return error;
+};
+
+const createStreamingChild = () => {
+  const child = new EventEmitter() as EventEmitter & {
+    stderr: EventEmitter & { setEncoding: (encoding: BufferEncoding) => void };
+    stdout: EventEmitter & { setEncoding: (encoding: BufferEncoding) => void };
+  };
+
+  child.stderr = new EventEmitter() as EventEmitter & {
+    setEncoding: (encoding: BufferEncoding) => void;
+  };
+  child.stdout = new EventEmitter() as EventEmitter & {
+    setEncoding: (encoding: BufferEncoding) => void;
+  };
+  child.stderr.setEncoding = () => {};
+  child.stdout.setEncoding = () => {};
+
+  return child;
+};
+
 afterEach(async () => {
   while (temporaryDirectories.length > 0) {
     const directory = temporaryDirectories.pop();
@@ -34,6 +70,103 @@ afterEach(async () => {
 });
 
 describe("git helpers", () => {
+  describe("runGitCommandWithDependencies", () => {
+    it("uses trimmed stderr before stdout or error message", async () => {
+      await expect(
+        runGitCommandWithDependencies(["status"], undefined, {
+          execFileAsync: async () => {
+            throw createGitError("fallback message", {
+              stderr: "  fatal from stderr\n",
+              stdout: "stdout message",
+            });
+          },
+        }),
+      ).rejects.toThrow("fatal from stderr");
+    });
+
+    it("uses stdout when stderr is empty", async () => {
+      await expect(
+        runGitCommandWithDependencies(["status"], undefined, {
+          execFileAsync: async () => {
+            throw createGitError("fallback message", {
+              stderr: "  \n",
+              stdout: " stdout message\n",
+            });
+          },
+        }),
+      ).rejects.toThrow("stdout message");
+    });
+
+    it("uses the error message when stderr and stdout are empty", async () => {
+      await expect(
+        runGitCommandWithDependencies(["status"], undefined, {
+          execFileAsync: async () => {
+            throw createGitError("fallback message", {
+              stderr: "",
+              stdout: "",
+            });
+          },
+        }),
+      ).rejects.toThrow("fallback message");
+    });
+
+    it("uses a stable fallback when a non-Error value is thrown", async () => {
+      await expect(
+        runGitCommandWithDependencies(["status"], undefined, {
+          execFileAsync: async () => {
+            throw "boom";
+          },
+        }),
+      ).rejects.toThrow("git failed.");
+    });
+  });
+
+  describe("runStreamingGitCommandWithDependencies", () => {
+    it("rejects when the child process emits an error", async () => {
+      const child = createStreamingChild();
+
+      setTimeout(() => {
+        child.emit("error", new Error("spawn failed"));
+      }, 0);
+
+      await expect(
+        runStreamingGitCommandWithDependencies(["status"], undefined, {
+          spawnGit: () => child,
+        }),
+      ).rejects.toThrow("spawn failed");
+    });
+
+    it("reports an unknown code when the child process closes without a code", async () => {
+      const child = createStreamingChild();
+
+      setTimeout(() => {
+        child.emit("close", null);
+      }, 0);
+
+      await expect(
+        runStreamingGitCommandWithDependencies(["status"], undefined, {
+          spawnGit: () => child,
+        }),
+      ).rejects.toThrow("git exited with code unknown.");
+    });
+
+    it("uses stderr before stdout when the child process exits non-zero", async () => {
+      const child = createStreamingChild();
+
+      setTimeout(() => {
+        child.stdout.emit("data", "stdout message\n");
+        child.stderr.emit("data", "stderr message\n");
+        child.emit("close", 2);
+      }, 0);
+
+      await expect(
+        runStreamingGitCommandWithDependencies(["status"], undefined, {
+          spawnGit: () => child,
+        }),
+      ).rejects.toThrow("stderr message");
+    });
+  });
+
   it("initializes a repository with a main branch", async () => {
     const workspace = await createWorkspace();
     const repositoryPath = join(workspace, "sync");

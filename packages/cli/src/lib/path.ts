@@ -1,4 +1,12 @@
-import { dirname, isAbsolute, relative, resolve } from "node:path";
+import { realpathSync } from "node:fs";
+import {
+  basename,
+  dirname,
+  isAbsolute,
+  join,
+  relative,
+  resolve,
+} from "node:path";
 
 const homePrefix = "~";
 const posixPathSeparator = "/";
@@ -42,13 +50,37 @@ export const isExplicitLocalPath = (target: string) => {
   );
 };
 
-export const normalizeLinkTarget = (target: string, baseDir?: string) => {
+export type LinkTargetNormalizerPlatform = NodeJS.Platform;
+
+interface NormalizeLinkTargetDependencies {
+  platform?: LinkTargetNormalizerPlatform;
+  realpathSyncNative?: (path: string) => string;
+  resolvePath?: (...paths: string[]) => string;
+  dirnamePath?: (path: string) => string;
+  basenamePath?: (path: string) => string;
+  joinPath?: (...paths: string[]) => string;
+  isAbsolutePath?: (path: string) => boolean;
+}
+
+export const normalizeLinkTargetWithDependencies = (
+  target: string,
+  baseDir: string | undefined,
+  deps: NormalizeLinkTargetDependencies = {},
+) => {
+  const platform = deps.platform ?? process.platform;
+  const realpathSyncNative = deps.realpathSyncNative ?? realpathSync.native;
+  const resolvePath = deps.resolvePath ?? resolve;
+  const dirnamePath = deps.dirnamePath ?? dirname;
+  const basenamePath = deps.basenamePath ?? basename;
+  const joinPath = deps.joinPath ?? join;
+  const isAbsolutePath = deps.isAbsolutePath ?? isAbsolute;
+
   const absoluteTarget =
-    baseDir !== undefined && !isAbsolute(target)
-      ? resolve(baseDir, target)
+    baseDir !== undefined && !isAbsolutePath(target)
+      ? resolvePath(baseDir, target)
       : target;
 
-  if (process.platform !== "win32") {
+  if (platform !== "win32") {
     return absoluteTarget;
   }
 
@@ -56,26 +88,19 @@ export const normalizeLinkTarget = (target: string, baseDir?: string) => {
 
   const resolveIfWindowsRootRelative = (p: string) => {
     if (p.startsWith("\\") && !p.startsWith("\\\\")) {
-      return resolve(p);
+      return resolvePath(p);
     }
     return p;
   };
 
   try {
-    return normalizeSlashes(
-      require("node:fs").realpathSync.native(absoluteTarget),
-    );
+    return normalizeSlashes(realpathSyncNative(absoluteTarget));
   } catch {
     if (baseDir !== undefined) {
       try {
-        const dir = dirname(absoluteTarget);
-        const base = require("node:path").basename(absoluteTarget);
-        return normalizeSlashes(
-          require("node:path").join(
-            require("node:fs").realpathSync.native(dir),
-            base,
-          ),
-        );
+        const dir = dirnamePath(absoluteTarget);
+        const base = basenamePath(absoluteTarget);
+        return normalizeSlashes(joinPath(realpathSyncNative(dir), base));
       } catch {
         return normalizeSlashes(resolveIfWindowsRootRelative(absoluteTarget));
       }
@@ -83,4 +108,8 @@ export const normalizeLinkTarget = (target: string, baseDir?: string) => {
 
     return normalizeSlashes(resolveIfWindowsRootRelative(absoluteTarget));
   }
+};
+
+export const normalizeLinkTarget = (target: string, baseDir?: string) => {
+  return normalizeLinkTargetWithDependencies(target, baseDir);
 };

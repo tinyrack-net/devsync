@@ -57,7 +57,12 @@ export const wrapUnknownError = (
   error: unknown,
   options: DotweaveErrorOptions = {},
 ) => {
-  const detail = error instanceof Error ? error.message.trim() : String(error);
+  const detail =
+    error instanceof DotweaveError
+      ? formatDotweaveError(error)
+      : error instanceof Error
+        ? error.message.trim()
+        : String(error);
 
   return new DotweaveError(message, {
     ...options,

@@ -1,4 +1,11 @@
-import { chmod, mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import {
+  chmod,
+  mkdir,
+  readdir,
+  readFile,
+  rm,
+  writeFile,
+} from "node:fs/promises";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
@@ -448,6 +455,37 @@ describe("sync CLI e2e", () => {
     expect(await readFile(secretsFile, "utf8")).toContain("TOKEN=work");
   }, 15_000);
 
+  it("fails cleanly when pulling a secret artifact with the wrong identity", async () => {
+    const configDir = join(ctx.homeDir, ".config", "wrong-identity");
+    const secretFile = join(configDir, "token.env");
+    const originalKeys = await ctx.createAgeKeyPair();
+    const wrongKeys = await ctx.createAgeKeyPair();
+
+    await ctx.writeIdentityFile(originalKeys.identity);
+    await mkdir(configDir, { recursive: true });
+    await writeFile(secretFile, "TOKEN=remote\n");
+
+    await ctx.runCli(["init"]);
+    await ctx.runCli(["track", secretFile, "--mode", "secret"]);
+    await ctx.runCli(["push"]);
+
+    await writeFile(secretFile, "local-survivor\n");
+    await ctx.writeIdentityFile(wrongKeys.identity);
+
+    const result = await ctx.runCli(["pull", "-y"], { reject: false });
+    const stderr = stripAnsi(result.stderr);
+    const siblingNames = await readdir(configDir);
+
+    expect(result.exitCode).not.toBe(0);
+    expect(stderr).toContain("Failed to decrypt a secret repository artifact");
+    expect(stderr).toContain("Identity file:");
+    expect(stderr).toContain("matches one of its recipients");
+    expect(await readFile(secretFile, "utf8")).toBe("local-survivor\n");
+    expect(
+      siblingNames.filter((name) => name.includes(".dotweave-sync-")),
+    ).toEqual([]);
+  }, 15_000);
+
   it("sets mode on tracked roots via track command", async () => {
     const bundleDirectory = join(ctx.homeDir, ".config", "mytool");
     const ageKeys = await ctx.createAgeKeyPair();
@@ -857,6 +895,53 @@ describe("sync CLI e2e", () => {
     }
   });
 
+  itWithPty(
+    "cancels pull interactively when empty input is entered",
+    async () => {
+      const configDir = join(ctx.homeDir, ".config", "interactive-empty");
+      const configFile = join(configDir, "config.toml");
+      const ageKeys = await ctx.createAgeKeyPair();
+
+      await ctx.writeIdentityFile(ageKeys.identity);
+      await mkdir(configDir, { recursive: true });
+      await writeFile(configFile, "version = 1\n");
+
+      await ctx.runCli(["init"]);
+      await ctx.runCli(["track", configDir]);
+      await ctx.runCli(["push"]);
+      await writeFile(configFile, "version = 2\n");
+
+      const session = createPtySession({
+        args: [...cliNodeOptions, "pull"],
+        cwd: ctx.workspace,
+        env: {
+          ...ctx.baseEnv,
+        },
+        file: process.execPath,
+      });
+
+      try {
+        const output = await session.waitFor(
+          "Apply these changes? [y/N]",
+          10_000,
+        );
+
+        expect(output).toContain(configFile);
+        session.write("\r");
+
+        const cancelledOutput = await session.waitFor(
+          "Skipped pull changes",
+          10_000,
+        );
+
+        expect(cancelledOutput).toContain(configFile);
+        expect(await readFile(configFile, "utf8")).toContain("version = 2");
+      } finally {
+        session.close();
+      }
+    },
+  );
+
   itWithPty("applies pull interactively when y is entered", async () => {
     const configDir = join(ctx.homeDir, ".config", "interactive-accept");
     const configFile = join(configDir, "config.toml");
@@ -897,6 +982,50 @@ describe("sync CLI e2e", () => {
       session.close();
     }
   });
+
+  itWithPty(
+    "applies pull interactively when uppercase Y is entered",
+    async () => {
+      const configDir = join(ctx.homeDir, ".config", "interactive-uppercase");
+      const configFile = join(configDir, "config.toml");
+      const ageKeys = await ctx.createAgeKeyPair();
+
+      await ctx.writeIdentityFile(ageKeys.identity);
+      await mkdir(configDir, { recursive: true });
+      await writeFile(configFile, "version = 1\n");
+
+      await ctx.runCli(["init"]);
+      await ctx.runCli(["track", configDir]);
+      await ctx.runCli(["push"]);
+      await writeFile(configFile, "version = 2\n");
+
+      const session = createPtySession({
+        args: [...cliNodeOptions, "pull"],
+        cwd: ctx.workspace,
+        env: {
+          ...ctx.baseEnv,
+        },
+        file: process.execPath,
+      });
+
+      try {
+        const output = await session.waitFor(
+          "Apply these changes? [y/N]",
+          10_000,
+        );
+
+        expect(output).toContain(configFile);
+        session.write("Y\r");
+
+        const appliedOutput = await session.waitFor("Pull complete", 10_000);
+
+        expect(appliedOutput).toContain(configFile);
+        expect(await readFile(configFile, "utf8")).toContain("version = 1");
+      } finally {
+        session.close();
+      }
+    },
+  );
 
   it("returns a non-zero exit code when pushing without init", async () => {
     const result = await ctx.runCli(["push"], { reject: false });

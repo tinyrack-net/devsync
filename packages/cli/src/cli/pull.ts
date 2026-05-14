@@ -72,7 +72,7 @@ const pullCommand = buildCommand<PullFlags, [], ApplicationContext>({
 
       const answer = await ask("Apply these changes? [y/N] ");
 
-      if (answer.trim() !== "y") {
+      if (answer.trim().toLowerCase() !== "y") {
         logger.info("Skipped pull changes");
         return;
       }
