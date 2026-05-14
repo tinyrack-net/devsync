@@ -12,11 +12,7 @@ import {
   buildPushPlanPreview,
   buildPushResultFromPlan,
 } from "./push.ts";
-import {
-  buildArtifactKey,
-  isRepoArtifactCurrent,
-  parseArtifactRelativePath,
-} from "./repo-artifacts.ts";
+import { buildArtifactKey, isRepoArtifactCurrent } from "./repo-artifacts.ts";
 import { loadSyncConfig, resolveSyncPaths } from "./sync-context.ts";
 
 export type StatusEntry = Readonly<{
@@ -53,14 +49,6 @@ export type StatusResult = Readonly<{
   recipientCount: number;
 }>;
 
-const normalizeArtifactKeyToRepoPath = (artifactKey: string) => {
-  const relativePath = artifactKey.endsWith("/")
-    ? artifactKey.slice(0, -1)
-    : artifactKey;
-
-  return parseArtifactRelativePath(relativePath).repoPath;
-};
-
 const buildPushChanges = async (
   plan: PushPlan,
   syncDirectory: string,
@@ -89,7 +77,6 @@ const buildPushChanges = async (
 
   const deleted = [...plan.existingArtifactKeys]
     .filter((key) => !plan.desiredArtifactKeys.has(key))
-    .map(normalizeArtifactKeyToRepoPath)
     .sort((a, b) => a.localeCompare(b));
 
   return {
