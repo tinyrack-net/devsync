@@ -7,6 +7,7 @@ import {
   expandWindowsEnvVars,
   resolveConfiguredAbsolutePath,
   resolveDotweaveConfigDirectory,
+  resolveDotweaveHomeDirectory,
   resolveHomeDirectory,
   resolveXdgConfigHome,
 } from "#app/config/xdg.ts";
@@ -46,6 +47,87 @@ describe("resolveDotweaveConfigDirectory", () => {
     expect(resolveDotweaveConfigDirectory("/custom/config")).toBe(
       resolve("/custom/config", "dotweave"),
     );
+  });
+});
+
+describe("resolveDotweaveHomeDirectory", () => {
+  it("uses DOTWEAVE_HOME when set", () => {
+    expect(
+      resolveDotweaveHomeDirectory({
+        dotweaveHome: "/custom/dotweave",
+        home: "/tmp/home",
+        platform: "linux",
+      }),
+    ).toBe(resolve("/custom/dotweave"));
+  });
+
+  it("trims DOTWEAVE_HOME before resolving", () => {
+    expect(
+      resolveDotweaveHomeDirectory({
+        dotweaveHome: "  /custom/dotweave  ",
+        home: "/tmp/home",
+        platform: "linux",
+      }),
+    ).toBe(resolve("/custom/dotweave"));
+  });
+
+  it("uses APPDATA/dotweave by default on Windows", () => {
+    expect(
+      resolveDotweaveHomeDirectory({
+        appData: "C:\\Users\\test\\AppData\\Roaming",
+        home: "C:\\Users\\test",
+        platform: "win32",
+      }),
+    ).toBe(resolve("C:\\Users\\test\\AppData\\Roaming", "dotweave"));
+  });
+
+  it("falls back to LOCALAPPDATA/dotweave on Windows when APPDATA is unset", () => {
+    expect(
+      resolveDotweaveHomeDirectory({
+        localAppData: "C:\\Users\\test\\AppData\\Local",
+        home: "C:\\Users\\test",
+        platform: "win32",
+      }),
+    ).toBe(resolve("C:\\Users\\test\\AppData\\Local", "dotweave"));
+  });
+
+  it("falls back to USERPROFILE/AppData/Roaming/dotweave on Windows", () => {
+    expect(
+      resolveDotweaveHomeDirectory({
+        home: undefined,
+        platform: "win32",
+        userProfile: "C:\\Users\\test",
+      }),
+    ).toBe(resolve("C:\\Users\\test", "AppData", "Roaming", "dotweave"));
+  });
+
+  it("falls back to os homedir on Windows instead of HOME when app-data variables are unset", () => {
+    expect(
+      resolveDotweaveHomeDirectory({
+        home: "C:\\msys64\\home\\test",
+        osHomeDirectory: "C:\\Users\\test",
+        platform: "win32",
+      }),
+    ).toBe(resolve("C:\\Users\\test", "AppData", "Roaming", "dotweave"));
+  });
+
+  it("keeps XDG_CONFIG_HOME/dotweave on non-Windows", () => {
+    expect(
+      resolveDotweaveHomeDirectory({
+        home: "/home/test",
+        platform: "linux",
+        xdgConfigHome: "/custom/config",
+      }),
+    ).toBe(resolve("/custom/config", "dotweave"));
+  });
+
+  it("keeps ~/.config/dotweave fallback on non-Windows", () => {
+    expect(
+      resolveDotweaveHomeDirectory({
+        home: "/home/test",
+        platform: "linux",
+      }),
+    ).toBe(resolve("/home/test", ".config", "dotweave"));
   });
 });
 

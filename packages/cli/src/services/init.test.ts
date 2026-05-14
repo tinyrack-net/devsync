@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 const mockEnv = vi.hoisted(() => ({
+  DOTWEAVE_HOME: "",
   HOME: "",
   XDG_CONFIG_HOME: "",
 }));
@@ -36,6 +37,7 @@ const createWorkspace = async () => {
 };
 
 const setEnvironment = (homeDirectory: string, xdgConfigHome: string) => {
+  mockEnv.DOTWEAVE_HOME = "";
   mockEnv.HOME = homeDirectory;
   mockEnv.XDG_CONFIG_HOME = xdgConfigHome;
 };
@@ -71,10 +73,7 @@ describe("init service", () => {
 
     expect(result.generatedIdentity).toBe(false);
     expect(
-      await readFile(
-        join(homeDirectory, ".config", "dotweave", "keys.txt"),
-        "utf8",
-      ),
+      await readFile(join(xdgConfigHome, "dotweave", "keys.txt"), "utf8"),
     ).toBe(`${ageKeys.identity}\n`);
     expect(
       JSON.parse(await readFile(join(syncDirectory, "manifest.jsonc"), "utf8")),
@@ -86,6 +85,35 @@ describe("init service", () => {
         ]),
       },
     });
+  });
+
+  it("uses DOTWEAVE_HOME for initialization storage", async () => {
+    const workspace = await createWorkspace();
+    const homeDirectory = join(workspace, "home");
+    const xdgConfigHome = join(workspace, "xdg");
+    const dotweaveHome = join(workspace, "custom-dotweave");
+    const ageKeys = await createAgeKeyPair();
+
+    setEnvironment(homeDirectory, xdgConfigHome);
+    mockEnv.DOTWEAVE_HOME = dotweaveHome;
+
+    await initializeSyncDirectory({
+      ageIdentity: ageKeys.identity,
+      recipients: [ageKeys.recipient],
+    });
+
+    await expect(
+      readFile(join(dotweaveHome, "keys.txt"), "utf8"),
+    ).resolves.toBe(`${ageKeys.identity}\n`);
+    await expect(
+      readFile(join(dotweaveHome, "settings.jsonc"), "utf8"),
+    ).resolves.toContain('"version": 3');
+    await expect(
+      readFile(join(dotweaveHome, "repository", "manifest.jsonc"), "utf8"),
+    ).resolves.toContain('"version": 8');
+    await expect(
+      readFile(join(xdgConfigHome, "dotweave", "settings.jsonc"), "utf8"),
+    ).rejects.toThrow();
   });
 
   it("rejects an invalid supplied age private key", async () => {
@@ -250,10 +278,7 @@ describe("init service", () => {
     expect(result.alreadyInitialized).toBe(false);
     expect(result.generatedIdentity).toBe(false);
     expect(
-      await readFile(
-        join(homeDirectory, ".config", "dotweave", "keys.txt"),
-        "utf8",
-      ),
+      await readFile(join(xdgConfigHome, "dotweave", "keys.txt"), "utf8"),
     ).toBe(`${ageKeys.identity}\n`);
     expect(
       JSON.parse(

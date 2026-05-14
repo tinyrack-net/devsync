@@ -3,7 +3,7 @@ import { resolve } from "node:path";
 import { AppConstants } from "#app/config/constants.ts";
 import { resolveDefaultIdentityFile } from "#app/config/identity-file.ts";
 import type { PlatformStringValue } from "#app/config/platform.ts";
-import { readEnvValue } from "#app/config/runtime-env.ts";
+import { resolveDotweaveHomeDirectoryFromEnv } from "#app/config/runtime-env.ts";
 import {
   buildDefaultPlatformMode,
   hasPlatformSpecificModeOverride,
@@ -185,10 +185,7 @@ export const trackTarget = async (
   const { config, context, syncDirectory } = await loadWritableSyncConfig();
   const identityFile =
     config.age !== undefined
-      ? resolveDefaultIdentityFile(
-          readEnvValue("HOME"),
-          readEnvValue("XDG_CONFIG_HOME"),
-        )
+      ? resolveDefaultIdentityFile(resolveDotweaveHomeDirectoryFromEnv())
       : undefined;
   const isProfileClear =
     request.profiles !== undefined &&

@@ -1,7 +1,7 @@
 import { execFile } from "node:child_process";
 import { mkdir, mkdtemp, writeFile } from "node:fs/promises";
 import { devNull, tmpdir } from "node:os";
-import { basename, dirname, join } from "node:path";
+import { dirname, join } from "node:path";
 import { promisify } from "node:util";
 
 import { generateIdentity, identityToRecipient } from "age-encryption";
@@ -37,19 +37,14 @@ export const createAgeKeyPair = async () => {
 };
 
 export const writeIdentityFile = async (
-  homeOrLegacyConfigHome: string,
+  xdgConfigHome: string,
   identity: string,
 ) => {
-  const homeDirectory =
-    basename(homeOrLegacyConfigHome) === "xdg"
-      ? join(dirname(homeOrLegacyConfigHome), "home")
-      : homeOrLegacyConfigHome;
-  const identityFile = join(
-    homeDirectory,
-    ".config",
+  const dotweaveHomeDirectory = join(
+    xdgConfigHome,
     AppConstants.XDG.APP_DIRECTORY_NAME,
-    identityFileName,
   );
+  const identityFile = join(dotweaveHomeDirectory, identityFileName);
 
   await mkdir(dirname(identityFile), { recursive: true });
   await writeFile(identityFile, `${identity}\n`);

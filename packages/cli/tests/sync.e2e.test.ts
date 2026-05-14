@@ -38,10 +38,7 @@ describe("sync CLI e2e", () => {
 
     expect(result.stdout).toContain("age: generated a new local identity");
     expect(
-      await readFile(
-        join(ctx.homeDir, ".config", "dotweave", "keys.txt"),
-        "utf8",
-      ),
+      await readFile(join(ctx.xdgDir, "dotweave", "keys.txt"), "utf8"),
     ).toContain("AGE-SECRET-KEY-");
     expect(
       JSON.parse(
@@ -94,10 +91,7 @@ describe("sync CLI e2e", () => {
     expect(stripAnsi(result.stdout)).toContain("Sync directory initialized");
     expect(stripAnsi(result.stdout)).toContain("age: using existing identity");
     expect(
-      await readFile(
-        join(ctx.homeDir, ".config", "dotweave", "keys.txt"),
-        "utf8",
-      ),
+      await readFile(join(ctx.xdgDir, "dotweave", "keys.txt"), "utf8"),
     ).toBe(`${ageKeys.identity}\n`);
   });
 
@@ -194,10 +188,7 @@ describe("sync CLI e2e", () => {
 
     expect(stripAnsi(result.stdout)).toContain("Sync directory initialized");
     expect(
-      await readFile(
-        join(ctx.homeDir, ".config", "dotweave", "keys.txt"),
-        "utf8",
-      ),
+      await readFile(join(ctx.xdgDir, "dotweave", "keys.txt"), "utf8"),
     ).toBe(`${ageKeys.identity}\n`);
   });
 

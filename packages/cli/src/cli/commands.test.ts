@@ -42,6 +42,7 @@ const mocked = vi.hoisted(() => ({
   resolveConfiguredAbsolutePath: vi.fn(),
   resolveDefaultIdentityFile: vi.fn(),
   resolveDotweaveConfigDirectory: vi.fn(),
+  resolveDotweaveHomeDirectory: vi.fn(),
   resolveDotweaveSyncDirectory: vi.fn(),
   runDoctorChecks: vi.fn(),
   removeProfile: vi.fn(),
@@ -63,6 +64,7 @@ vi.mock("#app/config/xdg.ts", () => ({
 
 vi.mock("#app/config/runtime-env.ts", () => ({
   readEnvValue: mocked.readEnvValue,
+  resolveDotweaveHomeDirectoryFromEnv: mocked.resolveDotweaveHomeDirectory,
   resolveDotweaveSyncDirectoryFromEnv: mocked.resolveDotweaveSyncDirectory,
 }));
 
@@ -184,6 +186,7 @@ beforeEach(() => {
 
   mocked.resolveDefaultIdentityFile.mockReturnValue("/tmp/keys.txt");
   mocked.resolveConfiguredAbsolutePath.mockReturnValue("/tmp/keys.txt");
+  mocked.resolveDotweaveHomeDirectory.mockReturnValue("/tmp/dotweave");
   mocked.resolveDotweaveSyncDirectory.mockReturnValue("/tmp/dotweave");
   mocked.pathExists.mockResolvedValue(true);
   mocked.promptAsk.mockResolvedValue(undefined);

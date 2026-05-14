@@ -55,7 +55,7 @@ If this is your first time using dotweave, follow these steps to create a new sy
    dotweave init
    ```
 
-   This sets up `~/.config/dotweave/` with a Git repository and an age identity.
+   This sets up the dotweave app-data directory with a Git repository and an age identity.
 
 2. **Track your files**
 
@@ -112,7 +112,7 @@ On a new machine, clone your existing sync directory:
    dotweave init <your-repo-url> --key "AGE-SECRET-KEY-1..."
    ```
 
-   This clones the repository into `~/.config/dotweave/repository/`. When connecting an existing sync repository, you must provide the same age private key used to decrypt its secret files:
+   This clones the repository into the dotweave app-data directory under `repository/`. When connecting an existing sync repository, you must provide the same age private key used to decrypt its secret files:
 
    ```bash
    dotweave init <your-repo-url> --promptKey

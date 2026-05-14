@@ -1,13 +1,9 @@
+import { resolve } from "node:path";
 import { AppConstants } from "#app/config/constants.ts";
-import { resolveConfiguredAbsolutePath } from "#app/config/xdg.ts";
 
-export const resolveDefaultIdentityFile = (
-  home: string | undefined,
-  xdgConfigHome: string | undefined,
-) => {
-  return resolveConfiguredAbsolutePath(
-    AppConstants.INIT.DEFAULT_IDENTITY_FILE,
-    home,
-    xdgConfigHome,
+export const resolveDefaultIdentityFile = (dotweaveHomeDirectory: string) => {
+  return resolve(
+    dotweaveHomeDirectory,
+    AppConstants.INIT.DEFAULT_IDENTITY_FILE_NAME,
   );
 };

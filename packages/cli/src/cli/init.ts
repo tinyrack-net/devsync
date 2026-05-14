@@ -1,7 +1,7 @@
 import type { ApplicationContext } from "@stricli/core";
 import { buildCommand } from "@stricli/core";
 import { resolveDefaultIdentityFile } from "#app/config/identity-file.ts";
-import { readEnvValue } from "#app/config/runtime-env.ts";
+import { resolveDotweaveHomeDirectoryFromEnv } from "#app/config/runtime-env.ts";
 import { pathExists } from "#app/lib/filesystem.ts";
 import { ask } from "#app/lib/prompt.ts";
 import {
@@ -37,14 +37,13 @@ const initCommand = buildCommand<InitFlags, [string?], ApplicationContext>({
   docs: {
     brief: "Initialize the git-backed sync directory",
     fullDescription:
-      "Create or connect the local dotweave repository under your XDG config directory, then store the sync settings used by later pull and push operations. If you omit the repository argument, dotweave initializes a local git repository in the sync directory.",
+      "Create or connect the local dotweave repository under your dotweave app-data directory, then store the sync settings used by later pull and push operations. If you omit the repository argument, dotweave initializes a local git repository in the sync directory.",
   },
   async func(flags, repository) {
     const logger = createCliLogger();
     const requestedKey = flags.key?.trim();
     const identityFile = resolveDefaultIdentityFile(
-      readEnvValue("HOME"),
-      readEnvValue("XDG_CONFIG_HOME"),
+      resolveDotweaveHomeDirectoryFromEnv(),
     );
     const identityFileExists = await pathExists(identityFile);
     const importingRepository =
