@@ -1,4 +1,4 @@
-import { chmod, mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { chmod, lstat, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
@@ -446,6 +446,122 @@ describe("sync CLI e2e", () => {
     await ctx.runCli(["pull", "-y"]);
 
     expect(await readFile(secretsFile, "utf8")).toContain("TOKEN=work");
+  }, 15_000);
+
+  it("status reports a removed default entry artifact before push", async () => {
+    const configDir = join(ctx.homeDir, ".config", "prune-status");
+    const configFile = join(configDir, "config.toml");
+    const ageKeys = await ctx.createAgeKeyPair();
+
+    await ctx.writeIdentityFile(ageKeys.identity);
+    await mkdir(configDir, { recursive: true });
+    await writeFile(configFile, "enabled = true\n");
+
+    await ctx.runCli(["init"]);
+    await ctx.runCli(["track", configDir]);
+    await ctx.runCli(["push"]);
+
+    await writeFile(
+      join(ctx.xdgDir, "dotweave", "repository", "manifest.jsonc"),
+      formatSyncConfig({
+        ...createInitialSyncConfig({
+          recipients: [ageKeys.recipient],
+        }),
+        entries: [],
+      }),
+      "utf8",
+    );
+
+    const status = await ctx.runCli(["status"]);
+    const output = stripAnsi(status.stdout);
+
+    expect(output).toContain("Push changes (repository)");
+    expect(output).toContain("Delete (1)");
+    expect(output).toContain(".config/prune-status/config.toml");
+  }, 15_000);
+
+  it("push prunes a removed default entry artifact", async () => {
+    const configDir = join(ctx.homeDir, ".config", "prune-push");
+    const configFile = join(configDir, "config.toml");
+    const ageKeys = await ctx.createAgeKeyPair();
+
+    await ctx.writeIdentityFile(ageKeys.identity);
+    await mkdir(configDir, { recursive: true });
+    await writeFile(configFile, "enabled = true\n");
+
+    await ctx.runCli(["init"]);
+    await ctx.runCli(["track", configDir]);
+    await ctx.runCli(["push"]);
+
+    const artifact = join(
+      ctx.xdgDir,
+      "dotweave",
+      "repository",
+      "default",
+      ".config",
+      "prune-push",
+      "config.toml",
+    );
+    expect(await readFile(artifact, "utf8")).toBe("enabled = true\n");
+
+    await writeFile(
+      join(ctx.xdgDir, "dotweave", "repository", "manifest.jsonc"),
+      formatSyncConfig({
+        ...createInitialSyncConfig({
+          recipients: [ageKeys.recipient],
+        }),
+        entries: [],
+      }),
+      "utf8",
+    );
+
+    const result = await ctx.runCli(["push"]);
+
+    expect(stripAnsi(result.stdout)).toContain("1 stale artifacts removed");
+    await expect(lstat(artifact)).rejects.toThrow();
+  }, 15_000);
+
+  it("push --profile work prunes a non-default profile artifact after final entry removal", async () => {
+    const configDir = join(ctx.homeDir, ".config", "work-prune");
+    const configFile = join(configDir, "config.toml");
+    const ageKeys = await ctx.createAgeKeyPair();
+
+    await ctx.writeIdentityFile(ageKeys.identity);
+    await mkdir(configDir, { recursive: true });
+    await writeFile(configFile, "workspace = true\n");
+
+    await ctx.runCli(["init"]);
+    await ctx.runCli(["profile", "add", "work"]);
+    await ctx.runCli(["track", configDir, "--profile", "work"]);
+    await ctx.runCli(["push", "--profile", "work"]);
+
+    const artifact = join(
+      ctx.xdgDir,
+      "dotweave",
+      "repository",
+      "work",
+      ".config",
+      "work-prune",
+      "config.toml",
+    );
+    expect(await readFile(artifact, "utf8")).toBe("workspace = true\n");
+
+    await writeFile(
+      join(ctx.xdgDir, "dotweave", "repository", "manifest.jsonc"),
+      formatSyncConfig({
+        ...createInitialSyncConfig({
+          recipients: [ageKeys.recipient],
+        }),
+        profiles: ["work"],
+        entries: [],
+      }),
+      "utf8",
+    );
+
+    const result = await ctx.runCli(["push", "--profile", "work"]);
+
+    expect(stripAnsi(result.stdout)).toContain("1 stale artifacts removed");
+    await expect(lstat(artifact)).rejects.toThrow();
   }, 15_000);
 
   it("sets mode on tracked roots via track command", async () => {

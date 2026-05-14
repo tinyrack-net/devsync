@@ -76,7 +76,7 @@ const buildPushCounts = (snapshot: ReadonlyMap<string, SnapshotNode>) => {
 export const buildPushPlan = async (
   config: EffectiveSyncConfig,
   syncDirectory: string,
-  ownershipConfig: Pick<ResolvedSyncConfig, "entries"> = config,
+  ownershipConfig: Pick<ResolvedSyncConfig, "entries" | "profiles"> = config,
 ): Promise<PushPlan> => {
   const snapshot = await buildLocalSnapshot(config);
   const artifacts = await buildRepoArtifacts(snapshot, config);

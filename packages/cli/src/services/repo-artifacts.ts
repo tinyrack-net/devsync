@@ -7,6 +7,7 @@ import {
 } from "#app/config/sync-queries.ts";
 import {
   hasReservedSyncArtifactSuffixSegment,
+  normalizeSyncRepoPath,
   type ResolvedSyncConfig,
   type ResolvedSyncConfigEntry,
 } from "#app/config/sync-schema.ts";
@@ -26,7 +27,11 @@ import {
   writeFileNode,
   writeSymlinkNode,
 } from "#app/lib/filesystem.ts";
-import { buildDirectoryKey, normalizeLinkTarget } from "#app/lib/path.ts";
+import {
+  buildDirectoryKey,
+  isPathEqualOrNested,
+  normalizeLinkTarget,
+} from "#app/lib/path.ts";
 import { limitConcurrency } from "#app/lib/promise.ts";
 import type { SnapshotNode } from "./local-snapshot.ts";
 import type { EffectiveSyncConfig } from "./sync-context.ts";
@@ -53,11 +58,32 @@ const isActiveArtifactRule = (
   );
 };
 
+const isArtifactProfileEntryList = (
+  value:
+    | readonly Pick<ResolvedSyncConfigEntry, "profiles">[]
+    | Pick<ResolvedSyncConfig, "entries" | "profiles">,
+): value is readonly Pick<ResolvedSyncConfigEntry, "profiles">[] => {
+  return Array.isArray(value);
+};
+
 export const collectArtifactProfiles = (
-  entries: readonly Pick<ResolvedSyncConfigEntry, "profiles">[],
+  configOrEntries:
+    | readonly Pick<ResolvedSyncConfigEntry, "profiles">[]
+    | Pick<ResolvedSyncConfig, "entries" | "profiles">,
 ) => {
   const profiles = new Set<string>();
   profiles.add(AppConstants.SYNC.DEFAULT_PROFILE);
+
+  const entries = isArtifactProfileEntryList(configOrEntries)
+    ? configOrEntries
+    : configOrEntries.entries;
+  const registeredProfiles = isArtifactProfileEntryList(configOrEntries)
+    ? []
+    : (configOrEntries.profiles ?? []);
+
+  for (const profile of registeredProfiles) {
+    profiles.add(profile);
+  }
 
   for (const entry of entries) {
     for (const profile of entry.profiles) {
@@ -66,6 +92,45 @@ export const collectArtifactProfiles = (
   }
 
   return profiles;
+};
+
+const collectConfiguredRepoPathVariants = (
+  entry: Pick<ResolvedSyncConfigEntry, "configuredRepoPath" | "repoPath">,
+) => {
+  if (entry.configuredRepoPath === undefined) {
+    return [entry.repoPath];
+  }
+
+  return [...new Set(Object.values(entry.configuredRepoPath))].map((value) => {
+    return normalizeSyncRepoPath(value);
+  });
+};
+
+const entryOwnsArtifactPath = (
+  entry: Pick<
+    ResolvedSyncConfigEntry,
+    "configuredRepoPath" | "kind" | "repoPath"
+  >,
+  repoPath: string,
+) => {
+  return collectConfiguredRepoPathVariants(entry).some((candidate) => {
+    return entry.kind === "directory"
+      ? isPathEqualOrNested(repoPath, candidate)
+      : repoPath === candidate;
+  });
+};
+
+const entryOwnsArtifact = (
+  entry: Pick<
+    ResolvedSyncConfigEntry,
+    "configuredRepoPath" | "kind" | "profiles" | "repoPath"
+  >,
+  artifact: ReturnType<typeof parseArtifactRelativePath>,
+) => {
+  return (
+    entryOwnsArtifactProfile(entry, artifact.profile) &&
+    entryOwnsArtifactPath(entry, artifact.repoPath)
+  );
 };
 
 export type RepoArtifact =
@@ -301,10 +366,10 @@ const collectArtifactLeafKeys = async (
 export const collectExistingArtifactKeys = async (
   syncDirectory: string,
   config: ArtifactConfig,
-  ownershipConfig: Pick<ResolvedSyncConfig, "entries"> = config,
+  ownershipConfig: Pick<ResolvedSyncConfig, "entries" | "profiles"> = config,
 ) => {
   const keys = new Set<string>();
-  const artifactProfiles = collectArtifactProfiles(ownershipConfig.entries);
+  const artifactProfiles = collectArtifactProfiles(ownershipConfig);
 
   await Promise.all(
     [...artifactProfiles].map(async (profile) => {
@@ -322,7 +387,6 @@ export const collectExistingArtifactKeys = async (
     }
 
     const artifact = parseArtifactRelativePath(key);
-    const owningEntry = findOwningSyncEntry(ownershipConfig, artifact.repoPath);
     const rule = resolveSyncRule(
       config,
       artifact.repoPath,
@@ -334,13 +398,12 @@ export const collectExistingArtifactKeys = async (
     }
 
     if (
-      owningEntry === undefined ||
-      !entryOwnsArtifactProfile(owningEntry, artifact.profile)
+      ownershipConfig.entries.some((entry) => {
+        return entryOwnsArtifact(entry, artifact);
+      })
     ) {
-      continue;
+      keys.delete(key);
     }
-
-    keys.delete(key);
   }
 
   for (const entry of config.entries) {

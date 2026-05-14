@@ -119,7 +119,11 @@ export const getStatus = async (
     syncDirectory,
     options,
   );
-  const pushPlan = await buildPushPlan(effectiveConfig, syncDirectory);
+  const pushPlan = await buildPushPlan(
+    effectiveConfig,
+    syncDirectory,
+    fullConfig,
+  );
   const pullPlan = await buildPullPlan(effectiveConfig, syncDirectory);
   const pushChanges = await buildPushChanges(
     pushPlan,
