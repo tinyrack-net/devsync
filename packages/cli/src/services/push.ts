@@ -10,6 +10,7 @@ import {
   buildRepoArtifacts,
   collectArtifactLeafKeys,
   collectExistingArtifactKeys,
+  entryOwnsArtifact,
   parseArtifactRelativePath,
   type RepoArtifact,
   resolveArtifactRelativePath,
@@ -85,9 +86,12 @@ export const buildPushPlan = async (
 ): Promise<PushPlan> => {
   const snapshot = await buildLocalSnapshot(config);
   const artifacts = await buildRepoArtifacts(snapshot, config);
+  const artifactKeyPairs = artifacts.map((artifact) => {
+    return { artifact, key: buildArtifactKey(artifact) };
+  });
   const desiredArtifactKeys = new Set(
-    artifacts.map((artifact) => {
-      return buildArtifactKey(artifact);
+    artifactKeyPairs.map(({ key }) => {
+      return key;
     }),
   );
   const existingArtifactKeys = await collectExistingArtifactKeys(
@@ -105,17 +109,25 @@ export const buildPushPlan = async (
     staleArtifactKeySet,
     ownershipConfig,
   );
+  const writableArtifacts = artifactKeyPairs.flatMap(({ artifact, key }) => {
+    return replacementPlan.protectedArtifactKeys.has(key) ? [] : [artifact];
+  });
+  const writableArtifactKeys = new Set(
+    writableArtifacts.map((artifact) => {
+      return buildArtifactKey(artifact);
+    }),
+  );
   const deletedArtifactKeys = new Set([
     ...staleArtifactKeys,
     ...replacementPlan.deletedArtifactKeys,
   ]);
 
   return {
-    artifacts,
+    artifacts: writableArtifacts,
     counts: buildPushCounts(snapshot),
     deletedArtifactCount: deletedArtifactKeys.size,
     deletedArtifactKeys,
-    desiredArtifactKeys,
+    desiredArtifactKeys: writableArtifactKeys,
     existingArtifactKeys,
     staleReplacementDirectoryRoots: replacementPlan.roots,
     snapshot,
@@ -123,7 +135,9 @@ export const buildPushPlan = async (
 };
 
 export const buildPushPlanPreview = (plan: PushPlan) => {
-  const createdOrUpdated = [...plan.snapshot.keys()].sort((left, right) => {
+  const createdOrUpdated = [
+    ...new Set(plan.artifacts.map((artifact) => artifact.repoPath)),
+  ].sort((left, right) => {
     return left.localeCompare(right);
   });
   const deletedArtifactKeys =
@@ -159,6 +173,7 @@ const collectStaleReplacementDirectoryRoots = async (
 ) => {
   const roots: string[] = [];
   const deletedArtifactKeys = new Set<string>();
+  const protectedArtifactKeys = new Set<string>();
 
   for (const artifact of artifacts) {
     if (artifact.kind === "directory") {
@@ -173,29 +188,22 @@ const collectStaleReplacementDirectoryRoots = async (
       continue;
     }
 
+    const parsedRoot = parseArtifactRelativePath(relativePath);
+    const inactiveDirectoryOwner = ownershipConfig.entries.some((entry) => {
+      return entry.kind === "directory" && entryOwnsArtifact(entry, parsedRoot);
+    });
+
+    if (inactiveDirectoryOwner) {
+      protectedArtifactKeys.add(buildArtifactKey(artifact));
+      continue;
+    }
+
     const leafKeys = new Set<string>();
     await collectArtifactLeafKeys(artifactPath, leafKeys, relativePath);
 
     if (leafKeys.size === 0) {
-      const parsedRoot = parseArtifactRelativePath(relativePath);
-      const inactiveDirectoryOwner = ownershipConfig.entries.some((entry) => {
-        const ownsProfile =
-          entry.profiles.length === 0
-            ? parsedRoot.profile === AppConstants.SYNC.DEFAULT_PROFILE
-            : entry.profiles.includes(parsedRoot.profile);
-
-        return (
-          entry.kind === "directory" &&
-          ownsProfile &&
-          parsedRoot.repoPath === entry.repoPath
-        );
-      });
-
-      if (!inactiveDirectoryOwner) {
-        roots.push(relativePath);
-        deletedArtifactKeys.add(relativePath);
-      }
-
+      roots.push(relativePath);
+      deletedArtifactKeys.add(`${relativePath}/`);
       continue;
     }
 
@@ -208,7 +216,7 @@ const collectStaleReplacementDirectoryRoots = async (
     }
   }
 
-  return { deletedArtifactKeys, roots };
+  return { deletedArtifactKeys, protectedArtifactKeys, roots };
 };
 
 export const pushChanges = async (

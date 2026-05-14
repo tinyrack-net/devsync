@@ -1746,7 +1746,7 @@ describe("sync service", () => {
     expect(dryRunResult.deletedArtifactCount).toBe(1);
     expect(status.push.deletedArtifactCount).toBe(1);
     expect(status.push.changes.deleted).toEqual([
-      "default/.config/empty-transition",
+      "default/.config/empty-transition/",
     ]);
     expect(result.deletedArtifactCount).toBe(1);
     expect((await lstat(artifactPath)).isFile()).toBe(true);
@@ -1843,6 +1843,96 @@ describe("sync service", () => {
     expect(result.deletedArtifactCount).toBe(1);
     expect((await lstat(artifactPath)).isSymbolicLink()).toBe(true);
     expect(await readlink(artifactPath)).toBe(".transition-link-target");
+  });
+
+  it("reports and prunes stale empty directory roots now configured as missing file sources", async () => {
+    const workspace = await createWorkspace();
+    const homeDirectory = join(workspace, "home");
+    const xdgConfigHome = join(workspace, "xdg");
+    const emptyDirectory = join(homeDirectory, ".config", "missing-file-root");
+    const ageKeys = await createAgeKeyPair();
+    setEnvironment(homeDirectory, xdgConfigHome);
+
+    await writeIdentityFile(xdgConfigHome, ageKeys.identity);
+    await mkdir(emptyDirectory, { recursive: true });
+
+    await initializeSyncDirectory({
+      identityFile: "$XDG_CONFIG_HOME/dotweave/keys.txt",
+      recipients: [ageKeys.recipient],
+    });
+
+    const manifestPath = join(
+      xdgConfigHome,
+      "dotweave",
+      "repository",
+      "manifest.jsonc",
+    );
+
+    await writeFile(
+      manifestPath,
+      JSON.stringify(
+        {
+          version: 8,
+          age: { recipients: [ageKeys.recipient] },
+          entries: [
+            {
+              kind: "directory",
+              localPath: { default: "~/.config/missing-file-root" },
+              repoPath: { default: ".config/missing-file-root" },
+              mode: { default: "normal" },
+            },
+          ],
+        },
+        null,
+        2,
+      ),
+      "utf8",
+    );
+
+    await pushChanges({ dryRun: false });
+
+    const artifactPath = join(
+      xdgConfigHome,
+      "dotweave",
+      "repository",
+      "default",
+      ".config",
+      "missing-file-root",
+    );
+    expect((await lstat(artifactPath)).isDirectory()).toBe(true);
+
+    await rm(emptyDirectory, { recursive: true });
+    await writeFile(
+      manifestPath,
+      JSON.stringify(
+        {
+          version: 8,
+          age: { recipients: [ageKeys.recipient] },
+          entries: [
+            {
+              kind: "file",
+              localPath: { default: "~/.missing-file-root" },
+              repoPath: { default: ".config/missing-file-root" },
+              mode: { default: "normal" },
+            },
+          ],
+        },
+        null,
+        2,
+      ),
+      "utf8",
+    );
+
+    const status = await getStatus();
+    const dryRunResult = await pushChanges({ dryRun: true });
+    const result = await pushChanges({ dryRun: false });
+
+    expect(status.push.changes.deleted).toEqual([
+      "default/.config/missing-file-root/",
+    ]);
+    expect(dryRunResult.deletedArtifactCount).toBe(1);
+    expect(result.deletedArtifactCount).toBe(1);
+    await expect(lstat(artifactPath)).rejects.toThrow();
   });
 
   it("preserves inactive profile artifacts when pushing the default profile", async () => {
@@ -2001,6 +2091,324 @@ describe("sync service", () => {
     expect(dryRunResult.deletedArtifactCount).toBe(0);
     expect(result.deletedArtifactCount).toBe(0);
     expect((await lstat(artifactPath)).isDirectory()).toBe(true);
+  });
+
+  it("reports and prunes orphaned empty directory artifact roots after entry removal", async () => {
+    const workspace = await createWorkspace();
+    const homeDirectory = join(workspace, "home");
+    const xdgConfigHome = join(workspace, "xdg");
+    const emptyDirectory = join(homeDirectory, ".config", "orphan-empty");
+    const ageKeys = await createAgeKeyPair();
+    setEnvironment(homeDirectory, xdgConfigHome);
+
+    await writeIdentityFile(xdgConfigHome, ageKeys.identity);
+    await mkdir(emptyDirectory, { recursive: true });
+
+    await initializeSyncDirectory({
+      identityFile: "$XDG_CONFIG_HOME/dotweave/keys.txt",
+      recipients: [ageKeys.recipient],
+    });
+
+    const manifestPath = join(
+      xdgConfigHome,
+      "dotweave",
+      "repository",
+      "manifest.jsonc",
+    );
+
+    await writeFile(
+      manifestPath,
+      JSON.stringify(
+        {
+          version: 8,
+          age: { recipients: [ageKeys.recipient] },
+          entries: [
+            {
+              kind: "directory",
+              localPath: { default: "~/.config/orphan-empty" },
+              repoPath: { default: ".config/orphan-empty" },
+              mode: { default: "normal" },
+              profiles: ["default"],
+            },
+          ],
+        },
+        null,
+        2,
+      ),
+      "utf8",
+    );
+
+    await pushChanges({ dryRun: false });
+
+    const artifactPath = join(
+      xdgConfigHome,
+      "dotweave",
+      "repository",
+      "default",
+      ".config",
+      "orphan-empty",
+    );
+    expect((await lstat(artifactPath)).isDirectory()).toBe(true);
+
+    await writeFile(
+      manifestPath,
+      JSON.stringify(
+        {
+          version: 8,
+          age: { recipients: [ageKeys.recipient] },
+          entries: [],
+        },
+        null,
+        2,
+      ),
+      "utf8",
+    );
+
+    const status = await getStatus();
+    const dryRunResult = await pushChanges({ dryRun: true });
+    const result = await pushChanges({ dryRun: false });
+
+    expect(status.push.changes.deleted).toEqual([
+      "default/.config/orphan-empty/",
+    ]);
+    expect(dryRunResult.deletedArtifactCount).toBe(1);
+    expect(result.deletedArtifactCount).toBe(1);
+    await expect(lstat(artifactPath)).rejects.toThrow();
+  });
+
+  it("preserves platform-variant-owned inactive empty directory roots during replacement push", async () => {
+    const workspace = await createWorkspace();
+    const homeDirectory = join(workspace, "home");
+    const xdgConfigHome = join(workspace, "xdg");
+    const replacementFile = join(homeDirectory, ".config", "variant-empty");
+    const ageKeys = await createAgeKeyPair();
+    const platformSpy = vi.spyOn(platformConfig, "detectCurrentPlatformKey");
+    setEnvironment(homeDirectory, xdgConfigHome);
+
+    await writeIdentityFile(xdgConfigHome, ageKeys.identity);
+    await mkdir(join(homeDirectory, ".config"), { recursive: true });
+
+    await initializeSyncDirectory({
+      identityFile: "$XDG_CONFIG_HOME/dotweave/keys.txt",
+      recipients: [ageKeys.recipient],
+    });
+
+    const manifestPath = join(
+      xdgConfigHome,
+      "dotweave",
+      "repository",
+      "manifest.jsonc",
+    );
+
+    await writeFile(
+      manifestPath,
+      JSON.stringify(
+        {
+          version: 8,
+          age: { recipients: [ageKeys.recipient] },
+          entries: [
+            {
+              kind: "directory",
+              localPath: {
+                default: "~/.config/variant-empty",
+                win: "~/AppData/Roaming/variant-empty",
+              },
+              repoPath: {
+                default: ".config/variant-empty",
+                win: "AppData/Roaming/variant-empty",
+              },
+              mode: { default: "normal", win: "ignore" },
+            },
+          ],
+        },
+        null,
+        2,
+      ),
+      "utf8",
+    );
+
+    platformSpy.mockReturnValue("linux");
+    await mkdir(replacementFile, { recursive: true });
+    await pushChanges({ dryRun: false });
+
+    const artifactPath = join(
+      xdgConfigHome,
+      "dotweave",
+      "repository",
+      "default",
+      ".config",
+      "variant-empty",
+    );
+    expect((await lstat(artifactPath)).isDirectory()).toBe(true);
+
+    await rm(replacementFile, { recursive: true });
+    await writeFile(replacementFile, "replacement\n");
+    await writeFile(
+      manifestPath,
+      JSON.stringify(
+        {
+          version: 8,
+          age: { recipients: [ageKeys.recipient] },
+          entries: [
+            {
+              kind: "directory",
+              localPath: {
+                default: "~/.config/variant-empty",
+                win: "~/AppData/Roaming/variant-empty",
+              },
+              repoPath: {
+                default: ".config/variant-empty",
+                win: "AppData/Roaming/variant-empty",
+              },
+              mode: { default: "normal", win: "ignore" },
+            },
+            {
+              kind: "file",
+              localPath: { default: "~/.config/variant-empty" },
+              repoPath: { default: ".config/variant-empty" },
+              mode: { default: "normal" },
+            },
+          ],
+        },
+        null,
+        2,
+      ),
+      "utf8",
+    );
+
+    platformSpy.mockReturnValue("win");
+    const status = await getStatus();
+    const dryRunResult = await pushChanges({ dryRun: true });
+    const result = await pushChanges({ dryRun: false });
+
+    expect(status.push.preview).not.toContain(".config/variant-empty");
+    expect(status.push.changes.added).toEqual([]);
+    expect(status.push.changes.modified).toEqual([]);
+    expect(status.push.changes.deleted).toEqual([]);
+    expect(dryRunResult.deletedArtifactCount).toBe(0);
+    expect(result.deletedArtifactCount).toBe(0);
+    expect((await lstat(artifactPath)).isDirectory()).toBe(true);
+    await expect(readFile(artifactPath, "utf8")).rejects.toThrow();
+  });
+
+  it("preserves platform-variant-owned inactive empty directory roots from symlink replacement artifacts", async () => {
+    const workspace = await createWorkspace();
+    const homeDirectory = join(workspace, "home");
+    const xdgConfigHome = join(workspace, "xdg");
+    const replacementPath = join(homeDirectory, ".config", "variant-link");
+    const linkTarget = join(homeDirectory, "target.txt");
+    const ageKeys = await createAgeKeyPair();
+    const platformSpy = vi.spyOn(platformConfig, "detectCurrentPlatformKey");
+    setEnvironment(homeDirectory, xdgConfigHome);
+
+    await writeIdentityFile(xdgConfigHome, ageKeys.identity);
+    await mkdir(join(homeDirectory, ".config"), { recursive: true });
+    await writeFile(linkTarget, "target\n");
+
+    await initializeSyncDirectory({
+      identityFile: "$XDG_CONFIG_HOME/dotweave/keys.txt",
+      recipients: [ageKeys.recipient],
+    });
+
+    const manifestPath = join(
+      xdgConfigHome,
+      "dotweave",
+      "repository",
+      "manifest.jsonc",
+    );
+
+    await writeFile(
+      manifestPath,
+      JSON.stringify(
+        {
+          version: 8,
+          age: { recipients: [ageKeys.recipient] },
+          entries: [
+            {
+              kind: "directory",
+              localPath: {
+                default: "~/.config/variant-link",
+                win: "~/AppData/Roaming/variant-link",
+              },
+              repoPath: {
+                default: ".config/variant-link",
+                win: "AppData/Roaming/variant-link",
+              },
+              mode: { default: "normal", win: "ignore" },
+            },
+          ],
+        },
+        null,
+        2,
+      ),
+      "utf8",
+    );
+
+    platformSpy.mockReturnValue("linux");
+    await mkdir(replacementPath, { recursive: true });
+    await writeFile(join(replacementPath, "owned.txt"), "owned\n");
+    await pushChanges({ dryRun: false });
+
+    const artifactPath = join(
+      xdgConfigHome,
+      "dotweave",
+      "repository",
+      "default",
+      ".config",
+      "variant-link",
+    );
+    const ownedArtifactPath = join(artifactPath, "owned.txt");
+    expect((await lstat(artifactPath)).isDirectory()).toBe(true);
+    await expect(readFile(ownedArtifactPath, "utf8")).resolves.toBe("owned\n");
+
+    await rm(replacementPath, { recursive: true });
+    await createSymlink(linkTarget, replacementPath);
+    await writeFile(
+      manifestPath,
+      JSON.stringify(
+        {
+          version: 8,
+          age: { recipients: [ageKeys.recipient] },
+          entries: [
+            {
+              kind: "directory",
+              localPath: {
+                default: "~/.config/variant-link",
+                win: "~/AppData/Roaming/variant-link",
+              },
+              repoPath: {
+                default: ".config/variant-link",
+                win: "AppData/Roaming/variant-link",
+              },
+              mode: { default: "normal", win: "ignore" },
+            },
+            {
+              kind: "file",
+              localPath: { default: "~/.config/variant-link" },
+              repoPath: { default: ".config/variant-link" },
+              mode: { default: "normal" },
+            },
+          ],
+        },
+        null,
+        2,
+      ),
+      "utf8",
+    );
+
+    platformSpy.mockReturnValue("win");
+    const status = await getStatus();
+    const dryRunResult = await pushChanges({ dryRun: true });
+    const result = await pushChanges({ dryRun: false });
+
+    expect(status.push.changes.added).toEqual([]);
+    expect(status.push.changes.modified).toEqual([]);
+    expect(status.push.changes.deleted).toEqual([]);
+    expect(dryRunResult.deletedArtifactCount).toBe(0);
+    expect(result.deletedArtifactCount).toBe(0);
+    expect((await lstat(artifactPath)).isDirectory()).toBe(true);
+    await expect(readFile(ownedArtifactPath, "utf8")).resolves.toBe("owned\n");
+    await expect(readlink(artifactPath)).rejects.toThrow();
   });
 
   it("prunes registered profile artifacts when no entries own them", async () => {

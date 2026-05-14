@@ -6,7 +6,45 @@ describe("push helpers", () => {
   it("builds a stable preview from created and deleted repository artifacts", () => {
     expect(
       buildPushPlanPreview({
-        artifacts: [],
+        artifacts: [
+          {
+            category: "plain",
+            kind: "directory",
+            profile: "default",
+            repoPath: "alpha",
+          },
+          {
+            category: "plain",
+            kind: "symlink",
+            linkTarget: "value.txt",
+            profile: "default",
+            repoPath: "beta",
+          },
+          {
+            category: "secret",
+            contents: new Uint8Array(),
+            executable: false,
+            kind: "file",
+            profile: "default",
+            repoPath: "gamma",
+          },
+          {
+            category: "plain",
+            contents: new Uint8Array(),
+            executable: false,
+            kind: "file",
+            profile: "default",
+            repoPath: "delta",
+          },
+          {
+            category: "plain",
+            contents: new Uint8Array(),
+            executable: false,
+            kind: "file",
+            profile: "default",
+            repoPath: "zeta",
+          },
+        ],
         counts: {
           directoryCount: 1,
           encryptedFileCount: 1,
@@ -103,7 +141,38 @@ describe("push helpers", () => {
     ]);
     const desiredArtifactKeys = new Set(["a1", "a2", "a3", "a4", "a5"]);
     const result = buildPushPlanPreview({
-      artifacts: [],
+      artifacts: [
+        {
+          category: "plain",
+          kind: "directory",
+          profile: "default",
+          repoPath: "a1",
+        },
+        {
+          category: "plain",
+          kind: "directory",
+          profile: "default",
+          repoPath: "a2",
+        },
+        {
+          category: "plain",
+          kind: "directory",
+          profile: "default",
+          repoPath: "a3",
+        },
+        {
+          category: "plain",
+          kind: "directory",
+          profile: "default",
+          repoPath: "a4",
+        },
+        {
+          category: "plain",
+          kind: "directory",
+          profile: "default",
+          repoPath: "a5",
+        },
+      ],
       counts: {
         directoryCount: 5,
         encryptedFileCount: 0,
@@ -168,7 +237,26 @@ describe("push helpers", () => {
   it("buildPushPlanPreview sorts keys alphabetically", () => {
     expect(
       buildPushPlanPreview({
-        artifacts: [],
+        artifacts: [
+          {
+            category: "plain",
+            kind: "directory",
+            profile: "default",
+            repoPath: "zeta",
+          },
+          {
+            category: "plain",
+            kind: "directory",
+            profile: "default",
+            repoPath: "alpha",
+          },
+          {
+            category: "plain",
+            kind: "directory",
+            profile: "default",
+            repoPath: "mid",
+          },
+        ],
         counts: {
           directoryCount: 3,
           encryptedFileCount: 0,
@@ -189,7 +277,20 @@ describe("push helpers", () => {
 
   it("preview shows created keys first then deleted keys", () => {
     const result = buildPushPlanPreview({
-      artifacts: [],
+      artifacts: [
+        {
+          category: "plain",
+          kind: "directory",
+          profile: "default",
+          repoPath: "bravo",
+        },
+        {
+          category: "plain",
+          kind: "directory",
+          profile: "default",
+          repoPath: "charlie",
+        },
+      ],
       counts: {
         directoryCount: 2,
         encryptedFileCount: 0,

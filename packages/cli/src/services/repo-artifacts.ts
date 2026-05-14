@@ -120,7 +120,7 @@ const entryOwnsArtifactPath = (
   });
 };
 
-const entryOwnsArtifact = (
+export const entryOwnsArtifact = (
   entry: Pick<
     ResolvedSyncConfigEntry,
     "configuredRepoPath" | "kind" | "profiles" | "repoPath"
@@ -329,6 +329,7 @@ export const collectArtifactLeafKeys = async (
   keys: Set<string>,
   prefix?: string,
   onKey?: (key: string) => void,
+  includeEmptyDirectories = false,
 ) => {
   const rootStats = await getPathStats(rootDirectory);
 
@@ -347,6 +348,13 @@ export const collectArtifactLeafKeys = async (
 
   const entries = await listDirectoryEntries(rootDirectory);
 
+  if (entries.length === 0 && prefix !== undefined && includeEmptyDirectories) {
+    const key = buildDirectoryKey(prefix);
+
+    keys.add(key);
+    onKey?.(key);
+  }
+
   for (const entry of entries) {
     const absolutePath = join(rootDirectory, entry.name);
     const relativePath =
@@ -354,7 +362,13 @@ export const collectArtifactLeafKeys = async (
     const stats = await lstat(absolutePath);
 
     if (stats?.isDirectory()) {
-      await collectArtifactLeafKeys(absolutePath, keys, relativePath, onKey);
+      await collectArtifactLeafKeys(
+        absolutePath,
+        keys,
+        relativePath,
+        onKey,
+        includeEmptyDirectories,
+      );
       continue;
     }
 
@@ -377,7 +391,10 @@ export const collectExistingArtifactKeys = async (
         join(syncDirectory, profile),
         keys,
         profile,
+        undefined,
+        true,
       );
+      keys.delete(buildDirectoryKey(profile));
     }),
   );
 
@@ -386,7 +403,21 @@ export const collectExistingArtifactKeys = async (
       continue;
     }
 
-    const artifact = parseArtifactRelativePath(key);
+    const isDirectoryKey = key.endsWith("/");
+    const artifact = parseArtifactRelativePath(
+      isDirectoryKey ? key.slice(0, -1) : key,
+    );
+
+    if (
+      isDirectoryKey &&
+      ownershipConfig.entries.some((entry) => {
+        return entry.kind === "directory" && entryOwnsArtifact(entry, artifact);
+      })
+    ) {
+      keys.delete(key);
+      continue;
+    }
+
     const rule = resolveSyncRule(
       config,
       artifact.repoPath,
@@ -398,6 +429,7 @@ export const collectExistingArtifactKeys = async (
     }
 
     if (
+      !isDirectoryKey &&
       ownershipConfig.entries.some((entry) => {
         return entryOwnsArtifact(entry, artifact);
       })
