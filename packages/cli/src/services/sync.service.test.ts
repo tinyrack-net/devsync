@@ -19,7 +19,10 @@ import {
 } from "#test/helpers/mock-factories.ts";
 
 const mockEnv = vi.hoisted(() => ({
+  APPDATA: "",
   HOME: "",
+  LOCALAPPDATA: "",
+  USERPROFILE: "",
   XDG_CONFIG_HOME: "",
   WSL_DISTRO_NAME: undefined as string | undefined,
 }));
@@ -59,13 +62,19 @@ const createWorkspace = async () => {
 };
 
 const setEnvironment = (homeDirectory: string, xdgConfigHome: string) => {
+  mockEnv.APPDATA = xdgConfigHome;
   mockEnv.HOME = homeDirectory;
+  mockEnv.LOCALAPPDATA = join(homeDirectory, "AppData", "Local");
+  mockEnv.USERPROFILE = homeDirectory;
   mockEnv.XDG_CONFIG_HOME = xdgConfigHome;
 };
 
 afterEach(async () => {
   vi.restoreAllMocks();
+  mockEnv.APPDATA = "";
   mockEnv.HOME = "";
+  mockEnv.LOCALAPPDATA = "";
+  mockEnv.USERPROFILE = "";
   mockEnv.XDG_CONFIG_HOME = "";
   mockEnv.WSL_DISTRO_NAME = undefined;
 
