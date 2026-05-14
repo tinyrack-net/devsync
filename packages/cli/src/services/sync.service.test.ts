@@ -753,6 +753,87 @@ describe("sync service", () => {
     expect(await readFile(secretsFile, "utf8")).toBe("local-change\n");
   });
 
+  it("prunes orphaned default-profile artifacts after manifest entries are removed", async () => {
+    const workspace = await createWorkspace();
+    const homeDirectory = join(workspace, "home");
+    const xdgConfigHome = join(workspace, "xdg");
+    const gitconfigFile = join(homeDirectory, ".gitconfig");
+    const ageKeys = await createAgeKeyPair();
+    setEnvironment(homeDirectory, xdgConfigHome);
+
+    await writeIdentityFile(xdgConfigHome, ageKeys.identity);
+    await mkdir(homeDirectory, { recursive: true });
+    await writeFile(gitconfigFile, "[user]\n  name = Dotweave\n");
+
+    await initializeSyncDirectory({
+      identityFile: "$XDG_CONFIG_HOME/dotweave/keys.txt",
+      recipients: [ageKeys.recipient],
+    });
+
+    const manifestPath = join(
+      xdgConfigHome,
+      "dotweave",
+      "repository",
+      "manifest.jsonc",
+    );
+
+    await writeFile(
+      manifestPath,
+      JSON.stringify(
+        {
+          version: 7,
+          age: {
+            recipients: [ageKeys.recipient],
+          },
+          entries: [
+            {
+              kind: "file",
+              localPath: { default: "~/.gitconfig" },
+              mode: { default: "normal" },
+            },
+          ],
+        },
+        null,
+        2,
+      ),
+      "utf8",
+    );
+
+    await pushChanges({ dryRun: false });
+
+    const artifactPath = join(
+      xdgConfigHome,
+      "dotweave",
+      "repository",
+      "default",
+      ".gitconfig",
+    );
+    expect(await readFile(artifactPath, "utf8")).toBe(
+      "[user]\n  name = Dotweave\n",
+    );
+
+    await writeFile(
+      manifestPath,
+      JSON.stringify(
+        {
+          version: 7,
+          age: {
+            recipients: [ageKeys.recipient],
+          },
+          entries: [],
+        },
+        null,
+        2,
+      ),
+      "utf8",
+    );
+
+    const result = await pushChanges({ dryRun: false });
+
+    expect(result.deletedArtifactCount).toBe(1);
+    await expect(lstat(artifactPath)).rejects.toThrow();
+  });
+
   it("does not delete Windows-ignored artifacts during push", async () => {
     const workspace = await createWorkspace();
     const homeDirectory = join(workspace, "home");

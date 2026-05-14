@@ -1,5 +1,6 @@
 import { join } from "node:path";
 import { AppConstants } from "#app/config/constants.ts";
+import type { ResolvedSyncConfig } from "#app/config/sync-schema.ts";
 import { removePathAtomically } from "#app/lib/filesystem.ts";
 import { requireGitRepository } from "#app/lib/git.ts";
 import { limitConcurrency } from "#app/lib/promise.ts";
@@ -75,6 +76,7 @@ const buildPushCounts = (snapshot: ReadonlyMap<string, SnapshotNode>) => {
 export const buildPushPlan = async (
   config: EffectiveSyncConfig,
   syncDirectory: string,
+  ownershipConfig: Pick<ResolvedSyncConfig, "entries"> = config,
 ): Promise<PushPlan> => {
   const snapshot = await buildLocalSnapshot(config);
   const artifacts = await buildRepoArtifacts(snapshot, config);
@@ -86,6 +88,7 @@ export const buildPushPlan = async (
   const existingArtifactKeys = await collectExistingArtifactKeys(
     syncDirectory,
     config,
+    ownershipConfig,
   );
   const deletedArtifactCount = [...existingArtifactKeys].filter((key) => {
     return !desiredArtifactKeys.has(key);
@@ -134,10 +137,13 @@ export const pushChanges = async (
 
   await requireGitRepository(syncDirectory);
 
-  const { effectiveConfig: config } = await loadSyncConfig(syncDirectory, {
-    ...(request.profile === undefined ? {} : { profile: request.profile }),
-  });
-  const plan = await buildPushPlan(config, syncDirectory);
+  const { effectiveConfig: config, fullConfig } = await loadSyncConfig(
+    syncDirectory,
+    {
+      ...(request.profile === undefined ? {} : { profile: request.profile }),
+    },
+  );
+  const plan = await buildPushPlan(config, syncDirectory, fullConfig);
 
   if (!request.dryRun) {
     const staleArtifactKeys = [...plan.existingArtifactKeys].filter((key) => {

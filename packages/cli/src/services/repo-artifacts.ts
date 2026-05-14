@@ -7,6 +7,7 @@ import {
 } from "#app/config/sync-queries.ts";
 import {
   hasReservedSyncArtifactSuffixSegment,
+  type ResolvedSyncConfig,
   type ResolvedSyncConfigEntry,
 } from "#app/config/sync-schema.ts";
 import {
@@ -31,6 +32,17 @@ import type { SnapshotNode } from "./local-snapshot.ts";
 import type { EffectiveSyncConfig } from "./sync-context.ts";
 
 type ArtifactConfig = EffectiveSyncConfig;
+
+const entryOwnsArtifactProfile = (
+  entry: Pick<ResolvedSyncConfigEntry, "profiles">,
+  profile: string,
+) => {
+  if (entry.profiles.length === 0) {
+    return profile === AppConstants.SYNC.DEFAULT_PROFILE;
+  }
+
+  return entry.profiles.includes(profile);
+};
 
 const isActiveArtifactRule = (
   rule: ReturnType<typeof resolveSyncRule> | undefined,
@@ -289,9 +301,10 @@ const collectArtifactLeafKeys = async (
 export const collectExistingArtifactKeys = async (
   syncDirectory: string,
   config: ArtifactConfig,
+  ownershipConfig: Pick<ResolvedSyncConfig, "entries"> = config,
 ) => {
   const keys = new Set<string>();
-  const artifactProfiles = collectArtifactProfiles(config.entries);
+  const artifactProfiles = collectArtifactProfiles(ownershipConfig.entries);
 
   await Promise.all(
     [...artifactProfiles].map(async (profile) => {
@@ -309,15 +322,25 @@ export const collectExistingArtifactKeys = async (
     }
 
     const artifact = parseArtifactRelativePath(key);
+    const owningEntry = findOwningSyncEntry(ownershipConfig, artifact.repoPath);
     const rule = resolveSyncRule(
       config,
       artifact.repoPath,
       config.activeProfile,
     );
 
-    if (!isActiveArtifactRule(rule, artifact.profile)) {
-      keys.delete(key);
+    if (isActiveArtifactRule(rule, artifact.profile)) {
+      continue;
     }
+
+    if (
+      owningEntry === undefined ||
+      !entryOwnsArtifactProfile(owningEntry, artifact.profile)
+    ) {
+      continue;
+    }
+
+    keys.delete(key);
   }
 
   for (const entry of config.entries) {
