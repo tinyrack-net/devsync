@@ -11,7 +11,6 @@ import { isExecutableMode } from "#app/lib/file-mode.ts";
 import { getPathStats, listDirectoryEntries } from "#app/lib/filesystem.ts";
 import { addSnapshotNode, type SnapshotNode } from "./local-snapshot.ts";
 import {
-  assertNoLegacyProfileArtifactDirectories,
   assertStorageSafeRepoPath,
   collectArtifactProfiles,
   parseArtifactRelativePath,
@@ -245,11 +244,6 @@ export const buildRepositorySnapshot = async (
       artifactProfiles.add(profile);
     }
   }
-
-  await assertNoLegacyProfileArtifactDirectories(
-    syncDirectory,
-    artifactProfiles,
-  );
 
   await Promise.all(
     [...artifactProfiles].map(async (profile) => {

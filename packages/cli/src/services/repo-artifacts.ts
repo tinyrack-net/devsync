@@ -178,32 +178,6 @@ export const readCommittedProfileRegistry = async (syncDirectory: string) => {
   }
 };
 
-export const assertNoLegacyProfileArtifactDirectories = async (
-  syncDirectory: string,
-  profiles: ReadonlySet<string>,
-) => {
-  for (const profile of profiles) {
-    const legacyProfileDirectory = join(syncDirectory, profile);
-
-    if ((await getPathStats(legacyProfileDirectory))?.isDirectory() !== true) {
-      continue;
-    }
-
-    throw new DotweaveError(
-      "Repository uses the legacy top-level profile artifact layout.",
-      {
-        code: "LEGACY_REPOSITORY_LAYOUT",
-        details: [
-          `Profile: ${profile}`,
-          `Legacy path: ${profile}/`,
-          `Expected path: ${physicalProfilesRoot}/${profile}/`,
-        ],
-        hint: "Move repository artifacts under profiles/<profile>/ before running pull or status.",
-      },
-    );
-  }
-};
-
 const collectConfiguredRepoPathVariants = (
   entry: Pick<ResolvedSyncConfigEntry, "configuredRepoPath" | "repoPath">,
 ) => {
@@ -623,11 +597,6 @@ export const collectExistingArtifactKeys = async (
       artifactProfiles.add(profile);
     }
   }
-
-  await assertNoLegacyProfileArtifactDirectories(
-    syncDirectory,
-    artifactProfiles,
-  );
 
   if ((await getPathStats(profilesDirectory))?.isDirectory() === true) {
     for (const entry of await listDirectoryEntries(profilesDirectory)) {

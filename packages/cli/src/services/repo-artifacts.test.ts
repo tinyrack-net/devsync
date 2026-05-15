@@ -5,7 +5,6 @@ import { AppConstants } from "#app/config/constants.ts";
 import type { ResolvedSyncConfigEntry } from "#app/config/sync-schema.ts";
 import { createTemporaryDirectory } from "#app/test/helpers/sync-fixture.ts";
 import {
-  assertNoLegacyProfileArtifactDirectories,
   buildArtifactKey,
   collectArtifactProfiles,
   collectExistingArtifactKeys,
@@ -223,37 +222,6 @@ describe("repo-artifacts service", () => {
     ).resolves.toEqual(
       new Set(["work/.config/app/settings.json", "work/.gitconfig"]),
     );
-  });
-
-  it("fails on legacy top-level profile artifact directories but ignores support directories", async () => {
-    const workspace = await createWorkspace();
-
-    await mkdir(join(workspace, "docs"), { recursive: true });
-    await writeFile(join(workspace, "docs", "readme.md"), "support docs\n");
-    await mkdir(join(workspace, ".github", "workflows"), {
-      recursive: true,
-    });
-    await writeFile(
-      join(workspace, ".github", "workflows", "ci.yml"),
-      "name\n",
-    );
-
-    await expect(
-      assertNoLegacyProfileArtifactDirectories(
-        workspace,
-        new Set(["default", "work"]),
-      ),
-    ).resolves.toBeUndefined();
-
-    await mkdir(join(workspace, "work"), { recursive: true });
-    await writeFile(join(workspace, "work", ".gitconfig"), "legacy\n");
-
-    await expect(
-      assertNoLegacyProfileArtifactDirectories(
-        workspace,
-        new Set(["default", "work"]),
-      ),
-    ).rejects.toMatchObject({ code: "LEGACY_REPOSITORY_LAYOUT" });
   });
 
   it.skipIf(process.platform === "win32")(

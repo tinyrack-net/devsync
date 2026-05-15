@@ -17,7 +17,6 @@ const mocked = vi.hoisted(() => ({
   resolveSyncRule: vi.fn(),
   requireManagedSyncMode: vi.fn(() => "normal"),
   collectArtifactProfiles: vi.fn(() => new Set(["work"])),
-  assertNoLegacyProfileArtifactDirectories: vi.fn(),
   parseArtifactRelativePath: vi.fn((p) => {
     const segments = p.split("/");
     return {
@@ -55,8 +54,6 @@ vi.mock("#app/lib/crypto.ts", () => ({
 }));
 
 vi.mock("./repo-artifacts.ts", () => ({
-  assertNoLegacyProfileArtifactDirectories:
-    mocked.assertNoLegacyProfileArtifactDirectories,
   collectArtifactProfiles: mocked.collectArtifactProfiles,
   parseArtifactRelativePath: mocked.parseArtifactRelativePath,
   readCommittedProfileRegistry: mocked.readCommittedProfileRegistry,

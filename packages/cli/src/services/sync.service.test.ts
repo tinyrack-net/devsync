@@ -3870,65 +3870,6 @@ describe("sync service", () => {
     await expect(readFile(workflowPath, "utf8")).resolves.toBe("name: CI\n");
   });
 
-  it("fails safe when legacy top-level profile artifacts would plan local deletions", async () => {
-    const workspace = await createWorkspace();
-    const homeDirectory = join(workspace, "home");
-    const xdgConfigHome = join(workspace, "xdg");
-    const gitconfig = join(homeDirectory, ".gitconfig");
-    const ageKeys = await createAgeKeyPair();
-    setEnvironment(homeDirectory, xdgConfigHome);
-
-    await writeIdentityFile(xdgConfigHome, ageKeys.identity);
-    await mkdir(homeDirectory, { recursive: true });
-    await writeFile(gitconfig, "[user]\n  name = Local\n");
-
-    await initializeSyncDirectory({
-      identityFile: "$XDG_CONFIG_HOME/dotweave/keys.txt",
-      recipients: [ageKeys.recipient],
-    });
-
-    const syncDirectory = join(xdgConfigHome, "dotweave", "repository");
-    const manifestPath = join(syncDirectory, "manifest.jsonc");
-
-    await writeFile(
-      manifestPath,
-      JSON.stringify(
-        {
-          version: 8,
-          age: { recipients: [ageKeys.recipient] },
-          entries: [
-            {
-              kind: "file",
-              localPath: { default: "~/.gitconfig" },
-              mode: { default: "normal" },
-            },
-          ],
-        },
-        null,
-        2,
-      ),
-      "utf8",
-    );
-    await mkdir(join(syncDirectory, "default"), { recursive: true });
-    await writeFile(join(syncDirectory, "default", ".gitconfig"), "legacy\n");
-    await mkdir(join(syncDirectory, "docs"), { recursive: true });
-    await writeFile(join(syncDirectory, "docs", "readme.md"), "# Docs\n");
-    await mkdir(join(syncDirectory, ".github", "workflows"), {
-      recursive: true,
-    });
-    await writeFile(
-      join(syncDirectory, ".github", "workflows", "ci.yml"),
-      "name: CI\n",
-    );
-
-    await expect(preparePull({ dryRun: true })).rejects.toMatchObject({
-      code: "LEGACY_REPOSITORY_LAYOUT",
-    });
-    await expect(getStatus()).rejects.toMatchObject({
-      code: "LEGACY_REPOSITORY_LAYOUT",
-    });
-  });
-
   it("replaces a stale child directory with a file while the parent directory remains configured", async () => {
     const workspace = await createWorkspace();
     const homeDirectory = join(workspace, "home");
