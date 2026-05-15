@@ -4,16 +4,64 @@ import { wrapUnknownError } from "#app/lib/error.ts";
 
 const execFileAsync = promisify(execFile);
 
+type GitCommandOptions = Readonly<{ cwd?: string }>;
+
+type GitExecFileAsync = (
+  file: string,
+  args: readonly string[],
+  options: Readonly<{
+    cwd?: string;
+    encoding: "utf8";
+    maxBuffer: number;
+  }>,
+) => Promise<{
+  stderr: string;
+  stdout: string;
+}>;
+
+type GitStreamingChild = Readonly<{
+  stderr?: {
+    on: (event: "data", listener: (chunk: string) => void) => unknown;
+    setEncoding: (encoding: BufferEncoding) => void;
+  };
+  stdout?: {
+    on: (event: "data", listener: (chunk: string) => void) => unknown;
+    setEncoding: (encoding: BufferEncoding) => void;
+  };
+  on: {
+    (event: "error", listener: (error: unknown) => void): unknown;
+    (event: "close", listener: (code: number | null) => void): unknown;
+  };
+}>;
+
+type GitSpawn = (
+  command: string,
+  args: readonly string[],
+  options: Readonly<{
+    cwd?: string;
+    stdio: ["ignore", "pipe", "pipe"];
+  }>,
+) => GitStreamingChild;
+
+type GitCommandDependencies = Readonly<{
+  execFileAsync: GitExecFileAsync;
+}>;
+
+type StreamingGitCommandDependencies = Readonly<{
+  spawnGit: GitSpawn;
+}>;
+
 /**
  * @description
  * Runs a git command and normalizes failures into concise errors.
  */
-const runGitCommand = async (
+export const runGitCommandWithDependencies = async (
   args: readonly string[],
-  options?: Readonly<{ cwd?: string }>,
+  options: GitCommandOptions | undefined,
+  dependencies: GitCommandDependencies,
 ) => {
   try {
-    const result = await execFileAsync("git", [...args], {
+    const result = await dependencies.execFileAsync("git", [...args], {
       cwd: options?.cwd,
       encoding: "utf8",
       maxBuffer: 10_000_000,
@@ -40,21 +88,29 @@ const runGitCommand = async (
   }
 };
 
+const runGitCommand = async (
+  args: readonly string[],
+  options?: GitCommandOptions,
+) => {
+  return await runGitCommandWithDependencies(args, options, {
+    execFileAsync: execFileAsync as GitExecFileAsync,
+  });
+};
+
 /**
  * @description
  * Runs a git command while collecting output.
  */
-const runStreamingGitCommand = async (
+export const runStreamingGitCommandWithDependencies = async (
   args: readonly string[],
-  options?: Readonly<{
-    cwd?: string;
-  }>,
+  options: GitCommandOptions | undefined,
+  dependencies: StreamingGitCommandDependencies,
 ) => {
   return await new Promise<{
     stderr: string;
     stdout: string;
   }>((resolve, reject) => {
-    const child = spawn("git", [...args], {
+    const child = dependencies.spawnGit("git", [...args], {
       cwd: options?.cwd,
       stdio: ["ignore", "pipe", "pipe"],
     });
@@ -105,6 +161,15 @@ const runStreamingGitCommand = async (
         );
       });
     });
+  });
+};
+
+const runStreamingGitCommand = async (
+  args: readonly string[],
+  options?: GitCommandOptions,
+) => {
+  return await runStreamingGitCommandWithDependencies(args, options, {
+    spawnGit: spawn as GitSpawn,
   });
 };
 

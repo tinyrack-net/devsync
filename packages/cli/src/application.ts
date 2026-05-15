@@ -20,10 +20,32 @@ const errorLogger = createCliLogger({
   stdout: process.stderr,
 });
 
-const formatErrorForConsola = (error: unknown) => {
-  const message = formatDotweaveError(
-    error instanceof Error ? error : new Error(String(error)),
+const stringifyThrownValue = (error: unknown) => {
+  if (typeof error === "string") {
+    return error;
+  }
+
+  try {
+    const serialized = JSON.stringify(error);
+
+    if (typeof serialized === "string") {
+      return serialized;
+    }
+  } catch {
+    // Fall back to String() for circular or otherwise non-serializable values.
+  }
+
+  return String(error);
+};
+
+export const formatApplicationError = (error: unknown) => {
+  return formatDotweaveError(
+    error instanceof Error ? error : new Error(stringifyThrownValue(error)),
   );
+};
+
+const formatErrorForConsola = (error: unknown) => {
+  const message = formatApplicationError(error);
   errorLogger.error(message);
   return "";
 };
@@ -53,7 +75,7 @@ const dotweaveText: ApplicationText = {
   },
 };
 
-const resolveExitCode = (error: unknown) => {
+export const resolveExitCode = (error: unknown) => {
   if (
     typeof error === "object" &&
     error !== null &&

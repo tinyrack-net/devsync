@@ -15,6 +15,77 @@ import { stripAnsi } from "../src/test/helpers/sync-fixture.ts";
 
 let ctx: SyncE2EContext;
 
+type ProfilePullFixture = Readonly<{
+  homeFile: string;
+  sharedFile: string;
+  workFile: string;
+}>;
+
+const setupProfilePullFixture = async (): Promise<ProfilePullFixture> => {
+  const sharedDir = join(ctx.homeDir, ".config", "shared");
+  const workFile = join(ctx.homeDir, ".gitconfig-work");
+  const homeFile = join(ctx.homeDir, ".gitconfig-home");
+  const sharedFile = join(sharedDir, "tool.conf");
+  const ageKeys = await ctx.createAgeKeyPair();
+
+  await ctx.writeIdentityFile(ageKeys.identity);
+  await mkdir(sharedDir, { recursive: true });
+  await writeFile(workFile, "work = initial\n");
+  await writeFile(homeFile, "home = initial\n");
+  await writeFile(sharedFile, "shared = initial\n");
+
+  await ctx.runCli(["init"]);
+  await ctx.runCli(["profile", "add", "work"]);
+  await ctx.runCli(["profile", "add", "home"]);
+  await ctx.runCli(["track", workFile, "--profile", "work"]);
+  await ctx.runCli(["track", homeFile, "--profile", "home"]);
+  await ctx.runCli(["track", sharedFile]);
+  await ctx.runCli(["push"]);
+  await ctx.runCli(["push", "--profile", "work"]);
+  await ctx.runCli(["push", "--profile", "home"]);
+
+  await writeFile(
+    join(
+      ctx.xdgDir,
+      "dotweave",
+      "repository",
+      "profiles",
+      "work",
+      ".gitconfig-work",
+    ),
+    "work = repository\n",
+  );
+  await writeFile(
+    join(
+      ctx.xdgDir,
+      "dotweave",
+      "repository",
+      "profiles",
+      "home",
+      ".gitconfig-home",
+    ),
+    "home = repository\n",
+  );
+  await writeFile(
+    join(
+      ctx.xdgDir,
+      "dotweave",
+      "repository",
+      "profiles",
+      "default",
+      ".config",
+      "shared",
+      "tool.conf",
+    ),
+    "shared = repository\n",
+  );
+  await writeFile(workFile, "work = local\n");
+  await writeFile(homeFile, "home = local\n");
+  await writeFile(sharedFile, "shared = local\n");
+
+  return { homeFile, sharedFile, workFile };
+};
+
 beforeEach(async () => {
   ctx = await createSyncE2EContext();
 });
@@ -142,6 +213,65 @@ describe("profile CLI e2e", () => {
     );
     await expect(readFile(personalArtifact, "utf8")).rejects.toThrow();
   }, 15_000);
+
+  it("pull --profile work applies work and default artifacts only", async () => {
+    const { homeFile, sharedFile, workFile } = await setupProfilePullFixture();
+
+    const result = await ctx.runCli(["pull", "--profile", "work", "-y"]);
+
+    expect(result.exitCode).toBe(0);
+    expect(await readFile(workFile, "utf8")).toBe("work = repository\n");
+    expect(await readFile(sharedFile, "utf8")).toBe("shared = repository\n");
+    expect(await readFile(homeFile, "utf8")).toBe("home = local\n");
+  }, 20_000);
+
+  it("pull -y uses the active work profile", async () => {
+    const { homeFile, sharedFile, workFile } = await setupProfilePullFixture();
+
+    await ctx.runCli(["profile", "use", "work"]);
+    const result = await ctx.runCli(["pull", "-y"]);
+
+    expect(result.exitCode).toBe(0);
+    expect(await readFile(workFile, "utf8")).toBe("work = repository\n");
+    expect(await readFile(sharedFile, "utf8")).toBe("shared = repository\n");
+    expect(await readFile(homeFile, "utf8")).toBe("home = local\n");
+  }, 20_000);
+
+  it("pull -y with active home profile does not apply work artifacts", async () => {
+    const { homeFile, sharedFile, workFile } = await setupProfilePullFixture();
+
+    await ctx.runCli(["profile", "use", "home"]);
+    const result = await ctx.runCli(["pull", "-y"]);
+
+    expect(result.exitCode).toBe(0);
+    expect(await readFile(homeFile, "utf8")).toBe("home = repository\n");
+    expect(await readFile(sharedFile, "utf8")).toBe("shared = repository\n");
+    expect(await readFile(workFile, "utf8")).toBe("work = local\n");
+  }, 20_000);
+
+  it("pull --profile overrides the active profile", async () => {
+    const { homeFile, sharedFile, workFile } = await setupProfilePullFixture();
+
+    await ctx.runCli(["profile", "use", "home"]);
+    const result = await ctx.runCli(["pull", "--profile", "work", "-y"]);
+
+    expect(result.exitCode).toBe(0);
+    expect(await readFile(workFile, "utf8")).toBe("work = repository\n");
+    expect(await readFile(sharedFile, "utf8")).toBe("shared = repository\n");
+    expect(await readFile(homeFile, "utf8")).toBe("home = local\n");
+  }, 20_000);
+
+  it("pull -y without an active named profile applies default artifacts only", async () => {
+    const { homeFile, sharedFile, workFile } = await setupProfilePullFixture();
+
+    await ctx.runCli(["profile", "use"]);
+    const result = await ctx.runCli(["pull", "-y"]);
+
+    expect(result.exitCode).toBe(0);
+    expect(await readFile(sharedFile, "utf8")).toBe("shared = repository\n");
+    expect(await readFile(workFile, "utf8")).toBe("work = local\n");
+    expect(await readFile(homeFile, "utf8")).toBe("home = local\n");
+  }, 20_000);
 
   it("rejects invalid profile names with special characters", async () => {
     const ageKeys = await ctx.createAgeKeyPair();

@@ -1,6 +1,10 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import packageJson from "../package.json" with { type: "json" };
-import { runCli } from "./application.ts";
+import {
+  formatApplicationError,
+  resolveExitCode,
+  runCli,
+} from "./application.ts";
 import { rootCommandRoutes } from "./cli/root-commands.ts";
 
 const captureProcessOutput = () => {
@@ -90,6 +94,29 @@ describe("CLI application", () => {
     expect(output.stdout()).toBe("");
     expect(output.stderr()).toContain('Command "profiel" not found.');
     expect(output.stderr()).toContain("profile");
+  });
+
+  it("respects custom command exit codes", () => {
+    expect(
+      resolveExitCode(Object.assign(new Error("blocked"), { exitCode: 7 })),
+    ).toBe(7);
+  });
+
+  it("falls back to a generic exit code for unsupported error shapes", () => {
+    expect(resolveExitCode(new Error("blocked"))).toBe(1);
+    expect(resolveExitCode({ exitCode: "7" })).toBe(1);
+    expect(resolveExitCode(null)).toBe(1);
+  });
+
+  it("formats non-Error thrown values without object stringification noise", () => {
+    const message = formatApplicationError({
+      reason: "boom",
+      retryable: false,
+    });
+
+    expect(message).toContain("reason");
+    expect(message).toContain("boom");
+    expect(message).not.toContain("[object Object]");
   });
 
   it("reports parser errors for invalid flags and missing arguments", async () => {

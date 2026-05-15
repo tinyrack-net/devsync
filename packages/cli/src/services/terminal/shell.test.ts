@@ -2,6 +2,7 @@ import { EventEmitter } from "node:events";
 import { rm } from "node:fs/promises";
 
 import { afterEach, describe, expect, it, vi } from "vitest";
+import type { DotweaveError } from "#app/lib/error.ts";
 
 const mockEnv = vi.hoisted(() => ({
   COMSPEC: undefined as string | undefined,
@@ -10,12 +11,16 @@ const mockEnv = vi.hoisted(() => ({
   XDG_CONFIG_HOME: undefined as string | undefined,
 }));
 
+const mockRuntime = vi.hoisted(() => ({
+  platformKey: "linux" as "linux" | "macos" | "win" | "wsl",
+}));
+
 vi.mock("#app/lib/env.ts", () => ({
   ENV: mockEnv,
 }));
 
 vi.mock("#app/config/runtime-env.ts", () => ({
-  resolveCurrentPlatformKey: () => "linux",
+  resolveCurrentPlatformKey: () => mockRuntime.platformKey,
 }));
 
 const mockSpawn = vi.hoisted(() => {
@@ -48,6 +53,7 @@ afterEach(async () => {
   mockEnv.HOME = undefined;
   mockEnv.SHELL = undefined;
   mockEnv.XDG_CONFIG_HOME = undefined;
+  mockRuntime.platformKey = "linux";
   mockSpawn.mockClear();
 
   while (temporaryDirectories.length > 0) {
@@ -111,6 +117,22 @@ describe("shell launcher", () => {
       await expect(launchShellInDirectory("/tmp")).rejects.toThrow();
     });
 
+    it("uses the windows shell hint when a windows shell fails to spawn", async () => {
+      mockRuntime.platformKey = "win";
+      mockEnv.COMSPEC = "missing-cmd.exe";
+      mockSpawn.mockImplementation(() => {
+        const emitter = new EventEmitter();
+        setTimeout(() => {
+          emitter.emit("error", new Error("not found"));
+        }, 0);
+        return emitter;
+      });
+
+      await expect(launchShellInDirectory("/tmp")).rejects.toMatchObject({
+        hint: "Set COMSPEC to a valid shell executable.",
+      });
+    });
+
     it("launchShellInDirectory resolves when the shell process exits successfully", async () => {
       mockEnv.SHELL = "/bin/bash";
       mockSpawn.mockImplementation(() => {
@@ -135,6 +157,52 @@ describe("shell launcher", () => {
       });
 
       await expect(launchShellInDirectory("/tmp")).rejects.toThrow();
+    });
+
+    it("reports signal termination", async () => {
+      mockEnv.SHELL = "/bin/bash";
+      mockSpawn.mockImplementation(() => {
+        const emitter = new EventEmitter();
+        setTimeout(() => {
+          emitter.emit("close", null, "SIGTERM");
+        }, 0);
+        return emitter;
+      });
+
+      await expect(launchShellInDirectory("/tmp")).rejects.toThrow(
+        "Shell exited due to signal SIGTERM.",
+      );
+    });
+
+    it("uses exit code 1 when the shell closes without a code", async () => {
+      mockEnv.SHELL = "/bin/bash";
+      mockSpawn.mockImplementation(() => {
+        const emitter = new EventEmitter();
+        setTimeout(() => {
+          emitter.emit("close", null, null);
+        }, 0);
+        return emitter;
+      });
+
+      await expect(launchShellInDirectory("/tmp")).rejects.toMatchObject({
+        exitCode: 1,
+        message: "Shell exited with code unknown.",
+      });
+    });
+
+    it("includes non-Error spawn error details", async () => {
+      mockEnv.SHELL = "/bin/bash";
+      mockSpawn.mockImplementation(() => {
+        const emitter = new EventEmitter();
+        setTimeout(() => {
+          emitter.emit("error", "not an Error");
+        }, 0);
+        return emitter;
+      });
+
+      await expect(launchShellInDirectory("/tmp")).rejects.toMatchObject({
+        details: ["Shell: /bin/bash", "not an Error"],
+      } satisfies Partial<DotweaveError>);
     });
   });
 });

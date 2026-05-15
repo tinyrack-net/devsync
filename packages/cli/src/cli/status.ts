@@ -1,5 +1,6 @@
 import type { ApplicationContext } from "@stricli/core";
 import { buildCommand } from "@stricli/core";
+import { AppConstants } from "#app/config/constants.ts";
 import {
   getStatus,
   type PullChanges,
@@ -134,7 +135,7 @@ const statusCommand = buildCommand<StatusFlags, [], ApplicationContext>({
     spin.stop();
 
     logger.info(
-      `Sync status — ${result.entryCount} entries, ${result.recipientCount} recipients, profile: ${result.activeProfile ?? "none"}`,
+      `Sync status — ${result.entryCount} entries, ${result.recipientCount} recipients, profile: ${result.activeProfile ?? AppConstants.SYNC.DEFAULT_PROFILE}`,
     );
 
     logger.section("Push changes (repository)");

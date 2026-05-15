@@ -2,6 +2,13 @@ import type { ApplicationContext, Command } from "@stricli/core";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DotweaveError } from "#app/lib/error.ts";
 
+const ansiPattern = new RegExp(`${String.fromCharCode(27)}\\[[0-9;]*m`, "gu");
+
+const withoutAnsi = (value: unknown) => String(value).replace(ansiPattern, "");
+
+const loggerCalls = (mock: { mock: { calls: unknown[][] } }) =>
+  mock.mock.calls.map(([message]) => withoutAnsi(message));
+
 const mockLogger = vi.hoisted(() => ({
   divider: vi.fn(),
   fail: vi.fn(),
@@ -626,6 +633,150 @@ describe("CLI command modules", () => {
     );
   });
 
+  it("formats status output for every push and pull change category", async () => {
+    mocked.getStatus.mockResolvedValueOnce({
+      activeProfile: "work",
+      entries: [
+        {
+          kind: "file",
+          localPath: "/tmp/home/.config/new.toml",
+          mode: "normal",
+          profiles: ["work"],
+          repoPath: ".config/new.toml",
+        },
+        {
+          kind: "file",
+          localPath: "/tmp/home/.config/app.toml",
+          mode: "normal",
+          profiles: ["work"],
+          repoPath: ".config/app.toml",
+        },
+        {
+          kind: "file",
+          localPath: "/tmp/home/.config/old.toml",
+          mode: "normal",
+          profiles: ["work"],
+          repoPath: ".config/old.toml",
+        },
+      ],
+      entryCount: 3,
+      pull: {
+        changes: {
+          updated: ["/tmp/home/.config/app.toml"],
+          deleted: ["/tmp/home/.config/obsolete.toml"],
+        },
+        decryptedFileCount: 0,
+        deletedLocalCount: 1,
+        directoryCount: 0,
+        dryRun: true,
+        plainFileCount: 1,
+        preview: [".config/app.toml"],
+        symlinkCount: 0,
+      },
+      push: {
+        changes: {
+          added: [".config/new.toml"],
+          modified: [".config/app.toml"],
+          deleted: [".config/old.toml"],
+        },
+        deletedArtifactCount: 1,
+        directoryCount: 0,
+        dryRun: true,
+        encryptedFileCount: 0,
+        plainFileCount: 2,
+        preview: [".config/app.toml"],
+        symlinkCount: 0,
+      },
+      recipientCount: 2,
+    });
+
+    await runCommand(statusCommand, { profile: "work" });
+
+    expect(mockLogger.info).toHaveBeenCalledWith(
+      "Sync status — 3 entries, 2 recipients, profile: work",
+    );
+
+    const sections = mockLogger.section.mock.calls.map(([message]) =>
+      withoutAnsi(message),
+    );
+    expect(sections).toEqual(
+      expect.arrayContaining([
+        "Push changes (repository)",
+        "Add (1)",
+        "Modify (1)",
+        "Delete (1)",
+        "Pull changes (local)",
+        "Changed (1)",
+        "Remove (1)",
+      ]),
+    );
+
+    const logLines = mockLogger.log.mock.calls.map(([message]) =>
+      withoutAnsi(message),
+    );
+    expect(logLines).toEqual(
+      expect.arrayContaining([
+        "  + .config/new.toml",
+        "  ~ .config/app.toml",
+        "  - .config/old.toml",
+        "  + /tmp/home/.config/app.toml",
+        "  - /tmp/home/.config/obsolete.toml",
+      ]),
+    );
+  });
+
+  it("truncates long status change lists after ten items", async () => {
+    mocked.getStatus.mockResolvedValueOnce({
+      entries: [],
+      entryCount: 0,
+      pull: {
+        changes: {
+          updated: [],
+          deleted: [],
+        },
+        decryptedFileCount: 0,
+        deletedLocalCount: 0,
+        directoryCount: 0,
+        dryRun: true,
+        plainFileCount: 0,
+        preview: [],
+        symlinkCount: 0,
+      },
+      push: {
+        changes: {
+          added: Array.from(
+            { length: 12 },
+            (_, index) => `.config/generated-${index + 1}.toml`,
+          ),
+          modified: [],
+          deleted: [],
+        },
+        deletedArtifactCount: 0,
+        directoryCount: 0,
+        dryRun: true,
+        encryptedFileCount: 0,
+        plainFileCount: 12,
+        preview: [],
+        symlinkCount: 0,
+      },
+      recipientCount: 1,
+    });
+
+    await runCommand(statusCommand, {});
+
+    expect(mockLogger.section).toHaveBeenCalledWith("Add (12)");
+    expect(mockLogger.info).toHaveBeenCalledWith(
+      "Sync status — 0 entries, 1 recipients, profile: default",
+    );
+
+    const logLines = mockLogger.log.mock.calls.map(([message]) =>
+      withoutAnsi(message),
+    );
+    expect(logLines).toContain("  + .config/generated-10.toml");
+    expect(logLines).not.toContain("  + .config/generated-11.toml");
+    expect(logLines).toContain("  ... and 2 more");
+  });
+
   it("skips prompting and exits when pull has no changes", async () => {
     mocked.preparePull.mockResolvedValueOnce({
       config: {
@@ -742,6 +893,142 @@ describe("CLI command modules", () => {
     expect(mockLogger.fail).toHaveBeenCalledWith(
       expect.stringContaining("Doctor found issues"),
     );
+  });
+
+  it("formats successful doctor checks with an all-pass summary", async () => {
+    mocked.runDoctorChecks.mockResolvedValueOnce({
+      checks: [
+        {
+          checkId: "git",
+          detail: "Sync directory is a git repository.",
+          level: "ok",
+        },
+        {
+          checkId: "config",
+          detail: "Loaded config.",
+          level: "ok",
+        },
+      ],
+      hasFailures: false,
+      hasWarnings: false,
+    });
+
+    await runCommand(doctorCommand, {});
+
+    expect(loggerCalls(mockLogger.success)).toContain(
+      "Doctor passed (2 ok · 0 warnings · 0 failures)",
+    );
+    expect(mockLogger.warn).not.toHaveBeenCalled();
+    expect(mockLogger.fail).not.toHaveBeenCalled();
+    expect(mockLogger.log).not.toHaveBeenCalled();
+  });
+
+  it("formats doctor warnings with remapped check ids and distinct warn labels", async () => {
+    mocked.runDoctorChecks.mockResolvedValueOnce({
+      checks: [
+        {
+          checkId: "git",
+          detail: "Sync directory is a git repository.",
+          level: "ok",
+        },
+        {
+          checkId: "entries",
+          detail: "No sync entries are configured yet.",
+          level: "warn",
+        },
+        {
+          checkId: "local-paths",
+          detail: "Tracked local paths need attention.",
+          level: "warn",
+        },
+      ],
+      hasFailures: false,
+      hasWarnings: true,
+    });
+
+    await runCommand(doctorCommand, {});
+
+    expect(loggerCalls(mockLogger.warn)).toContain(
+      "Doctor completed with warnings (1 ok · 2 warnings · 0 failures)",
+    );
+    expect(loggerCalls(mockLogger.log)).toEqual([
+      "  ⚠ entries — No sync entries are configured yet",
+      "  ⚠ local — Tracked local paths need attention",
+    ]);
+    expect(loggerCalls(mockLogger.log)).not.toContain(
+      expect.stringContaining("✖ entries"),
+    );
+  });
+
+  it("formats doctor failures with remapped age id and throws an exit-coded error", async () => {
+    mocked.runDoctorChecks.mockResolvedValueOnce({
+      checks: [
+        {
+          checkId: "age",
+          detail: "Age identity file is missing: /tmp/keys.txt.",
+          level: "fail",
+        },
+      ],
+      hasFailures: true,
+      hasWarnings: false,
+    });
+
+    await expect(runCommand(doctorCommand, {})).rejects.toMatchObject({
+      exitCode: 1,
+      message: "Doctor found issues.",
+    });
+
+    expect(loggerCalls(mockLogger.fail)).toContain(
+      "Doctor found issues (0 ok · 0 warnings · 1 failures)",
+    );
+    expect(loggerCalls(mockLogger.log)).toEqual([
+      "  ✖ identity — Age identity file is missing: /tmp/keys.txt",
+    ]);
+  });
+
+  it("truncates doctor issue details after three non-ok checks", async () => {
+    mocked.runDoctorChecks.mockResolvedValueOnce({
+      checks: [
+        {
+          checkId: "entries",
+          detail: "No sync entries are configured yet.",
+          level: "warn",
+        },
+        {
+          checkId: "age",
+          detail: "Age identity file is missing: /tmp/keys.txt.",
+          level: "fail",
+        },
+        {
+          checkId: "local-paths",
+          detail: "Tracked local paths need attention.",
+          level: "warn",
+        },
+        {
+          checkId: "config",
+          detail: "Sync configuration could not be read.",
+          level: "fail",
+        },
+        {
+          checkId: "profiles",
+          detail: "Active profile is not registered.",
+          level: "warn",
+        },
+      ],
+      hasFailures: true,
+      hasWarnings: true,
+    });
+
+    await expect(runCommand(doctorCommand, {})).rejects.toThrow(
+      "Doctor found issues.",
+    );
+
+    expect(loggerCalls(mockLogger.log)).toEqual([
+      "  ⚠ entries — No sync entries are configured yet",
+      "  ✖ identity — Age identity file is missing: /tmp/keys.txt",
+      "  ⚠ local — Tracked local paths need attention",
+      "  ... 2 more issues",
+    ]);
   });
 
   it("creates the sync directory before launching cd shells", async () => {
