@@ -4,6 +4,7 @@ import initCommand from "#app/cli/init.ts";
 import profileRoute from "#app/cli/profile/index.ts";
 import pullCommand from "#app/cli/pull.ts";
 import pushCommand from "#app/cli/push.ts";
+import skillRoute from "#app/cli/skill/index.ts";
 import statusCommand from "#app/cli/status.ts";
 import trackCommand from "#app/cli/track.ts";
 import untrackCommand from "#app/cli/untrack.ts";
@@ -15,6 +16,7 @@ export const rootCommandRoutes = {
   profile: profileRoute,
   pull: pullCommand,
   push: pushCommand,
+  skill: skillRoute,
   status: statusCommand,
   track: trackCommand,
   untrack: untrackCommand,

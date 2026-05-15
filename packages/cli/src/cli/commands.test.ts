@@ -38,6 +38,7 @@ const mocked = vi.hoisted(() => ({
   createMissingRepositoryAgeKeyError: vi.fn(),
   getStatus: vi.fn(),
   initializeSyncDirectory: vi.fn(),
+  installDotweaveSkill: vi.fn(),
   launchShellInDirectory: vi.fn(),
   listProfiles: vi.fn(),
   mkdir: vi.fn(),
@@ -104,6 +105,10 @@ vi.mock("#app/services/init.ts", () => ({
   initializeSyncDirectory: mocked.initializeSyncDirectory,
 }));
 
+vi.mock("#app/services/skill-install.ts", () => ({
+  installDotweaveSkill: mocked.installDotweaveSkill,
+}));
+
 vi.mock("#app/services/profile.ts", () => ({
   addProfile: mocked.addProfile,
   assignProfiles: mocked.assignProfiles,
@@ -153,6 +158,7 @@ import profileRemoveCommand from "./profile/remove.ts";
 import profileUseCommand from "./profile/use.ts";
 import pullCommand from "./pull.ts";
 import pushCommand from "./push.ts";
+import skillInstallCommand from "./skill/install.ts";
 import statusCommand from "./status.ts";
 import trackCommand from "./track.ts";
 import untrackCommand from "./untrack.ts";
@@ -210,6 +216,11 @@ beforeEach(() => {
     gitSource: "git@example.com:dotfiles.git",
     identityFile: "/tmp/keys.txt",
     recipientCount: 1,
+  });
+  mocked.installDotweaveSkill.mockResolvedValue({
+    action: "installed",
+    dryRun: false,
+    targetPath: "/tmp/skills/dotweave/SKILL.md",
   });
   mocked.preparePull.mockResolvedValue({
     config: {
@@ -456,6 +467,36 @@ describe("CLI command modules", () => {
         expect.objectContaining({ key: "mode" }),
         expect.objectContaining({ key: "profiles", value: "work" }),
       ]),
+    );
+  });
+
+  it("installs the bundled dotweave skill and reports the target path", async () => {
+    mocked.installDotweaveSkill.mockResolvedValueOnce({
+      action: "would-install",
+      dryRun: true,
+      targetPath: "/tmp/skills/dotweave/SKILL.md",
+    });
+
+    await runCommand(
+      skillInstallCommand,
+      {
+        dryRun: true,
+        force: true,
+      },
+      "/tmp/skills",
+    );
+
+    expect(mocked.installDotweaveSkill).toHaveBeenCalledWith({
+      directory: "/tmp/skills",
+      dryRun: true,
+      force: true,
+    });
+    expect(mockLogger.info).toHaveBeenCalledWith(
+      "Would install dotweave skill",
+    );
+    expect(mockLogger.kv).toHaveBeenCalledWith(
+      "target",
+      "/tmp/skills/dotweave/SKILL.md",
     );
   });
 
