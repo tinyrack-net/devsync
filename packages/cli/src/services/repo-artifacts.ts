@@ -294,6 +294,34 @@ export const nearestEntryOwnsArtifact = (
     : entryCompatibleWithArtifact(nearestEntry, artifact, artifactKind);
 };
 
+const directoryEntryOwnsArtifactRoot = (
+  entry: Pick<
+    ResolvedSyncConfigEntry,
+    "configuredRepoPath" | "kind" | "profiles" | "repoPath"
+  >,
+  artifact: ReturnType<typeof parseArtifactRelativePath>,
+) => {
+  return (
+    entry.kind === "directory" &&
+    entryOwnsArtifactProfile(entry, artifact.profile) &&
+    collectConfiguredRepoPathVariants(entry).some((candidate) => {
+      return artifact.repoPath === candidate;
+    })
+  );
+};
+
+const configuredDirectoryRootOwnsArtifact = (
+  entries: readonly Pick<
+    ResolvedSyncConfigEntry,
+    "configuredRepoPath" | "kind" | "profiles" | "repoPath"
+  >[],
+  artifact: ReturnType<typeof parseArtifactRelativePath>,
+) => {
+  return entries.some((entry) => {
+    return directoryEntryOwnsArtifactRoot(entry, artifact);
+  });
+};
+
 export const entryOwnsArtifact = (
   entry: Pick<
     ResolvedSyncConfigEntry,
@@ -654,7 +682,7 @@ export const collectExistingArtifactKeys = async (
 
     if (
       isDirectoryKey &&
-      nearestEntryOwnsArtifact(ownershipConfig.entries, artifact, "directory")
+      configuredDirectoryRootOwnsArtifact(ownershipConfig.entries, artifact)
     ) {
       keys.delete(key);
       continue;

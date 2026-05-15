@@ -186,6 +186,11 @@ const collectStaleReplacementDirectoryRoots = async (
     const artifactPath = join(syncDirectory, ...relativePath.split("/"));
     const stats = await getPathStats(artifactPath);
 
+    if (stats?.isSymbolicLink() === true && artifact.kind === "file") {
+      deletedArtifactKeys.add(logicalPath);
+      continue;
+    }
+
     if (stats?.isDirectory() !== true) {
       continue;
     }

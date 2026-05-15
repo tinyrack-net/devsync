@@ -1549,6 +1549,111 @@ describe("sync service", () => {
     expect(result.deletedArtifactCount).toBe(1);
   });
 
+  it("prunes stale empty child directories under an active parent directory entry", async () => {
+    const workspace = await createWorkspace();
+    const homeDirectory = join(workspace, "home");
+    const xdgConfigHome = join(workspace, "xdg");
+    const appDirectory = join(homeDirectory, ".config", "active-empty-child");
+    const staleChildDirectory = join(appDirectory, "old-empty");
+    const ageKeys = await createAgeKeyPair();
+    setEnvironment(homeDirectory, xdgConfigHome);
+
+    await writeIdentityFile(xdgConfigHome, ageKeys.identity);
+    await mkdir(staleChildDirectory, { recursive: true });
+
+    await initializeSyncDirectory({
+      identityFile: "$XDG_CONFIG_HOME/dotweave/keys.txt",
+      recipients: [ageKeys.recipient],
+    });
+
+    const manifestPath = join(
+      xdgConfigHome,
+      "dotweave",
+      "repository",
+      "manifest.jsonc",
+    );
+
+    await writeFile(
+      manifestPath,
+      JSON.stringify(
+        {
+          version: 8,
+          age: { recipients: [ageKeys.recipient] },
+          entries: [
+            {
+              kind: "directory",
+              localPath: { default: "~/.config/active-empty-child" },
+              repoPath: { default: ".config/active-empty-child" },
+              mode: { default: "normal" },
+            },
+            {
+              kind: "directory",
+              localPath: { default: "~/.config/active-empty-child/old-empty" },
+              repoPath: { default: ".config/active-empty-child/old-empty" },
+              mode: { default: "normal" },
+            },
+          ],
+        },
+        null,
+        2,
+      ),
+      "utf8",
+    );
+
+    await pushChanges({ dryRun: false });
+
+    const artifactPath = join(
+      xdgConfigHome,
+      "dotweave",
+      "repository",
+      "profiles",
+      "default",
+      ".config",
+      "active-empty-child",
+    );
+    const childArtifactPath = join(artifactPath, "old-empty");
+    expect((await lstat(childArtifactPath)).isDirectory()).toBe(true);
+
+    await rm(staleChildDirectory, { recursive: true });
+    await writeFile(
+      manifestPath,
+      JSON.stringify(
+        {
+          version: 8,
+          age: { recipients: [ageKeys.recipient] },
+          entries: [
+            {
+              kind: "directory",
+              localPath: { default: "~/.config/active-empty-child" },
+              repoPath: { default: ".config/active-empty-child" },
+              mode: { default: "normal" },
+            },
+          ],
+        },
+        null,
+        2,
+      ),
+      "utf8",
+    );
+
+    const status = await getStatus();
+    const dryRunResult = await pushChanges({ dryRun: true });
+    const result = await pushChanges({ dryRun: false });
+
+    expect(status.push.deletedArtifactCount).toBe(1);
+    expect(status.push.changes.added).toEqual([]);
+    expect(status.push.changes.modified).toEqual([]);
+    expect(status.push.changes.deleted).toEqual([
+      "default/.config/active-empty-child/old-empty/",
+    ]);
+    expect(dryRunResult.deletedArtifactCount).toBe(1);
+    expect(result.deletedArtifactCount).toBe(1);
+    await expect(lstat(childArtifactPath)).rejects.toMatchObject({
+      code: "ENOENT",
+    });
+    expect((await lstat(artifactPath)).isDirectory()).toBe(true);
+  });
+
   it("preserves child artifacts through a remaining parent directory entry", async () => {
     const workspace = await createWorkspace();
     const homeDirectory = join(workspace, "home");
@@ -2138,6 +2243,100 @@ describe("sync service", () => {
     expect(result.deletedArtifactCount).toBe(1);
     expect((await lstat(artifactPath)).isSymbolicLink()).toBe(true);
     expect(await readlink(artifactPath)).toBe(".empty-child-link-target");
+  });
+
+  it("replaces an existing symlink artifact with a file artifact without following the symlink target", async () => {
+    const workspace = await createWorkspace();
+    const homeDirectory = join(workspace, "home");
+    const xdgConfigHome = join(workspace, "xdg");
+    const symlinkSource = join(homeDirectory, ".link-replacement-source");
+    const symlinkTarget = join(homeDirectory, ".link-replacement-target");
+    const replacementFile = join(homeDirectory, ".link-replacement-file");
+    const ageKeys = await createAgeKeyPair();
+    setEnvironment(homeDirectory, xdgConfigHome);
+
+    await writeIdentityFile(xdgConfigHome, ageKeys.identity);
+    await mkdir(homeDirectory, { recursive: true });
+    await writeFile(symlinkTarget, "local target content\n");
+    await writeFile(replacementFile, "replacement file\n");
+    await createSymlink(symlinkTarget, symlinkSource);
+
+    await initializeSyncDirectory({
+      identityFile: "$XDG_CONFIG_HOME/dotweave/keys.txt",
+      recipients: [ageKeys.recipient],
+    });
+
+    const manifestPath = join(
+      xdgConfigHome,
+      "dotweave",
+      "repository",
+      "manifest.jsonc",
+    );
+
+    await writeFile(
+      manifestPath,
+      JSON.stringify(
+        {
+          version: 8,
+          age: { recipients: [ageKeys.recipient] },
+          entries: [
+            {
+              kind: "file",
+              localPath: { default: "~/.link-replacement-source" },
+              repoPath: { default: ".config/link-replacement" },
+              mode: { default: "normal" },
+            },
+          ],
+        },
+        null,
+        2,
+      ),
+      "utf8",
+    );
+
+    await pushChanges({ dryRun: false });
+
+    const artifactPath = join(
+      xdgConfigHome,
+      "dotweave",
+      "repository",
+      "profiles",
+      "default",
+      ".config",
+      "link-replacement",
+    );
+    expect((await lstat(artifactPath)).isSymbolicLink()).toBe(true);
+    expect(await readlink(artifactPath)).toBe(symlinkTarget);
+
+    await writeFile(
+      manifestPath,
+      JSON.stringify(
+        {
+          version: 8,
+          age: { recipients: [ageKeys.recipient] },
+          entries: [
+            {
+              kind: "file",
+              localPath: { default: "~/.link-replacement-file" },
+              repoPath: { default: ".config/link-replacement" },
+              mode: { default: "normal" },
+            },
+          ],
+        },
+        null,
+        2,
+      ),
+      "utf8",
+    );
+
+    const result = await pushChanges({ dryRun: false });
+
+    expect(result.deletedArtifactCount).toBe(1);
+    expect((await lstat(artifactPath)).isFile()).toBe(true);
+    expect(await readFile(artifactPath, "utf8")).toBe("replacement file\n");
+    expect(await readFile(symlinkTarget, "utf8")).toBe(
+      "local target content\n",
+    );
   });
 
   it("preserves still-owned inactive nested directory artifacts from file replacement", async () => {
