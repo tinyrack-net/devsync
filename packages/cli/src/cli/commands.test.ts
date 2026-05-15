@@ -633,6 +633,51 @@ describe("CLI command modules", () => {
     );
   });
 
+  it("stops the push spinner when push planning rejects", async () => {
+    const error = new DotweaveError("Failed to plan push.");
+    mocked.pushChanges.mockRejectedValueOnce(error);
+
+    await expect(runCommand(pushCommand, {})).rejects.toBe(error);
+
+    const spin = mockLogger.spinner.mock.results[0]?.value;
+    expect(spin.stop).toHaveBeenCalledOnce();
+    expect(spin.succeed).not.toHaveBeenCalled();
+  });
+
+  it("stops the prepare pull spinner when planning rejects", async () => {
+    const error = new DotweaveError("Failed to prepare pull.");
+    mocked.preparePull.mockRejectedValueOnce(error);
+
+    await expect(runCommand(pullCommand, {})).rejects.toBe(error);
+
+    const spin = mockLogger.spinner.mock.results[0]?.value;
+    expect(spin.stop).toHaveBeenCalledOnce();
+    expect(spin.succeed).not.toHaveBeenCalled();
+  });
+
+  it("stops the apply pull spinner when applying rejects", async () => {
+    const error = new DotweaveError("Failed to apply pull.");
+    mocked.applyPullPlan.mockRejectedValueOnce(error);
+
+    await expect(runCommand(pullCommand, { yes: true })).rejects.toBe(error);
+
+    const prepareSpin = mockLogger.spinner.mock.results[0]?.value;
+    const applySpin = mockLogger.spinner.mock.results[1]?.value;
+    expect(prepareSpin.stop).toHaveBeenCalledOnce();
+    expect(applySpin.stop).toHaveBeenCalledOnce();
+    expect(applySpin.succeed).not.toHaveBeenCalled();
+  });
+
+  it("stops the status spinner when status calculation rejects", async () => {
+    const error = new DotweaveError("Failed to check status.");
+    mocked.getStatus.mockRejectedValueOnce(error);
+
+    await expect(runCommand(statusCommand, {})).rejects.toBe(error);
+
+    const spin = mockLogger.spinner.mock.results[0]?.value;
+    expect(spin.stop).toHaveBeenCalledOnce();
+  });
+
   it("formats status output for every push and pull change category", async () => {
     mocked.getStatus.mockResolvedValueOnce({
       activeProfile: "work",

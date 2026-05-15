@@ -20,10 +20,17 @@ const pushCommand = buildCommand<PushFlags, [], ApplicationContext>({
 
     const spin = logger.spinner("Pushing changes...");
 
-    const result = await pushChanges({
-      dryRun: flags.dryRun ?? false,
-      profile: flags.profile,
-    });
+    let result: Awaited<ReturnType<typeof pushChanges>>;
+
+    try {
+      result = await pushChanges({
+        dryRun: flags.dryRun ?? false,
+        profile: flags.profile,
+      });
+    } catch (error) {
+      spin.stop();
+      throw error;
+    }
 
     if (result.dryRun) {
       spin.stop();

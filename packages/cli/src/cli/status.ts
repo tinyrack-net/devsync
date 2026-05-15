@@ -129,9 +129,17 @@ const statusCommand = buildCommand<StatusFlags, [], ApplicationContext>({
     const logger = createCliLogger();
 
     const spin = logger.spinner("Checking sync status...");
-    const result = await getStatus({
-      profile: flags.profile,
-    });
+    let result: Awaited<ReturnType<typeof getStatus>>;
+
+    try {
+      result = await getStatus({
+        profile: flags.profile,
+      });
+    } catch (error) {
+      spin.stop();
+      throw error;
+    }
+
     spin.stop();
 
     logger.info(

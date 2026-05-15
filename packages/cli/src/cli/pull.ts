@@ -39,7 +39,15 @@ const pullCommand = buildCommand<PullFlags, [], ApplicationContext>({
     const logger = createCliLogger();
 
     const spin = logger.spinner("Preparing pull...");
-    const prepared = await preparePull({ dryRun, profile: flags.profile });
+    let prepared: Awaited<ReturnType<typeof preparePull>>;
+
+    try {
+      prepared = await preparePull({ dryRun, profile: flags.profile });
+    } catch (error) {
+      spin.stop();
+      throw error;
+    }
+
     const { config, plan } = prepared;
     spin.stop();
 
@@ -58,7 +66,12 @@ const pullCommand = buildCommand<PullFlags, [], ApplicationContext>({
       logger.info("Pull preview (dry run)");
     } else if (flags.yes ?? false) {
       const applySpin = logger.spinner("Applying pull...");
-      await applyPullPlan(config, plan);
+      try {
+        await applyPullPlan(config, plan);
+      } catch (error) {
+        applySpin.stop();
+        throw error;
+      }
       applySpin.succeed("Pull complete");
     } else {
       if (!(process.stdin.isTTY ?? false)) {
@@ -78,7 +91,12 @@ const pullCommand = buildCommand<PullFlags, [], ApplicationContext>({
       }
 
       const applySpin = logger.spinner("Applying pull...");
-      await applyPullPlan(config, plan);
+      try {
+        await applyPullPlan(config, plan);
+      } catch (error) {
+        applySpin.stop();
+        throw error;
+      }
       applySpin.succeed("Pull complete");
     }
 
