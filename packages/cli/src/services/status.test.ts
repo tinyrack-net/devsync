@@ -50,7 +50,11 @@ vi.mock("./pull.ts", () => ({
 vi.mock("./repo-artifacts.ts", () => ({
   buildArtifactKey: mocked.buildArtifactKey,
   isRepoArtifactCurrent: mocked.isRepoArtifactCurrent,
-  parseArtifactRelativePath: vi.fn((p: string) => ({ repoPath: p })),
+  parseArtifactRelativePath: vi.fn((p: string) => {
+    const [profile, ...repoPathSegments] = p.split("/");
+
+    return { profile, repoPath: repoPathSegments.join("/"), secret: false };
+  }),
 }));
 
 describe("status service", () => {
@@ -213,6 +217,69 @@ describe("status service", () => {
 
     expect(result.push.changes.deleted).toContain("default/.oldconfig");
     expect(result.push.changes.deleted).toContain("default/.obsolete");
+  });
+
+  it("preserves profile-qualified artifact keys for non-default profile pruning", async () => {
+    const mockConfig: LoadedSyncConfig = {
+      effectiveConfig: {
+        version: AppConstants.SYNC.CONFIG_VERSION,
+        activeProfile: "work",
+        age: { identityFile: "key.txt", recipients: ["recip"] },
+        entries: [],
+      },
+      fullConfig: {
+        version: AppConstants.SYNC.CONFIG_VERSION,
+        entries: [],
+      },
+    };
+
+    mocked.loadSyncConfig.mockResolvedValue(mockConfig);
+    mocked.buildPushPlan.mockResolvedValue({
+      artifacts: [],
+      existingArtifactKeys: new Set(["work/.staleconfig"]),
+      desiredArtifactKeys: new Set(),
+    });
+    mocked.buildPullPlan.mockResolvedValue({
+      updatedLocalPaths: [],
+      deletedLocalPaths: [],
+    });
+
+    const result = await getStatus({ profile: "work" });
+
+    expect(result.push.changes.deleted).toEqual(["work/.staleconfig"]);
+  });
+
+  it("keeps deleted default and work artifacts unambiguous when repo paths duplicate", async () => {
+    const mockConfig: LoadedSyncConfig = {
+      effectiveConfig: {
+        version: AppConstants.SYNC.CONFIG_VERSION,
+        activeProfile: "default",
+        age: { identityFile: "key.txt", recipients: ["recip"] },
+        entries: [],
+      },
+      fullConfig: {
+        version: AppConstants.SYNC.CONFIG_VERSION,
+        entries: [],
+      },
+    };
+
+    mocked.loadSyncConfig.mockResolvedValue(mockConfig);
+    mocked.buildPushPlan.mockResolvedValue({
+      artifacts: [],
+      existingArtifactKeys: new Set(["default/.shared", "work/.shared"]),
+      desiredArtifactKeys: new Set(),
+    });
+    mocked.buildPullPlan.mockResolvedValue({
+      updatedLocalPaths: [],
+      deletedLocalPaths: [],
+    });
+
+    const result = await getStatus();
+
+    expect(result.push.changes.deleted).toEqual([
+      "default/.shared",
+      "work/.shared",
+    ]);
   });
 
   it("reports pull changes including deleted local paths", async () => {

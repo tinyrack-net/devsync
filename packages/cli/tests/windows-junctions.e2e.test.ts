@@ -79,6 +79,7 @@ describe("Windows junction and symlink target normalization", () => {
         ctx.xdgDir,
         "dotweave",
         "repository",
+        "profiles",
         "default",
         "link_entry",
       );

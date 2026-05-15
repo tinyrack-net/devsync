@@ -96,6 +96,9 @@ export const writeFileNode = async (
   fileMode?: number,
 ) => {
   await mkdir(dirname(path), { recursive: true });
+  if ((await getPathStats(path))?.isSymbolicLink()) {
+    await rm(path, { force: true });
+  }
   await writeFile(path, node.contents);
   await chmod(path, fileMode ?? buildExecutableMode(node.executable));
 };

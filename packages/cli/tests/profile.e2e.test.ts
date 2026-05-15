@@ -45,11 +45,25 @@ const setupProfilePullFixture = async (): Promise<ProfilePullFixture> => {
   await ctx.runCli(["push", "--profile", "home"]);
 
   await writeFile(
-    join(ctx.xdgDir, "dotweave", "repository", "work", ".gitconfig-work"),
+    join(
+      ctx.xdgDir,
+      "dotweave",
+      "repository",
+      "profiles",
+      "work",
+      ".gitconfig-work",
+    ),
     "work = repository\n",
   );
   await writeFile(
-    join(ctx.xdgDir, "dotweave", "repository", "home", ".gitconfig-home"),
+    join(
+      ctx.xdgDir,
+      "dotweave",
+      "repository",
+      "profiles",
+      "home",
+      ".gitconfig-home",
+    ),
     "home = repository\n",
   );
   await writeFile(
@@ -57,6 +71,7 @@ const setupProfilePullFixture = async (): Promise<ProfilePullFixture> => {
       ctx.xdgDir,
       "dotweave",
       "repository",
+      "profiles",
       "default",
       ".config",
       "shared",
@@ -178,6 +193,7 @@ describe("profile CLI e2e", () => {
       ctx.xdgDir,
       "dotweave",
       "repository",
+      "profiles",
       "work",
       ".config",
       "work",
