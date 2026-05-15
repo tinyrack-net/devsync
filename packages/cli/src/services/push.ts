@@ -201,7 +201,13 @@ const collectStaleReplacementDirectoryRoots = async (
     }
 
     const leafKeys = new Set<string>();
-    await collectArtifactLeafKeys(artifactPath, leafKeys, relativePath);
+    await collectArtifactLeafKeys(
+      artifactPath,
+      leafKeys,
+      relativePath,
+      undefined,
+      true,
+    );
 
     if (leafKeys.size === 0) {
       roots.push(relativePath);
@@ -215,7 +221,10 @@ const collectStaleReplacementDirectoryRoots = async (
       })
     ) {
       roots.push(relativePath);
+      continue;
     }
+
+    protectedArtifactKeys.add(buildArtifactKey(artifact));
   }
 
   return { deletedArtifactKeys, protectedArtifactKeys, roots };
