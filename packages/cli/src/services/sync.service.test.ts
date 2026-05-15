@@ -2329,9 +2329,15 @@ describe("sync service", () => {
       "utf8",
     );
 
+    const status = await getStatus();
+    const dryRunResult = await pushChanges({ dryRun: true });
     const result = await pushChanges({ dryRun: false });
 
-    expect(result.deletedArtifactCount).toBe(1);
+    expect(status.push.changes.added).toEqual([]);
+    expect(status.push.changes.modified).toEqual([".config/link-replacement"]);
+    expect(status.push.changes.deleted).toEqual([]);
+    expect(dryRunResult.deletedArtifactCount).toBe(0);
+    expect(result.deletedArtifactCount).toBe(0);
     expect((await lstat(artifactPath)).isFile()).toBe(true);
     expect(await readFile(artifactPath, "utf8")).toBe("replacement file\n");
     expect(await readFile(symlinkTarget, "utf8")).toBe(
@@ -3001,6 +3007,124 @@ describe("sync service", () => {
     expect(dryRunResult.deletedArtifactCount).toBe(0);
     expect(result.deletedArtifactCount).toBe(0);
     expect((await lstat(artifactPath)).isDirectory()).toBe(true);
+  });
+
+  it("preserves inactive parent-owned empty child directories", async () => {
+    const workspace = await createWorkspace();
+    const homeDirectory = join(workspace, "home");
+    const xdgConfigHome = join(workspace, "xdg");
+    const parentDirectory = join(
+      homeDirectory,
+      ".config",
+      "inactive-parent-empty-child",
+    );
+    const childDirectory = join(parentDirectory, "child");
+    const workFile = join(homeDirectory, ".inactive-parent-work-file");
+    const ageKeys = await createAgeKeyPair();
+    setEnvironment(homeDirectory, xdgConfigHome);
+
+    await writeIdentityFile(xdgConfigHome, ageKeys.identity);
+    await mkdir(childDirectory, { recursive: true });
+    await writeFile(workFile, "work profile\n");
+
+    await initializeSyncDirectory({
+      identityFile: "$XDG_CONFIG_HOME/dotweave/keys.txt",
+      recipients: [ageKeys.recipient],
+    });
+
+    const manifestPath = join(
+      xdgConfigHome,
+      "dotweave",
+      "repository",
+      "manifest.jsonc",
+    );
+
+    await writeFile(
+      manifestPath,
+      JSON.stringify(
+        {
+          version: 8,
+          age: { recipients: [ageKeys.recipient] },
+          profiles: ["work"],
+          entries: [
+            {
+              kind: "directory",
+              localPath: { default: "~/.config/inactive-parent-empty-child" },
+              repoPath: { default: ".config/inactive-parent-empty-child" },
+              mode: { default: "normal" },
+              profiles: ["default"],
+            },
+            {
+              kind: "directory",
+              localPath: {
+                default: "~/.config/inactive-parent-empty-child/child",
+              },
+              repoPath: {
+                default: ".config/inactive-parent-empty-child/child",
+              },
+              mode: { default: "normal" },
+              profiles: ["default"],
+            },
+          ],
+        },
+        null,
+        2,
+      ),
+      "utf8",
+    );
+
+    await pushChanges({ dryRun: false });
+
+    const childArtifactPath = join(
+      xdgConfigHome,
+      "dotweave",
+      "repository",
+      "profiles",
+      "default",
+      ".config",
+      "inactive-parent-empty-child",
+      "child",
+    );
+    expect((await lstat(childArtifactPath)).isDirectory()).toBe(true);
+
+    await writeFile(
+      manifestPath,
+      JSON.stringify(
+        {
+          version: 8,
+          age: { recipients: [ageKeys.recipient] },
+          profiles: ["work"],
+          entries: [
+            {
+              kind: "directory",
+              localPath: { default: "~/.config/inactive-parent-empty-child" },
+              repoPath: { default: ".config/inactive-parent-empty-child" },
+              mode: { default: "normal" },
+              profiles: ["default"],
+            },
+            {
+              kind: "file",
+              localPath: { default: "~/.inactive-parent-work-file" },
+              repoPath: { default: ".inactive-parent-work-file" },
+              mode: { default: "normal" },
+              profiles: ["work"],
+            },
+          ],
+        },
+        null,
+        2,
+      ),
+      "utf8",
+    );
+
+    const status = await getStatus({ profile: "work" });
+    const dryRunResult = await pushChanges({ dryRun: true, profile: "work" });
+    const result = await pushChanges({ dryRun: false, profile: "work" });
+
+    expect(status.push.deletedArtifactCount).toBe(0);
+    expect(dryRunResult.deletedArtifactCount).toBe(0);
+    expect(result.deletedArtifactCount).toBe(0);
+    expect((await lstat(childArtifactPath)).isDirectory()).toBe(true);
   });
 
   it("reports and prunes orphaned empty directory artifact roots after entry removal", async () => {

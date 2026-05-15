@@ -233,6 +233,17 @@ export const normalizeSyncProfileName = (
     });
   }
 
+  if (normalizedValue === "profiles") {
+    throw new DotweaveError(
+      `${description} conflicts with the reserved profile artifact directory.`,
+      {
+        code: "INVALID_PROFILE_NAME",
+        details: [`${description}: ${value}`],
+        hint: "Use a profile name like 'work' or 'personal' instead of 'profiles'.",
+      },
+    );
+  }
+
   return normalizedValue;
 };
 

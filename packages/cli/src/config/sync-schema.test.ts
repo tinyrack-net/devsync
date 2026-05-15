@@ -77,6 +77,12 @@ describe("sync config", () => {
     expect(normalizeSyncProfileName("personal")).toBe("personal");
   });
 
+  it("rejects the reserved physical profiles root as a profile name", () => {
+    expect(() => normalizeSyncProfileName("profiles")).toThrowError(
+      "reserved profile artifact directory",
+    );
+  });
+
   it("parses v7 entries with flat profiles", async () => {
     const workspace = await createTemporaryDirectory("dotweave-sync-config-");
     const homeDirectory = join(workspace, "home");
