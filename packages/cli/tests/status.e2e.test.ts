@@ -127,6 +127,7 @@ describe("status CLI e2e", () => {
       ctx.xdgDir,
       "dotweave",
       "repository",
+      "profiles",
       "default",
       ".config",
       "myapp",

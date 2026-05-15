@@ -13,6 +13,7 @@ import {
   nearestEntryOwnsArtifact,
   parseArtifactRelativePath,
   type RepoArtifact,
+  resolveArtifactLogicalPath,
   resolveArtifactRelativePath,
   writeArtifactsToDirectory,
 } from "./repo-artifacts.ts";
@@ -181,6 +182,7 @@ const collectStaleReplacementDirectoryRoots = async (
     }
 
     const relativePath = resolveArtifactRelativePath(artifact);
+    const logicalPath = resolveArtifactLogicalPath(artifact);
     const artifactPath = join(syncDirectory, ...relativePath.split("/"));
     const stats = await getPathStats(artifactPath);
 
@@ -204,14 +206,14 @@ const collectStaleReplacementDirectoryRoots = async (
     await collectArtifactLeafKeys(
       artifactPath,
       leafKeys,
-      relativePath,
+      logicalPath,
       undefined,
       true,
     );
 
     if (leafKeys.size === 0) {
       roots.push(relativePath);
-      deletedArtifactKeys.add(`${relativePath}/`);
+      deletedArtifactKeys.add(`${logicalPath}/`);
       continue;
     }
 
@@ -267,7 +269,7 @@ export const pushChanges = async (
           : staleKey;
 
         await removePathAtomically(
-          join(syncDirectory, ...relativePath.split("/")),
+          join(syncDirectory, "profiles", ...relativePath.split("/")),
         );
       },
     );

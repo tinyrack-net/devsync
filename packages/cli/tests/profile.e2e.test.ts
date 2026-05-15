@@ -122,6 +122,7 @@ describe("profile CLI e2e", () => {
       ctx.xdgDir,
       "dotweave",
       "repository",
+      "profiles",
       "work",
       ".config",
       "work",

@@ -200,6 +200,7 @@ describe("sync service", () => {
       xdgConfigHome,
       "dotweave",
       "repository",
+      "profiles",
       "default",
       "profiles",
       "shared",
@@ -213,6 +214,53 @@ describe("sync service", () => {
     await pullChanges({ dryRun: false });
 
     expect(await readFile(gitconfig, "utf8")).toBe("[user]\nname=test\n");
+  });
+
+  it("writes pushed artifacts under physical profiles layout", async () => {
+    const workspace = await createWorkspace();
+    const homeDirectory = join(workspace, "home");
+    const xdgConfigHome = join(workspace, "xdg");
+    const gitconfig = join(homeDirectory, ".gitconfig");
+    const ageKeys = await createAgeKeyPair();
+
+    await writeIdentityFile(xdgConfigHome, ageKeys.identity);
+    await mkdir(homeDirectory, { recursive: true });
+    await writeFile(gitconfig, "[user]\nname=option-b\n");
+
+    setEnvironment(homeDirectory, xdgConfigHome);
+
+    await initializeSyncDirectory({
+      identityFile: "$XDG_CONFIG_HOME/dotweave/keys.txt",
+      recipients: [ageKeys.recipient],
+    });
+
+    await trackTarget(
+      {
+        mode: "normal",
+        target: gitconfig,
+      },
+      homeDirectory,
+    );
+
+    await pushChanges({ dryRun: false });
+
+    const repositoryDirectory = join(xdgConfigHome, "dotweave", "repository");
+    const physicalArtifactPath = join(
+      repositoryDirectory,
+      "profiles",
+      "default",
+      ".gitconfig",
+    );
+    const oldLayoutArtifactPath = join(
+      repositoryDirectory,
+      "default",
+      ".gitconfig",
+    );
+
+    expect(await readFile(physicalArtifactPath, "utf8")).toBe(
+      "[user]\nname=option-b\n",
+    );
+    await expect(lstat(oldLayoutArtifactPath)).rejects.toThrow();
   });
 
   it("keeps repository artifact bytes stable under core.autocrlf before repeated pull", async () => {
@@ -243,14 +291,22 @@ describe("sync service", () => {
     );
     await pushChanges({ dryRun: false });
 
-    const artifactPath = join(syncDirectory, "default", ".gitconfig");
+    const artifactPath = join(
+      syncDirectory,
+      "profiles",
+      "default",
+      ".gitconfig",
+    );
 
     await runGit(["add", "."], syncDirectory);
     await runGit(["commit", "-m", "store artifacts"], syncDirectory);
     await runGit(["config", "core.autocrlf", "true"], syncDirectory);
 
     await rm(artifactPath);
-    await runGit(["checkout", "--", "default/.gitconfig"], syncDirectory);
+    await runGit(
+      ["checkout", "--", "profiles/default/.gitconfig"],
+      syncDirectory,
+    );
 
     expect(await readFile(join(syncDirectory, ".gitattributes"), "utf8")).toBe(
       "* -text\n",
@@ -310,6 +366,7 @@ describe("sync service", () => {
       xdgConfigHome,
       "dotweave",
       "repository",
+      "profiles",
       "default",
       "profiles",
       "shared",
@@ -320,6 +377,7 @@ describe("sync service", () => {
       xdgConfigHome,
       "dotweave",
       "repository",
+      "profiles",
       "default",
       ".gitconfig",
     );
@@ -503,6 +561,7 @@ describe("sync service", () => {
       xdgConfigHome,
       "dotweave",
       "repository",
+      "profiles",
       "default",
       "profiles",
       "shared",
@@ -513,6 +572,7 @@ describe("sync service", () => {
       xdgConfigHome,
       "dotweave",
       "repository",
+      "profiles",
       "default",
       "profiles",
       "shared",
@@ -629,6 +689,7 @@ describe("sync service", () => {
       xdgConfigHome,
       "dotweave",
       "repository",
+      "profiles",
       "default",
       ".config",
       "zsh",
@@ -638,6 +699,7 @@ describe("sync service", () => {
       xdgConfigHome,
       "dotweave",
       "repository",
+      "profiles",
       "default",
       ".config",
       "zsh",
@@ -731,6 +793,7 @@ describe("sync service", () => {
       xdgConfigHome,
       "dotweave",
       "repository",
+      "profiles",
       "default",
       ".config",
       "zsh",
@@ -806,6 +869,7 @@ describe("sync service", () => {
       xdgConfigHome,
       "dotweave",
       "repository",
+      "profiles",
       "default",
       ".gitconfig",
     );
@@ -889,6 +953,7 @@ describe("sync service", () => {
       xdgConfigHome,
       "dotweave",
       "repository",
+      "profiles",
       "default",
       ".config",
       "zsh",
@@ -969,6 +1034,7 @@ describe("sync service", () => {
       xdgConfigHome,
       "dotweave",
       "repository",
+      "profiles",
       "default",
       ".config",
       "platform-app",
@@ -1035,6 +1101,7 @@ describe("sync service", () => {
       xdgConfigHome,
       "dotweave",
       "repository",
+      "profiles",
       "work",
       ".gitconfig",
     );
@@ -1229,6 +1296,7 @@ describe("sync service", () => {
       xdgConfigHome,
       "dotweave",
       "repository",
+      "profiles",
       "default",
       ".ssh",
       "id_rsa.dotweave.secret",
@@ -1309,6 +1377,7 @@ describe("sync service", () => {
       xdgConfigHome,
       "dotweave",
       "repository",
+      "profiles",
       "default",
       ".zshenv",
     );
@@ -1390,6 +1459,7 @@ describe("sync service", () => {
       xdgConfigHome,
       "dotweave",
       "repository",
+      "profiles",
       "default",
       ".config",
       "app",
@@ -1465,6 +1535,7 @@ describe("sync service", () => {
       xdgConfigHome,
       "dotweave",
       "repository",
+      "profiles",
       "default",
       ".config",
       "app",
@@ -1536,6 +1607,7 @@ describe("sync service", () => {
       xdgConfigHome,
       "dotweave",
       "repository",
+      "profiles",
       "default",
       "apps",
       "overlap",
@@ -1624,6 +1696,7 @@ describe("sync service", () => {
       xdgConfigHome,
       "dotweave",
       "repository",
+      "profiles",
       "default",
       ".config",
       "transition-app",
@@ -1712,6 +1785,7 @@ describe("sync service", () => {
       xdgConfigHome,
       "dotweave",
       "repository",
+      "profiles",
       "default",
       ".config",
       "empty-transition",
@@ -1811,6 +1885,7 @@ describe("sync service", () => {
       xdgConfigHome,
       "dotweave",
       "repository",
+      "profiles",
       "default",
       ".config",
       "transition-link",
@@ -1909,6 +1984,7 @@ describe("sync service", () => {
       xdgConfigHome,
       "dotweave",
       "repository",
+      "profiles",
       "default",
       ".config",
       "empty-child-file",
@@ -2018,6 +2094,7 @@ describe("sync service", () => {
       xdgConfigHome,
       "dotweave",
       "repository",
+      "profiles",
       "default",
       ".config",
       "empty-child-link",
@@ -2125,6 +2202,7 @@ describe("sync service", () => {
       xdgConfigHome,
       "dotweave",
       "repository",
+      "profiles",
       "default",
       ".config",
       "inactive-child-file",
@@ -2243,6 +2321,7 @@ describe("sync service", () => {
       xdgConfigHome,
       "dotweave",
       "repository",
+      "profiles",
       "default",
       ".config",
       "inactive-child-link",
@@ -2376,12 +2455,14 @@ describe("sync service", () => {
 
     const defaultArtifactPath = join(
       syncDirectory,
+      "profiles",
       "default",
       "apps",
       "profile-ns",
     );
     const workChildArtifactPath = join(
       syncDirectory,
+      "profiles",
       "work",
       "apps",
       "profile-ns",
@@ -2522,6 +2603,7 @@ describe("sync service", () => {
       xdgConfigHome,
       "dotweave",
       "repository",
+      "profiles",
       "default",
       ".config",
       "missing-file-root",
@@ -2607,6 +2689,7 @@ describe("sync service", () => {
       xdgConfigHome,
       "dotweave",
       "repository",
+      "profiles",
       "work",
       ".gitconfig",
     );
@@ -2676,6 +2759,7 @@ describe("sync service", () => {
       xdgConfigHome,
       "dotweave",
       "repository",
+      "profiles",
       "default",
       ".config",
       "inactive-empty",
@@ -2771,6 +2855,7 @@ describe("sync service", () => {
       xdgConfigHome,
       "dotweave",
       "repository",
+      "profiles",
       "default",
       ".config",
       "orphan-empty",
@@ -2862,6 +2947,7 @@ describe("sync service", () => {
       xdgConfigHome,
       "dotweave",
       "repository",
+      "profiles",
       "default",
       ".config",
       "variant-empty",
@@ -2980,6 +3066,7 @@ describe("sync service", () => {
       xdgConfigHome,
       "dotweave",
       "repository",
+      "profiles",
       "default",
       ".config",
       "variant-link",
@@ -3072,6 +3159,7 @@ describe("sync service", () => {
       xdgConfigHome,
       "dotweave",
       "repository",
+      "profiles",
       "work",
       ".gitconfig",
     );
@@ -3148,6 +3236,7 @@ describe("sync service", () => {
       xdgConfigHome,
       "dotweave",
       "repository",
+      "profiles",
       "work",
       ".gitconfig",
     );
@@ -3155,6 +3244,7 @@ describe("sync service", () => {
       xdgConfigHome,
       "dotweave",
       "repository",
+      "profiles",
       "work",
       ".config",
       "removed-profile-empty",
@@ -3291,6 +3381,7 @@ describe("sync service", () => {
       xdgConfigHome,
       "dotweave",
       "repository",
+      "profiles",
       "work",
       ".gitconfig",
     );
@@ -3380,6 +3471,7 @@ describe("sync service", () => {
 
     const removedProfileArtifactPath = join(
       syncDirectory,
+      "profiles",
       "work",
       ".gitconfig",
     );
@@ -3455,6 +3547,65 @@ describe("sync service", () => {
     await expect(readFile(workflowPath, "utf8")).resolves.toBe("name: CI\n");
   });
 
+  it("fails safe when legacy top-level profile artifacts would plan local deletions", async () => {
+    const workspace = await createWorkspace();
+    const homeDirectory = join(workspace, "home");
+    const xdgConfigHome = join(workspace, "xdg");
+    const gitconfig = join(homeDirectory, ".gitconfig");
+    const ageKeys = await createAgeKeyPair();
+    setEnvironment(homeDirectory, xdgConfigHome);
+
+    await writeIdentityFile(xdgConfigHome, ageKeys.identity);
+    await mkdir(homeDirectory, { recursive: true });
+    await writeFile(gitconfig, "[user]\n  name = Local\n");
+
+    await initializeSyncDirectory({
+      identityFile: "$XDG_CONFIG_HOME/dotweave/keys.txt",
+      recipients: [ageKeys.recipient],
+    });
+
+    const syncDirectory = join(xdgConfigHome, "dotweave", "repository");
+    const manifestPath = join(syncDirectory, "manifest.jsonc");
+
+    await writeFile(
+      manifestPath,
+      JSON.stringify(
+        {
+          version: 8,
+          age: { recipients: [ageKeys.recipient] },
+          entries: [
+            {
+              kind: "file",
+              localPath: { default: "~/.gitconfig" },
+              mode: { default: "normal" },
+            },
+          ],
+        },
+        null,
+        2,
+      ),
+      "utf8",
+    );
+    await mkdir(join(syncDirectory, "default"), { recursive: true });
+    await writeFile(join(syncDirectory, "default", ".gitconfig"), "legacy\n");
+    await mkdir(join(syncDirectory, "docs"), { recursive: true });
+    await writeFile(join(syncDirectory, "docs", "readme.md"), "# Docs\n");
+    await mkdir(join(syncDirectory, ".github", "workflows"), {
+      recursive: true,
+    });
+    await writeFile(
+      join(syncDirectory, ".github", "workflows", "ci.yml"),
+      "name: CI\n",
+    );
+
+    await expect(preparePull({ dryRun: true })).rejects.toMatchObject({
+      code: "LEGACY_REPOSITORY_LAYOUT",
+    });
+    await expect(getStatus()).rejects.toMatchObject({
+      code: "LEGACY_REPOSITORY_LAYOUT",
+    });
+  });
+
   it("replaces a stale child directory with a file while the parent directory remains configured", async () => {
     const workspace = await createWorkspace();
     const homeDirectory = join(workspace, "home");
@@ -3515,6 +3666,7 @@ describe("sync service", () => {
       xdgConfigHome,
       "dotweave",
       "repository",
+      "profiles",
       "default",
       "apps",
       "overlap-file",
@@ -3627,6 +3779,7 @@ describe("sync service", () => {
       xdgConfigHome,
       "dotweave",
       "repository",
+      "profiles",
       "default",
       "apps",
       "overlap-link",
@@ -3900,6 +4053,7 @@ describe("sync service", () => {
       xdgConfigHome,
       "dotweave",
       "repository",
+      "profiles",
       "default",
       ".config",
       "myapp",
@@ -3950,6 +4104,7 @@ describe("sync service", () => {
       xdgConfigHome,
       "dotweave",
       "repository",
+      "profiles",
       "default",
       ".config",
       "myapp",
@@ -4172,6 +4327,7 @@ describe("sync service", () => {
       xdgConfigHome,
       "dotweave",
       "repository",
+      "profiles",
       "default",
       ".config",
       "myapp",
@@ -4181,6 +4337,7 @@ describe("sync service", () => {
       xdgConfigHome,
       "dotweave",
       "repository",
+      "profiles",
       "default",
       ".config",
       "myapp",
@@ -4235,6 +4392,7 @@ describe("sync service", () => {
       xdgConfigHome,
       "dotweave",
       "repository",
+      "profiles",
       "default",
       ".ssh",
     );
@@ -4285,6 +4443,7 @@ describe("sync service", () => {
       xdgConfigHome,
       "dotweave",
       "repository",
+      "profiles",
       "default",
       ".config",
       "bundle",
@@ -4295,6 +4454,7 @@ describe("sync service", () => {
       xdgConfigHome,
       "dotweave",
       "repository",
+      "profiles",
       "default",
       ".config",
       "bundle",
@@ -4340,6 +4500,7 @@ describe("sync service", () => {
       xdgConfigHome,
       "dotweave",
       "repository",
+      "profiles",
       "default",
       ".config",
       "app",
@@ -4385,6 +4546,7 @@ describe("sync service", () => {
       xdgConfigHome,
       "dotweave",
       "repository",
+      "profiles",
       "default",
       ".config",
       "app",
@@ -4438,6 +4600,7 @@ describe("sync service", () => {
       xdgConfigHome,
       "dotweave",
       "repository",
+      "profiles",
       "default",
       ".config",
       "bundle",
@@ -4447,6 +4610,7 @@ describe("sync service", () => {
       xdgConfigHome,
       "dotweave",
       "repository",
+      "profiles",
       "default",
       ".config",
       "bundle",
@@ -4493,6 +4657,7 @@ describe("sync service", () => {
       xdgConfigHome,
       "dotweave",
       "repository",
+      "profiles",
       "default",
       ".gitconfig",
     );
@@ -4536,6 +4701,7 @@ describe("sync service", () => {
       xdgConfigHome,
       "dotweave",
       "repository",
+      "profiles",
       "default",
       ".zshenv",
     );
@@ -4582,6 +4748,7 @@ describe("sync service", () => {
       xdgConfigHome,
       "dotweave",
       "repository",
+      "profiles",
       "default",
       "bin",
       "hello.sh",

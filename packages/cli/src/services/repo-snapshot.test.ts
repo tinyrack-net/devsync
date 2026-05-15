@@ -17,14 +17,19 @@ const mocked = vi.hoisted(() => ({
   resolveSyncRule: vi.fn(),
   requireManagedSyncMode: vi.fn(() => "normal"),
   collectArtifactProfiles: vi.fn(() => new Set(["work"])),
+  assertNoLegacyProfileArtifactDirectories: vi.fn(),
   parseArtifactRelativePath: vi.fn((p) => {
     const segments = p.split("/");
     return {
-      profile: segments[0],
-      repoPath: segments.slice(1).join("/"),
+      profile: segments[1],
+      repoPath: segments.slice(2).join("/"),
       secret: p.endsWith(".age"),
     };
   }),
+  resolveArtifactRelativePath: vi.fn((artifact) => {
+    return `profiles/${artifact.profile}/${artifact.repoPath}`;
+  }),
+  readCommittedProfileRegistry: vi.fn(),
   assertStorageSafeRepoPath: vi.fn(),
 }));
 
@@ -50,8 +55,12 @@ vi.mock("#app/lib/crypto.ts", () => ({
 }));
 
 vi.mock("./repo-artifacts.ts", () => ({
+  assertNoLegacyProfileArtifactDirectories:
+    mocked.assertNoLegacyProfileArtifactDirectories,
   collectArtifactProfiles: mocked.collectArtifactProfiles,
   parseArtifactRelativePath: mocked.parseArtifactRelativePath,
+  readCommittedProfileRegistry: mocked.readCommittedProfileRegistry,
+  resolveArtifactRelativePath: mocked.resolveArtifactRelativePath,
   assertStorageSafeRepoPath: mocked.assertStorageSafeRepoPath,
 }));
 
@@ -64,6 +73,15 @@ describe("repo-snapshot service", () => {
     vi.clearAllMocks();
     mocked.isExecutableMode.mockImplementation((mode: number | bigint) => {
       return (Number(mode) & 0o111) !== 0;
+    });
+    mocked.collectArtifactProfiles.mockReturnValue(new Set(["work"]));
+    mocked.parseArtifactRelativePath.mockImplementation((p) => {
+      const segments = p.split("/");
+      return {
+        profile: segments[1],
+        repoPath: segments.slice(2).join("/"),
+        secret: p.endsWith(".age"),
+      };
     });
   });
 
@@ -370,8 +388,8 @@ describe("repo-snapshot service", () => {
     mocked.parseArtifactRelativePath.mockImplementation((p: string) => {
       const segments = p.split("/");
       return {
-        profile: segments[0],
-        repoPath: segments.slice(1).join("/"),
+        profile: segments[1],
+        repoPath: segments.slice(2).join("/"),
         secret: p.endsWith(".age"),
       };
     });

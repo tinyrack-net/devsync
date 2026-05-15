@@ -42,6 +42,7 @@ import type { EffectiveSyncConfig } from "./sync-context.ts";
 
 type ArtifactConfig = EffectiveSyncConfig;
 const execFileAsync = promisify(execFile);
+const physicalProfilesRoot = "profiles";
 
 const entryOwnsArtifactProfile = (
   entry: Pick<ResolvedSyncConfigEntry, "profiles">,
@@ -159,7 +160,7 @@ const collectRawManifestProfiles = (manifest: unknown) => {
   return profiles;
 };
 
-const readCommittedProfileRegistry = async (syncDirectory: string) => {
+export const readCommittedProfileRegistry = async (syncDirectory: string) => {
   try {
     const { stdout } = await execFileAsync(
       "git",
@@ -174,6 +175,32 @@ const readCommittedProfileRegistry = async (syncDirectory: string) => {
     return collectRawManifestProfiles(parseJsonc(stdout));
   } catch {
     return undefined;
+  }
+};
+
+export const assertNoLegacyProfileArtifactDirectories = async (
+  syncDirectory: string,
+  profiles: ReadonlySet<string>,
+) => {
+  for (const profile of profiles) {
+    const legacyProfileDirectory = join(syncDirectory, profile);
+
+    if ((await getPathStats(legacyProfileDirectory))?.isDirectory() !== true) {
+      continue;
+    }
+
+    throw new DotweaveError(
+      "Repository uses the legacy top-level profile artifact layout.",
+      {
+        code: "LEGACY_REPOSITORY_LAYOUT",
+        details: [
+          `Profile: ${profile}`,
+          `Legacy path: ${profile}/`,
+          `Expected path: ${physicalProfilesRoot}/${profile}/`,
+        ],
+        hint: "Move repository artifacts under profiles/<profile>/ before running pull or status.",
+      },
+    );
   }
 };
 
@@ -312,11 +339,21 @@ export type RepoArtifact =
     }>;
 
 export const buildArtifactKey = (artifact: RepoArtifact) => {
-  const relativePath = resolveArtifactRelativePath(artifact);
+  const relativePath = resolveArtifactLogicalPath(artifact);
 
   return artifact.kind === "directory"
     ? buildDirectoryKey(relativePath)
     : relativePath;
+};
+
+export const resolveArtifactLogicalPath = (
+  artifact: Pick<RepoArtifact, "category" | "profile" | "repoPath">,
+) => {
+  const profileRelativePath = `${artifact.profile}/${artifact.repoPath}`;
+
+  return artifact.category === "secret"
+    ? `${profileRelativePath}${AppConstants.SYNC.SECRET_ARTIFACT_SUFFIX}`
+    : profileRelativePath;
 };
 
 export const isSecretArtifactPath = (relativePath: string) => {
@@ -352,11 +389,7 @@ export const assertStorageSafeRepoPath = (repoPath: string) => {
 export const resolveArtifactRelativePath = (
   artifact: Pick<RepoArtifact, "category" | "profile" | "repoPath">,
 ) => {
-  const profileRelativePath = `${artifact.profile}/${artifact.repoPath}`;
-
-  return artifact.category === "secret"
-    ? `${profileRelativePath}${AppConstants.SYNC.SECRET_ARTIFACT_SUFFIX}`
-    : profileRelativePath;
+  return `${physicalProfilesRoot}/${resolveArtifactLogicalPath(artifact)}`;
 };
 
 export const parseArtifactRelativePath = (relativePath: string) => {
@@ -368,17 +401,50 @@ export const parseArtifactRelativePath = (relativePath: string) => {
     : relativePath;
   const segments = logicalPath.split("/");
 
-  if (segments.length < 2 || segments[0] === undefined) {
+  if (
+    segments.length < 3 ||
+    segments[0] !== physicalProfilesRoot ||
+    segments[1] === undefined
+  ) {
     throw new DotweaveError("Repository artifact path is invalid.", {
       code: "INVALID_REPO_ENTRY",
       details: [`Repository path: ${relativePath}`],
     });
   }
 
+  const [, profile, ...repoPathSegments] = segments;
+  const normalizedProfile = normalizeSyncProfileName(
+    profile,
+    "Repository artifact profile",
+  );
+
+  return {
+    profile: normalizedProfile,
+    repoPath: repoPathSegments.join("/"),
+    secret,
+  };
+};
+
+const parseArtifactLogicalPath = (relativePath: string) => {
+  const secret = relativePath.endsWith(
+    AppConstants.SYNC.SECRET_ARTIFACT_SUFFIX,
+  );
+  const logicalPath = secret
+    ? relativePath.slice(0, -AppConstants.SYNC.SECRET_ARTIFACT_SUFFIX.length)
+    : relativePath;
+  const segments = logicalPath.split("/");
+
+  if (segments.length < 2 || segments[0] === undefined) {
+    throw new DotweaveError("Repository artifact key is invalid.", {
+      code: "INVALID_REPO_ENTRY",
+      details: [`Artifact key: ${relativePath}`],
+    });
+  }
+
   const [profile, ...repoPathSegments] = segments;
 
   return {
-    profile,
+    profile: normalizeSyncProfileName(profile, "Repository artifact profile"),
     repoPath: repoPathSegments.join("/"),
     secret,
   };
@@ -531,6 +597,7 @@ export const collectExistingArtifactKeys = async (
 ) => {
   const keys = new Set<string>();
   const artifactProfiles = collectArtifactProfiles(ownershipConfig);
+  const profilesDirectory = join(syncDirectory, physicalProfilesRoot);
 
   const committedProfiles = await readCommittedProfileRegistry(syncDirectory);
 
@@ -540,10 +607,32 @@ export const collectExistingArtifactKeys = async (
     }
   }
 
+  await assertNoLegacyProfileArtifactDirectories(
+    syncDirectory,
+    artifactProfiles,
+  );
+
+  if ((await getPathStats(profilesDirectory))?.isDirectory() === true) {
+    for (const entry of await listDirectoryEntries(profilesDirectory)) {
+      try {
+        if (
+          (
+            await getPathStats(join(profilesDirectory, entry.name))
+          )?.isDirectory()
+        ) {
+          artifactProfiles.add(normalizeSyncProfileName(entry.name));
+        }
+      } catch {
+        // Invalid profile directory names are external repository contents, not
+        // owned artifacts to delete.
+      }
+    }
+  }
+
   await Promise.all(
     [...artifactProfiles].map(async (profile) => {
       await collectArtifactLeafKeys(
-        join(syncDirectory, profile),
+        join(profilesDirectory, profile),
         keys,
         profile,
         undefined,
@@ -559,7 +648,7 @@ export const collectExistingArtifactKeys = async (
     }
 
     const isDirectoryKey = key.endsWith("/");
-    const artifact = parseArtifactRelativePath(
+    const artifact = parseArtifactLogicalPath(
       isDirectoryKey ? key.slice(0, -1) : key,
     );
 
@@ -605,10 +694,15 @@ export const collectExistingArtifactKeys = async (
       profile: rule.profile,
       repoPath: entry.repoPath,
     });
+    const logicalPath = resolveArtifactLogicalPath({
+      category: "plain",
+      profile: rule.profile,
+      repoPath: entry.repoPath,
+    });
     const path = join(syncDirectory, ...relativePath.split("/"));
 
     if ((await getPathStats(path))?.isDirectory()) {
-      keys.add(buildDirectoryKey(relativePath));
+      keys.add(buildDirectoryKey(logicalPath));
     }
   }
 

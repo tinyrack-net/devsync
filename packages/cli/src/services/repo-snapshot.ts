@@ -11,9 +11,12 @@ import { isExecutableMode } from "#app/lib/file-mode.ts";
 import { getPathStats, listDirectoryEntries } from "#app/lib/filesystem.ts";
 import { addSnapshotNode, type SnapshotNode } from "./local-snapshot.ts";
 import {
+  assertNoLegacyProfileArtifactDirectories,
   assertStorageSafeRepoPath,
   collectArtifactProfiles,
   parseArtifactRelativePath,
+  readCommittedProfileRegistry,
+  resolveArtifactRelativePath,
 } from "./repo-artifacts.ts";
 import type { EffectiveSyncConfig } from "./sync-context.ts";
 
@@ -234,15 +237,32 @@ export const buildRepositorySnapshot = async (
   config: RepositorySnapshotConfig,
 ) => {
   const snapshot = new Map<string, SnapshotNode>();
-  const artifactProfiles = collectArtifactProfiles(config.entries);
+  const artifactProfiles = collectArtifactProfiles(config);
+  const committedProfiles = await readCommittedProfileRegistry(syncDirectory);
+
+  if (committedProfiles !== undefined) {
+    for (const profile of committedProfiles) {
+      artifactProfiles.add(profile);
+    }
+  }
+
+  await assertNoLegacyProfileArtifactDirectories(
+    syncDirectory,
+    artifactProfiles,
+  );
 
   await Promise.all(
     [...artifactProfiles].map(async (profile) => {
-      const profileDirectory = join(syncDirectory, profile);
+      const profileDirectory = join(syncDirectory, "profiles", profile);
       const profileStats = await getPathStats(profileDirectory);
 
       if (profileStats?.isDirectory()) {
-        await walkArtifactTree(profileDirectory, config, snapshot, profile);
+        await walkArtifactTree(
+          profileDirectory,
+          config,
+          snapshot,
+          `profiles/${profile}`,
+        );
       }
     }),
   );
@@ -263,8 +283,11 @@ export const buildRepositorySnapshot = async (
     });
     const expectedPath = join(
       syncDirectory,
-      rule.profile,
-      ...entry.repoPath.split("/"),
+      ...resolveArtifactRelativePath({
+        category: "plain",
+        profile: rule.profile,
+        repoPath: entry.repoPath,
+      }).split("/"),
     );
     const expectedStats = await getPathStats(expectedPath);
 
