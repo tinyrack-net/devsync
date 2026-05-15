@@ -807,7 +807,13 @@ describe("sync CLI e2e", () => {
       const ageKeys = await ctx.createAgeKeyPair();
 
       await mkdir(
-        join(sourceRepository, "default", ".config", "line-endings-clean"),
+        join(
+          sourceRepository,
+          "profiles",
+          "default",
+          ".config",
+          "line-endings-clean",
+        ),
         {
           recursive: true,
         },
@@ -836,6 +842,7 @@ describe("sync CLI e2e", () => {
       await writeFile(
         join(
           sourceRepository,
+          "profiles",
           "default",
           ".config",
           "line-endings-clean",
@@ -847,6 +854,7 @@ describe("sync CLI e2e", () => {
       await writeFile(
         join(
           sourceRepository,
+          "profiles",
           "default",
           ".config",
           "line-endings-clean",
@@ -883,7 +891,13 @@ describe("sync CLI e2e", () => {
       const ageKeys = await ctx.createAgeKeyPair();
 
       await mkdir(
-        join(sourceRepository, "default", ".config", "line-endings-bom"),
+        join(
+          sourceRepository,
+          "profiles",
+          "default",
+          ".config",
+          "line-endings-bom",
+        ),
         {
           recursive: true,
         },
@@ -912,6 +926,7 @@ describe("sync CLI e2e", () => {
       await writeFile(
         join(
           sourceRepository,
+          "profiles",
           "default",
           ".config",
           "line-endings-bom",
@@ -923,6 +938,7 @@ describe("sync CLI e2e", () => {
       await writeFile(
         join(
           sourceRepository,
+          "profiles",
           "default",
           ".config",
           "line-endings-bom",

@@ -52,6 +52,7 @@ describe.runIf(process.platform === "win32")(
         ctx.xdgDir,
         "dotweave",
         "repository",
+        "profiles",
         "default",
         "parent",
         "SKILLS",
@@ -60,6 +61,7 @@ describe.runIf(process.platform === "win32")(
         ctx.xdgDir,
         "dotweave",
         "repository",
+        "profiles",
         "default",
         "parent",
         "skills",
@@ -106,6 +108,7 @@ describe.runIf(process.platform === "win32")(
         ctx.xdgDir,
         "dotweave",
         "repository",
+        "profiles",
         "default",
         "SKILLS",
       );
@@ -113,6 +116,7 @@ describe.runIf(process.platform === "win32")(
         ctx.xdgDir,
         "dotweave",
         "repository",
+        "profiles",
         "default",
         "skills",
       );
@@ -147,6 +151,7 @@ describe.runIf(process.platform === "win32")(
         ctx.xdgDir,
         "dotweave",
         "repository",
+        "profiles",
         "default",
         "link",
       );
