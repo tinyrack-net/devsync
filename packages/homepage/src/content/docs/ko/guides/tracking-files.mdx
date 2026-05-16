@@ -52,23 +52,23 @@ dotweave track ~/.local/share/cache-stuff --mode ignore
 
 ## 특정 프로필에 제한하기
 
-`--profiles`를 사용하면 항목을 하나 이상의 프로필에 할당할 수 있어요. 활성 프로필이 일치하는 기기에서만 해당 항목이 동기화돼요.
+`--profile`을 사용하면 항목을 하나 이상의 프로필에 할당할 수 있어요. 활성 프로필이 일치하는 기기에서만 해당 항목이 동기화돼요.
 
 ```bash
-dotweave track ~/.config/work-tool --profiles work
-dotweave track ~/.config/shared-tool --profiles work,personal
+dotweave track ~/.config/work-tool --profile work
+dotweave track ~/.config/shared-tool --profile work --profile personal
 ```
 
-`--profiles` 없이 추적한 항목은 `default` 프로필에 들어가서 모든 기기에서 동기화돼요. 자세한 내용은 [프로필](/ko/guides/profiles/)을 참고하세요.
+`--profile` 없이 추적한 항목은 `default` 프로필에 들어가서 모든 기기에서 동기화돼요. 자세한 내용은 [프로필](/ko/guides/profiles/)을 참고하세요.
 
 ---
 
 ## 저장소 경로 커스터마이징
 
-기본적으로 dotweave는 홈 디렉터리 기준 상대 경로를 sync 디렉터리 안에 그대로 미러링해요. 저장소 안에서 다른 경로를 사용하고 싶다면 `--repoPath`를 사용하세요:
+기본적으로 dotweave는 홈 디렉터리 기준 상대 경로를 sync 디렉터리 안에 그대로 미러링해요. 저장소 안에서 다른 경로를 사용하고 싶다면 `--repo`를 사용하세요:
 
 ```bash
-dotweave track ~/Projects/scripts/deploy.sh --repoPath scripts/deploy.sh
+dotweave track ~/Projects/scripts/deploy.sh --repo scripts/deploy.sh
 ```
 
 ---

@@ -10,27 +10,46 @@ import { setTargetMode } from "#app/services/sync-mode.ts";
 import { createCliLogger } from "#app/services/terminal/logger.ts";
 import { proposePathCompletions } from "#app/services/terminal/path-completion.ts";
 import { trackTarget } from "#app/services/track.ts";
+import {
+  parsePlatformModeFlags,
+  parsePlatformPermissionFlags,
+  parsePlatformStringFlags,
+  parsePlatformStringOverrideFlags,
+} from "./platform-flags.ts";
 
 type TrackFlags = {
-  mode: "ignore" | "normal" | "secret";
+  kind?: "directory" | "file";
+  local?: readonly string[];
+  mode?: readonly string[];
+  permission?: readonly string[];
   profile?: readonly string[];
-  repoPath?: string;
+  repo?: readonly string[];
+};
+
+const normalizeFlagValues = (
+  values: readonly string[] | string | undefined,
+): readonly string[] | undefined => {
+  if (values === undefined) {
+    return undefined;
+  }
+
+  return typeof values === "string" ? [values] : values;
 };
 
 const trackCommand = buildCommand<TrackFlags, string[], ApplicationContext>({
   docs: {
     brief: "Track local files or directories for syncing",
     fullDescription:
-      "Register one or more files or directories inside your home directory so dotweave can mirror them into the sync directory. If a target is already tracked, its mode is updated. Targets may also be repository paths inside a tracked directory to create child entries with a specific mode.",
+      "Register a file or directory inside your home directory so dotweave can mirror it into the sync directory. If a target is already tracked, specified manifest fields are updated and unspecified fields are preserved.",
   },
   async func(flags, ...targets) {
     const logger = createCliLogger();
     const profiles = [...(flags.profile ?? [])];
     const cwd = process.cwd();
 
-    if (flags.repoPath !== undefined && targets.length !== 1) {
+    if (flags.repo !== undefined && targets.length !== 1) {
       throw new DotweaveError(
-        "The --repo-path flag can only be used with a single sync target.",
+        "The --repo flag can only be used with a single sync target.",
         {
           code: "REPO_PATH_TARGET_COUNT",
           hint: "Track one target at a time when overriding its repository path.",
@@ -38,15 +57,34 @@ const trackCommand = buildCommand<TrackFlags, string[], ApplicationContext>({
       );
     }
 
+    const mode = parsePlatformModeFlags(
+      "mode",
+      normalizeFlagValues(flags.mode),
+    );
+    const fallbackMode = mode?.default ?? AppConstants.SYNC.MODES[0];
+    const repoPath = parsePlatformStringFlags(
+      "repo",
+      normalizeFlagValues(flags.repo),
+    );
+    const localPathOverrides = parsePlatformStringOverrideFlags(
+      "local",
+      normalizeFlagValues(flags.local),
+    );
+    const permission = parsePlatformPermissionFlags(
+      "permission",
+      normalizeFlagValues(flags.permission),
+    );
+
     for (const target of targets) {
       try {
         const result = await trackTarget(
           {
-            mode: flags.mode,
+            ...(flags.kind === undefined ? {} : { kind: flags.kind }),
+            ...(localPathOverrides === undefined ? {} : { localPathOverrides }),
+            ...(mode === undefined ? {} : { mode }),
+            ...(permission === undefined ? {} : { permission }),
             profiles: profiles.length > 0 ? profiles : undefined,
-            ...(flags.repoPath === undefined
-              ? {}
-              : { repoPath: flags.repoPath }),
+            ...(repoPath === undefined ? {} : { repoPath }),
             target,
           },
           cwd,
@@ -61,16 +99,24 @@ const trackCommand = buildCommand<TrackFlags, string[], ApplicationContext>({
         }
 
         const details: { key: string; value?: string }[] = [
+          { key: "kind", value: result.kind },
           { key: "path", value: result.localPath },
+          { key: "repo", value: result.repoPath },
           { key: "mode", value: result.mode },
         ];
+        if (result.configuredPermission !== undefined) {
+          details.push({
+            key: "permission",
+            value: result.configuredPermission.default,
+          });
+        }
         if (result.profiles.length > 0) {
           details.push({ key: "profiles", value: result.profiles.join(", ") });
         }
         logger.listKeyValue(details);
       } catch (error: unknown) {
         if (
-          flags.repoPath === undefined &&
+          repoPath === undefined &&
           error instanceof DotweaveError &&
           error.code === "TARGET_NOT_FOUND"
         ) {
@@ -81,7 +127,7 @@ const trackCommand = buildCommand<TrackFlags, string[], ApplicationContext>({
           }
 
           const setResult = await setTargetMode(
-            { mode: flags.mode, target },
+            { mode: fallbackMode, target },
             cwd,
           );
 
@@ -113,11 +159,27 @@ const trackCommand = buildCommand<TrackFlags, string[], ApplicationContext>({
   },
   parameters: {
     flags: {
+      kind: {
+        brief: "Target kind to use when the path does not exist yet",
+        kind: "enum",
+        optional: true,
+        values: ["file", "directory"],
+      },
       mode: {
         brief: "Sync mode for the tracked targets",
-        default: AppConstants.SYNC.MODES[0],
-        kind: "enum",
-        values: AppConstants.SYNC.MODES,
+        kind: "parsed",
+        optional: true,
+        parse: String,
+        placeholder: "mode|platform=mode",
+        variadic: true,
+      },
+      permission: {
+        brief: "File permission to restore, as a 4-character octal value",
+        kind: "parsed",
+        optional: true,
+        parse: String,
+        placeholder: "octal|platform=octal",
+        variadic: true,
       },
       profile: {
         brief:
@@ -128,12 +190,21 @@ const trackCommand = buildCommand<TrackFlags, string[], ApplicationContext>({
         placeholder: "profile",
         variadic: true,
       },
-      repoPath: {
+      local: {
+        brief: "Platform-specific local path override",
+        kind: "parsed",
+        optional: true,
+        parse: String,
+        placeholder: "platform=path",
+        variadic: true,
+      },
+      repo: {
         brief: "Repository-relative path under the profile namespace",
         kind: "parsed",
         optional: true,
         parse: String,
-        placeholder: "path",
+        placeholder: "path|platform=path",
+        variadic: true,
       },
     },
     positional: {

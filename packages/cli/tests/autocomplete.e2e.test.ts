@@ -291,7 +291,7 @@ describe("autocomplete e2e", () => {
 
       expect(result.exitCode).toBe(0);
       expect(result.stdout.split("\n")).toEqual(
-        expect.arrayContaining(["--mode ", "--profile ", "--repo-path "]),
+        expect.arrayContaining(["--mode ", "--profile ", "--repo "]),
       );
     },
   );
@@ -338,7 +338,7 @@ describe("autocomplete e2e", () => {
 
     expect(result.exitCode).toBe(0);
     expect(completionNames(result.stdout)).toEqual(
-      expect.arrayContaining(["--mode", "--profile", "--repo-path"]),
+      expect.arrayContaining(["--mode", "--profile", "--repo"]),
     );
     expect(result.stderr).toBe("");
   });

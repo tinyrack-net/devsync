@@ -171,7 +171,7 @@ describe("sync service", () => {
     await trackTarget(
       {
         mode: "normal",
-        repoPath: "profiles/shared/git/main.conf",
+        repoPath: { default: "profiles/shared/git/main.conf" },
         target: gitconfig,
       },
       homeDirectory,
@@ -350,7 +350,7 @@ describe("sync service", () => {
     const result = await trackTarget(
       {
         mode: "normal",
-        repoPath: "profiles/shared/git/main.conf",
+        repoPath: { default: "profiles/shared/git/main.conf" },
         target: gitconfig,
       },
       homeDirectory,
@@ -388,7 +388,7 @@ describe("sync service", () => {
     });
   });
 
-  it("collapses redundant WSL mode overrides when tracking an existing root", async () => {
+  it("preserves WSL mode overrides when tracking an existing root", async () => {
     const workspace = await createWorkspace();
     const homeDirectory = join(workspace, "home");
     const xdgConfigHome = join(workspace, "xdg");
@@ -443,8 +443,8 @@ describe("sync service", () => {
     );
 
     expect(result.alreadyTracked).toBe(true);
-    expect(result.changed).toBe(true);
-    expect(entries[0]?.mode).toEqual({ default: "secret" });
+    expect(result.changed).toBe(false);
+    expect(entries[0]?.mode).toEqual({ default: "secret", wsl: "secret" });
   });
 
   it("manages the active profile through the global config", async () => {
@@ -517,7 +517,7 @@ describe("sync service", () => {
     await trackTarget(
       {
         mode: "normal",
-        repoPath: "profiles/shared/app",
+        repoPath: { default: "profiles/shared/app" },
         target: appDirectory,
       },
       homeDirectory,

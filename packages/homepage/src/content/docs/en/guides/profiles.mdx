@@ -11,7 +11,7 @@ Not every config file belongs on every machine. Your work laptop needs work cred
 
 ## How Profiles Work
 
-When you track a file, you can assign it to one or more profiles using `--profiles`. Entries without a profile go into the **default** profile and sync everywhere.
+When you track a file, you can assign it to one or more profiles using `--profile`. Entries without a profile go into the **default** profile and sync everywhere.
 
 ```bash
 # Default profile — syncs on every machine
@@ -19,23 +19,23 @@ dotweave track ~/.gitconfig
 dotweave track ~/.zshrc
 
 # Only syncs when "work" profile is active
-dotweave track ~/.config/work-vpn --profiles work
+dotweave track ~/.config/work-vpn --profile work
 
 # Only syncs when "personal" profile is active
-dotweave track ~/.config/personal-tool --profiles personal
+dotweave track ~/.config/personal-tool --profile personal
 ```
 
 ---
 
 ## Default vs. Named Profiles
 
-- **Default profile:** entries without `--profiles` go into the `default/` directory and sync everywhere.
-- **Named profiles:** entries with `--profiles work` go into `work/` and only sync when that profile is active.
+- **Default profile:** entries without `--profile` go into the `default/` directory and sync everywhere.
+- **Named profiles:** entries with `--profile work` go into `work/` and only sync when that profile is active.
 
 You can assign multiple profiles to a single entry — it syncs whenever any of them is active:
 
 ```bash
-dotweave track ~/.config/shared-tool --profiles work,personal
+dotweave track ~/.config/shared-tool --profile work --profile personal
 ```
 
 ---
@@ -72,11 +72,11 @@ dotweave track ~/.gitconfig
 dotweave track ~/.zshrc
 
 # Work-only files
-dotweave track ~/.config/work-vpn --profiles work
-dotweave track ~/.ssh/work-key --mode secret --profiles work
+dotweave track ~/.config/work-vpn --profile work
+dotweave track ~/.ssh/work-key --mode secret --profile work
 
 # Personal-only files
-dotweave track ~/.config/personal-app --profiles personal
+dotweave track ~/.config/personal-app --profile personal
 ```
 
 On your **work laptop**, set the work profile and push:
@@ -101,8 +101,8 @@ Work machine never sees personal configs, personal machine never sees work crede
 
 Profiles aren't limited to work vs. personal. Here are a few other patterns:
 
-- **Per-OS profiles:** `--profiles linux` or `--profiles macos` for OS-specific configs
-- **Shared base + machine overrides:** track common configs without a profile, then add machine-specific entries with `--profiles desktop` or `--profiles server`
+- **Per-OS profiles:** `--profile linux` or `--profile macos` for OS-specific configs
+- **Shared base + machine overrides:** track common configs without a profile, then add machine-specific entries with `--profile desktop` or `--profile server`
 
 ---
 
@@ -125,5 +125,5 @@ sync-directory/
 ```
 
 <Aside type="note">
-An entry assigned to multiple profiles (e.g., `--profiles work,personal`) is stored once in the sync directory and synced whenever either profile is active.
+An entry assigned to multiple profiles (e.g., `--profile work --profile personal`) is stored once in the sync directory and synced whenever either profile is active.
 </Aside>

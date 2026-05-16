@@ -52,23 +52,23 @@ dotweave track ~/.local/share/cache-stuff --mode ignore
 
 ## 特定のプロファイルに限定する
 
-`--profiles`を使って、エントリを1つまたは複数のプロファイルに割り当てます。アクティブなプロファイルが一致するマシンだけがそのエントリを同期します。
+`--profile`を使って、エントリを1つまたは複数のプロファイルに割り当てます。アクティブなプロファイルが一致するマシンだけがそのエントリを同期します。
 
 ```bash
-dotweave track ~/.config/work-tool --profiles work
-dotweave track ~/.config/shared-tool --profiles work,personal
+dotweave track ~/.config/work-tool --profile work
+dotweave track ~/.config/shared-tool --profile work --profile personal
 ```
 
-`--profiles`を付けないエントリは`default`プロファイルに入り、すべてのマシンで同期されます。詳しくは[プロファイル](/ja/guides/profiles)をご覧ください。
+`--profile`を付けないエントリは`default`プロファイルに入り、すべてのマシンで同期されます。詳しくは[プロファイル](/ja/guides/profiles)をご覧ください。
 
 ---
 
 ## リポジトリパスのカスタマイズ
 
-デフォルトでは、dotweaveはホームディレクトリからの相対パスをsyncディレクトリ内にミラーリングします。リポジトリ内で別のパスを使いたい場合は、`--repoPath`を指定します：
+デフォルトでは、dotweaveはホームディレクトリからの相対パスをsyncディレクトリ内にミラーリングします。リポジトリ内で別のパスを使いたい場合は、`--repo`を指定します：
 
 ```bash
-dotweave track ~/Projects/scripts/deploy.sh --repoPath scripts/deploy.sh
+dotweave track ~/Projects/scripts/deploy.sh --repo scripts/deploy.sh
 ```
 
 ---

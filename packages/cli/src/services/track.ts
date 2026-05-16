@@ -2,21 +2,25 @@ import { resolve } from "node:path";
 
 import { AppConstants } from "#app/config/constants.ts";
 import { resolveDefaultIdentityFile } from "#app/config/identity-file.ts";
-import type { PlatformStringValue } from "#app/config/platform.ts";
-import { resolveDotweaveHomeDirectoryFromEnv } from "#app/config/runtime-env.ts";
 import {
-  buildDefaultPlatformMode,
-  hasPlatformSpecificModeOverride,
-} from "#app/config/sync-queries.ts";
+  type PlatformKey,
+  type PlatformStringValue,
+  resolvePlatformValue,
+} from "#app/config/platform.ts";
+import { resolveDotweaveHomeDirectoryFromEnv } from "#app/config/runtime-env.ts";
+import { buildDefaultPlatformMode } from "#app/config/sync-queries.ts";
 import {
   normalizeSyncProfileName,
   normalizeSyncRepoPath,
+  type PlatformPermission,
+  type PlatformSyncMode,
   type ResolvedSyncConfigEntry,
   type SyncConfigEntryKind,
   type SyncMode,
 } from "#app/config/sync-schema.ts";
 import { expandHomePath } from "#app/config/xdg.ts";
 import { DotweaveError } from "#app/lib/error.ts";
+import { parsePermissionOctal } from "#app/lib/file-mode.ts";
 import { getPathStats } from "#app/lib/filesystem.ts";
 import { doPathsOverlap } from "#app/lib/path.ts";
 import {
@@ -30,50 +34,98 @@ import {
 } from "./sync-paths.ts";
 
 export type TrackRequest = Readonly<{
+  kind?: SyncConfigEntryKind;
+  localPathOverrides?: Partial<PlatformStringValue>;
   profiles?: readonly string[];
-  mode: SyncMode;
-  repoPath?: string;
+  mode?: SyncMode | Partial<PlatformSyncMode>;
+  permission?: PlatformPermission;
+  repoPath?: Partial<PlatformStringValue>;
   target: string;
 }>;
 
 export type TrackResult = Readonly<{
   alreadyTracked: boolean;
   changed: boolean;
+  configuredLocalPath: PlatformStringValue;
+  configuredMode: PlatformSyncMode;
   kind: SyncConfigEntryKind;
   localPath: string;
   profiles: readonly string[];
   mode: SyncMode;
+  permission?: number;
+  configuredPermission?: PlatformPermission;
+  configuredRepoPath?: PlatformStringValue;
   repoPath: string;
 }>;
 
-const buildDefaultPlatformRepoPath = (
-  repoPath: string,
-): PlatformStringValue => ({
-  default: normalizeSyncRepoPath(repoPath),
-});
+const platformKeys = ["default", "win", "mac", "linux", "wsl"] as const;
 
-const buildTrackEntryCandidate = async (
+const normalizePlatformRepoPath = (
+  repoPath: Partial<PlatformStringValue>,
+): Partial<PlatformStringValue> => {
+  const normalized: Partial<Record<(typeof platformKeys)[number], string>> = {};
+
+  for (const key of platformKeys) {
+    if (repoPath[key] !== undefined) {
+      normalized[key] = normalizeSyncRepoPath(repoPath[key]);
+    }
+  }
+
+  return normalized as Partial<PlatformStringValue>;
+};
+
+const resolvePlatformMode = (
+  configuredMode: PlatformSyncMode,
+  platformKey: PlatformKey,
+): SyncMode => {
+  if (platformKey === "wsl") {
+    return configuredMode.wsl ?? configuredMode.linux ?? configuredMode.default;
+  }
+
+  return configuredMode[platformKey] ?? configuredMode.default;
+};
+
+const buildConfiguredMode = (
+  requestedMode: SyncMode | Partial<PlatformSyncMode> | undefined,
+  existingMode?: PlatformSyncMode,
+): PlatformSyncMode => {
+  const base =
+    existingMode ?? buildDefaultPlatformMode(AppConstants.SYNC.MODES[0]);
+  const patch =
+    requestedMode === undefined
+      ? {}
+      : typeof requestedMode === "string"
+        ? buildDefaultPlatformMode(requestedMode)
+        : requestedMode;
+
+  return { ...base, ...patch };
+};
+
+const mergePlatformStringValue = (
+  base: PlatformStringValue,
+  patch: Partial<PlatformStringValue>,
+): PlatformStringValue => {
+  return { ...base, ...patch };
+};
+
+const resolveTargetKind = (
   targetPath: string,
-  syncDirectory: string,
-  homeDirectory: string,
-  input: Readonly<{
-    identityFile: string | undefined;
-    profiles?: readonly string[];
-    mode: SyncMode;
-    repoPath?: string;
-  }>,
-) => {
-  const targetStats = await getPathStats(targetPath);
-
+  targetStats: Awaited<ReturnType<typeof getPathStats>>,
+  requestedKind: SyncConfigEntryKind | undefined,
+): SyncConfigEntryKind => {
   if (targetStats === undefined) {
-    throw new DotweaveError("Sync target does not exist.", {
-      code: "TARGET_NOT_FOUND",
+    if (requestedKind !== undefined) {
+      return requestedKind;
+    }
+
+    throw new DotweaveError("Sync target kind is required.", {
+      code: "TARGET_KIND_REQUIRED",
       details: [`Target: ${targetPath}`],
-      hint: "Create the file or directory first, then run the command again.",
+      hint: "Pass --kind file or --kind directory when tracking a path that does not exist yet.",
     });
   }
 
-  const kind = (() => {
+  const actualKind = (() => {
     if (targetStats.isDirectory()) {
       return "directory" as const;
     }
@@ -88,6 +140,39 @@ const buildTrackEntryCandidate = async (
       hint: "Track a regular file, symlink, or directory.",
     });
   })();
+
+  if (requestedKind !== undefined && requestedKind !== actualKind) {
+    throw new DotweaveError("Sync target kind does not match the path.", {
+      code: "TARGET_KIND_MISMATCH",
+      details: [
+        `Target: ${targetPath}`,
+        `Requested kind: ${requestedKind}`,
+        `Actual kind: ${actualKind}`,
+      ],
+      hint: `Use --kind ${actualKind} for this target, or choose a matching path.`,
+    });
+  }
+
+  return actualKind;
+};
+
+const buildTrackEntryCandidate = async (
+  targetPath: string,
+  syncDirectory: string,
+  homeDirectory: string,
+  input: Readonly<{
+    identityFile: string | undefined;
+    kind?: SyncConfigEntryKind;
+    localPathOverrides?: Partial<PlatformStringValue>;
+    profiles?: readonly string[];
+    mode?: SyncMode | Partial<PlatformSyncMode>;
+    permission?: PlatformPermission;
+    platformKey: PlatformKey;
+    repoPath?: Partial<PlatformStringValue>;
+  }>,
+) => {
+  const targetStats = await getPathStats(targetPath);
+  const kind = resolveTargetKind(targetPath, targetStats, input.kind);
 
   if (doPathsOverlap(targetPath, syncDirectory)) {
     throw new DotweaveError(
@@ -122,24 +207,41 @@ const buildTrackEntryCandidate = async (
     homeDirectory,
     "Sync target",
   );
-  const configuredLocalPath = buildConfiguredHomeLocalPath(localRepoPath);
+  const configuredLocalPath = mergePlatformStringValue(
+    buildConfiguredHomeLocalPath(localRepoPath),
+    input.localPathOverrides ?? {},
+  );
   const configuredRepoPath =
     input.repoPath === undefined
       ? undefined
-      : buildDefaultPlatformRepoPath(input.repoPath);
-  const repoPath = configuredRepoPath?.default ?? localRepoPath;
+      : (normalizePlatformRepoPath({
+          default: localRepoPath,
+          ...input.repoPath,
+        }) as PlatformStringValue);
+  const repoPath =
+    configuredRepoPath === undefined
+      ? localRepoPath
+      : resolvePlatformValue(configuredRepoPath, input.platformKey);
+  const configuredPermission = input.permission;
+  const configuredMode = buildConfiguredMode(input.mode);
 
   return {
     configuredLocalPath,
     ...(configuredRepoPath === undefined ? {} : { configuredRepoPath }),
+    ...(configuredPermission === undefined
+      ? {}
+      : {
+          configuredPermission,
+          permission: parsePermissionOctal(configuredPermission.default),
+        }),
     kind,
     localPath: targetPath,
     profiles: input.profiles?.map((m) => normalizeSyncProfileName(m)) ?? [],
     profilesExplicit: input.profiles !== undefined,
-    mode: input.mode,
+    mode: resolvePlatformMode(configuredMode, input.platformKey),
     modeExplicit: true,
-    configuredMode: buildDefaultPlatformMode(input.mode),
-    permissionExplicit: false,
+    configuredMode,
+    permissionExplicit: configuredPermission !== undefined,
     repoPath,
   } satisfies ResolvedSyncConfigEntry;
 };
@@ -200,8 +302,12 @@ export const trackTarget = async (
     context.homeDirectory,
     {
       identityFile,
+      kind: request.kind,
+      localPathOverrides: request.localPathOverrides,
       profiles: effectiveProfiles,
       mode: request.mode,
+      permission: request.permission,
+      platformKey: context.platformKey,
       repoPath: request.repoPath,
     },
   );
@@ -226,14 +332,45 @@ export const trackTarget = async (
     );
   }
 
-  const nextEntry =
-    existingEntry !== undefined && request.repoPath === undefined
-      ? {
-          ...candidate,
-          configuredRepoPath: existingEntry.configuredRepoPath,
-          repoPath: existingEntry.repoPath,
-        }
-      : candidate;
+  const nextEntry = (() => {
+    if (existingEntry === undefined) {
+      return candidate;
+    }
+
+    const configuredRepoPath =
+      request.repoPath === undefined
+        ? existingEntry.configuredRepoPath
+        : mergePlatformStringValue(
+            existingEntry.configuredRepoPath ?? {
+              default: existingEntry.repoPath,
+            },
+            normalizePlatformRepoPath(request.repoPath),
+          );
+    const configuredMode = buildConfiguredMode(
+      request.mode,
+      existingEntry.configuredMode,
+    );
+    const configuredLocalPath =
+      request.localPathOverrides === undefined
+        ? existingEntry.configuredLocalPath
+        : {
+            ...existingEntry.configuredLocalPath,
+            ...request.localPathOverrides,
+            default: candidate.configuredLocalPath.default,
+          };
+
+    return {
+      ...candidate,
+      configuredLocalPath,
+      configuredMode,
+      ...(configuredRepoPath === undefined ? {} : { configuredRepoPath }),
+      mode: resolvePlatformMode(configuredMode, context.platformKey),
+      repoPath:
+        configuredRepoPath === undefined
+          ? existingEntry.repoPath
+          : resolvePlatformValue(configuredRepoPath, context.platformKey),
+    };
+  })();
 
   const repoPathConflict = config.entries.find((entry) => {
     return (
@@ -252,7 +389,7 @@ export const trackTarget = async (
           `Requested repo path: ${nextEntry.repoPath}`,
           `Existing entry: ${repoPathConflict.localPath} -> ${repoPathConflict.repoPath}`,
         ],
-        hint: "Change --repo-path or untrack the conflicting entry first.",
+        hint: "Change --repo or untrack the conflicting entry first.",
       },
     );
   }
@@ -268,20 +405,28 @@ export const trackTarget = async (
     return {
       alreadyTracked,
       changed: true,
+      configuredLocalPath: nextEntry.configuredLocalPath,
+      configuredMode: nextEntry.configuredMode,
       kind: nextEntry.kind,
       localPath: nextEntry.localPath,
       profiles: nextEntry.profiles,
       mode: nextEntry.mode,
+      permission: nextEntry.permission,
+      configuredPermission: nextEntry.configuredPermission,
+      configuredRepoPath: nextEntry.configuredRepoPath,
       repoPath: nextEntry.repoPath,
     };
   }
 
-  const requestedConfiguredMode = buildDefaultPlatformMode(request.mode);
   const modeChanged =
-    existingEntry?.mode !== request.mode ||
-    existingEntry?.configuredMode.default !== requestedConfiguredMode.default ||
-    (existingEntry !== undefined &&
-      hasPlatformSpecificModeOverride(existingEntry.configuredMode));
+    request.mode !== undefined &&
+    (existingEntry?.mode !== nextEntry.mode ||
+      JSON.stringify(existingEntry?.configuredMode) !==
+        JSON.stringify(nextEntry.configuredMode));
+  const localPathChanged =
+    request.localPathOverrides !== undefined &&
+    JSON.stringify(existingEntry?.configuredLocalPath) !==
+      JSON.stringify(nextEntry.configuredLocalPath);
   const profilesChanged =
     effectiveProfiles !== undefined &&
     (existingEntry?.profiles.length !== candidate.profiles.length ||
@@ -291,7 +436,16 @@ export const trackTarget = async (
     (existingEntry?.repoPath !== nextEntry.repoPath ||
       JSON.stringify(existingEntry?.configuredRepoPath) !==
         JSON.stringify(nextEntry.configuredRepoPath));
-  const changed = modeChanged || profilesChanged || repoPathChanged;
+  const permissionChanged =
+    request.permission !== undefined &&
+    JSON.stringify(existingEntry?.configuredPermission) !==
+      JSON.stringify(request.permission);
+  const changed =
+    localPathChanged ||
+    modeChanged ||
+    profilesChanged ||
+    repoPathChanged ||
+    permissionChanged;
 
   if (changed) {
     const nextConfig = buildSyncConfigDocument({
@@ -303,6 +457,9 @@ export const trackTarget = async (
 
         return {
           ...entry,
+          ...(localPathChanged
+            ? { configuredLocalPath: nextEntry.configuredLocalPath }
+            : {}),
           ...(repoPathChanged
             ? {
                 configuredRepoPath: nextEntry.configuredRepoPath,
@@ -311,8 +468,15 @@ export const trackTarget = async (
             : {}),
           ...(modeChanged
             ? {
-                configuredMode: requestedConfiguredMode,
-                mode: request.mode,
+                configuredMode: nextEntry.configuredMode,
+                mode: nextEntry.mode,
+              }
+            : {}),
+          ...(permissionChanged
+            ? {
+                configuredPermission: request.permission,
+                permission: parsePermissionOctal(request.permission.default),
+                permissionExplicit: true,
               }
             : {}),
           ...(profilesChanged
@@ -331,12 +495,30 @@ export const trackTarget = async (
   return {
     alreadyTracked,
     changed,
+    configuredLocalPath: localPathChanged
+      ? nextEntry.configuredLocalPath
+      : (existingEntry?.configuredLocalPath ?? nextEntry.configuredLocalPath),
+    configuredMode: modeChanged
+      ? nextEntry.configuredMode
+      : (existingEntry?.configuredMode ?? nextEntry.configuredMode),
     kind: nextEntry.kind,
     localPath: nextEntry.localPath,
     profiles: profilesChanged
       ? nextEntry.profiles
       : (existingEntry?.profiles ?? []),
-    mode: modeChanged ? request.mode : (existingEntry?.mode ?? request.mode),
+    mode: modeChanged
+      ? nextEntry.mode
+      : (existingEntry?.mode ?? nextEntry.mode),
+    permission: permissionChanged
+      ? parsePermissionOctal(request.permission.default)
+      : existingEntry?.permission,
+    configuredPermission: permissionChanged
+      ? request.permission
+      : existingEntry?.configuredPermission,
+    configuredRepoPath:
+      repoPathChanged || !alreadyTracked
+        ? nextEntry.configuredRepoPath
+        : existingEntry?.configuredRepoPath,
     repoPath:
       repoPathChanged || !alreadyTracked
         ? nextEntry.repoPath

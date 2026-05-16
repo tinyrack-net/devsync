@@ -7,27 +7,30 @@ import { Aside } from "@astrojs/starlight/components";
 
 ローカルファイルやディレクトリを同期対象として登録します。
 
-ホームディレクトリ内のファイルやディレクトリを1つ以上登録し、dotweaveがsyncディレクトリにミラーリングできるようにします。すでにtrackされているターゲットの場合は、modeが更新されます。trackされたディレクトリ内のリポジトリパスを指定して、特定のmodeを持つ子エントリを作成することもできます。
+ホームディレクトリ内のファイルやディレクトリを登録し、dotweaveがsyncディレクトリにミラーリングできるようにします。すでにtrackされているターゲットの場合は、指定したmanifestフィールドだけを更新し、未指定のフィールドは保持します。
 
 ## Usage
 
 ```bash
-dotweave track <targets...> [flags]
+dotweave track <target> [flags]
 ```
 
 ## Arguments
 
-| Argument       | Description                                            |
-| -------------- | ------------------------------------------------------ |
-| `<targets...>` | trackするローカルパスまたはリポジトリパスを1つ以上指定します。  |
+| Argument   | Description                                      |
+| ---------- | ------------------------------------------------ |
+| `<target>` | trackするローカルパスまたはリポジトリパスです。  |
 
 ## Flags
 
-| Flag                  | Description                                                   |
-| --------------------- | ------------------------------------------------------------- |
-| `--mode <mode>`       | syncモード: `normal`（デフォルト）、`secret`、`ignore` のいずれかです。         |
-| `--profiles <names>`  | 同期を特定のprofileに限定します（カンマ区切り）。      |
-| `--repoPath <path>`   | profileディレクトリ配下のリポジトリ相対パスです。         |
+| Flag                             | Description                                                                  |
+| -------------------------------- | ---------------------------------------------------------------------------- |
+| `--kind <file\|directory>`       | まだ存在しないパスをtrackするときに使うターゲット種別です。                 |
+| `--repo <path\|platform=path>`   | リポジトリ相対パスです。platform別のoverrideも指定できます。                |
+| `--local <platform=path>`        | platform別のローカルパスoverrideです。                                      |
+| `--mode <mode\|platform=mode>`   | syncモード: `normal`（デフォルト）、`secret`、`ignore` のいずれかです。       |
+| `--permission <octal\|platform=octal>` | 復元するファイルpermissionです（4桁のoctal）。                       |
+| `--profile <profile>`            | 登録済みprofileに同期を限定します。複数指定する場合はflagを繰り返します。   |
 
 ## Examples
 
@@ -46,13 +49,19 @@ dotweave track ~/.ssh --mode secret
 特定のprofileに限定してファイルをtrackする:
 
 ```bash
-dotweave track ~/.config/work-proxy.conf --profiles work
+dotweave track ~/.config/work-proxy.conf --profile work
 ```
 
 trackされたディレクトリ内の子パスのmodeを上書きする:
 
 ```bash
 dotweave track .ssh/config --mode ignore
+```
+
+リポジトリパスと復元permissionを指定する:
+
+```bash
+dotweave track ~/.ssh/config --repo ssh/config --mode secret --permission 0600
 ```
 
 <Aside>

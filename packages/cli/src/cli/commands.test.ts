@@ -249,9 +249,14 @@ beforeEach(() => {
   mocked.trackTarget.mockResolvedValue({
     alreadyTracked: false,
     changed: true,
+    configuredLocalPath: { default: ".gitconfig" },
+    configuredMode: { default: "secret" },
+    configuredPermission: { default: "0600" },
+    configuredRepoPath: { default: "profiles/work/.gitconfig" },
     kind: "file",
     localPath: "/tmp/home/.gitconfig",
     mode: "secret",
+    permission: 384,
     profiles: ["work"],
     repoPath: "profiles/work/.gitconfig",
   });
@@ -559,22 +564,50 @@ describe("CLI command modules", () => {
     ]);
   });
 
+  it("exposes kind, local, repo, mode, permission, and profile flags for track", () => {
+    expect(Object.keys(trackCommand.parameters.flags ?? {}).sort()).toEqual([
+      "kind",
+      "local",
+      "mode",
+      "permission",
+      "profile",
+      "repo",
+    ]);
+  });
+
+  it("does not expose missing target shortcut flags for track", () => {
+    expect(Object.keys(trackCommand.parameters.flags ?? {}).sort()).not.toEqual(
+      expect.arrayContaining(["missingOk", "missing-ok"]),
+    );
+  });
+
+  it("documents track platform flag grammar without removed shortcuts", () => {
+    const flagText = JSON.stringify(trackCommand.parameters.flags ?? {});
+
+    expect(flagText).toContain("path|platform=path");
+    expect(flagText).toContain("mode|platform=mode");
+    expect(flagText).toContain("octal|platform=octal");
+    expect(flagText).not.toMatch(
+      /--repo-path|--secret|--normal|--ignore|--missing-ok/u,
+    );
+  });
+
   it("tracks new targets and formats track output", async () => {
     await runCommand(
       trackCommand,
       {
-        mode: "secret",
+        mode: ["secret"],
         profile: ["work"],
-        repoPath: "profiles/work/.gitconfig",
+        repo: ["profiles/work/.gitconfig"],
       },
       ".gitconfig",
     );
 
     expect(mocked.trackTarget).toHaveBeenCalledWith(
       {
-        mode: "secret",
+        mode: { default: "secret" },
         profiles: ["work"],
-        repoPath: "profiles/work/.gitconfig",
+        repoPath: { default: "profiles/work/.gitconfig" },
         target: ".gitconfig",
       },
       process.cwd(),
@@ -584,11 +617,183 @@ describe("CLI command modules", () => {
     );
     expect(mockLogger.listKeyValue).toHaveBeenCalledWith(
       expect.arrayContaining([
+        expect.objectContaining({ key: "kind", value: "file" }),
         expect.objectContaining({ key: "path" }),
+        expect.objectContaining({
+          key: "repo",
+          value: "profiles/work/.gitconfig",
+        }),
         expect.objectContaining({ key: "mode" }),
+        expect.objectContaining({ key: "permission", value: "0600" }),
         expect.objectContaining({ key: "profiles", value: "work" }),
       ]),
     );
+  });
+
+  it("omits absent optional fields from track output", async () => {
+    mocked.trackTarget.mockResolvedValueOnce({
+      alreadyTracked: false,
+      changed: true,
+      configuredLocalPath: { default: ".config/app" },
+      configuredMode: { default: "normal" },
+      kind: "directory",
+      localPath: "/tmp/home/.config/app",
+      mode: "normal",
+      profiles: [],
+      repoPath: ".config/app",
+    });
+
+    await runCommand(trackCommand, { kind: "directory" }, ".config/app");
+
+    expect(mockLogger.listKeyValue).toHaveBeenCalledWith([
+      { key: "kind", value: "directory" },
+      { key: "path", value: "/tmp/home/.config/app" },
+      { key: "repo", value: ".config/app" },
+      { key: "mode", value: "normal" },
+    ]);
+  });
+
+  it("passes explicit target kind to track service", async () => {
+    await runCommand(
+      trackCommand,
+      {
+        kind: "file",
+        mode: ["normal"],
+      },
+      ".config/future.toml",
+    );
+
+    expect(mocked.trackTarget).toHaveBeenCalledWith(
+      expect.objectContaining({
+        kind: "file",
+        target: ".config/future.toml",
+      }),
+      process.cwd(),
+    );
+  });
+
+  it("passes explicit permission to track service", async () => {
+    await runCommand(
+      trackCommand,
+      {
+        mode: ["normal"],
+        permission: ["0600"],
+      },
+      ".ssh/config",
+    );
+
+    expect(mocked.trackTarget).toHaveBeenCalledWith(
+      expect.objectContaining({
+        permission: { default: "0600" },
+        target: ".ssh/config",
+      }),
+      process.cwd(),
+    );
+  });
+
+  it("rejects invalid permission before tracking", async () => {
+    await expect(
+      runCommand(
+        trackCommand,
+        {
+          mode: ["normal"],
+          permission: ["600"],
+        },
+        ".ssh/config",
+      ),
+    ).rejects.toMatchObject({ code: "INVALID_PERMISSION" });
+
+    expect(mocked.trackTarget).not.toHaveBeenCalled();
+  });
+
+  it("passes platform-aware repo paths to track service", async () => {
+    await runCommand(
+      trackCommand,
+      {
+        mode: ["normal"],
+        repo: [".config/app", "win=AppData/Roaming/App"],
+      },
+      ".config/app",
+    );
+
+    expect(mocked.trackTarget).toHaveBeenCalledWith(
+      expect.objectContaining({
+        repoPath: {
+          default: ".config/app",
+          win: "AppData/Roaming/App",
+        },
+        target: ".config/app",
+      }),
+      process.cwd(),
+    );
+  });
+
+  it("passes platform-aware modes to track service", async () => {
+    await runCommand(
+      trackCommand,
+      {
+        mode: ["normal", "win=ignore"],
+      },
+      ".config/app",
+    );
+
+    expect(mocked.trackTarget).toHaveBeenCalledWith(
+      expect.objectContaining({
+        mode: {
+          default: "normal",
+          win: "ignore",
+        },
+        target: ".config/app",
+      }),
+      process.cwd(),
+    );
+  });
+
+  it("passes local platform overrides to track service", async () => {
+    await runCommand(
+      trackCommand,
+      {
+        local: ["win=%APPDATA%/App"],
+        mode: ["normal"],
+      },
+      ".config/app",
+    );
+
+    expect(mocked.trackTarget).toHaveBeenCalledWith(
+      expect.objectContaining({
+        localPathOverrides: {
+          win: "%APPDATA%/App",
+        },
+        target: ".config/app",
+      }),
+      process.cwd(),
+    );
+  });
+
+  it("rejects default local values before tracking", async () => {
+    await expect(
+      runCommand(
+        trackCommand,
+        {
+          local: [".config/app"],
+          mode: ["normal"],
+        },
+        ".config/app",
+      ),
+    ).rejects.toMatchObject({ code: "INVALID_PLATFORM_FLAG" });
+
+    await expect(
+      runCommand(
+        trackCommand,
+        {
+          local: ["default=.config/app"],
+          mode: ["normal"],
+        },
+        ".config/app",
+      ),
+    ).rejects.toMatchObject({ code: "INVALID_PLATFORM_FLAG" });
+
+    expect(mocked.trackTarget).not.toHaveBeenCalled();
   });
 
   it("installs the bundled dotweave skill and reports the target path", async () => {
@@ -621,19 +826,19 @@ describe("CLI command modules", () => {
     );
   });
 
-  it("rejects --repo-path when tracking multiple targets", async () => {
+  it("rejects --repo when tracking multiple targets", async () => {
     await expect(
       runCommand(
         trackCommand,
         {
-          mode: "normal",
-          repoPath: "profiles/shared/tool",
+          mode: ["normal"],
+          repo: ["profiles/shared/tool"],
         },
         ".gitconfig",
         ".zshrc",
       ),
     ).rejects.toThrowError(
-      "The --repo-path flag can only be used with a single sync target.",
+      "The --repo flag can only be used with a single sync target.",
     );
     expect(mocked.trackTarget).not.toHaveBeenCalled();
   });
@@ -647,7 +852,7 @@ describe("CLI command modules", () => {
 
     await runCommand(
       trackCommand,
-      { mode: "ignore", profile: [""] },
+      { mode: ["ignore"], profile: [""] },
       ".config/nvim",
     );
 
@@ -685,7 +890,7 @@ describe("CLI command modules", () => {
     await expect(
       runCommand(
         trackCommand,
-        { mode: "ignore", profile: ["ghost"] },
+        { mode: ["ignore"], profile: ["ghost"] },
         ".config/nvim",
       ),
     ).rejects.toThrowError("Unknown profile 'ghost'.");

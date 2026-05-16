@@ -127,7 +127,7 @@ describe("CLI application", () => {
     expect(Number(process.exitCode)).not.toBe(0);
     expect(invalidEnumOutput.stdout()).toBe("");
     expect(invalidEnumOutput.stderr()).toContain(
-      'Expected "bogus" to be one of (normal|secret|ignore)',
+      "Invalid --mode mode 'bogus'.",
     );
 
     vi.restoreAllMocks();

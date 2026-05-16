@@ -52,23 +52,23 @@ See [Sync Modes](/en/guides/sync-modes) for a full breakdown of each mode.
 
 ## Limiting to Specific Profiles
 
-Use `--profiles` to assign an entry to one or more profiles. Only machines with a matching active profile will sync that entry.
+Use `--profile` to assign an entry to one or more profiles. Only machines with a matching active profile will sync that entry.
 
 ```bash
-dotweave track ~/.config/work-tool --profiles work
-dotweave track ~/.config/shared-tool --profiles work,personal
+dotweave track ~/.config/work-tool --profile work
+dotweave track ~/.config/shared-tool --profile work --profile personal
 ```
 
-Entries without `--profiles` land in the `default` profile and sync everywhere. See [Profiles](/en/guides/profiles) for details.
+Entries without `--profile` land in the `default` profile and sync everywhere. See [Profiles](/en/guides/profiles) for details.
 
 ---
 
 ## Customizing the Repository Path
 
-By default, dotweave mirrors your file's path relative to your home directory inside the sync directory. If you want a different path in the repository, use `--repoPath`:
+By default, dotweave mirrors your file's path relative to your home directory inside the sync directory. If you want a different path in the repository, use `--repo`:
 
 ```bash
-dotweave track ~/Projects/scripts/deploy.sh --repoPath scripts/deploy.sh
+dotweave track ~/Projects/scripts/deploy.sh --repo scripts/deploy.sh
 ```
 
 ---
