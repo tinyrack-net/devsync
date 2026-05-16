@@ -1,3 +1,4 @@
+import { readFile } from "node:fs/promises";
 import type { ApplicationContext } from "@stricli/core";
 import { buildCommand } from "@stricli/core";
 import { resolveDefaultIdentityFile } from "#app/config/identity-file.ts";
@@ -12,8 +13,8 @@ import {
 import { createCliLogger } from "#app/services/terminal/logger.ts";
 
 type InitFlags = {
-  key?: string;
-  promptKey?: boolean;
+  force?: boolean;
+  keyFile?: string;
 };
 
 const formatGitSummary = (result: InitResult) => {
@@ -37,21 +38,29 @@ const initCommand = buildCommand<InitFlags, [string?], ApplicationContext>({
   docs: {
     brief: "Initialize the git-backed sync directory",
     fullDescription:
-      "Create or connect the local dotweave repository under your dotweave app-data directory, then store the sync settings used by later pull and push operations. If you omit the repository argument, dotweave initializes a local git repository in the sync directory.",
+      "Create or connect the local dotweave repository under your dotweave app-data directory, then store the sync settings used by later pull and push operations. If local sync repository data already exists, init fails unless --force is provided. If you omit the repository argument, dotweave initializes a local git repository in the sync directory.",
   },
   async func(flags, repository) {
     const logger = createCliLogger();
-    const requestedKey = flags.key?.trim();
+    const keyFileContents =
+      flags.keyFile === undefined
+        ? undefined
+        : await readFile(flags.keyFile, "utf8");
+    const requestedKey = keyFileContents?.trim() || undefined;
+    const keyFileProvided = flags.keyFile !== undefined;
     const identityFile = resolveDefaultIdentityFile(
       resolveDotweaveHomeDirectoryFromEnv(),
     );
     const identityFileExists = await pathExists(identityFile);
+    const effectiveIdentityFileExists =
+      flags.force === true ? false : identityFileExists;
     const importingRepository =
       repository !== undefined && repository.trim() !== "";
     const shouldPrompt =
       requestedKey === undefined &&
-      !identityFileExists &&
-      ((flags.promptKey ?? false) || importingRepository);
+      !keyFileProvided &&
+      !effectiveIdentityFileExists &&
+      importingRepository;
     const promptedKey = shouldPrompt
       ? await ask(
           importingRepository
@@ -81,11 +90,12 @@ const initCommand = buildCommand<InitFlags, [string?], ApplicationContext>({
           : trimmedPromptedKey !== undefined && trimmedPromptedKey !== ""
             ? trimmedPromptedKey
             : undefined,
+      force: flags.force === true,
       generateAgeIdentity:
         !importingRepository &&
         requestedKey === undefined &&
         (trimmedPromptedKey === "" ||
-          (trimmedPromptedKey === undefined && !identityFileExists)),
+          (trimmedPromptedKey === undefined && !effectiveIdentityFileExists)),
       recipients: [],
       repository,
     });
@@ -105,18 +115,18 @@ const initCommand = buildCommand<InitFlags, [string?], ApplicationContext>({
   },
   parameters: {
     flags: {
-      key: {
-        brief: "Persist an age private key into the identity file",
+      force: {
+        brief:
+          "Replace existing local sync repository, identity, and settings before initializing",
+        kind: "boolean",
+        optional: true,
+      },
+      keyFile: {
+        brief: "Read an age private key from a file",
         kind: "parsed",
         optional: true,
         parse: String,
-        placeholder: "age-private-key",
-      },
-      promptKey: {
-        brief:
-          "Prompt to enter an age private key instead of generating one automatically",
-        kind: "boolean",
-        optional: true,
+        placeholder: "path",
       },
     },
     positional: {

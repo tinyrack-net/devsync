@@ -83,17 +83,19 @@ describe("sync CLI e2e", () => {
     ).toBe("* -text\n");
   });
 
-  it("accepts a supplied age key during init without a precreated identity file", async () => {
+  it("accepts a supplied age key file during init without a precreated identity file", async () => {
     const sourceRepository = join(ctx.workspace, "remote-sync");
+    const keyFile = join(ctx.workspace, "import.agekey");
     const ageKeys = await ctx.createAgeKeyPair();
 
     await ctx.runGit(["init", "-b", "main", sourceRepository]);
+    await writeFile(keyFile, `${ageKeys.identity}\n`, "utf8");
 
     const result = await ctx.runCli([
       "init",
       sourceRepository,
-      "--key",
-      ageKeys.identity,
+      "--key-file",
+      keyFile,
     ]);
 
     expect(stripAnsi(result.stdout)).toContain("Sync directory initialized");
@@ -126,7 +128,7 @@ describe("sync CLI e2e", () => {
         session.write("\r");
 
         const output = await session.waitFor(
-          "Provide your existing age private key with '--key' or '--promptKey'.",
+          "Provide your existing age private key with '--key-file'",
           10_000,
         );
 
@@ -141,6 +143,7 @@ describe("sync CLI e2e", () => {
 
   it("does not warn about an existing config when cloning a repository with an existing manifest", async () => {
     const sourceRepository = join(ctx.workspace, "remote-sync");
+    const keyFile = join(ctx.workspace, "manifest.agekey");
     const ageKeys = await ctx.createAgeKeyPair();
 
     await ctx.runGit(["init", "-b", "main", sourceRepository]);
@@ -158,12 +161,13 @@ describe("sync CLI e2e", () => {
       ["commit", "-m", "initial manifest", "--author", "test <test@test.com>"],
       sourceRepository,
     );
+    await writeFile(keyFile, `${ageKeys.identity}\n`, "utf8");
 
     const result = await ctx.runCli([
       "init",
       sourceRepository,
-      "--key",
-      ageKeys.identity,
+      "--key-file",
+      keyFile,
     ]);
 
     expect(stripAnsi(result.stdout)).toContain("Sync directory initialized");
@@ -172,8 +176,11 @@ describe("sync CLI e2e", () => {
     );
   });
 
-  it("rejects an invalid supplied age key during init", async () => {
-    const result = await ctx.runCli(["init", "--key", "not-a-key"], {
+  it("rejects an invalid supplied age key file during init", async () => {
+    const keyFile = join(ctx.workspace, "invalid.agekey");
+    await writeFile(keyFile, "not-a-key\n", "utf8");
+
+    const result = await ctx.runCli(["init", "--key-file", keyFile], {
       reject: false,
     });
 
@@ -181,17 +188,19 @@ describe("sync CLI e2e", () => {
     expect(stripAnsi(result.stderr)).toContain("Invalid age private key");
   });
 
-  it("accepts an age key via --key when no identity file exists", async () => {
+  it("accepts an age key file when no identity file exists", async () => {
     const sourceRepository = join(ctx.workspace, "remote-sync");
+    const keyFile = join(ctx.workspace, "missing-identity.agekey");
     const ageKeys = await ctx.createAgeKeyPair();
 
     await ctx.runGit(["init", "-b", "main", sourceRepository]);
+    await writeFile(keyFile, `${ageKeys.identity}\n`, "utf8");
 
     const result = await ctx.runCli([
       "init",
       sourceRepository,
-      "--key",
-      ageKeys.identity,
+      "--key-file",
+      keyFile,
     ]);
 
     expect(stripAnsi(result.stdout)).toContain("Sync directory initialized");
@@ -200,8 +209,9 @@ describe("sync CLI e2e", () => {
     ).toBe(`${ageKeys.identity}\n`);
   });
 
-  it("does not warn about an existing config when cloning a repository with an existing manifest and passing the key via --key", async () => {
+  it("does not warn about an existing config when cloning a repository with an existing manifest and passing a key file", async () => {
     const sourceRepository = join(ctx.workspace, "remote-sync");
+    const keyFile = join(ctx.workspace, "manifest-explicit.agekey");
     const ageKeys = await ctx.createAgeKeyPair();
 
     await ctx.runGit(["init", "-b", "main", sourceRepository]);
@@ -219,12 +229,13 @@ describe("sync CLI e2e", () => {
       ["commit", "-m", "initial manifest", "--author", "test <test@test.com>"],
       sourceRepository,
     );
+    await writeFile(keyFile, `${ageKeys.identity}\n`, "utf8");
 
     const result = await ctx.runCli([
       "init",
       sourceRepository,
-      "--key",
-      ageKeys.identity,
+      "--key-file",
+      keyFile,
     ]);
 
     expect(stripAnsi(result.stdout)).toContain("Sync directory initialized");
@@ -262,7 +273,7 @@ describe("sync CLI e2e", () => {
       );
 
       const session = createPtySession({
-        args: [...cliNodeOptions, "init", "--prompt-key", sourceRepository],
+        args: [...cliNodeOptions, "init", sourceRepository],
         cwd: ctx.workspace,
         env: {
           ...ctx.baseEnv,
@@ -297,7 +308,7 @@ describe("sync CLI e2e", () => {
       await ctx.runGit(["init", "-b", "main", sourceRepository]);
 
       const session = createPtySession({
-        args: [...cliNodeOptions, "init", "--prompt-key", sourceRepository],
+        args: [...cliNodeOptions, "init", sourceRepository],
         cwd: ctx.workspace,
         env: {
           ...ctx.baseEnv,
@@ -313,7 +324,7 @@ describe("sync CLI e2e", () => {
         session.write("\r");
 
         const output = await session.waitFor(
-          "Provide your existing age private key with '--key' or '--promptKey'.",
+          "Provide your existing age private key with '--key-file'",
           10_000,
         );
 

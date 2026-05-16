@@ -173,7 +173,7 @@ describe("init service", () => {
     );
   });
 
-  it("backfills managed repository attributes for an existing initialized repo", async () => {
+  it("rejects an existing initialized repo by default", async () => {
     const workspace = await createWorkspace();
     const homeDirectory = join(workspace, "home");
     const xdgConfigHome = join(workspace, "xdg");
@@ -182,26 +182,18 @@ describe("init service", () => {
     await writeIdentityFile(xdgConfigHome, ageKeys.identity);
     setEnvironment(homeDirectory, xdgConfigHome);
 
-    const syncDirectory = join(xdgConfigHome, "dotweave", "repository");
-
     await initializeSyncDirectory({
       recipients: [ageKeys.recipient],
     });
 
-    await writeFile(
-      join(syncDirectory, ".gitattributes"),
-      "* text=auto\n",
-      "utf8",
-    );
-
-    const result = await initializeSyncDirectory({
-      recipients: [ageKeys.recipient],
+    await expect(
+      initializeSyncDirectory({
+        recipients: [ageKeys.recipient],
+      }),
+    ).rejects.toMatchObject({
+      code: "INIT_ALREADY_INITIALIZED",
+      message: "Sync directory is already initialized.",
     });
-
-    expect(result.alreadyInitialized).toBe(true);
-    expect(await readFile(join(syncDirectory, ".gitattributes"), "utf8")).toBe(
-      "* -text\n",
-    );
   });
 
   it("rejects non-empty sync directories that are not git repositories", async () => {
@@ -236,7 +228,175 @@ describe("init service", () => {
     });
   });
 
-  it("rejects recipient mismatches against an existing config", async () => {
+  it("force removes existing local init state and clones a supplied repository", async () => {
+    const workspace = await createWorkspace();
+    const homeDirectory = join(workspace, "home");
+    const xdgConfigHome = join(workspace, "xdg");
+    const sourceRepository = join(workspace, "remote-sync");
+    const syncDirectory = join(xdgConfigHome, "dotweave", "repository");
+    const oldAgeKeys = await createAgeKeyPair();
+    const newAgeKeys = await createAgeKeyPair();
+
+    await writeIdentityFile(xdgConfigHome, oldAgeKeys.identity);
+    setEnvironment(homeDirectory, xdgConfigHome);
+
+    await initializeSyncDirectory({
+      recipients: [oldAgeKeys.recipient],
+    });
+    await writeFile(
+      join(xdgConfigHome, "dotweave", "settings.jsonc"),
+      `${JSON.stringify({ activeProfile: "old-profile", version: 3 }, null, 2)}\n`,
+      "utf8",
+    );
+    await writeFile(
+      join(syncDirectory, "local-only.txt"),
+      "remove me\n",
+      "utf8",
+    );
+
+    await runGit(["init", "-b", "main", sourceRepository], workspace);
+    await writeFile(
+      join(sourceRepository, "remote-only.txt"),
+      "cloned\n",
+      "utf8",
+    );
+    await runGit(["add", "remote-only.txt"], sourceRepository);
+    await runGit(["commit", "-m", "add remote marker"], sourceRepository);
+
+    const result = await initializeSyncDirectory({
+      ageIdentity: newAgeKeys.identity,
+      force: true,
+      recipients: [],
+      repository: sourceRepository,
+    });
+
+    expect(result.gitAction).toBe("cloned");
+    expect(result.gitSource).toBe(sourceRepository);
+    await expect(
+      readFile(join(syncDirectory, "remote-only.txt"), "utf8"),
+    ).resolves.toBe("cloned\n");
+    await expect(
+      readFile(join(syncDirectory, "local-only.txt"), "utf8"),
+    ).rejects.toThrow();
+    await expect(
+      readFile(join(xdgConfigHome, "dotweave", "keys.txt"), "utf8"),
+    ).resolves.toBe(`${newAgeKeys.identity}\n`);
+    await expect(
+      readFile(join(xdgConfigHome, "dotweave", "keys.txt"), "utf8"),
+    ).resolves.not.toContain(oldAgeKeys.identity);
+    await expect(
+      JSON.parse(
+        await readFile(
+          join(xdgConfigHome, "dotweave", "settings.jsonc"),
+          "utf8",
+        ),
+      ),
+    ).toMatchObject({
+      activeProfile: "default",
+      version: 3,
+    });
+  });
+
+  it("force rejects importing a repository without a new age identity after removing the old identity", async () => {
+    const workspace = await createWorkspace();
+    const homeDirectory = join(workspace, "home");
+    const xdgConfigHome = join(workspace, "xdg");
+    const sourceRepository = join(workspace, "remote-sync");
+    const oldAgeKeys = await createAgeKeyPair();
+
+    await writeIdentityFile(xdgConfigHome, oldAgeKeys.identity);
+    await runGit(["init", "-b", "main", sourceRepository], workspace);
+
+    setEnvironment(homeDirectory, xdgConfigHome);
+    await expect(
+      initializeSyncDirectory({
+        force: true,
+        recipients: [],
+        repository: sourceRepository,
+      }),
+    ).rejects.toMatchObject({
+      code: "INIT_AGE_IDENTITY_REQUIRED",
+      hint: expect.stringContaining("--key-file"),
+      message: "Existing repository setup requires an age private key.",
+    });
+  });
+
+  it("force replaces an old identity and rewrites settings for local initialization", async () => {
+    const workspace = await createWorkspace();
+    const homeDirectory = join(workspace, "home");
+    const xdgConfigHome = join(workspace, "xdg");
+    const syncDirectory = join(xdgConfigHome, "dotweave", "repository");
+    const oldAgeKeys = await createAgeKeyPair();
+
+    await writeIdentityFile(xdgConfigHome, oldAgeKeys.identity);
+    setEnvironment(homeDirectory, xdgConfigHome);
+
+    await initializeSyncDirectory({
+      recipients: [oldAgeKeys.recipient],
+    });
+    await writeFile(
+      join(xdgConfigHome, "dotweave", "settings.jsonc"),
+      `${JSON.stringify({ activeProfile: "old-profile", version: 3 }, null, 2)}\n`,
+      "utf8",
+    );
+
+    const result = await initializeSyncDirectory({
+      force: true,
+      recipients: [],
+    });
+
+    expect(result.generatedIdentity).toBe(true);
+    expect(result.gitAction).toBe("initialized");
+    await expect(
+      readFile(join(syncDirectory, "manifest.jsonc"), "utf8"),
+    ).resolves.toContain('"version": 8');
+
+    const newIdentity = await readFile(
+      join(xdgConfigHome, "dotweave", "keys.txt"),
+      "utf8",
+    );
+    expect(newIdentity).toContain("AGE-SECRET-KEY-");
+    expect(newIdentity).not.toContain(oldAgeKeys.identity);
+    expect(
+      JSON.parse(
+        await readFile(
+          join(xdgConfigHome, "dotweave", "settings.jsonc"),
+          "utf8",
+        ),
+      ),
+    ).toMatchObject({
+      activeProfile: "default",
+      version: 3,
+    });
+  });
+
+  it("force removes a non-git non-empty sync directory and initializes", async () => {
+    const workspace = await createWorkspace();
+    const homeDirectory = join(workspace, "home");
+    const xdgConfigHome = join(workspace, "xdg");
+    const syncDirectory = join(xdgConfigHome, "dotweave", "repository");
+    const ageKeys = await createAgeKeyPair();
+
+    await writeIdentityFile(xdgConfigHome, ageKeys.identity);
+    await mkdir(syncDirectory, { recursive: true });
+    await writeFile(join(syncDirectory, "placeholder.txt"), "remove\n", "utf8");
+
+    setEnvironment(homeDirectory, xdgConfigHome);
+    const result = await initializeSyncDirectory({
+      force: true,
+      recipients: [ageKeys.recipient],
+    });
+
+    expect(result.gitAction).toBe("initialized");
+    await expect(
+      readFile(join(syncDirectory, "manifest.jsonc"), "utf8"),
+    ).resolves.toContain('"version": 8');
+    await expect(
+      readFile(join(syncDirectory, "placeholder.txt"), "utf8"),
+    ).rejects.toThrow();
+  });
+
+  it("rejects repeated init before checking recipient mismatches", async () => {
     const workspace = await createWorkspace();
     const homeDirectory = join(workspace, "home");
     const xdgConfigHome = join(workspace, "xdg");
@@ -254,7 +414,10 @@ describe("init service", () => {
       initializeSyncDirectory({
         recipients: ["age1differentrecipient"],
       }),
-    ).rejects.toThrowError(/different age recipients/u);
+    ).rejects.toMatchObject({
+      code: "INIT_ALREADY_INITIALIZED",
+      message: "Sync directory is already initialized.",
+    });
   });
 
   it("writes a supplied age private key when cloning a repo that already has manifest.jsonc", async () => {

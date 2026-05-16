@@ -46,6 +46,7 @@ const mocked = vi.hoisted(() => ({
   preparePull: vi.fn(),
   promptAsk: vi.fn(),
   pushChanges: vi.fn(),
+  readFile: vi.fn(),
   readEnvValue: vi.fn(),
   resolveConfiguredAbsolutePath: vi.fn(),
   resolveDefaultIdentityFile: vi.fn(),
@@ -63,6 +64,7 @@ const mocked = vi.hoisted(() => ({
 
 vi.mock("node:fs/promises", () => ({
   mkdir: mocked.mkdir,
+  readFile: mocked.readFile,
 }));
 
 vi.mock("#app/config/xdg.ts", () => ({
@@ -203,6 +205,7 @@ beforeEach(() => {
   mocked.resolveDotweaveSyncDirectory.mockReturnValue("/tmp/dotweave");
   mocked.pathExists.mockResolvedValue(true);
   mocked.promptAsk.mockResolvedValue(undefined);
+  mocked.readFile.mockResolvedValue("AGE-SECRET-KEY-FILE\n");
   mocked.createMissingRepositoryAgeKeyError.mockImplementation(() => {
     return new DotweaveError(
       "Existing repository setup requires an age private key.",
@@ -402,18 +405,67 @@ afterEach(() => {
 });
 
 describe("CLI command modules", () => {
-  it("initializes with an explicit key without prompting", async () => {
+  it("initializes without a repository and generates an identity when none exists", async () => {
+    mocked.pathExists.mockResolvedValue(false);
+
+    await runCommand(initCommand, {});
+
+    expect(mocked.promptAsk).not.toHaveBeenCalled();
+    expect(mocked.initializeSyncDirectory).toHaveBeenCalledWith({
+      ageIdentity: undefined,
+      force: false,
+      generateAgeIdentity: true,
+      recipients: [],
+      repository: undefined,
+    });
+  });
+
+  it("initializes with force without a repository and treats an existing identity as reset", async () => {
+    mocked.pathExists.mockResolvedValue(true);
+
+    await runCommand(initCommand, { force: true });
+
+    expect(mocked.promptAsk).not.toHaveBeenCalled();
+    expect(mocked.initializeSyncDirectory).toHaveBeenCalledWith({
+      ageIdentity: undefined,
+      force: true,
+      generateAgeIdentity: true,
+      recipients: [],
+      repository: undefined,
+    });
+  });
+
+  it("initializes from a repository without prompting when an identity exists", async () => {
+    mocked.pathExists.mockResolvedValue(true);
+
+    await runCommand(initCommand, {}, "git@example.com:dotfiles.git");
+
+    expect(mocked.promptAsk).not.toHaveBeenCalled();
+    expect(mocked.initializeSyncDirectory).toHaveBeenCalledWith({
+      ageIdentity: undefined,
+      force: false,
+      generateAgeIdentity: false,
+      recipients: [],
+      repository: "git@example.com:dotfiles.git",
+    });
+  });
+
+  it("initializes from a repository with an age key file without prompting", async () => {
+    mocked.readFile.mockResolvedValue("  AGE-SECRET-KEY-FILE  \n");
+
     await runCommand(
       initCommand,
       {
-        key: "  AGE-SECRET-KEY-123  ",
+        keyFile: "/tmp/import.agekey",
       },
       "git@example.com:dotfiles.git",
     );
 
+    expect(mocked.readFile).toHaveBeenCalledWith("/tmp/import.agekey", "utf8");
     expect(mocked.promptAsk).not.toHaveBeenCalled();
     expect(mocked.initializeSyncDirectory).toHaveBeenCalledWith({
-      ageIdentity: "AGE-SECRET-KEY-123",
+      ageIdentity: "AGE-SECRET-KEY-FILE",
+      force: false,
       generateAgeIdentity: false,
       recipients: [],
       repository: "git@example.com:dotfiles.git",
@@ -422,13 +474,75 @@ describe("CLI command modules", () => {
     expect(spin.succeed).toHaveBeenCalledWith("Sync directory initialized");
   });
 
+  it("initializes with force from a repository with an age key file without prompting", async () => {
+    mocked.readFile.mockResolvedValue("AGE-SECRET-KEY-FORCE\n");
+
+    await runCommand(
+      initCommand,
+      {
+        force: true,
+        keyFile: "/tmp/force.agekey",
+      },
+      "git@example.com:dotfiles.git",
+    );
+
+    expect(mocked.readFile).toHaveBeenCalledWith("/tmp/force.agekey", "utf8");
+    expect(mocked.promptAsk).not.toHaveBeenCalled();
+    expect(mocked.initializeSyncDirectory).toHaveBeenCalledWith({
+      ageIdentity: "AGE-SECRET-KEY-FORCE",
+      force: true,
+      generateAgeIdentity: false,
+      recipients: [],
+      repository: "git@example.com:dotfiles.git",
+    });
+  });
+
+  it("initializes without a repository using an age key file without generating", async () => {
+    mocked.readFile.mockResolvedValue("AGE-SECRET-KEY-LOCAL\n");
+
+    await runCommand(initCommand, {
+      keyFile: "/tmp/local.agekey",
+    });
+
+    expect(mocked.promptAsk).not.toHaveBeenCalled();
+    expect(mocked.initializeSyncDirectory).toHaveBeenCalledWith({
+      ageIdentity: "AGE-SECRET-KEY-LOCAL",
+      force: false,
+      generateAgeIdentity: false,
+      recipients: [],
+      repository: undefined,
+    });
+  });
+
+  it("initializes with force from a repository by prompting even when an identity exists", async () => {
+    mocked.pathExists.mockResolvedValue(true);
+    mocked.promptAsk.mockResolvedValue("  AGE-SECRET-KEY-PROMPTED  ");
+
+    await runCommand(
+      initCommand,
+      {
+        force: true,
+      },
+      "git@example.com:dotfiles.git",
+    );
+
+    expect(mocked.promptAsk).toHaveBeenCalledWith(
+      "Enter the age private key for the existing repository: ",
+    );
+    expect(mocked.initializeSyncDirectory).toHaveBeenCalledWith({
+      ageIdentity: "AGE-SECRET-KEY-PROMPTED",
+      force: true,
+      generateAgeIdentity: false,
+      recipients: [],
+      repository: "git@example.com:dotfiles.git",
+    });
+  });
+
   it("rejects a blank prompted key when importing an existing repository", async () => {
     mocked.pathExists.mockResolvedValue(false);
     mocked.promptAsk.mockResolvedValue("   ");
 
-    await expect(
-      runCommand(initCommand, { promptKey: true }, "origin"),
-    ).rejects.toThrowError(
+    await expect(runCommand(initCommand, {}, "origin")).rejects.toThrowError(
       /Existing repository setup requires an age private key/u,
     );
 
@@ -436,6 +550,13 @@ describe("CLI command modules", () => {
       "Enter the age private key for the existing repository: ",
     );
     expect(mocked.initializeSyncDirectory).not.toHaveBeenCalled();
+  });
+
+  it("exposes only force and key-file flags for init credentials", () => {
+    expect(Object.keys(initCommand.parameters.flags ?? {}).sort()).toEqual([
+      "force",
+      "keyFile",
+    ]);
   });
 
   it("tracks new targets and formats track output", async () => {

@@ -1,4 +1,4 @@
-import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { AppConstants } from "#app/config/constants.ts";
 import {
@@ -9,7 +9,6 @@ import {
 import { resolveDefaultIdentityFile } from "#app/config/identity-file.ts";
 import { resolveDotweaveHomeDirectoryFromEnv } from "#app/config/runtime-env.ts";
 import {
-  type AgeConfig,
   createInitialSyncConfig,
   formatSyncConfig,
   parseSyncConfig,
@@ -22,11 +21,7 @@ import {
 } from "#app/lib/crypto.ts";
 import { DotweaveError, wrapUnknownError } from "#app/lib/error.ts";
 import { pathExists, writeTextFileAtomically } from "#app/lib/filesystem.ts";
-import {
-  initializeRepository,
-  requireGitRepository,
-  verifyIsGitRepository,
-} from "#app/lib/git.ts";
+import { initializeRepository, verifyIsGitRepository } from "#app/lib/git.ts";
 import { validateJsoncConfigPath } from "#app/lib/jsonc.ts";
 import {
   resolveAgeFromSyncConfig,
@@ -36,6 +31,7 @@ import {
 
 export type InitRequest = Readonly<{
   ageIdentity?: string;
+  force?: boolean;
   generateAgeIdentity?: boolean;
   identityFile?: string;
   recipients: readonly string[];
@@ -60,9 +56,17 @@ export const createMissingRepositoryAgeKeyError = () => {
     "Existing repository setup requires an age private key.",
     {
       code: "INIT_AGE_IDENTITY_REQUIRED",
-      hint: "Provide your existing age private key with '--key' or '--promptKey'.",
+      hint: "Provide your existing age private key with '--key-file', or enter it when prompted in an interactive terminal.",
     },
   );
+};
+
+export const createAlreadyInitializedError = (syncDirectory: string) => {
+  return new DotweaveError("Sync directory is already initialized.", {
+    code: "INIT_ALREADY_INITIALIZED",
+    details: [`Sync directory: ${syncDirectory}`],
+    hint: "Use 'dotweave init --force' to replace the local sync repository data.",
+  });
 };
 
 const normalizeRecipients = (recipients: readonly string[]) => {
@@ -133,56 +137,6 @@ const resolveInitAgeBootstrap = async (request: InitRequest) => {
   };
 };
 
-const assertRecipientMatch = (
-  age: AgeConfig | undefined,
-  request: InitRequest,
-) => {
-  if (age === undefined) {
-    return;
-  }
-
-  const recipients = normalizeRecipients(request.recipients);
-
-  if (
-    recipients.length > 0 &&
-    JSON.stringify(recipients) !==
-      JSON.stringify(normalizeRecipients([...age.recipients]))
-  ) {
-    throw new DotweaveError(
-      "Sync configuration already exists with different age recipients.",
-      {
-        code: "INIT_RECIPIENT_MISMATCH",
-        details: [
-          `Requested recipients: ${recipients.join(", ") || "(none)"}`,
-          `Configured recipients: ${normalizeRecipients([...age.recipients]).join(", ")}`,
-        ],
-        hint: `Use the existing recipients, or update ${AppConstants.SYNC.CONFIG_FILE_NAME} manually if you intend to rotate recipients.`,
-      },
-    );
-  }
-};
-
-const buildAlreadyInitializedResult = (
-  config: Awaited<ReturnType<typeof readSyncConfig>>,
-  base: Readonly<{
-    gitAction: InitResult["gitAction"];
-    gitSource?: string;
-  }>,
-): InitResult => {
-  const age =
-    config.age !== undefined ? resolveAgeFromSyncConfig(config.age) : undefined;
-
-  return {
-    alreadyInitialized: true,
-    entryCount: config.entries.length,
-    gitAction: base.gitAction,
-    ...(base.gitSource === undefined ? {} : { gitSource: base.gitSource }),
-    generatedIdentity: false,
-    identityFile: age?.identityFile ?? "",
-    recipientCount: age?.recipients.length ?? 0,
-  };
-};
-
 const writeGlobalSettings = async (globalConfigPath: string) => {
   const existingGlobalConfig = await readGlobalDotweaveConfig(globalConfigPath);
   const globalConfigToWrite: GlobalDotweaveConfig = {
@@ -216,11 +170,18 @@ export const initializeSyncDirectory = async (
 ): Promise<InitResult> => {
   const { syncDirectory, configPath, globalConfigPath } = resolveSyncPaths();
   const context = resolveSyncConfigResolutionContext();
-  const resolvedConfigPath = await validateJsoncConfigPath(configPath);
-  const configExists = await pathExists(resolvedConfigPath);
   const identityFile = resolveDefaultIdentityFile(
     resolveDotweaveHomeDirectoryFromEnv(),
   );
+
+  if (request.force === true) {
+    await rm(syncDirectory, { force: true, recursive: true });
+    await rm(identityFile, { force: true });
+    await rm(globalConfigPath, { force: true });
+  }
+
+  const resolvedConfigPath = await validateJsoncConfigPath(configPath);
+  const configExists = await pathExists(resolvedConfigPath);
   const importingRepository =
     request.repository !== undefined && request.repository.trim() !== "";
 
@@ -233,17 +194,7 @@ export const initializeSyncDirectory = async (
   }
 
   if (configExists) {
-    await requireGitRepository(syncDirectory);
-    await ensureManagedRepositoryAttributes(syncDirectory);
-
-    const config = await readSyncConfig(syncDirectory, context);
-    assertRecipientMatch(config.age, request);
-
-    await resolveInitAgeBootstrap(request);
-
-    return buildAlreadyInitializedResult(config, {
-      gitAction: "existing",
-    });
+    throw createAlreadyInitializedError(syncDirectory);
   }
 
   await mkdir(dirname(syncDirectory), {
@@ -314,13 +265,6 @@ export const initializeSyncDirectory = async (
     const config = await readSyncConfig(syncDirectory, context);
 
     const ageBootstrap = await resolveInitAgeBootstrap(request);
-
-    if (configExists) {
-      return buildAlreadyInitializedResult(config, {
-        gitAction,
-        gitSource,
-      });
-    }
 
     await writeGlobalSettings(globalConfigPath);
 
