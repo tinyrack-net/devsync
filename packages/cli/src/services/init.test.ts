@@ -272,9 +272,11 @@ describe("init service", () => {
 
     expect(result.gitAction).toBe("cloned");
     expect(result.gitSource).toBe(sourceRepository);
-    await expect(
-      readFile(join(syncDirectory, "remote-only.txt"), "utf8"),
-    ).resolves.toBe("cloned\n");
+    const remoteOnly = await readFile(
+      join(syncDirectory, "remote-only.txt"),
+      "utf8",
+    );
+    expect(remoteOnly.replace(/\r\n/gu, "\n")).toBe("cloned\n");
     await expect(
       readFile(join(syncDirectory, "local-only.txt"), "utf8"),
     ).rejects.toThrow();

@@ -812,6 +812,7 @@ describe("sync CLI e2e", () => {
     "treats opposite Windows text line endings as unchanged during pull",
     async () => {
       const sourceRepository = join(ctx.workspace, "remote-sync");
+      const keyFile = join(ctx.workspace, "line-endings-clean.agekey");
       const configDir = join(ctx.homeDir, ".config", "line-endings-clean");
       const configFile = join(configDir, "config.toml");
       const reverseFile = join(configDir, "reverse.toml");
@@ -882,8 +883,9 @@ describe("sync CLI e2e", () => {
         ["commit", "-m", "seed normalized line endings"],
         sourceRepository,
       );
+      await writeFile(keyFile, `${ageKeys.identity}\n`, "utf8");
 
-      await ctx.runCli(["init", sourceRepository, "--key", ageKeys.identity]);
+      await ctx.runCli(["init", sourceRepository, "--key-file", keyFile]);
       const result = await ctx.runCli(["pull"]);
 
       expect(result.exitCode).toBe(0);
@@ -896,6 +898,7 @@ describe("sync CLI e2e", () => {
     "normalizes Windows text line endings without hiding BOM changes during pull",
     async () => {
       const sourceRepository = join(ctx.workspace, "remote-sync");
+      const keyFile = join(ctx.workspace, "line-endings-bom.agekey");
       const configDir = join(ctx.homeDir, ".config", "line-endings-bom");
       const configFile = join(configDir, "config.toml");
       const bomFile = join(configDir, "bom.toml");
@@ -966,8 +969,9 @@ describe("sync CLI e2e", () => {
         ["commit", "-m", "seed normalized line endings"],
         sourceRepository,
       );
+      await writeFile(keyFile, `${ageKeys.identity}\n`, "utf8");
 
-      await ctx.runCli(["init", sourceRepository, "--key", ageKeys.identity]);
+      await ctx.runCli(["init", sourceRepository, "--key-file", keyFile]);
       const result = await ctx.runCli(["pull"], { reject: false });
 
       expect(result.exitCode).not.toBe(0);
