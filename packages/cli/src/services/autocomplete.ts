@@ -94,7 +94,7 @@ Register-ArgumentCompleter -Native -CommandName ${AppConstants.AUTOCOMPLETE.CLI_
 export const ZSH_AUTOCOMPLETE_SCRIPT = `\
 if ! (( $+functions[compdef] )); then
   autoload -Uz compinit
-  compinit
+  compinit -u
 fi
 
 ${COMPLETION_FUNCTION_NAME}() {

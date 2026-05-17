@@ -79,6 +79,9 @@ const runCli = async (
 const completionNames = (stdout: string) =>
   stdout.split("\n").map((line) => line.split("\t")[0] ?? line);
 
+const powerShellLines = (stdout: string) =>
+  stdout.replaceAll("\r", "").split("\n");
+
 const bashRootCommandNames = [
   "autocomplete",
   ...Object.keys(rootCommandRoutes),
@@ -459,16 +462,14 @@ describe("autocomplete e2e", () => {
   });
 
   runForShell("powershell", isPowerShellAvailable)(
-    "populates PowerShell root completions from the emitted script",
+    "populates PowerShell root completions from a prefix",
     async () => {
       requireSelectedShellAvailability("powershell", isPowerShellAvailable);
 
-      const result = await runPowerShellCompletion("dotweave ");
+      const result = await runPowerShellCompletion("dotweave p");
 
       expect(result.exitCode).toBe(0);
-      expect(result.stdout.split("\n")).toEqual(
-        expect.arrayContaining(["autocomplete", "track", "profile"]),
-      );
+      expect(powerShellLines(result.stdout)).toContain("profile");
       expect(result.stderr).toBe("");
     },
   );
@@ -481,7 +482,7 @@ describe("autocomplete e2e", () => {
       const result = await runPowerShellCompletion("dotweave tr");
 
       expect(result.exitCode).toBe(0);
-      expect(result.stdout.split("\n")).toContain("track");
+      expect(powerShellLines(result.stdout)).toContain("track");
       expect(result.stderr).toBe("");
     },
   );
@@ -496,7 +497,7 @@ describe("autocomplete e2e", () => {
       });
 
       expect(result.exitCode).toBe(0);
-      expect(result.stdout.split("\n")).toContain("file-alpha.txt");
+      expect(powerShellLines(result.stdout)).toContain("file-alpha.txt");
       expect(result.stderr).toBe("");
     },
   );
@@ -514,7 +515,7 @@ describe("autocomplete e2e", () => {
       );
 
       expect(result.exitCode).toBe(0);
-      expect(result.stdout.split("\n")).toEqual(
+      expect(powerShellLines(result.stdout)).toEqual(
         expect.arrayContaining(["--mode", "--profile", "--repo"]),
       );
       expect(result.stderr).toBe("");

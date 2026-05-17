@@ -29,6 +29,10 @@ const shouldRunPtyShell = (shell: "bash" | "zsh", available: boolean) => {
     return false;
   }
 
+  if (process.platform === "win32") {
+    return false;
+  }
+
   return available;
 };
 
