@@ -82,7 +82,6 @@ describe.skipIf(!shouldRunPtyShell("zsh", isZshAvailable))(
         [
           "autoload -Uz compinit",
           "zmodload zsh/complist",
-          "compinit -u",
           "zstyle ':completion:*' list-colors ''",
           "zstyle ':completion:*' menu no",
           "PROMPT='PROMPT> '",
@@ -108,7 +107,7 @@ describe.skipIf(!shouldRunPtyShell("zsh", isZshAvailable))(
       }>,
     ) => {
       return createPtySession({
-        args: ["-i"],
+        args: ["-f", "-i"],
         cwd: process.cwd(),
         env: {
           FORCE_COLOR: "0",
@@ -123,11 +122,21 @@ describe.skipIf(!shouldRunPtyShell("zsh", isZshAvailable))(
       });
     };
 
+    const sourceZshConfig = async (
+      session: ReturnType<typeof createZshSession>,
+    ) => {
+      session.write(
+        `source ${shellQuote(join(shellConfigDirectory, ".zshrc"))}\r`,
+      );
+      await session.waitFor("PROMPT> ", 10_000);
+      session.clearOutput();
+    };
+
     it("lists root subcommands in interactive zsh after dotweave tab tab", async () => {
       const session = createZshSession();
 
       try {
-        await session.waitFor("PROMPT> ", 10_000);
+        await sourceZshConfig(session);
 
         session.write("dotweave \t\t");
 
@@ -145,7 +154,7 @@ describe.skipIf(!shouldRunPtyShell("zsh", isZshAvailable))(
       const session = createZshSession();
 
       try {
-        await session.waitFor("PROMPT> ", 10_000);
+        await sourceZshConfig(session);
 
         session.write("dotweave\n");
         await session.waitFor("COMMANDS");
