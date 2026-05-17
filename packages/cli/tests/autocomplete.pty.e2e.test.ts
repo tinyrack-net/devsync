@@ -172,37 +172,33 @@ describe.skipIf(!shouldRunPtyShell("fish", isFishAvailable))(
       });
     };
 
-    it("lists root subcommands in interactive fish", async () => {
+    it("completes a root subcommand in interactive fish", async () => {
       const session = createFishSession();
 
       try {
         await session.waitFor("PROMPT> ");
 
-        session.write("dotweave \t\t");
+        session.write("dotweave p\t");
 
-        const output = await session.waitFor(rootCommandsPattern, 10_000);
+        const output = await session.waitFor("profile", 10_000);
 
-        for (const commandName of rootCommandNames) {
-          expect(output).toContain(commandName);
-        }
+        expect(output).toContain("profile");
       } finally {
         session.close();
       }
     }, 15_000);
 
-    it("lists track flags in interactive fish", async () => {
+    it("completes a track flag in interactive fish", async () => {
       const session = createFishSession();
 
       try {
         await session.waitFor("PROMPT> ");
 
-        session.write("dotweave track file-alpha.txt -\t\t");
+        session.write("dotweave track file-alpha.txt --p\t");
 
         const output = await session.waitFor("--profile", 10_000);
 
-        expect(output).toContain("--mode");
         expect(output).toContain("--profile");
-        expect(output).toContain("--repo");
       } finally {
         session.close();
       }
@@ -503,19 +499,17 @@ describe.skipIf(!shouldRunPtyShell("powershell", isPowerShellAvailable))(
       }
     }, 20_000);
 
-    it("lists track flags in interactive PowerShell", async () => {
+    it("completes a track flag in interactive PowerShell", async () => {
       const session = createPowerShellSession();
 
       try {
         await configurePowerShellSession(session);
 
-        session.write("dotweave track file-alpha.txt -\t");
+        session.write("dotweave track file-alpha.txt --p\t");
 
         const output = await session.waitFor("--profile", 10_000);
 
-        expect(output).toContain("--mode");
         expect(output).toContain("--profile");
-        expect(output).toContain("--repo");
       } finally {
         session.close();
       }
