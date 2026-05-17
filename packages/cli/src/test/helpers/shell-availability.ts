@@ -1,18 +1,25 @@
 import { execFileSync } from "node:child_process";
 
 const getShellPath = (shell: string): string | undefined => {
-  if (process.platform === "win32") {
-    return undefined;
-  }
+  const lookupCommand = process.platform === "win32" ? "where" : "which";
+
   try {
-    return execFileSync("which", [shell], { encoding: "utf8" }).trim();
+    return execFileSync(lookupCommand, [shell], { encoding: "utf8" })
+      .split(/\r?\n/u)
+      .map((line) => line.trim())
+      .find((line) => line.length > 0);
   } catch {
     return undefined;
   }
 };
 
 export const bashPath = getShellPath("bash");
+export const fishPath = getShellPath("fish");
+export const powerShellPath =
+  getShellPath("pwsh") ?? getShellPath("powershell");
 export const zshPath = getShellPath("zsh");
 
 export const isBashAvailable = bashPath !== undefined;
+export const isFishAvailable = fishPath !== undefined;
+export const isPowerShellAvailable = powerShellPath !== undefined;
 export const isZshAvailable = zshPath !== undefined;

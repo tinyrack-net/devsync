@@ -19,6 +19,12 @@ describe("autocomplete helpers", () => {
     expect(POWERSHELL_AUTOCOMPLETE_SCRIPT).toContain(
       "Register-ArgumentCompleter -Native -CommandName dotweave",
     );
+    expect(POWERSHELL_AUTOCOMPLETE_SCRIPT).toContain(
+      "$commandLine = $commandAst.ToString()",
+    );
+    expect(POWERSHELL_AUTOCOMPLETE_SCRIPT).toContain(
+      "$commandLine.EndsWith(' ')",
+    );
     expect(ZSH_AUTOCOMPLETE_SCRIPT).toContain(
       "add-zsh-hook precmd __dotweave_ensure_completion",
     );

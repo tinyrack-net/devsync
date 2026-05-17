@@ -57,12 +57,57 @@ jobs:
       - name: Run tests
         run: pnpm run test
 
+  autocomplete-shell-smoke:
+    name: Autocomplete (${{ matrix.os }} / ${{ matrix.shell }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            shell: bash
+          - os: ubuntu-latest
+            shell: zsh
+          - os: ubuntu-latest
+            shell: fish
+          - os: macos-26
+            shell: bash
+          - os: macos-26
+            shell: zsh
+          - os: macos-26
+            shell: fish
+          - os: windows-2022
+            shell: powershell
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/setup
+      - name: Install zsh (Ubuntu)
+        if: matrix.os == 'ubuntu-latest' && matrix.shell == 'zsh'
+        shell: bash
+        run: sudo apt-get update && sudo apt-get install -y zsh
+      - name: Install fish (Ubuntu)
+        if: matrix.os == 'ubuntu-latest' && matrix.shell == 'fish'
+        shell: bash
+        run: sudo apt-get update && sudo apt-get install -y fish
+      - name: Install fish (macOS)
+        if: startsWith(matrix.os, 'macos') && matrix.shell == 'fish'
+        shell: bash
+        run: brew install fish
+      - name: Build
+        run: pnpm --filter @tinyrack/dotweave run build
+      - name: Run autocomplete shell smoke tests
+        env:
+          DOTWEAVE_AUTOCOMPLETE_SHELL: ${{ matrix.shell }}
+        run: pnpm --filter @tinyrack/dotweave run test:autocomplete
+
   build-pkg:
     name: Build Pkg
     needs:
       - lint
       - typecheck
       - test
+      - autocomplete-shell-smoke
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
