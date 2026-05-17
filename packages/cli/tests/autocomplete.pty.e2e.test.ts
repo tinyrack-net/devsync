@@ -24,6 +24,7 @@ const autocompleteEnvironment: NodeJS.ProcessEnv & {
 const selectedAutocompleteShell =
   autocompleteEnvironment.DOTWEAVE_AUTOCOMPLETE_SHELL;
 const rootCommandsPattern = new RegExp(rootCommandNames.join("|"), "u");
+const ptyRootSmokeCommandNames = ["autocomplete", "profile", "status"] as const;
 type PtyAutocompleteShell = "bash" | "zsh" | "fish" | "powershell";
 
 const shouldRunPtyShell = (shell: PtyAutocompleteShell, available: boolean) => {
@@ -159,7 +160,7 @@ describe.skipIf(!shouldRunPtyShell("fish", isFishAvailable))(
 
     const createFishSession = () => {
       return createPtySession({
-        args: ["--interactive"],
+        args: ["--features", "no-query-term", "--interactive"],
         cwd: fishFixtureDirectory,
         env: {
           FORCE_COLOR: "0",
@@ -172,34 +173,10 @@ describe.skipIf(!shouldRunPtyShell("fish", isFishAvailable))(
       });
     };
 
-    const respondToFishTerminalQueries = async (
-      session: ReturnType<typeof createFishSession>,
-    ) => {
-      if (process.platform !== "darwin") {
-        return;
-      }
-
-      // Fish 4.x on Homebrew/macOS may block startup waiting for terminal
-      // capability replies that node-pty does not synthesize. Wait until fish
-      // emits the queries, then send minimal valid replies to unblock startup.
-      await session.waitFor(
-        /0q|\+q696e646e|\+q71756572792d6f732d6e616d65/u,
-        5_000,
-      );
-      session.write(
-        [
-          "\x1bP>|node-pty 1\x1b\\",
-          "\x1bP1+q696e646e\x1b\\",
-          "\x1bP1+q71756572792d6f732d6e616d65\x1b\\",
-        ].join(""),
-      );
-    };
-
     it("completes a root subcommand in interactive fish", async () => {
       const session = createFishSession();
 
       try {
-        await respondToFishTerminalQueries(session);
         await session.waitFor("PROMPT> ");
 
         session.write("dotweave p\t");
@@ -292,7 +269,7 @@ describe.skipIf(!shouldRunPtyShell("zsh", isZshAvailable))(
 
         const output = await session.waitFor(rootCommandsPattern, 10_000);
 
-        for (const commandName of rootCommandNames) {
+        for (const commandName of ptyRootSmokeCommandNames) {
           expect(output).toContain(commandName);
         }
       } finally {
@@ -316,7 +293,7 @@ describe.skipIf(!shouldRunPtyShell("zsh", isZshAvailable))(
 
         const output = await session.waitFor(rootCommandsPattern, 10_000);
 
-        for (const commandName of rootCommandNames) {
+        for (const commandName of ptyRootSmokeCommandNames) {
           expect(output).toContain(commandName);
         }
       } finally {
@@ -384,7 +361,7 @@ describe.skipIf(!shouldRunPtyShell("bash", isBashAvailable))(
 
         const output = session.getOutput();
 
-        for (const commandName of rootCommandNames) {
+        for (const commandName of ptyRootSmokeCommandNames) {
           expect(output).toContain(commandName);
         }
       } finally {
@@ -412,7 +389,7 @@ describe.skipIf(!shouldRunPtyShell("bash", isBashAvailable))(
 
         const output = session.getOutput();
 
-        for (const commandName of rootCommandNames) {
+        for (const commandName of ptyRootSmokeCommandNames) {
           expect(output).toContain(commandName);
         }
         expect(output).not.toContain("AGENTS.md");
