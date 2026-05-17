@@ -8,8 +8,12 @@ import { cliNodeOptions } from "../src/test/helpers/cli-entry.ts";
 import { createPtySession } from "../src/test/helpers/pty.ts";
 import {
   bashPath,
+  fishPath,
   isBashAvailable,
+  isFishAvailable,
+  isPowerShellAvailable,
   isZshAvailable,
+  powerShellPath,
   zshPath,
 } from "../src/test/helpers/shell-availability.ts";
 
@@ -20,8 +24,9 @@ const autocompleteEnvironment: NodeJS.ProcessEnv & {
 const selectedAutocompleteShell =
   autocompleteEnvironment.DOTWEAVE_AUTOCOMPLETE_SHELL;
 const rootCommandsPattern = new RegExp(rootCommandNames.join("|"), "u");
+type PtyAutocompleteShell = "bash" | "zsh" | "fish" | "powershell";
 
-const shouldRunPtyShell = (shell: "bash" | "zsh", available: boolean) => {
+const shouldRunPtyShell = (shell: PtyAutocompleteShell, available: boolean) => {
   if (
     selectedAutocompleteShell !== undefined &&
     selectedAutocompleteShell !== shell
@@ -29,11 +34,30 @@ const shouldRunPtyShell = (shell: "bash" | "zsh", available: boolean) => {
     return false;
   }
 
+  if (shell === "powershell") {
+    return (
+      process.platform === "win32" &&
+      (selectedAutocompleteShell === shell || available)
+    );
+  }
+
   if (process.platform === "win32") {
     return false;
   }
 
-  return available;
+  return selectedAutocompleteShell === shell || available;
+};
+
+const requireSelectedPtyShellAvailability = (
+  shell: PtyAutocompleteShell,
+  available: boolean,
+) => {
+  if (selectedAutocompleteShell === shell) {
+    expect(
+      available,
+      `${shell} must be available for selected autocomplete CI shell`,
+    ).toBe(true);
+  }
 };
 
 const shellQuote = (value: string) => {
@@ -66,6 +90,126 @@ const createTestShellDirectory = async (
   return { binDirectory, configDirectory };
 };
 
+const createPowerShellPtyDirectory = async () => {
+  const configDirectory = await mkdtemp(
+    join(tmpdir(), "dotweave-autocomplete-powershell-pty-"),
+  );
+  const binDirectory = join(configDirectory, "bin");
+  const cliArgs = cliNodeOptions
+    .map((value) => JSON.stringify(value))
+    .join(" ");
+
+  await mkdir(binDirectory, { recursive: true });
+  await writeFile(
+    join(binDirectory, "dotweave.cmd"),
+    [`@echo off`, `"${process.execPath}" ${cliArgs} %*`].join("\r\n"),
+  );
+
+  return { binDirectory, configDirectory };
+};
+
+describe.skipIf(!shouldRunPtyShell("fish", isFishAvailable))(
+  "autocomplete fish pty e2e",
+  () => {
+    let fishBinDirectory: string;
+    let fishConfigRoot: string;
+    let fishFixtureDirectory: string;
+    let systemPath: string;
+
+    beforeAll(async () => {
+      requireSelectedPtyShellAvailability("fish", isFishAvailable);
+
+      const { PATH: inheritedPath = "" } = process.env;
+
+      systemPath = inheritedPath;
+
+      const { binDirectory, configDirectory } = await createTestShellDirectory(
+        [],
+        ".fish-placeholder",
+      );
+      const fishConfigDirectory = join(configDirectory, "fish");
+
+      await mkdir(fishConfigDirectory, { recursive: true });
+      await writeFile(
+        join(fishConfigDirectory, "config.fish"),
+        [
+          "function fish_prompt; printf 'PROMPT> '; end",
+          "dotweave autocomplete fish | source",
+        ].join("\n"),
+      );
+
+      fishBinDirectory = binDirectory;
+      fishConfigRoot = configDirectory;
+      fishFixtureDirectory = await mkdtemp(
+        join(tmpdir(), "dotweave-autocomplete-fish-pty-"),
+      );
+      await writeFile(join(fishFixtureDirectory, "file-alpha.txt"), "");
+    });
+
+    afterAll(async () => {
+      await rm(fishConfigRoot, {
+        force: true,
+        recursive: true,
+      });
+      await rm(fishFixtureDirectory, {
+        force: true,
+        recursive: true,
+      });
+    });
+
+    const createFishSession = () => {
+      return createPtySession({
+        args: ["--interactive"],
+        cwd: fishFixtureDirectory,
+        env: {
+          FORCE_COLOR: "0",
+          NODE_NO_WARNINGS: "1",
+          NO_COLOR: "1",
+          PATH: [fishBinDirectory, systemPath].join(delimiter),
+          XDG_CONFIG_HOME: fishConfigRoot,
+        },
+        file: fishPath ?? "fish",
+      });
+    };
+
+    it("lists root subcommands in interactive fish", async () => {
+      const session = createFishSession();
+
+      try {
+        await session.waitFor("PROMPT> ");
+
+        session.write("dotweave \t\t");
+
+        const output = await session.waitFor(rootCommandsPattern, 10_000);
+
+        for (const commandName of rootCommandNames) {
+          expect(output).toContain(commandName);
+        }
+      } finally {
+        session.close();
+      }
+    }, 15_000);
+
+    it("lists track flags in interactive fish", async () => {
+      const session = createFishSession();
+
+      try {
+        await session.waitFor("PROMPT> ");
+
+        session.write("dotweave track file-alpha.txt -\t\t");
+
+        const output = await session.waitFor("--profile", 10_000);
+
+        expect(output).toContain("--mode");
+        expect(output).toContain("--profile");
+        expect(output).toContain("--repo");
+      } finally {
+        session.close();
+      }
+    }, 15_000);
+  },
+);
+
 describe.skipIf(!shouldRunPtyShell("zsh", isZshAvailable))(
   "autocomplete zsh pty e2e",
   () => {
@@ -74,6 +218,8 @@ describe.skipIf(!shouldRunPtyShell("zsh", isZshAvailable))(
     let systemPath: string;
 
     beforeAll(async () => {
+      requireSelectedPtyShellAvailability("zsh", isZshAvailable);
+
       const { PATH: inheritedPath = "" } = process.env;
 
       systemPath = inheritedPath;
@@ -184,6 +330,8 @@ describe.skipIf(!shouldRunPtyShell("bash", isBashAvailable))(
     let systemPath: string;
 
     beforeAll(async () => {
+      requireSelectedPtyShellAvailability("bash", isBashAvailable);
+
       const { PATH: inheritedPath = "" } = process.env;
 
       systemPath = inheritedPath;
@@ -269,5 +417,108 @@ describe.skipIf(!shouldRunPtyShell("bash", isBashAvailable))(
         session.close();
       }
     }, 15_000);
+  },
+);
+
+describe.skipIf(!shouldRunPtyShell("powershell", isPowerShellAvailable))(
+  "autocomplete powershell pty e2e",
+  () => {
+    let powerShellBinDirectory: string;
+    let powerShellConfigDirectory: string;
+    let powerShellFixtureDirectory: string;
+    let systemPath: string;
+
+    beforeAll(async () => {
+      requireSelectedPtyShellAvailability("powershell", isPowerShellAvailable);
+
+      const { PATH: inheritedPath = "" } = process.env;
+
+      systemPath = inheritedPath;
+
+      const { binDirectory, configDirectory } =
+        await createPowerShellPtyDirectory();
+
+      powerShellBinDirectory = binDirectory;
+      powerShellConfigDirectory = configDirectory;
+      powerShellFixtureDirectory = await mkdtemp(
+        join(tmpdir(), "dotweave-autocomplete-powershell-pty-fixture-"),
+      );
+      await writeFile(join(powerShellFixtureDirectory, "file-alpha.txt"), "");
+    });
+
+    afterAll(async () => {
+      await rm(powerShellConfigDirectory, {
+        force: true,
+        recursive: true,
+      });
+      await rm(powerShellFixtureDirectory, {
+        force: true,
+        recursive: true,
+      });
+    });
+
+    const createPowerShellSession = () => {
+      return createPtySession({
+        args: ["-NoLogo", "-NoProfile", "-NoExit"],
+        cwd: powerShellFixtureDirectory,
+        env: {
+          FORCE_COLOR: "0",
+          NODE_NO_WARNINGS: "1",
+          NO_COLOR: "1",
+          PATH: [powerShellBinDirectory, systemPath].join(delimiter),
+        },
+        file: powerShellPath ?? "pwsh",
+      });
+    };
+
+    const configurePowerShellSession = async (
+      session: ReturnType<typeof createPowerShellSession>,
+    ) => {
+      session.write(
+        `${[
+          "$ErrorActionPreference = 'Stop'",
+          "Set-PSReadLineOption -PredictionSource None",
+          "Set-PSReadLineOption -EditMode Windows",
+          "function global:prompt { 'PROMPT> ' }",
+          ". ([scriptblock]::Create(((dotweave autocomplete powershell) -join [Environment]::NewLine)))",
+        ].join("; ")}\r`,
+      );
+      await session.waitFor("PROMPT> ", 15_000);
+      session.clearOutput();
+    };
+
+    it("lists root subcommands in interactive PowerShell", async () => {
+      const session = createPowerShellSession();
+
+      try {
+        await configurePowerShellSession(session);
+
+        session.write("dotweave p\t");
+
+        const output = await session.waitFor("profile", 10_000);
+
+        expect(output).toContain("profile");
+      } finally {
+        session.close();
+      }
+    }, 20_000);
+
+    it("lists track flags in interactive PowerShell", async () => {
+      const session = createPowerShellSession();
+
+      try {
+        await configurePowerShellSession(session);
+
+        session.write("dotweave track file-alpha.txt -\t");
+
+        const output = await session.waitFor("--profile", 10_000);
+
+        expect(output).toContain("--mode");
+        expect(output).toContain("--profile");
+        expect(output).toContain("--repo");
+      } finally {
+        session.close();
+      }
+    }, 20_000);
   },
 );

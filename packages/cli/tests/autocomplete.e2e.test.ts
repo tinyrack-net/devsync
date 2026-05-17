@@ -7,7 +7,9 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { rootCommandRoutes } from "../src/cli/root-commands.ts";
 import { cliNodeOptions } from "../src/test/helpers/cli-entry.ts";
 import {
+  fishPath,
   isBashAvailable,
+  isFishAvailable,
   isPowerShellAvailable,
   isZshAvailable,
   powerShellPath,
@@ -20,7 +22,12 @@ const autocompleteEnvironment: NodeJS.ProcessEnv & {
 } = process.env;
 const selectedAutocompleteShell =
   autocompleteEnvironment.DOTWEAVE_AUTOCOMPLETE_SHELL;
-const supportedAutocompleteShells = ["bash", "zsh", "powershell"] as const;
+const supportedAutocompleteShells = [
+  "bash",
+  "zsh",
+  "fish",
+  "powershell",
+] as const;
 type SupportedAutocompleteShell = (typeof supportedAutocompleteShells)[number];
 
 const runForShell = (shell: SupportedAutocompleteShell, available: boolean) => {
@@ -91,6 +98,10 @@ const bashRootCommandNames = [
 
 const shellQuote = (value: string) => {
   return `'${value.replaceAll("'", "'\\''")}'`;
+};
+
+const fishString = (value: string) => {
+  return `'${value.replaceAll("\\", "\\\\").replaceAll("'", "\\'")}'`;
 };
 
 const runBashCompletion = async (
@@ -203,6 +214,51 @@ const runZshCompletion = async (
   );
 };
 
+const runFishCompletion = async (
+  commandLine: string,
+  options?: Readonly<{ cwd?: string }>,
+) => {
+  const configDirectory = await mkdtemp(
+    join(tmpdir(), "dotweave-autocomplete-fish-"),
+  );
+  const binDirectory = join(configDirectory, "bin");
+  const cliCommand = [process.execPath, ...cliNodeOptions]
+    .map((value) => shellQuote(value))
+    .join(" ");
+
+  await mkdir(binDirectory, { recursive: true });
+  const shimPath = join(binDirectory, "dotweave");
+  await writeFile(
+    shimPath,
+    ["#!/usr/bin/env bash", `exec ${cliCommand} "$@"`].join("\n"),
+  );
+  await chmod(shimPath, 0o755);
+
+  try {
+    return await execa(
+      fishPath ?? "fish",
+      [
+        "-c",
+        [
+          `set -gx PATH ${fishString(binDirectory)} $PATH`,
+          "dotweave autocomplete fish | source",
+          `complete -C ${fishString(commandLine)}`,
+        ].join("; "),
+      ],
+      {
+        cwd: options?.cwd,
+        env: {
+          FORCE_COLOR: "0",
+          NODE_NO_WARNINGS: "1",
+          NO_COLOR: "1",
+        },
+      },
+    );
+  } finally {
+    await rm(configDirectory, { force: true, recursive: true });
+  }
+};
+
 const createPowerShellShim = async () => {
   const configDirectory = await mkdtemp(
     join(tmpdir(), "dotweave-autocomplete-pwsh-"),
@@ -277,6 +333,10 @@ describe("autocomplete e2e", () => {
     }
   });
 
+  it("requires fish when fish autocomplete is selected", () => {
+    requireSelectedShellAvailability("fish", isFishAvailable);
+  });
+
   beforeAll(async () => {
     completionFixtureDirectory = await mkdtemp(
       join(tmpdir(), "dotweave-autocomplete-"),
@@ -321,6 +381,16 @@ describe("autocomplete e2e", () => {
     expect(result.stdout).toContain("autoload -Uz compinit");
     expect(result.stdout).toContain(COMPLETE_COMMAND);
     expect(result.stdout).toContain("compdef __dotweave_complete dotweave");
+    expect(result.stderr).toBe("");
+  });
+
+  it("prints a fish autocomplete script for source", async () => {
+    const result = await runCli(["autocomplete", "fish"]);
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toContain("function __dotweave_complete");
+    expect(result.stdout).toContain("command dotweave __complete");
+    expect(result.stdout).toContain("complete -c dotweave -f");
     expect(result.stderr).toBe("");
   });
 
@@ -436,6 +506,54 @@ describe("autocomplete e2e", () => {
     },
   );
 
+  runForShell("fish", isFishAvailable)(
+    "populates fish root completions from a prefix",
+    async () => {
+      requireSelectedShellAvailability("fish", isFishAvailable);
+
+      const result = await runFishCompletion("dotweave pr");
+
+      expect(result.exitCode).toBe(0);
+      expect(completionNames(result.stdout)).toContain("profile");
+      expect(result.stderr).toBe("");
+    },
+  );
+
+  runForShell("fish", isFishAvailable)(
+    "populates fish path completions for track targets",
+    async () => {
+      requireSelectedShellAvailability("fish", isFishAvailable);
+
+      const result = await runFishCompletion("dotweave track fi", {
+        cwd: completionFixtureDirectory,
+      });
+
+      expect(result.exitCode).toBe(0);
+      expect(completionNames(result.stdout)).toContain("file-alpha.txt");
+      expect(result.stderr).toBe("");
+    },
+  );
+
+  runForShell("fish", isFishAvailable)(
+    "populates fish flag completions after a track target",
+    async () => {
+      requireSelectedShellAvailability("fish", isFishAvailable);
+
+      const result = await runFishCompletion(
+        "dotweave track file-alpha.txt -",
+        {
+          cwd: completionFixtureDirectory,
+        },
+      );
+
+      expect(result.exitCode).toBe(0);
+      expect(completionNames(result.stdout)).toEqual(
+        expect.arrayContaining(["--mode", "--profile", "--repo"]),
+      );
+      expect(result.stderr).toBe("");
+    },
+  );
+
   it("proposes root subcommands when COMP_LINE has a trailing space", async () => {
     const result = await runCli(["__complete", "dotweave", ""], {
       env: { COMP_LINE: "dotweave " },
@@ -522,14 +640,14 @@ describe("autocomplete e2e", () => {
     },
   );
 
-  it("shows bash, zsh, and PowerShell autocomplete subcommands", async () => {
+  it("shows bash, zsh, fish, and PowerShell autocomplete subcommands", async () => {
     const result = await runCli(["autocomplete", "--help"]);
 
     expect(result.exitCode).toBe(0);
     expect(result.stdout).toContain("bash");
     expect(result.stdout).toContain("zsh");
+    expect(result.stdout).toContain("fish");
     expect(result.stdout).toContain("powershell");
-    expect(result.stdout).not.toContain("fish");
     expect(result.stdout).not.toContain("install");
     expect(result.stdout).not.toContain("uninstall");
     expect(result.stderr).toBe("");

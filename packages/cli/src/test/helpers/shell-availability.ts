@@ -14,10 +14,12 @@ const getShellPath = (shell: string): string | undefined => {
 };
 
 export const bashPath = getShellPath("bash");
+export const fishPath = getShellPath("fish");
 export const powerShellPath =
   getShellPath("pwsh") ?? getShellPath("powershell");
 export const zshPath = getShellPath("zsh");
 
 export const isBashAvailable = bashPath !== undefined;
+export const isFishAvailable = fishPath !== undefined;
 export const isPowerShellAvailable = powerShellPath !== undefined;
 export const isZshAvailable = zshPath !== undefined;

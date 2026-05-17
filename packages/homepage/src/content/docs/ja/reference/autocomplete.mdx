@@ -5,7 +5,7 @@ description: "シェルのタブ補完を設定します。"
 
 シェル用のautocompleteスクリプトを出力します。
 
-evalベースのシェル設定で使用できる、シェル固有のautocompleteスクリプトを生成します。
+eval/sourceベースのシェル設定で使用できる、シェル固有のautocompleteスクリプトを生成します。
 
 ## Usage
 
@@ -15,11 +15,12 @@ dotweave autocomplete <shell>
 
 ## Subcommands
 
-| Subcommand                  | Description                    |
-| --------------------------- | ------------------------------ |
+| Subcommand | Description |
+| --- | --- |
 | `dotweave autocomplete bash` | Bash用のautocompleteスクリプトを出力します。 |
-| `dotweave autocomplete zsh`  | Zsh用のautocompleteスクリプトを出力します。  |
-|| `dotweave autocomplete powershell` | PowerShell用のautocompleteスクリプトを出力します。 |
+| `dotweave autocomplete zsh` | Zsh用のautocompleteスクリプトを出力します。 |
+| `dotweave autocomplete fish` | Fish用のautocompleteスクリプトを出力します。 |
+| `dotweave autocomplete powershell` | PowerShell用のautocompleteスクリプトを出力します。 |
 
 ## Examples
 
@@ -33,6 +34,19 @@ eval "$(dotweave autocomplete bash)"
 
 ```bash
 eval "$(dotweave autocomplete zsh)"
+```
+
+現在の **Fish** セッションでautocompleteを設定する:
+
+```fish
+dotweave autocomplete fish | source
+```
+
+**Fish** で永続的にautocompleteを設定する:
+
+```fish
+mkdir -p ~/.config/fish/completions
+dotweave autocomplete fish > ~/.config/fish/completions/dotweave.fish
 ```
 
 **PowerShell** でautocompleteを設定する（PowerShellプロファイルに追加）:

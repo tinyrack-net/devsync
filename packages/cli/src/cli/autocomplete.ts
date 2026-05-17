@@ -7,6 +7,7 @@ import {
 } from "@stricli/core";
 import {
   BASH_AUTOCOMPLETE_SCRIPT,
+  FISH_AUTOCOMPLETE_SCRIPT,
   POWERSHELL_AUTOCOMPLETE_SCRIPT,
   resolveCompletionInputs,
   ZSH_AUTOCOMPLETE_SCRIPT,
@@ -20,7 +21,7 @@ export const setApplication = (app: Application<ApplicationContext>) => {
 };
 
 const buildAutocompleteScriptCommand = (
-  shell: "bash" | "zsh" | "powershell",
+  shell: "bash" | "zsh" | "fish" | "powershell",
   script: string,
 ) => {
   return buildCommand<NoFlags, [], ApplicationContext>({
@@ -42,6 +43,10 @@ const bashAutocompleteCommand = buildAutocompleteScriptCommand(
 const zshAutocompleteCommand = buildAutocompleteScriptCommand(
   "zsh",
   ZSH_AUTOCOMPLETE_SCRIPT,
+);
+const fishAutocompleteCommand = buildAutocompleteScriptCommand(
+  "fish",
+  FISH_AUTOCOMPLETE_SCRIPT,
 );
 const powershellAutocompleteCommand = buildAutocompleteScriptCommand(
   "powershell",
@@ -96,6 +101,7 @@ export const buildAutocompleteRoute = () => {
       },
       routes: {
         bash: bashAutocompleteCommand,
+        fish: fishAutocompleteCommand,
         powershell: powershellAutocompleteCommand,
         zsh: zshAutocompleteCommand,
       },

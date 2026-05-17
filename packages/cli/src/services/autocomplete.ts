@@ -91,6 +91,29 @@ Register-ArgumentCompleter -Native -CommandName ${AppConstants.AUTOCOMPLETE.CLI_
 }
 `;
 
+export const FISH_AUTOCOMPLETE_SCRIPT = `\
+function ${COMPLETION_FUNCTION_NAME}
+    set -l tokens (commandline -opc)
+    set -l current (commandline -ct)
+
+    if test -z "$current"
+        set tokens $tokens ""
+    else if test (count $tokens) -eq 0; or test "$tokens[-1]" != "$current"
+        set tokens $tokens $current
+    end
+
+    command ${AppConstants.AUTOCOMPLETE.COMMAND} $tokens 2>/dev/null | while read -l line
+        set -l parts (string split -m 1 \\t -- $line)
+        if test (count $parts) -gt 1
+            printf '%s\\t%s\\n' $parts[1] $parts[2]
+        else
+            printf '%s\\n' $parts[1]
+        end
+    end
+end
+complete -c ${AppConstants.AUTOCOMPLETE.CLI_COMMAND_NAME} -f -a '(${COMPLETION_FUNCTION_NAME})'
+`;
+
 export const ZSH_AUTOCOMPLETE_SCRIPT = `\
 if ! (( $+functions[compdef] )); then
   autoload -Uz compinit
