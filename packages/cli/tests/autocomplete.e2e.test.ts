@@ -31,7 +31,15 @@ const runForShell = (shell: SupportedAutocompleteShell, available: boolean) => {
     return it.skip;
   }
 
-  if (selectedAutocompleteShell === shell || available) {
+  if (selectedAutocompleteShell === shell) {
+    return it;
+  }
+
+  if (shell === "powershell" && process.platform !== "win32") {
+    return it.skip;
+  }
+
+  if (available) {
     return it;
   }
 
@@ -233,7 +241,7 @@ const runPowerShellCompletion = async (
   const script = [
     "$ErrorActionPreference = 'Stop'",
     `$env:PATH = ${psString(binDirectory)} + ${psString(delimiter)} + $env:PATH`,
-    ". ([scriptblock]::Create((dotweave autocomplete powershell)))",
+    ". ([scriptblock]::Create(((dotweave autocomplete powershell) -join [Environment]::NewLine)))",
     `$line = ${psString(commandLine)}`,
     "$matches = TabExpansion2 -inputScript $line -cursorColumn $line.Length",
     "$matches.CompletionMatches | ForEach-Object { $_.CompletionText }",

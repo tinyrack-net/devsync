@@ -78,7 +78,7 @@ describe.skipIf(!shouldRunPtyShell("zsh", isZshAvailable))(
         [
           "autoload -Uz compinit",
           "zmodload zsh/complist",
-          "compinit",
+          "compinit -u",
           "zstyle ':completion:*' list-colors ''",
           "zstyle ':completion:*' menu no",
           "PROMPT='PROMPT> '",
