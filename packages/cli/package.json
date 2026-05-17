@@ -54,6 +54,7 @@
     "pretest": "pnpm run build",
     "typecheck": "tsc -p tsconfig.json",
     "test": "vitest run",
+    "test:autocomplete": "vitest run src/services/autocomplete.test.ts tests/autocomplete.e2e.test.ts tests/autocomplete.pty.e2e.test.ts",
     "test:watch": "vitest",
     "precoverage": "pnpm run build",
     "coverage": "vitest run --coverage",

@@ -9,11 +9,28 @@ import { createPtySession } from "../src/test/helpers/pty.ts";
 import {
   bashPath,
   isBashAvailable,
+  isZshAvailable,
   zshPath,
 } from "../src/test/helpers/shell-availability.ts";
 
 const rootCommandNames = ["autocomplete", ...Object.keys(rootCommandRoutes)];
+const autocompleteEnvironment: NodeJS.ProcessEnv & {
+  DOTWEAVE_AUTOCOMPLETE_SHELL?: string;
+} = process.env;
+const selectedAutocompleteShell =
+  autocompleteEnvironment.DOTWEAVE_AUTOCOMPLETE_SHELL;
 const rootCommandsPattern = new RegExp(rootCommandNames.join("|"), "u");
+
+const shouldRunPtyShell = (shell: "bash" | "zsh", available: boolean) => {
+  if (
+    selectedAutocompleteShell !== undefined &&
+    selectedAutocompleteShell !== shell
+  ) {
+    return false;
+  }
+
+  return available;
+};
 
 const shellQuote = (value: string) => {
   return `'${value.replaceAll("'", "'\\''")}'`;
@@ -45,193 +62,199 @@ const createTestShellDirectory = async (
   return { binDirectory, configDirectory };
 };
 
-describe.skip("autocomplete zsh pty e2e", () => {
-  let shellConfigDirectory: string;
-  let shellBinDirectory: string;
-  let systemPath: string;
+describe.skipIf(!shouldRunPtyShell("zsh", isZshAvailable))(
+  "autocomplete zsh pty e2e",
+  () => {
+    let shellConfigDirectory: string;
+    let shellBinDirectory: string;
+    let systemPath: string;
 
-  beforeAll(async () => {
-    const { PATH: inheritedPath = "" } = process.env;
+    beforeAll(async () => {
+      const { PATH: inheritedPath = "" } = process.env;
 
-    systemPath = inheritedPath;
+      systemPath = inheritedPath;
 
-    const { binDirectory, configDirectory } = await createTestShellDirectory(
-      [
-        "autoload -Uz compinit",
-        "zmodload zsh/complist",
-        "compinit",
-        "zstyle ':completion:*' list-colors ''",
-        "zstyle ':completion:*' menu no",
-        "PROMPT='PROMPT> '",
-        'eval "$(dotweave autocomplete zsh)"',
-      ],
-      ".zshrc",
-    );
-    shellBinDirectory = binDirectory;
-    shellConfigDirectory = configDirectory;
-  });
-
-  afterAll(async () => {
-    await rm(shellConfigDirectory, {
-      force: true,
-      recursive: true,
+      const { binDirectory, configDirectory } = await createTestShellDirectory(
+        [
+          "autoload -Uz compinit",
+          "zmodload zsh/complist",
+          "compinit",
+          "zstyle ':completion:*' list-colors ''",
+          "zstyle ':completion:*' menu no",
+          "PROMPT='PROMPT> '",
+          'eval "$(dotweave autocomplete zsh)"',
+        ],
+        ".zshrc",
+      );
+      shellBinDirectory = binDirectory;
+      shellConfigDirectory = configDirectory;
     });
-  });
 
-  const createZshSession = (
-    options?: Readonly<{
-      binDirectory?: string;
-      configDirectory?: string;
-    }>,
-  ) => {
-    return createPtySession({
-      args: ["-i"],
-      cwd: process.cwd(),
-      env: {
-        FORCE_COLOR: "0",
-        NODE_NO_WARNINGS: "1",
-        NO_COLOR: "1",
-        PATH: [options?.binDirectory ?? shellBinDirectory, systemPath].join(
-          delimiter,
-        ),
-        ZDOTDIR: options?.configDirectory ?? shellConfigDirectory,
-      },
-      file: zshPath ?? "zsh",
+    afterAll(async () => {
+      await rm(shellConfigDirectory, {
+        force: true,
+        recursive: true,
+      });
     });
-  };
 
-  it("lists root subcommands in interactive zsh after dotweave tab tab", async () => {
-    const session = createZshSession();
+    const createZshSession = (
+      options?: Readonly<{
+        binDirectory?: string;
+        configDirectory?: string;
+      }>,
+    ) => {
+      return createPtySession({
+        args: ["-i"],
+        cwd: process.cwd(),
+        env: {
+          FORCE_COLOR: "0",
+          NODE_NO_WARNINGS: "1",
+          NO_COLOR: "1",
+          PATH: [options?.binDirectory ?? shellBinDirectory, systemPath].join(
+            delimiter,
+          ),
+          ZDOTDIR: options?.configDirectory ?? shellConfigDirectory,
+        },
+        file: zshPath ?? "zsh",
+      });
+    };
 
-    try {
-      await session.waitFor("PROMPT> ", 10_000);
+    it("lists root subcommands in interactive zsh after dotweave tab tab", async () => {
+      const session = createZshSession();
 
-      session.write("dotweave\t\t");
+      try {
+        await session.waitFor("PROMPT> ", 10_000);
 
-      const output = await session.waitFor(rootCommandsPattern, 10_000);
+        session.write("dotweave \t\t");
 
-      for (const commandName of rootCommandNames) {
-        expect(output).toContain(commandName);
+        const output = await session.waitFor(rootCommandsPattern, 10_000);
+
+        for (const commandName of rootCommandNames) {
+          expect(output).toContain(commandName);
+        }
+      } finally {
+        session.close();
       }
-    } finally {
-      session.close();
-    }
-  }, 15_000);
+    }, 15_000);
 
-  it("still lists root subcommands after running dotweave once in zsh", async () => {
-    const session = createZshSession();
+    it("still lists root subcommands after running dotweave once in zsh", async () => {
+      const session = createZshSession();
 
-    try {
-      await session.waitFor("PROMPT> ", 10_000);
+      try {
+        await session.waitFor("PROMPT> ", 10_000);
 
-      session.write("dotweave\n");
-      await session.waitFor("COMMANDS");
-      await session.waitFor(/PROMPT> $/mu);
+        session.write("dotweave\n");
+        await session.waitFor("COMMANDS");
+        await session.waitFor(/PROMPT> $/mu);
 
-      session.clearOutput();
+        session.clearOutput();
 
-      session.write("dotweave\t\t");
+        session.write("dotweave \t\t");
 
-      const output = await session.waitFor(rootCommandsPattern, 10_000);
+        const output = await session.waitFor(rootCommandsPattern, 10_000);
 
-      for (const commandName of rootCommandNames) {
-        expect(output).toContain(commandName);
+        for (const commandName of rootCommandNames) {
+          expect(output).toContain(commandName);
+        }
+      } finally {
+        session.close();
       }
-    } finally {
-      session.close();
-    }
-  }, 15_000);
-});
+    }, 15_000);
+  },
+);
 
-describe.skipIf(!isBashAvailable)("autocomplete bash pty e2e", () => {
-  let bashBinDirectory: string;
-  let bashConfigDirectory: string;
-  let systemPath: string;
+describe.skipIf(!shouldRunPtyShell("bash", isBashAvailable))(
+  "autocomplete bash pty e2e",
+  () => {
+    let bashBinDirectory: string;
+    let bashConfigDirectory: string;
+    let systemPath: string;
 
-  beforeAll(async () => {
-    const { PATH: inheritedPath = "" } = process.env;
+    beforeAll(async () => {
+      const { PATH: inheritedPath = "" } = process.env;
 
-    systemPath = inheritedPath;
+      systemPath = inheritedPath;
 
-    const { binDirectory, configDirectory } = await createTestShellDirectory(
-      ['eval "$(dotweave autocomplete bash)"', "PS1='PROMPT> '"],
-      ".bashrc",
-    );
+      const { binDirectory, configDirectory } = await createTestShellDirectory(
+        ['eval "$(dotweave autocomplete bash)"', "PS1='PROMPT> '"],
+        ".bashrc",
+      );
 
-    bashBinDirectory = binDirectory;
-    bashConfigDirectory = configDirectory;
-  });
-
-  afterAll(async () => {
-    await rm(bashConfigDirectory, {
-      force: true,
-      recursive: true,
+      bashBinDirectory = binDirectory;
+      bashConfigDirectory = configDirectory;
     });
-  });
 
-  const createBashSession = () => {
-    return createPtySession({
-      args: ["--rcfile", join(bashConfigDirectory, ".bashrc"), "-i"],
-      cwd: process.cwd(),
-      env: {
-        FORCE_COLOR: "0",
-        NODE_NO_WARNINGS: "1",
-        NO_COLOR: "1",
-        PATH: [bashBinDirectory, systemPath].join(delimiter),
-      },
-      file: bashPath ?? "bash",
+    afterAll(async () => {
+      await rm(bashConfigDirectory, {
+        force: true,
+        recursive: true,
+      });
     });
-  };
 
-  it("lists root subcommands in interactive bash", async () => {
-    const session = createBashSession();
+    const createBashSession = () => {
+      return createPtySession({
+        args: ["--rcfile", join(bashConfigDirectory, ".bashrc"), "-i"],
+        cwd: process.cwd(),
+        env: {
+          FORCE_COLOR: "0",
+          NODE_NO_WARNINGS: "1",
+          NO_COLOR: "1",
+          PATH: [bashBinDirectory, systemPath].join(delimiter),
+        },
+        file: bashPath ?? "bash",
+      });
+    };
 
-    try {
-      await session.waitFor("PROMPT> ");
+    it("lists root subcommands in interactive bash", async () => {
+      const session = createBashSession();
 
-      session.write("dotweave \t\t");
+      try {
+        await session.waitFor("PROMPT> ");
 
-      for (const commandName of rootCommandNames) {
-        await session.waitFor(commandName, 10_000);
+        session.write("dotweave \t\t");
+
+        for (const commandName of rootCommandNames) {
+          await session.waitFor(commandName, 10_000);
+        }
+
+        const output = session.getOutput();
+
+        for (const commandName of rootCommandNames) {
+          expect(output).toContain(commandName);
+        }
+      } finally {
+        session.close();
       }
+    }, 15_000);
 
-      const output = session.getOutput();
+    it("still lists root subcommands after running dotweave once in bash", async () => {
+      const session = createBashSession();
 
-      for (const commandName of rootCommandNames) {
-        expect(output).toContain(commandName);
+      try {
+        await session.waitFor("PROMPT> ");
+
+        session.write("dotweave\n");
+        await session.waitFor("COMMANDS");
+        await session.waitFor(/PROMPT> $/mu);
+
+        session.clearOutput();
+
+        session.write("dotweave \t\t");
+
+        for (const commandName of rootCommandNames) {
+          await session.waitFor(commandName, 10_000);
+        }
+
+        const output = session.getOutput();
+
+        for (const commandName of rootCommandNames) {
+          expect(output).toContain(commandName);
+        }
+        expect(output).not.toContain("AGENTS.md");
+        expect(output).not.toContain("package.json");
+      } finally {
+        session.close();
       }
-    } finally {
-      session.close();
-    }
-  }, 15_000);
-
-  it("still lists root subcommands after running dotweave once in bash", async () => {
-    const session = createBashSession();
-
-    try {
-      await session.waitFor("PROMPT> ");
-
-      session.write("dotweave\n");
-      await session.waitFor("COMMANDS");
-      await session.waitFor(/PROMPT> $/mu);
-
-      session.clearOutput();
-
-      session.write("dotweave \t\t");
-
-      for (const commandName of rootCommandNames) {
-        await session.waitFor(commandName, 10_000);
-      }
-
-      const output = session.getOutput();
-
-      for (const commandName of rootCommandNames) {
-        expect(output).toContain(commandName);
-      }
-      expect(output).not.toContain("AGENTS.md");
-      expect(output).not.toContain("package.json");
-    } finally {
-      session.close();
-    }
-  }, 15_000);
-});
+    }, 15_000);
+  },
+);

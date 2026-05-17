@@ -6,7 +6,7 @@ description: Set up tab completion for dotweave in your shell.
 import { Aside } from "@astrojs/starlight/components";
 
 Tab completion lets you discover commands, flags, and arguments without
-reaching for the docs. dotweave supports **Bash**, **Zsh**, and **Fish**.
+reaching for the docs. dotweave supports **Bash**, **Zsh**, and **PowerShell**.
 
 ## Bash
 
@@ -36,18 +36,18 @@ Then reload your shell:
 source ~/.zshrc
 ```
 
-## Fish
+## PowerShell
 
-Add this line to your `~/.config/fish/config.fish`:
+Add this line to your PowerShell profile (`$PROFILE`):
 
-```fish
-dotweave autocomplete fish | source
+```powershell
+dotweave autocomplete powershell | Invoke-Expression
 ```
 
-Then reload your shell:
+Then reload your profile:
 
-```bash
-source ~/.config/fish/config.fish
+```powershell
+. $PROFILE
 ```
 
 <Aside type="tip">

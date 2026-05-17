@@ -19,7 +19,7 @@ dotweave autocomplete <shell>
 | --------------------------- | ------------------------------ |
 | `dotweave autocomplete bash` | Print autocomplete script for Bash. |
 | `dotweave autocomplete zsh`  | Print autocomplete script for Zsh.  |
-| `dotweave autocomplete fish` | Print autocomplete script for Fish. |
+|| `dotweave autocomplete powershell` | Print autocomplete script for PowerShell. |
 
 ## Examples
 
@@ -35,8 +35,8 @@ Set up autocomplete in **Zsh** (add to `~/.zshrc`):
 eval "$(dotweave autocomplete zsh)"
 ```
 
-Set up autocomplete in **Fish** (add to `~/.config/fish/config.fish`):
+Set up autocomplete in **PowerShell** (add to your profile):
 
-```fish
-dotweave autocomplete fish | source
+```powershell
+dotweave autocomplete powershell | Invoke-Expression
 ```

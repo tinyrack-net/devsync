@@ -5,7 +5,7 @@ description: シェルでdotweaveのタブ補完を設定する方法。
 
 import { Aside } from "@astrojs/starlight/components";
 
-タブ補完を使えば、ドキュメントを開かなくてもコマンド、フラグ、引数を素早く確認できます。dotweaveは**Bash**、**Zsh**、**Fish**に対応しています。
+タブ補完を使えば、ドキュメントを開かなくてもコマンド、フラグ、引数を素早く確認できます。dotweaveは**Bash**、**Zsh**、**PowerShell**に対応しています。
 
 ## Bash
 
@@ -35,18 +35,18 @@ eval "$(dotweave autocomplete zsh)"
 source ~/.zshrc
 ```
 
-## Fish
+## PowerShell
 
-`~/.config/fish/config.fish`に以下の行を追加します：
+PowerShellプロファイル（`$PROFILE`）に以下の行を追加します：
 
-```fish
-dotweave autocomplete fish | source
+```powershell
+dotweave autocomplete powershell | Invoke-Expression
 ```
 
-シェルを再読み込みします：
+プロファイルを再読み込みします：
 
-```bash
-source ~/.config/fish/config.fish
+```powershell
+. $PROFILE
 ```
 
 <Aside type="tip">

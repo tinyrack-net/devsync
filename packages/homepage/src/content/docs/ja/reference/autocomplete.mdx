@@ -19,7 +19,7 @@ dotweave autocomplete <shell>
 | --------------------------- | ------------------------------ |
 | `dotweave autocomplete bash` | Bash用のautocompleteスクリプトを出力します。 |
 | `dotweave autocomplete zsh`  | Zsh用のautocompleteスクリプトを出力します。  |
-| `dotweave autocomplete fish` | Fish用のautocompleteスクリプトを出力します。 |
+|| `dotweave autocomplete powershell` | PowerShell用のautocompleteスクリプトを出力します。 |
 
 ## Examples
 
@@ -35,8 +35,8 @@ eval "$(dotweave autocomplete bash)"
 eval "$(dotweave autocomplete zsh)"
 ```
 
-**Fish** でautocompleteを設定する（`~/.config/fish/config.fish` に追加）:
+**PowerShell** でautocompleteを設定する（PowerShellプロファイルに追加）:
 
-```fish
-dotweave autocomplete fish | source
+```powershell
+dotweave autocomplete powershell | Invoke-Expression
 ```

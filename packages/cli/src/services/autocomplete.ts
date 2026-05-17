@@ -70,8 +70,9 @@ complete -o default -o nospace -F ${COMPLETION_FUNCTION_NAME} ${AppConstants.AUT
 export const POWERSHELL_AUTOCOMPLETE_SCRIPT = `\
 Register-ArgumentCompleter -Native -CommandName ${AppConstants.AUTOCOMPLETE.CLI_COMMAND_NAME} -ScriptBlock {
   param($wordToComplete, $commandAst, $cursorPosition)
-  $inputs = $commandAst.ToString().Split(' ', [System.StringSplitOptions]::RemoveEmptyEntries)
-  if ($cursorPosition -gt $commandAst.ToString().Length) {
+  $commandLine = $commandAst.ToString()
+  $inputs = $commandLine.Split(' ', [System.StringSplitOptions]::RemoveEmptyEntries)
+  if ($cursorPosition -gt $commandLine.Length -or ($cursorPosition -ge $commandLine.Length -and $commandLine.EndsWith(' '))) {
     $inputs += ''
   }
   $rawCompletions = & ${AppConstants.AUTOCOMPLETE.COMMAND.replace(" ", " ")} $inputs 2>$null
