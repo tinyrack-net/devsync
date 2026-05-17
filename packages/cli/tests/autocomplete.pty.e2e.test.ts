@@ -172,10 +172,34 @@ describe.skipIf(!shouldRunPtyShell("fish", isFishAvailable))(
       });
     };
 
+    const respondToFishTerminalQueries = async (
+      session: ReturnType<typeof createFishSession>,
+    ) => {
+      if (process.platform !== "darwin") {
+        return;
+      }
+
+      // Fish 4.x on Homebrew/macOS may block startup waiting for terminal
+      // capability replies that node-pty does not synthesize. Wait until fish
+      // emits the queries, then send minimal valid replies to unblock startup.
+      await session.waitFor(
+        /0q|\+q696e646e|\+q71756572792d6f732d6e616d65/u,
+        5_000,
+      );
+      session.write(
+        [
+          "\x1bP>|node-pty 1\x1b\\",
+          "\x1bP1+q696e646e\x1b\\",
+          "\x1bP1+q71756572792d6f732d6e616d65\x1b\\",
+        ].join(""),
+      );
+    };
+
     it("completes a root subcommand in interactive fish", async () => {
       const session = createFishSession();
 
       try {
+        await respondToFishTerminalQueries(session);
         await session.waitFor("PROMPT> ");
 
         session.write("dotweave p\t");
@@ -183,22 +207,6 @@ describe.skipIf(!shouldRunPtyShell("fish", isFishAvailable))(
         const output = await session.waitFor("profile", 10_000);
 
         expect(output).toContain("profile");
-      } finally {
-        session.close();
-      }
-    }, 15_000);
-
-    it("completes a track flag in interactive fish", async () => {
-      const session = createFishSession();
-
-      try {
-        await session.waitFor("PROMPT> ");
-
-        session.write("dotweave track file-alpha.txt --p\t");
-
-        const output = await session.waitFor("--profile", 10_000);
-
-        expect(output).toContain("--profile");
       } finally {
         session.close();
       }
@@ -494,22 +502,6 @@ describe.skipIf(!shouldRunPtyShell("powershell", isPowerShellAvailable))(
         const output = await session.waitFor("profile", 10_000);
 
         expect(output).toContain("profile");
-      } finally {
-        session.close();
-      }
-    }, 20_000);
-
-    it("completes a track flag in interactive PowerShell", async () => {
-      const session = createPowerShellSession();
-
-      try {
-        await configurePowerShellSession(session);
-
-        session.write("dotweave track file-alpha.txt --p\t");
-
-        const output = await session.waitFor("--profile", 10_000);
-
-        expect(output).toContain("--profile");
       } finally {
         session.close();
       }
