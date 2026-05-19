@@ -79,7 +79,9 @@ sense on certain operating systems:
 ```
 
 With this setup the file is synced everywhere except Windows, where it is
-silently skipped.
+silently skipped. Windows pushes preserve artifacts still owned by another
+platform variant, but prune artifacts that only the ignored Windows variant
+owns.
 
 ## Full example
 

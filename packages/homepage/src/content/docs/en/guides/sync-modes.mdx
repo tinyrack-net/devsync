@@ -55,7 +55,9 @@ Secret mode encrypts the file **content**, but the filename and path are still v
 
 ## ignore
 
-The entry stays in `manifest.jsonc` but is completely skipped during push and pull. Nothing is read, written, or transferred.
+The entry stays in `manifest.jsonc` but is skipped during local snapshot and pull. Nothing is read from or written to your home directory for that entry.
+
+During push/status, an ignored entry prunes existing repository artifacts that it solely owns. If `ignore` is only a platform-specific override and another platform still owns the same repo path as `normal` or `secret`, that artifact is preserved.
 
 ```bash
 dotweave track ~/.config/some-tool/cache --mode ignore

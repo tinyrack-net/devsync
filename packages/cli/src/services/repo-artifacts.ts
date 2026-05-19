@@ -3,6 +3,7 @@ import { lstat, mkdir, readFile, readlink } from "node:fs/promises";
 import { join } from "node:path";
 import { promisify } from "node:util";
 import { AppConstants } from "#app/config/constants.ts";
+import type { PlatformKey } from "#app/config/platform.ts";
 import {
   findOwningSyncEntry,
   resolveSyncRule,
@@ -11,8 +12,10 @@ import {
   hasReservedSyncArtifactSuffixSegment,
   normalizeSyncProfileName,
   normalizeSyncRepoPath,
+  type PlatformSyncMode,
   type ResolvedSyncConfig,
   type ResolvedSyncConfigEntry,
+  type SyncMode,
 } from "#app/config/sync-schema.ts";
 import {
   fileContentsEqual,
@@ -213,6 +216,38 @@ const collectEntryRepoPathVariants = (
   }));
 };
 
+const platformKeys = ["win", "mac", "linux", "wsl"] as const;
+
+const resolveConfiguredModeForPlatform = (
+  configuredMode: PlatformSyncMode,
+  platformKey: PlatformKey,
+): SyncMode => {
+  if (platformKey === "wsl") {
+    return configuredMode.wsl ?? configuredMode.linux ?? configuredMode.default;
+  }
+
+  return configuredMode[platformKey] ?? configuredMode.default;
+};
+
+const resolveConfiguredRepoPathForPlatform = (
+  entry: Pick<ResolvedSyncConfigEntry, "configuredRepoPath" | "repoPath">,
+  platformKey: PlatformKey,
+) => {
+  if (entry.configuredRepoPath === undefined) {
+    return entry.repoPath;
+  }
+
+  const rawRepoPath =
+    platformKey === "wsl"
+      ? (entry.configuredRepoPath.wsl ??
+        entry.configuredRepoPath.linux ??
+        entry.configuredRepoPath.default)
+      : (entry.configuredRepoPath[platformKey] ??
+        entry.configuredRepoPath.default);
+
+  return normalizeSyncRepoPath(rawRepoPath);
+};
+
 const entryCompatibleWithArtifact = (
   entry: Pick<
     ResolvedSyncConfigEntry,
@@ -230,20 +265,17 @@ const entryCompatibleWithArtifact = (
   });
 };
 
-export const nearestEntryOwnsArtifact = (
-  entries: readonly Pick<
+export const findNearestArtifactOwningEntry = <
+  Entry extends Pick<
     ResolvedSyncConfigEntry,
     "configuredRepoPath" | "kind" | "profiles" | "repoPath"
-  >[],
+  >,
+>(
+  entries: readonly Entry[],
   artifact: ReturnType<typeof parseArtifactRelativePath>,
   artifactKind: "directory" | "file",
 ) => {
-  let nearestEntry:
-    | Pick<
-        ResolvedSyncConfigEntry,
-        "configuredRepoPath" | "kind" | "profiles" | "repoPath"
-      >
-    | undefined;
+  let nearestEntry: Entry | undefined;
   let nearestDepth = -1;
 
   for (const entry of entries) {
@@ -263,9 +295,24 @@ export const nearestEntryOwnsArtifact = (
     }
   }
 
-  return nearestEntry === undefined
-    ? false
-    : entryCompatibleWithArtifact(nearestEntry, artifact, artifactKind);
+  return nearestEntry !== undefined &&
+    entryCompatibleWithArtifact(nearestEntry, artifact, artifactKind)
+    ? nearestEntry
+    : undefined;
+};
+
+export const nearestEntryOwnsArtifact = (
+  entries: readonly Pick<
+    ResolvedSyncConfigEntry,
+    "configuredRepoPath" | "kind" | "profiles" | "repoPath"
+  >[],
+  artifact: ReturnType<typeof parseArtifactRelativePath>,
+  artifactKind: "directory" | "file",
+) => {
+  return (
+    findNearestArtifactOwningEntry(entries, artifact, artifactKind) !==
+    undefined
+  );
 };
 
 const activeDirectoryEntryOwnsArtifact = (
@@ -283,6 +330,97 @@ const activeDirectoryEntryOwnsArtifact = (
       entryOwnsArtifactPath(entry, artifact.repoPath)
     );
   });
+};
+
+export type ArtifactOwnershipDisposition =
+  | "active"
+  | "platform-protected"
+  | "ignored-prunable"
+  | "unowned";
+
+const entryOwnsArtifactForPlatform = (
+  entry: Pick<
+    ResolvedSyncConfigEntry,
+    "configuredRepoPath" | "kind" | "repoPath"
+  >,
+  artifact: ReturnType<typeof parseArtifactRelativePath>,
+  artifactKind: "directory" | "file",
+  platformKey: PlatformKey,
+) => {
+  const repoPath = resolveConfiguredRepoPathForPlatform(entry, platformKey);
+
+  if (entry.kind === "directory") {
+    return isPathEqualOrNested(artifact.repoPath, repoPath);
+  }
+
+  return artifactKind === "file" && artifact.repoPath === repoPath;
+};
+
+const artifactHasAlternatePlatformOwner = (
+  entry: Pick<
+    ResolvedSyncConfigEntry,
+    "configuredMode" | "configuredRepoPath" | "kind" | "repoPath"
+  >,
+  artifact: ReturnType<typeof parseArtifactRelativePath>,
+  artifactKind: "directory" | "file",
+) => {
+  return platformKeys.some((platformKey) => {
+    const mode = resolveConfiguredModeForPlatform(
+      entry.configuredMode,
+      platformKey,
+    );
+
+    return (
+      mode !== "ignore" &&
+      entryOwnsArtifactForPlatform(entry, artifact, artifactKind, platformKey)
+    );
+  });
+};
+
+export const classifyArtifactOwnership = (
+  config: ArtifactConfig,
+  ownershipConfig: Pick<ResolvedSyncConfig, "entries" | "profiles">,
+  artifact: ReturnType<typeof parseArtifactRelativePath>,
+  artifactKind: "directory" | "file",
+): ArtifactOwnershipDisposition => {
+  const rule = resolveSyncRule(config, artifact.repoPath, config.activeProfile);
+  const active =
+    artifactKind === "directory"
+      ? activeDirectoryEntryOwnsArtifact(config.entries, artifact)
+      : isActiveArtifactRule(rule, artifact.profile);
+
+  if (active) {
+    return "active";
+  }
+
+  const nearestEntry = findNearestArtifactOwningEntry(
+    ownershipConfig.entries,
+    artifact,
+    artifactKind,
+  );
+
+  if (nearestEntry === undefined) {
+    return "unowned";
+  }
+
+  const effectiveActiveProfile =
+    config.activeProfile ?? AppConstants.SYNC.DEFAULT_PROFILE;
+
+  if (artifact.profile !== effectiveActiveProfile) {
+    return "platform-protected";
+  }
+
+  if (nearestEntry.mode === "ignore") {
+    return artifactHasAlternatePlatformOwner(
+      nearestEntry,
+      artifact,
+      artifactKind,
+    )
+      ? "platform-protected"
+      : "ignored-prunable";
+  }
+
+  return "platform-protected";
 };
 
 export const entryOwnsArtifact = (
@@ -637,34 +775,14 @@ export const collectExistingArtifactKeys = async (
     const artifact = parseArtifactLogicalPath(
       isDirectoryKey ? key.slice(0, -1) : key,
     );
-
-    if (
-      isDirectoryKey &&
-      nearestEntryOwnsArtifact(
-        ownershipConfig.entries,
-        artifact,
-        "directory",
-      ) &&
-      !activeDirectoryEntryOwnsArtifact(config.entries, artifact)
-    ) {
-      keys.delete(key);
-      continue;
-    }
-
-    const rule = resolveSyncRule(
+    const ownership = classifyArtifactOwnership(
       config,
-      artifact.repoPath,
-      config.activeProfile,
+      ownershipConfig,
+      artifact,
+      isDirectoryKey ? "directory" : "file",
     );
 
-    if (isActiveArtifactRule(rule, artifact.profile)) {
-      continue;
-    }
-
-    if (
-      !isDirectoryKey &&
-      nearestEntryOwnsArtifact(ownershipConfig.entries, artifact, "file")
-    ) {
+    if (ownership === "platform-protected") {
       keys.delete(key);
     }
   }

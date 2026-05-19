@@ -6,6 +6,7 @@ import type { ResolvedSyncConfigEntry } from "#app/config/sync-schema.ts";
 import { createTemporaryDirectory } from "#app/test/helpers/sync-fixture.ts";
 import {
   buildArtifactKey,
+  classifyArtifactOwnership,
   collectArtifactProfiles,
   collectExistingArtifactKeys,
   isRepoArtifactCurrent,
@@ -24,6 +25,37 @@ const createWorkspace = async () => {
   temporaryDirectories.push(directory);
 
   return directory;
+};
+
+const createConfigEntry = (
+  overrides: Partial<ResolvedSyncConfigEntry> = {},
+): ResolvedSyncConfigEntry => {
+  return {
+    configuredLocalPath: { default: "~/.config/app" },
+    configuredMode: { default: "normal" },
+    kind: "directory",
+    localPath: "/home/user/.config/app",
+    mode: "normal",
+    modeExplicit: true,
+    permissionExplicit: false,
+    profiles: [],
+    profilesExplicit: false,
+    repoPath: ".config/app",
+    ...overrides,
+  };
+};
+
+const createConfig = (
+  entry: ResolvedSyncConfigEntry,
+  activeProfile?: string,
+): EffectiveSyncConfig => {
+  return {
+    ...(activeProfile === undefined ? {} : { activeProfile }),
+    age: { identityFile: "keys.txt", recipients: [] },
+    entries: [entry],
+    profiles: [],
+    version: AppConstants.SYNC.CONFIG_VERSION,
+  };
 };
 
 afterEach(async () => {
@@ -189,6 +221,115 @@ describe("repo-artifacts service", () => {
 
     expect(() => parseArtifactRelativePath("docs/readme.md")).toThrow();
     expect(() => parseArtifactRelativePath("work/.gitconfig")).toThrow();
+  });
+
+  it("classifies all-platform ignored artifacts as prunable", () => {
+    const entry = createConfigEntry({
+      configuredMode: { default: "ignore" },
+      mode: "ignore",
+      repoPath: ".config/app/settings.json",
+      kind: "file",
+    });
+    const config = createConfig(entry);
+
+    expect(
+      classifyArtifactOwnership(
+        config,
+        config,
+        parseArtifactRelativePath("profiles/default/.config/app/settings.json"),
+        "file",
+      ),
+    ).toBe("ignored-prunable");
+  });
+
+  it("classifies platform-ignored artifacts owned by another platform as protected", () => {
+    const entry = createConfigEntry({
+      configuredMode: { default: "normal", win: "ignore" },
+      configuredRepoPath: {
+        default: ".config/app",
+        win: "AppData/Roaming/app",
+      },
+      mode: "ignore",
+      repoPath: "AppData/Roaming/app",
+    });
+    const config = createConfig(entry);
+
+    expect(
+      classifyArtifactOwnership(
+        config,
+        config,
+        parseArtifactRelativePath("profiles/default/.config/app/settings.json"),
+        "file",
+      ),
+    ).toBe("platform-protected");
+  });
+
+  it("classifies platform-specific ignored artifacts without another owner as prunable", () => {
+    const entry = createConfigEntry({
+      configuredMode: { default: "normal", win: "ignore" },
+      configuredRepoPath: {
+        default: ".config/app",
+        win: "AppData/Roaming/app",
+      },
+      mode: "ignore",
+      repoPath: "AppData/Roaming/app",
+    });
+    const config = createConfig(entry);
+
+    expect(
+      classifyArtifactOwnership(
+        config,
+        config,
+        parseArtifactRelativePath(
+          "profiles/default/AppData/Roaming/app/settings.json",
+        ),
+        "file",
+      ),
+    ).toBe("ignored-prunable");
+  });
+
+  it("classifies WSL-ignored linux/default artifacts as platform-protected", () => {
+    const entry = createConfigEntry({
+      configuredMode: { default: "normal", linux: "secret", wsl: "ignore" },
+      configuredRepoPath: {
+        default: ".config/app",
+        linux: ".config/app",
+        wsl: "Ubuntu/app",
+      },
+      mode: "ignore",
+      repoPath: "Ubuntu/app",
+    });
+    const config = createConfig(entry);
+
+    expect(
+      classifyArtifactOwnership(
+        config,
+        config,
+        parseArtifactRelativePath("profiles/default/.config/app/settings.json"),
+        "file",
+      ),
+    ).toBe("platform-protected");
+  });
+
+  it("classifies inactive-profile artifacts with an entry as protected", () => {
+    const entry = createConfigEntry({
+      configuredMode: { default: "ignore" },
+      kind: "file",
+      mode: "ignore",
+      profiles: ["work"],
+      profilesExplicit: true,
+      repoPath: ".gitconfig",
+    });
+    const config = createConfig(entry);
+
+    expect(
+      classifyArtifactOwnership(
+        config,
+        config,
+        parseArtifactRelativePath("profiles/work/.gitconfig"),
+        "file",
+      ),
+    ).toBe("platform-protected");
   });
 
   it("collects physical profiles artifacts as logical keys", async () => {

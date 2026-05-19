@@ -78,7 +78,9 @@ dotweaveがパスを読み取る際、以下の優先順位で最適なマッチ
 ```
 
 この設定では、Windows以外のすべてのプラットフォームでファイルが同期され、
-Windowsではスキップされます。
+Windowsではスキップされます。Windowsでpushしても、別のプラットフォームvariantが
+引き続き所有するartifactは保持されますが、ignoredなWindows variantだけが所有する
+artifactは削除対象になります。
 
 ## 完全な例
 

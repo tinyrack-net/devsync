@@ -899,11 +899,285 @@ describe("sync service", () => {
     await expect(lstat(artifactPath)).rejects.toThrow();
   });
 
+  it("deletes artifacts for entries changed to explicit ignore during push", async () => {
+    const workspace = await createWorkspace();
+    const homeDirectory = join(workspace, "home");
+    const xdgConfigHome = join(workspace, "xdg");
+    const gitconfigFile = join(homeDirectory, ".gitconfig");
+    const ageKeys = await createAgeKeyPair();
+    setEnvironment(homeDirectory, xdgConfigHome);
+
+    await writeIdentityFile(xdgConfigHome, ageKeys.identity);
+    await mkdir(homeDirectory, { recursive: true });
+    await writeFile(gitconfigFile, "[user]\n  name = Dotweave\n");
+
+    await initializeSyncDirectory({
+      identityFile: "$XDG_CONFIG_HOME/dotweave/keys.txt",
+      recipients: [ageKeys.recipient],
+    });
+
+    const manifestPath = join(
+      xdgConfigHome,
+      "dotweave",
+      "repository",
+      "manifest.jsonc",
+    );
+
+    await writeFile(
+      manifestPath,
+      JSON.stringify(
+        {
+          version: 8,
+          age: { recipients: [ageKeys.recipient] },
+          entries: [
+            {
+              kind: "file",
+              localPath: { default: "~/.gitconfig" },
+              mode: { default: "normal" },
+            },
+          ],
+        },
+        null,
+        2,
+      ),
+      "utf8",
+    );
+
+    await pushChanges({ dryRun: false });
+
+    const artifactPath = join(
+      xdgConfigHome,
+      "dotweave",
+      "repository",
+      "profiles",
+      "default",
+      ".gitconfig",
+    );
+    expect(await readFile(artifactPath, "utf8")).toBe(
+      "[user]\n  name = Dotweave\n",
+    );
+
+    await writeFile(
+      manifestPath,
+      JSON.stringify(
+        {
+          version: 8,
+          age: { recipients: [ageKeys.recipient] },
+          entries: [
+            {
+              kind: "file",
+              localPath: { default: "~/.gitconfig" },
+              mode: { default: "ignore" },
+            },
+          ],
+        },
+        null,
+        2,
+      ),
+      "utf8",
+    );
+
+    const status = await getStatus();
+    const result = await pushChanges({ dryRun: false });
+
+    expect(status.push.deletedArtifactCount).toBe(1);
+    expect(status.push.changes.deleted).toEqual(["default/.gitconfig"]);
+    expect(result.deletedArtifactCount).toBe(1);
+    await expect(lstat(artifactPath)).rejects.toThrow();
+  });
+
+  it("deletes secret artifacts for entries changed to explicit ignore during push", async () => {
+    const workspace = await createWorkspace();
+    const homeDirectory = join(workspace, "home");
+    const xdgConfigHome = join(workspace, "xdg");
+    const tokenDirectory = join(homeDirectory, ".config", "app");
+    const tokenFile = join(tokenDirectory, "token");
+    const ageKeys = await createAgeKeyPair();
+    setEnvironment(homeDirectory, xdgConfigHome);
+
+    await writeIdentityFile(xdgConfigHome, ageKeys.identity);
+    await mkdir(tokenDirectory, { recursive: true });
+    await writeFile(tokenFile, "super-secret\n");
+
+    await initializeSyncDirectory({
+      identityFile: "$XDG_CONFIG_HOME/dotweave/keys.txt",
+      recipients: [ageKeys.recipient],
+    });
+
+    const manifestPath = join(
+      xdgConfigHome,
+      "dotweave",
+      "repository",
+      "manifest.jsonc",
+    );
+
+    await writeFile(
+      manifestPath,
+      JSON.stringify(
+        {
+          version: 8,
+          age: { recipients: [ageKeys.recipient] },
+          entries: [
+            {
+              kind: "file",
+              localPath: { default: "~/.config/app/token" },
+              mode: { default: "secret" },
+            },
+          ],
+        },
+        null,
+        2,
+      ),
+      "utf8",
+    );
+
+    await pushChanges({ dryRun: false });
+
+    const artifactPath = join(
+      xdgConfigHome,
+      "dotweave",
+      "repository",
+      "profiles",
+      "default",
+      ".config",
+      "app",
+      "token.dotweave.secret",
+    );
+    expect(await readFile(artifactPath, "utf8")).toContain(
+      "BEGIN AGE ENCRYPTED FILE",
+    );
+
+    await writeFile(
+      manifestPath,
+      JSON.stringify(
+        {
+          version: 8,
+          age: { recipients: [ageKeys.recipient] },
+          entries: [
+            {
+              kind: "file",
+              localPath: { default: "~/.config/app/token" },
+              mode: { default: "ignore" },
+            },
+          ],
+        },
+        null,
+        2,
+      ),
+      "utf8",
+    );
+
+    const result = await pushChanges({ dryRun: false });
+
+    expect(result.deletedArtifactCount).toBe(1);
+    await expect(lstat(artifactPath)).rejects.toThrow();
+  });
+
+  it("deletes directory subtree artifacts for entries changed to explicit ignore during push", async () => {
+    const workspace = await createWorkspace();
+    const homeDirectory = join(workspace, "home");
+    const xdgConfigHome = join(workspace, "xdg");
+    const appDirectory = join(homeDirectory, ".config", "app");
+    const nestedDirectory = join(appDirectory, "nested");
+    const ageKeys = await createAgeKeyPair();
+    setEnvironment(homeDirectory, xdgConfigHome);
+
+    await writeIdentityFile(xdgConfigHome, ageKeys.identity);
+    await mkdir(nestedDirectory, { recursive: true });
+    await writeFile(join(appDirectory, "settings.json"), '{"theme":"dark"}\n');
+    await writeFile(join(nestedDirectory, "theme.json"), '{"accent":"blue"}\n');
+
+    await initializeSyncDirectory({
+      identityFile: "$XDG_CONFIG_HOME/dotweave/keys.txt",
+      recipients: [ageKeys.recipient],
+    });
+
+    const manifestPath = join(
+      xdgConfigHome,
+      "dotweave",
+      "repository",
+      "manifest.jsonc",
+    );
+
+    await writeFile(
+      manifestPath,
+      JSON.stringify(
+        {
+          version: 8,
+          age: { recipients: [ageKeys.recipient] },
+          entries: [
+            {
+              kind: "directory",
+              localPath: { default: "~/.config/app" },
+              mode: { default: "normal" },
+            },
+          ],
+        },
+        null,
+        2,
+      ),
+      "utf8",
+    );
+
+    await pushChanges({ dryRun: false });
+
+    const settingsArtifact = join(
+      xdgConfigHome,
+      "dotweave",
+      "repository",
+      "profiles",
+      "default",
+      ".config",
+      "app",
+      "settings.json",
+    );
+    const nestedArtifact = join(
+      xdgConfigHome,
+      "dotweave",
+      "repository",
+      "profiles",
+      "default",
+      ".config",
+      "app",
+      "nested",
+      "theme.json",
+    );
+    expect(await readFile(settingsArtifact, "utf8")).toBe('{"theme":"dark"}\n');
+    expect(await readFile(nestedArtifact, "utf8")).toBe('{"accent":"blue"}\n');
+
+    await writeFile(
+      manifestPath,
+      JSON.stringify(
+        {
+          version: 8,
+          age: { recipients: [ageKeys.recipient] },
+          entries: [
+            {
+              kind: "directory",
+              localPath: { default: "~/.config/app" },
+              mode: { default: "ignore" },
+            },
+          ],
+        },
+        null,
+        2,
+      ),
+      "utf8",
+    );
+
+    const result = await pushChanges({ dryRun: false });
+
+    expect(result.deletedArtifactCount).toBe(2);
+    await expect(lstat(settingsArtifact)).rejects.toThrow();
+    await expect(lstat(nestedArtifact)).rejects.toThrow();
+  });
+
   it("does not delete Windows-ignored artifacts during push", async () => {
     const workspace = await createWorkspace();
     const homeDirectory = join(workspace, "home");
     const xdgConfigHome = join(workspace, "xdg");
     const zshDirectory = join(homeDirectory, ".config", "zsh");
+    const zshrcFile = join(zshDirectory, ".zshrc");
     const secretsFile = join(zshDirectory, "secrets.zsh");
     const ageKeys = await createAgeKeyPair();
     setEnvironment(homeDirectory, xdgConfigHome);
@@ -911,6 +1185,7 @@ describe("sync service", () => {
 
     await writeIdentityFile(xdgConfigHome, ageKeys.identity);
     await mkdir(zshDirectory, { recursive: true });
+    await writeFile(zshrcFile, "source ~/.config/zsh/secrets.zsh\n");
     await writeFile(secretsFile, "export TOKEN=linux\n");
 
     await initializeSyncDirectory({
@@ -959,6 +1234,19 @@ describe("sync service", () => {
       "zsh",
       "secrets.zsh.dotweave.secret",
     );
+    const plainArtifact = join(
+      xdgConfigHome,
+      "dotweave",
+      "repository",
+      "profiles",
+      "default",
+      ".config",
+      "zsh",
+      ".zshrc",
+    );
+    expect(await readFile(plainArtifact, "utf8")).toBe(
+      "source ~/.config/zsh/secrets.zsh\n",
+    );
     expect(await readFile(secretArtifact, "utf8")).toContain(
       "BEGIN AGE ENCRYPTED FILE",
     );
@@ -969,6 +1257,9 @@ describe("sync service", () => {
     });
 
     expect(result.deletedArtifactCount).toBe(0);
+    expect(await readFile(plainArtifact, "utf8")).toBe(
+      "source ~/.config/zsh/secrets.zsh\n",
+    );
     expect(await readFile(secretArtifact, "utf8")).toContain(
       "BEGIN AGE ENCRYPTED FILE",
     );
@@ -1047,6 +1338,193 @@ describe("sync service", () => {
 
     expect(result.deletedArtifactCount).toBe(0);
     expect(await readFile(linuxArtifact, "utf8")).toBe('{"theme":"dark"}\n');
+  });
+
+  it("deletes current platform artifacts for entries changed to platform-specific ignore", async () => {
+    const workspace = await createWorkspace();
+    const homeDirectory = join(workspace, "home");
+    const xdgConfigHome = join(workspace, "xdg");
+    const linuxAppDirectory = join(homeDirectory, ".config", "app");
+    const winAppDirectory = join(homeDirectory, "AppData", "Roaming", "app");
+    const ageKeys = await createAgeKeyPair();
+    setEnvironment(homeDirectory, xdgConfigHome);
+    const platformSpy = vi.spyOn(platformConfig, "detectCurrentPlatformKey");
+
+    await writeIdentityFile(xdgConfigHome, ageKeys.identity);
+    await mkdir(linuxAppDirectory, { recursive: true });
+    await mkdir(winAppDirectory, { recursive: true });
+    await writeFile(join(linuxAppDirectory, "settings.json"), "linux\n");
+    await writeFile(join(winAppDirectory, "settings.json"), "windows\n");
+
+    await initializeSyncDirectory({
+      identityFile: "$XDG_CONFIG_HOME/dotweave/keys.txt",
+      recipients: [ageKeys.recipient],
+    });
+
+    const manifestPath = join(
+      xdgConfigHome,
+      "dotweave",
+      "repository",
+      "manifest.jsonc",
+    );
+    const writeManifest = async (mode: Record<string, string>) => {
+      await writeFile(
+        manifestPath,
+        JSON.stringify(
+          {
+            version: 8,
+            age: { recipients: [ageKeys.recipient] },
+            entries: [
+              {
+                kind: "directory",
+                localPath: {
+                  default: "~/.config/app",
+                  win: "~/AppData/Roaming/app",
+                },
+                repoPath: {
+                  default: ".config/app",
+                  win: "AppData/Roaming/app",
+                },
+                mode,
+              },
+            ],
+          },
+          null,
+          2,
+        ),
+        "utf8",
+      );
+    };
+
+    await writeManifest({ default: "normal" });
+
+    platformSpy.mockReturnValue("linux");
+    await pushChanges({ dryRun: false });
+    platformSpy.mockReturnValue("win");
+    await pushChanges({ dryRun: false });
+
+    const linuxArtifact = join(
+      xdgConfigHome,
+      "dotweave",
+      "repository",
+      "profiles",
+      "default",
+      ".config",
+      "app",
+      "settings.json",
+    );
+    const winArtifact = join(
+      xdgConfigHome,
+      "dotweave",
+      "repository",
+      "profiles",
+      "default",
+      "AppData",
+      "Roaming",
+      "app",
+      "settings.json",
+    );
+    expect(await readFile(linuxArtifact, "utf8")).toBe("linux\n");
+    expect(await readFile(winArtifact, "utf8")).toBe("windows\n");
+
+    await writeManifest({ default: "normal", win: "ignore" });
+
+    const result = await pushChanges({ dryRun: false });
+
+    expect(result.deletedArtifactCount).toBe(1);
+    expect(await readFile(linuxArtifact, "utf8")).toBe("linux\n");
+    await expect(lstat(winArtifact)).rejects.toThrow();
+  });
+
+  it("deletes ignored child artifacts while preserving normal directory siblings", async () => {
+    const workspace = await createWorkspace();
+    const homeDirectory = join(workspace, "home");
+    const xdgConfigHome = join(workspace, "xdg");
+    const appDirectory = join(homeDirectory, ".config", "app");
+    const publicFile = join(appDirectory, "public.json");
+    const privateFile = join(appDirectory, "private.json");
+    const ageKeys = await createAgeKeyPair();
+    setEnvironment(homeDirectory, xdgConfigHome);
+
+    await writeIdentityFile(xdgConfigHome, ageKeys.identity);
+    await mkdir(appDirectory, { recursive: true });
+    await writeFile(publicFile, '{"public":true}\n');
+    await writeFile(privateFile, '{"private":true}\n');
+
+    await initializeSyncDirectory({
+      identityFile: "$XDG_CONFIG_HOME/dotweave/keys.txt",
+      recipients: [ageKeys.recipient],
+    });
+
+    const manifestPath = join(
+      xdgConfigHome,
+      "dotweave",
+      "repository",
+      "manifest.jsonc",
+    );
+    const writeManifest = async (childMode: "ignore" | "normal") => {
+      await writeFile(
+        manifestPath,
+        JSON.stringify(
+          {
+            version: 8,
+            age: { recipients: [ageKeys.recipient] },
+            entries: [
+              {
+                kind: "directory",
+                localPath: { default: "~/.config/app" },
+                mode: { default: "normal" },
+              },
+              {
+                kind: "file",
+                localPath: { default: "~/.config/app/private.json" },
+                mode: { default: childMode },
+              },
+            ],
+          },
+          null,
+          2,
+        ),
+        "utf8",
+      );
+    };
+
+    await writeManifest("normal");
+    await pushChanges({ dryRun: false });
+
+    const publicArtifact = join(
+      xdgConfigHome,
+      "dotweave",
+      "repository",
+      "profiles",
+      "default",
+      ".config",
+      "app",
+      "public.json",
+    );
+    const privateArtifact = join(
+      xdgConfigHome,
+      "dotweave",
+      "repository",
+      "profiles",
+      "default",
+      ".config",
+      "app",
+      "private.json",
+    );
+    expect(await readFile(publicArtifact, "utf8")).toBe('{"public":true}\n');
+    expect(await readFile(privateArtifact, "utf8")).toBe('{"private":true}\n');
+
+    await writeFile(publicFile, '{"public":"updated"}\n');
+    await writeManifest("ignore");
+
+    const result = await pushChanges({ dryRun: false });
+
+    expect(result.deletedArtifactCount).toBe(1);
+    expect(await readFile(publicArtifact, "utf8")).toBe(
+      '{"public":"updated"}\n',
+    );
+    await expect(lstat(privateArtifact)).rejects.toThrow();
   });
 
   it("prunes orphaned non-default-profile artifacts after the last profile entry is removed", async () => {
