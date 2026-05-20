@@ -5,7 +5,7 @@ import { delimiter, join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { rootCommandRoutes } from "../src/cli/root-commands.ts";
 import { cliNodeOptions } from "../src/test/helpers/cli-entry.ts";
-import { createPtySession } from "../src/test/helpers/pty.ts";
+import { createPtySession, type PtySession } from "../src/test/helpers/pty.ts";
 import {
   bashPath,
   fishPath,
@@ -23,7 +23,6 @@ const autocompleteEnvironment: NodeJS.ProcessEnv & {
 } = process.env;
 const selectedAutocompleteShell =
   autocompleteEnvironment.DOTWEAVE_AUTOCOMPLETE_SHELL;
-const rootCommandsPattern = new RegExp(rootCommandNames.join("|"), "u");
 const ptyRootSmokeCommandNames = ["autocomplete", "profile", "status"] as const;
 type PtyAutocompleteShell = "bash" | "zsh" | "fish" | "powershell";
 
@@ -63,6 +62,14 @@ const requireSelectedPtyShellAvailability = (
 
 const shellQuote = (value: string) => {
   return `'${value.replaceAll("'", "'\\''")}'`;
+};
+
+const waitForPtyRootSmokeCommands = (session: PtySession) => {
+  return session.waitForOutput((output) => {
+    return ptyRootSmokeCommandNames.every((commandName) =>
+      output.includes(commandName),
+    );
+  }, 10_000);
 };
 
 const createTestShellDirectory = async (
@@ -267,7 +274,7 @@ describe.skipIf(!shouldRunPtyShell("zsh", isZshAvailable))(
 
         session.write("dotweave \t\t");
 
-        const output = await session.waitFor(rootCommandsPattern, 10_000);
+        const output = await waitForPtyRootSmokeCommands(session);
 
         for (const commandName of ptyRootSmokeCommandNames) {
           expect(output).toContain(commandName);
@@ -291,7 +298,7 @@ describe.skipIf(!shouldRunPtyShell("zsh", isZshAvailable))(
 
         session.write("dotweave \t\t");
 
-        const output = await session.waitFor(rootCommandsPattern, 10_000);
+        const output = await waitForPtyRootSmokeCommands(session);
 
         for (const commandName of ptyRootSmokeCommandNames) {
           expect(output).toContain(commandName);

@@ -68,8 +68,59 @@ export type PtySession = Readonly<{
   close: () => void;
   getOutput: () => string;
   waitFor: (pattern: RegExp | string, timeoutMs?: number) => Promise<string>;
+  waitForOutput: (
+    predicate: (output: string) => boolean,
+    timeoutMs?: number,
+  ) => Promise<string>;
   write: (value: string) => void;
 }>;
+
+export const createPtyOutputWaiter = (options: {
+  getOutput: () => string;
+  onOutput: (listener: () => void) => { dispose: () => void };
+}) => {
+  const waitForOutput = (
+    predicate: (output: string) => boolean,
+    timeoutMs = 10_000,
+  ) => {
+    return new Promise<string>((resolve, reject) => {
+      const currentOutput = options.getOutput();
+
+      if (predicate(currentOutput)) {
+        resolve(currentOutput);
+        return;
+      }
+
+      let outputSubscription: { dispose: () => void } | undefined;
+      const timeout = setTimeout(() => {
+        cleanup();
+        reject(
+          new Error(
+            `Timed out waiting for terminal output predicate.\n\n${options.getOutput()}`,
+          ),
+        );
+      }, timeoutMs);
+
+      const cleanup = () => {
+        clearTimeout(timeout);
+        outputSubscription?.dispose();
+      };
+
+      outputSubscription = options.onOutput(() => {
+        const nextOutput = options.getOutput();
+
+        if (!predicate(nextOutput)) {
+          return;
+        }
+
+        cleanup();
+        resolve(nextOutput);
+      });
+    });
+  };
+
+  return { waitForOutput };
+};
 
 export const createPtySession = (options: {
   args?: readonly string[];
@@ -112,6 +163,14 @@ export const createPtySession = (options: {
     output += chunk;
   });
 
+  const getOutput = () => {
+    return normalizeTerminalOutput(output);
+  };
+  const outputWaiter = createPtyOutputWaiter({
+    getOutput,
+    onOutput: (listener) => terminal.onData(listener),
+  });
+
   return {
     clearOutput: () => {
       output = "";
@@ -119,50 +178,26 @@ export const createPtySession = (options: {
     close: () => {
       terminal.kill();
     },
-    getOutput: () => {
-      return normalizeTerminalOutput(output);
-    },
+    getOutput,
     waitFor: (pattern, timeoutMs = 10_000) => {
       return new Promise((resolve, reject) => {
-        const matches = () => {
-          const normalizedOutput = normalizeTerminalOutput(output);
-
-          return typeof pattern === "string"
-            ? normalizedOutput.includes(pattern)
-            : pattern.test(normalizedOutput);
-        };
-
-        if (matches()) {
-          resolve(normalizeTerminalOutput(output));
-          return;
-        }
-
-        const timeout = setTimeout(() => {
-          cleanup();
-          reject(
-            new Error(
-              `Timed out waiting for terminal output matching ${String(pattern)}.\n\n${normalizeTerminalOutput(output)}`,
-            ),
-          );
-        }, timeoutMs);
-
-        const dataListener = () => {
-          if (!matches()) {
-            return;
-          }
-
-          cleanup();
-          resolve(normalizeTerminalOutput(output));
-        };
-
-        const dataSubscription = terminal.onData(dataListener);
-
-        const cleanup = () => {
-          clearTimeout(timeout);
-          dataSubscription.dispose();
-        };
+        outputWaiter
+          .waitForOutput((normalizedOutput) => {
+            return typeof pattern === "string"
+              ? normalizedOutput.includes(pattern)
+              : pattern.test(normalizedOutput);
+          }, timeoutMs)
+          .then(resolve, (error: unknown) => {
+            reject(
+              new Error(
+                `Timed out waiting for terminal output matching ${String(pattern)}.\n\n${getOutput()}`,
+                { cause: error },
+              ),
+            );
+          });
       });
     },
+    waitForOutput: outputWaiter.waitForOutput,
     write: (value) => {
       terminal.write(value);
     },
