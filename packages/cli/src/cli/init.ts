@@ -98,6 +98,9 @@ const initCommand = buildCommand<InitFlags, [string?], ApplicationContext>({
           (trimmedPromptedKey === undefined && !effectiveIdentityFileExists)),
       recipients: [],
       repository,
+    }).catch((error: unknown) => {
+      spin.stop();
+      throw error;
     });
 
     if (result.alreadyInitialized) {

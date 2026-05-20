@@ -543,6 +543,20 @@ describe("CLI command modules", () => {
     });
   });
 
+  it("stops the init spinner when repository initialization rejects", async () => {
+    const error = new DotweaveError("Failed to clone the sync directory.");
+    mocked.initializeSyncDirectory.mockRejectedValueOnce(error);
+
+    await expect(
+      runCommand(initCommand, {}, "git@example.com:dotfiles.git"),
+    ).rejects.toBe(error);
+
+    const spin = mockLogger.spinner.mock.results[0]?.value;
+    expect(spin.stop).toHaveBeenCalledOnce();
+    expect(spin.succeed).not.toHaveBeenCalled();
+    expect(spin.fail).not.toHaveBeenCalled();
+  });
+
   it("rejects a blank prompted key when importing an existing repository", async () => {
     mocked.pathExists.mockResolvedValue(false);
     mocked.promptAsk.mockResolvedValue("   ");
